@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { esc, inline, paras, codeHtml, svg, markers } from './render.mjs';
-import { DAYS, SCENES, FOUNDATION, GOF, dayOf } from '../content/course.mjs';
+import { DAYS, SCENES, FOUNDATION, OUTSIDE, GOF, dayOf } from '../content/course.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = 'https://sha-hin.github.io/pattern-playbook/';
@@ -37,13 +37,15 @@ const PATTERNS = [];
 for (const s of SCENES) for (const name of s.patterns) {
   if (!PATTERNS.some(p => p.name === name)) PATTERNS.push({ name, scene: s.n, sceneTitle: s.incident, slug: s.slug, ready: !!s.ready, gof: GOF.has(name) });
 }
+for (const name of OUTSIDE.patterns) PATTERNS.push({ name, scene: null, sceneTitle: OUTSIDE.title, slug: OUTSIDE.slug, ready: OUTSIDE.ready, gof: GOF.has(name) });
+const whereTaught = p => p.scene === null ? 'End page' : `Scene ${p.scene}`;
 
 const courseData = JSON.stringify({
   chapters: [
     { n: 0, title: FOUNDATION.title, patterns: [FOUNDATION.learn], slug: FOUNDATION.slug, ready: true, label: 'Foundation' },
     ...SCENES.map(s => ({ n: s.n, title: s.incident, patterns: [s.learn], slug: s.slug, ready: !!s.ready, label: `Day ${s.day} · Scene ${s.n}` })),
   ],
-  patterns: PATTERNS.map(p => ({ name: p.name, chapter: p.scene, chapterTitle: p.sceneTitle, slug: p.slug, ready: p.ready, gof: p.gof })),
+  patterns: PATTERNS.map(p => ({ name: p.name, chapter: p.scene ?? 'end', chapterTitle: p.sceneTitle, slug: p.slug, ready: p.ready, gof: p.gof })),
 }).replace(/</g, '\\u003c');
 
 const tagHtml = name => `<span class="ptag${GOF.has(name) ? ' gof' : ''}" title="${GOF.has(name) ? 'In the Gang of Four book' : 'Not in the Gang of Four book'}">${esc(name)}</span>`;
@@ -75,7 +77,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, main }) {
 <meta property="og:image" content="${SITE}assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 43 production incidents">
+<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 42 production incidents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
@@ -228,13 +230,13 @@ function hubHtml() {
   }).join('');
 
   const patternRows = [...PATTERNS].sort((a, b) => a.name.localeCompare(b.name)).map(p =>
-    `<tr><th scope="row">${p.ready ? `<a href="${p.slug}/">${esc(p.name)}</a>` : esc(p.name)}</th><td>${p.gof ? '<span class="ptag gof">Gang of Four</span>' : '<span class="ptag">Not in the book</span>'}</td><td>${p.ready ? `<a href="${p.slug}/">Scene ${p.scene}</a>` : `Scene ${p.scene} <small>(soon)</small>`}</td></tr>`).join('');
+    `<tr><th scope="row">${p.ready ? `<a href="${p.slug}/">${esc(p.name)}</a>` : esc(p.name)}</th><td>${p.gof ? '<span class="ptag gof">Gang of Four</span>' : '<span class="ptag">Not in the book</span>'}</td><td>${p.ready ? `<a href="${p.slug}/">${whereTaught(p)}</a>` : `${whereTaught(p)} <small>(soon)</small>`}</td></tr>`).join('');
 
   const gof = PATTERNS.filter(p => p.gof).length;
   return `<section class="hero">
 <p class="eyebrow">Advanced Laravel, in 7 days</p>
-<h1>One rental platform, 43 production incidents</h1>
-<p class="intro">Follow Nordic Stays, a vacation-rental property management system, from its first booking to its busiest day. Every scene starts with something breaking in production. You read the broken code, fix it, and only then learn the name of the pattern you just used: all ${gof} Gang of Four patterns, ${PATTERNS.length - gof} modern ones, and the Laravel engineering around them.</p>
+<h1>One rental platform, 42 production incidents</h1>
+<p class="intro">Follow Nordic Stays, a vacation-rental property management system, from its first booking to its busiest day. Every scene starts with something breaking in production. You read the broken code, fix it, and only then learn the name of the pattern you just used. ${PATTERNS.length - OUTSIDE.patterns.length} patterns arrive as real fixes inside the story; the ${OUTSIDE.patterns.length} a PMS doesn’t need are built on their own at the end. That’s all ${gof} Gang of Four patterns and ${PATTERNS.length - gof} modern ones, with the Laravel engineering around them.</p>
 <p class="cta"><a class="btn" href="${FOUNDATION.slug}/" data-umami-event="Start course">Start here</a><a class="btn ghost" href="#patterns">Find a pattern</a></p>
 </section>
 <section class="how" aria-label="How each scene works">
@@ -246,7 +248,9 @@ function hubHtml() {
 <section id="chapters" class="course"><h2>The story</h2>
 <p class="hint">About 2–3 hours a day. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
 <a class="crow found" href="${FOUNDATION.slug}/"><span class="cn">0</span><span class="ct">${esc(FOUNDATION.title)}<small>${inline(FOUNDATION.learn)}</small></span><span class="cs go">Read</span></a>
-${days}</section>
+${days}
+<section class="day" id="end"><h3><span>After Day 7</span>${esc(OUTSIDE.title)}</h3><p class="hint">Patterns a Laravel PMS doesn’t need, built for real on their own, so you know them when you meet them.</p>
+<ol class="clist"><li>${OUTSIDE.ready ? `<a class="crow" href="${OUTSIDE.slug}/">` : '<div class="crow off">'}<span class="cn">+</span><span class="ct">${esc(OUTSIDE.title)}<small>${inline(OUTSIDE.learn)}</small><span class="tags">${OUTSIDE.patterns.map(tagHtml).join('')}</span></span><span class="cs${OUTSIDE.ready ? ' go">Read' : '">Soon'}</span>${OUTSIDE.ready ? '</a>' : '</div>'}</li></ol></section></section>
 <section id="patterns" class="pindex"><h2>Every pattern, and where it appears</h2>
 <div class="tablewrap"><table><thead><tr><th scope="col">Pattern</th><th scope="col">Source</th><th scope="col">Scene</th></tr></thead><tbody>${patternRows}</tbody></table></div></section>`;
 }
@@ -257,9 +261,9 @@ for (const entry of readdirSync(ROOT)) {
   if (/^\d\d-/.test(entry) && existsSync(join(ROOT, entry, 'index.html'))) rmSync(join(ROOT, entry), { recursive: true, force: true });
 }
 
-const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 43 production incidents. All ${PATTERNS.filter(p => p.gof).length} Gang of Four design patterns, ${PATTERNS.filter(p => !p.gof).length} modern ones, and the engineering around them, in 7 days.`;
+const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 42 production incidents. All ${PATTERNS.filter(p => p.gof).length} Gang of Four design patterns, ${PATTERNS.filter(p => !p.gof).length} modern ones, and the engineering around them, in 7 days.`;
 writeFileSync(join(ROOT, 'index.html'), page({
-  title: 'Advanced Laravel in 7 Days: One PMS, 43 Production Incidents | Pattern Playbook',
+  title: 'Advanced Laravel in 7 Days: One PMS, 42 Production Incidents | Pattern Playbook',
   description: hubDescription,
   url: SITE, prefix: '', pageId: 'hub', type: 'website',
   jsonld: {
@@ -267,7 +271,7 @@ writeFileSync(join(ROOT, 'index.html'), page({
     '@graph': [
       { ...website, description: hubDescription, author: person },
       {
-        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 43 production incidents', description: hubDescription, url: SITE,
+        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 42 production incidents', description: hubDescription, url: SITE,
         inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Advanced',
         teaches: PATTERNS.map(p => p.name),
         hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT18H' },

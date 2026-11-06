@@ -51,7 +51,7 @@
       run: () => go(c.ready ? prefix + c.slug + '/' : prefix + '#chapters', 'search'),
     })),
     ...data.patterns.map(p => ({
-      g: 'Patterns', t: p.name, sub: `Scene ${p.chapter}: ${p.chapterTitle}`, i: p.gof ? 'G' : '·', s: p.gof ? 'Gang of Four' : 'not in the book', off: !p.ready,
+      g: 'Patterns', t: p.name, sub: p.chapter === 'end' ? p.chapterTitle : `Scene ${p.chapter}: ${p.chapterTitle}`, i: p.gof ? 'G' : '·', s: p.gof ? 'Gang of Four' : 'not in the book', off: !p.ready,
       kw: p.chapterTitle,
       run: () => go(p.ready ? prefix + p.slug + '/' : prefix + '#patterns', 'search'),
     })),

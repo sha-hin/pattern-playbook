@@ -1,7 +1,7 @@
-// Scene 3 · Active Record, Data Mapper, Repository: the booking endpoint.
+// Scene 3 · Active Record: the booking endpoint.
 
 export default {
-  description: 'A 200-line booking controller returned 500 on double bookings and let any user book any property. Split it into a Form Request, a Policy, an action and a Resource, and see where Active Record, Data Mapper and Repository fit in Laravel.',
+  description: 'A 200-line booking controller returned 500 on double bookings and let any user book any property. Split it into a Form Request, a Policy, an action and a Resource, and see why Eloquent’s Active Record is the right home for it.',
   incident: {
     channel: '#bugs',
     when: 'Wednesday 11:05',
@@ -270,94 +270,9 @@ class BookingController extends Controller
       'The cost is that it’s tempting to pile rules onto the model until it’s a 2,000-line class. That’s why the rule went into the `CreateBooking` action, and the model only kept data, relations and a scope.',
     ],
     whenNot: [
-      'When the business rules are much richer than the tables (complex insurance or trading domains), objects that know nothing about the database are easier to keep correct. That’s the Data Mapper, below.',
+      'When the business rules are much richer than the tables (complex insurance or trading domains), objects that know nothing about the database are easier to keep correct. That’s the Data Mapper, built at the end of the course.',
     ],
   },
-  afterReveal: [
-    {
-      title: 'The two other answers, and why Nordic Stays doesn’t use them',
-      text: ['There are two other common answers to "who talks to the database?". Here is the same booking written with each, so you can recognise them in other codebases.'],
-      blocks: [
-        {
-          title: 'Data Mapper: the object doesn’t know the database',
-          text: [
-            'In a Data Mapper ORM, such as Doctrine (the default in Symfony), `Booking` is a plain PHP class. It has no `save()`, no table and no query methods. A separate object, the **entity manager**, copies data between rows and objects, and writes every change in one go when you call `flush()`.',
-          ],
-          path: 'src/Entity/Booking.php (Doctrine, in a Symfony app)',
-          fragment: true,
-          code: String.raw`use Doctrine\ORM\Mapping as ORM;
-
-#[ORM\Entity]
-#[ORM\Table(name: 'bookings')]
-class Booking
-{
-    #[ORM\Id, ORM\GeneratedValue, ORM\Column]
-    private ?int $id = null;
-
-    public function __construct(
-        #[ORM\ManyToOne] private Property $property,
-        #[ORM\Column] private string $guestName,
-        #[ORM\Embedded] private Stay $stay,                 // a value object stored in two columns
-    ) {
-    }
-}
-
-// Saving it: the object can't save itself, the mapper does
-$booking = new Booking($property, 'Mona Adel', $stay);
-$entityManager->persist($booking);                          // start tracking it
-$entityManager->flush();                                    // one INSERT, inside a transaction`,
-        },
-        {
-          title: 'Repository: storage behind a collection-like interface',
-          text: [
-            'A repository looks like a collection of bookings: you ask it for bookings and hand it new ones, and it hides where they are stored. Over Eloquent, it would look like this:',
-          ],
-          path: 'app/Bookings/BookingRepository.php (not added to Nordic Stays)',
-          fragment: true,
-          code: String.raw`interface BookingRepository
-{
-    public function hasOverlap(Property $property, Stay $stay): bool;
-
-    public function add(Booking $booking): void;
-}
-
-final class EloquentBookingRepository implements BookingRepository
-{
-    public function hasOverlap(Property $property, Stay $stay): bool
-    {
-        return $property->bookings()->overlapping($stay)->exists();   // the same scope, one more layer
-    }
-
-    public function add(Booking $booking): void
-    {
-        $booking->save();                                              // still Eloquent underneath
-    }
-}
-
-// CreateBooking would then ask for the repository instead of using the model
-public function __construct(private BookingRepository $bookings)
-{
-}`,
-          after: [
-            'Look at what it hides: nothing. The interface takes and returns Eloquent `Booking` models, so the app still depends on Eloquent, and every query is now written twice (once in the scope, once in the repository).',
-          ],
-        },
-        {
-          title: 'Side by side',
-          table: [
-            ['', 'Active Record (Eloquent)', 'Data Mapper (Doctrine)', 'Repository over Eloquent'],
-            ['Who saves?', '`$booking->save()`', '`$entityManager->flush()`', '`$bookings->add($booking)`'],
-            ['Does the object know its table?', 'Yes', 'No', 'Yes, underneath'],
-            ['Extra code per query', 'None', 'Mapping configuration', 'An interface method and an implementation'],
-            ['Use it when', 'Most Laravel apps', 'Rules much richer than the tables', 'There is a real second storage, like an external API'],
-          ],
-          after: [
-            'Nordic Stays stays with Active Record: it is what Laravel is built around, and the rules already live in actions and value objects. A repository would be added only on the day bookings also come from somewhere that isn’t our database, never "just in case".',
-          ],
-        },
-      ],
-    },
-  ],
   laravel: {
     title: 'Laravel inside',
     text: ['How an Active Record saves itself, and why a fresh resource answers 201.'],
