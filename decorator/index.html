@@ -211,7 +211,11 @@ school 9 answered in 20.2 ms</code></pre></div>
         <span class="k">new</span> <span class="f">CachedSchoolStats</span>(<span class="v">$stats</span>, <span class="v">$app</span>[<span class="s">'cache.store'</span>]));
 }</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> $this-&gt;app-&gt;extend(SchoolStats::class, fn ($stats) =&gt; new CachedSchoolStats($stats)) tells the container to wrap a service every time it is built. Each extend() adds one more layer.</p></div>
-  
+  <div class="vsbox"><h2>Don't confuse it with <a href="../adapter/" data-umami-event="Open pattern" data-umami-event-pattern="adapter" data-umami-event-from="compare">Adapter</a></h2>
+    <div class="vstable" role="table" aria-label="Decorator compared with Adapter">
+      <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Decorator</span><span role="columnheader">Adapter</span></div>
+      <div class="vsrow" role="row"><span role="rowheader">The object inside</span><span role="cell">Already has the SAME interface as the wrapper</span><span role="cell">Has the WRONG interface (a vendor SDK you can’t edit)</span></div><div class="vsrow" role="row"><span role="rowheader">Why you wrap it</span><span role="cell">To add behaviour: cache, logs, retries</span><span role="cell">To make it fit: your code can’t use it as it is</span></div><div class="vsrow" role="row"><span role="rowheader">Method names</span><span role="cell">Stay the same: forSchool() in, forSchool() out</span><span role="cell">Change: their createMessage() / sendText() become your send()</span></div><div class="vsrow" role="row"><span role="rowheader">Adds features?</span><span role="cell">Yes, that is its whole job</span><span role="cell">No, it only translates</span></div><div class="vsrow" role="row"><span role="rowheader">Stacking</span><span role="cell">Layers stack: log → cache → real</span><span role="cell">One adapter per SDK</span></div>
+    </div></div>
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel container $app-&gt;extend()</span><span>Cached repositories</span><span>HTTP client middleware (retry, log)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../adapter/" data-umami-event="Open pattern" data-umami-event-pattern="adapter" data-umami-event-from="previous"><small>← Previous</small>Adapter</a>
@@ -221,6 +225,6 @@ school 9 answered in 20.2 ms</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=677452369b" defer></script>
+<script src="../assets/app.js?v=66d55eb801" defer></script>
 </body>
 </html>

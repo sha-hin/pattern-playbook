@@ -88,13 +88,6 @@ vs:{id:'decorator', name:'Decorator', rows:[
   ['Adds features?','No, it only translates','Yes, that is its whole job'],
   ['Stacking','One adapter per SDK','Layers stack: log → cache → real'],
 ]},
-vs:{id:'adapter', name:'Adapter', rows:[
-  ['The object inside','Already has the SAME interface as the wrapper','Has the WRONG interface (a vendor SDK you can’t edit)'],
-  ['Why you wrap it','To add behaviour: cache, logs, retries','To make it fit: your code can’t use it as it is'],
-  ['Method names','Stay the same: forSchool() in, forSchool() out','Change: their createMessage() / sendText() become your send()'],
-  ['Adds features?','Yes, that is its whole job','No, it only translates'],
-  ['Stacking','Layers stack: log → cache → real','One adapter per SDK'],
-]},
 diagram:{bad:[['b',6,14,80,26,'Controller','n'],['b',6,72,80,26,'Job','n'],['b',6,130,80,26,'Command','n'],['a',86,27,200,78,'','x'],['a',86,85,200,85,'','x'],['a',86,143,200,92,'','x'],['b',202,62,92,46,'Twilio SDK','x'],['t',150,160,'switch = edit everywhere','kx','middle']],
 good:[['b',6,64,62,40,'Your code','n'],['a',68,84,84,84],['b',86,62,70,44,'SmsSender','i'],['a',156,84,170,84,'','k'],['b',172,60,64,48,'Adapter','v'],['a',236,84,248,84],['b',250,62,46,44,'SDK','n'],['t',204,128,'translates','kv','middle'],['t',273,128,"can't edit",'s','middle']]},
 before:String.raw`// in 12 different controllers and jobs:
@@ -144,6 +137,13 @@ smells:['You need caching / logging / retry around something that works','Constr
 job:"School statistics take 3 seconds of SQL. You want a 10-minute cache, but not in local dev.",
 seen:['Laravel container $app->extend()','Cached repositories','HTTP client middleware (retry, log)'],
 test:'A statistics query takes 3 seconds. You want caching around it, without editing the class, and no cache in local dev.',
+vs:{id:'adapter', name:'Adapter', rows:[
+  ['The object inside','Already has the SAME interface as the wrapper','Has the WRONG interface (a vendor SDK you can’t edit)'],
+  ['Why you wrap it','To add behaviour: cache, logs, retries','To make it fit: your code can’t use it as it is'],
+  ['Method names','Stay the same: forSchool() in, forSchool() out','Change: their createMessage() / sendText() become your send()'],
+  ['Adds features?','Yes, that is its whole job','No, it only translates'],
+  ['Stacking','Layers stack: log → cache → real','One adapter per SDK'],
+]},
 diagram:{bad:[['b',40,16,220,140,'','x'],['t',58,42,'class DbSchoolStats','m'],['t',58,68,'  heavy SQL …','m'],['t',58,94,'  + if ($cache…) ← edited','kx'],['t',58,120,'  + log …          ← edited','kx']],
 good:[['b',6,74,58,30,'Caller','n'],['a',64,89,86,89,'','k'],['b',88,18,206,138,'','v'],['t',100,40,'CachedSchoolStats','kv'],['t',100,58,'same interface','s'],['b',112,72,158,56,'DbSchoolStats','n'],['t',191,146,'untouched inside','s','middle']]},
 before:String.raw`final class DbSchoolStats
