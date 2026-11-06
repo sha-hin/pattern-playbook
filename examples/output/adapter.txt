@@ -1,0 +1,2 @@
+Sent, id: acme_78ea98fb
+SMS to 12 failed: invalid msisdn

@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Laravel Facades Explained: a Static Proxy, Not the GoF Facade","description":"Laravel Facade (static proxy) explained for PHP and Laravel developers. Cache::get() is a static shortcut that FORWARDS to one object in the container. It is…","url":"https://sha-hin.github.io/pattern-playbook/static-proxy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/static-proxy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel Facade (static proxy) design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Laravel Facade (static proxy)","item":"https://sha-hin.github.io/pattern-playbook/static-proxy/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Laravel Facades Explained: a Static Proxy, Not the GoF Facade","description":"Laravel Facade (static proxy) explained for PHP and Laravel developers. Cache::get() is a static shortcut that FORWARDS to one object in the container. It is…","url":"https://sha-hin.github.io/pattern-playbook/static-proxy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/static-proxy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel Facade (static proxy) design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Laravel Facade (static proxy) pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/static-proxy.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Laravel Facade (static proxy)","item":"https://sha-hin.github.io/pattern-playbook/static-proxy/"}]}]}</script>
 </head>
 <body data-page="static-proxy" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -71,7 +71,112 @@
   </div>
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// repeated in every Blade view, route file and Artisan command:</span>
 app(AiManager::class)-&gt;driver()-&gt;summarize($text);</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Laravel Facade (static proxy) pattern in PHP</h2><pre><code><span class="c">// How it works (simplified):</span>
+  <section class="scratch" aria-labelledby="build-static-proxy">
+    <h2 class="g" id="build-static-proxy">Build it yourself: the full Laravel Facade (static proxy) pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Laravel Facade (static proxy)">
+      <div class="role" role="row"><span role="rowheader">Proxy base</span><span role="cell"><code>Facade</code> <small>turns a static call into a call on a real object</small></span></div><div class="role" role="row"><span role="rowheader">Concrete proxy</span><span role="cell"><code>Cache</code> <small>names which service it stands for</small></span></div><div class="role" role="row"><span role="rowheader">Real subject</span><span role="cell"><code>ArrayCache</code> <small>the one real object, living in the container</small></span></div><div class="role" role="row"><span role="rowheader">Container</span><span role="cell"><code>ServiceContainer</code> <small>where the real object comes from</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">final class ArrayCache  <span class="c">// Real subject: the actual service</span></span>
+{
+    /** @var array&lt;string, mixed&gt; */
+    private array $items = [];
+
+    public function put(string $key, mixed $value): void
+    {
+        $this-&gt;items[$key] = $value;
+    }
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        return $this-&gt;items[$key] ?? $default;
+    }
+}
+
+final class ServiceContainer                                    <span class="c">// a tiny container (see the DI Container card)</span>
+{
+    /** @var array&lt;string, Closure(): object&gt; */
+    private array $factories = [];
+
+    /** @var array&lt;string, object&gt; */
+    private array $instances = [];
+
+    public function singleton(string $id, Closure $factory): void
+    {
+        $this-&gt;factories[$id] = $factory;
+    }
+
+    public function make(string $id): object
+    {
+        return $this-&gt;instances[$id] ??= ($this-&gt;factories[$id] ?? throw new RuntimeException(&quot;Nothing bound for [{$id}].&quot;))();
+    }
+
+    public function swap(string $id, object $instance): void   <span class="c">// used by tests</span>
+    {
+        $this-&gt;instances[$id] = $instance;
+    }
+}
+
+<span class="h">abstract class Facade  <span class="c">// Proxy base</span></span>
+{
+    private static ?ServiceContainer $container = null;
+
+    public static function setContainer(ServiceContainer $container): void
+    {
+        self::$container = $container;
+    }
+
+    /** The container id of the real object behind this shortcut. */
+    abstract protected static function accessor(): string;
+
+    /** @param list&lt;mixed&gt; $arguments */
+<span class="h">    public static function __callStatic(string $method, array $arguments): mixed  <span class="c">// PHP calls this for Cache::anything()</span></span>
+    {
+        $container = self::$container ?? throw new RuntimeException('Facade container not set.');
+<span class="h">        $target = $container-&gt;make(static::accessor());  <span class="c">// find the ONE real object</span></span>
+
+        if (!method_exists($target, $method)) {
+            throw new BadMethodCallException(static::class . &quot;::{$method}() does not exist.&quot;);
+        }
+
+<span class="h">        return $target-&gt;{$method}(...$arguments);  <span class="c">// forward the call, unchanged</span></span>
+    }
+}
+
+<span class="h">final class Cache extends Facade  <span class="c">// Concrete proxy</span></span>
+{
+    protected static function accessor(): string
+    {
+        return 'cache';
+    }
+}
+
+<span class="c">// ── Bootstrapping (what the framework does for you) ─────────────────────</span>
+$container = new ServiceContainer();
+$container-&gt;singleton('cache', fn () =&gt; new ArrayCache());
+Facade::setContainer($container);
+
+<span class="c">// ── The static-looking call is a normal method call on one object ──────</span>
+Cache::put('menu', ['Margherita', 'Pepperoni']);
+echo implode(', ', Cache::get('menu')), PHP_EOL;
+echo 'Same object? ', var_export($container-&gt;make('cache')-&gt;get('menu') === Cache::get('menu'), true), PHP_EOL;
+
+<span class="c">// In a test, swap the real object for a fake one: no static code to fight with.</span>
+$container-&gt;swap('cache', new ArrayCache());
+echo 'After swap: ', var_export(Cache::get('menu'), true), PHP_EOL;</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/static-proxy.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/static-proxy.php" data-umami-event="View example" data-umami-event-pattern="static-proxy">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Margherita, Pepperoni
+Same object? true
+After swap: NULL</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="c">// How it works (simplified):</span>
 abstract class Facade
 {
     abstract protected static function accessor(): string;
@@ -98,7 +203,7 @@ Ai::shouldReceive('driver-&gt;summarize')-&gt;andReturn('short summary');
 
 <span class="c">// In your OWN service classes, prefer the visible dependency:</span>
 public function __construct(private AiManager $ai) {}</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Support\Facades\Facade::__callStatic() calls getFacadeRoot(), which resolves getFacadeAccessor() from the container (and caches it), then forwards the call. Facade::swap() and Cache::shouldReceive() replace that object in tests.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Cache::, DB::, Log::, Storage::</span><span>Cache::fake(), Ai::shouldReceive() in tests</span><span>Real-time facades: Facades\App\…</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -109,6 +214,6 @@ public function __construct(private AiManager $ai) {}</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

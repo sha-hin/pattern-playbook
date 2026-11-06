@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Value Objects in PHP & Laravel (Money Example), with Real Code","description":"Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…","url":"https://sha-hin.github.io/pattern-playbook/value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Value Object","item":"https://sha-hin.github.io/pattern-playbook/value-object/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Value Objects in PHP & Laravel (Money Example), with Real Code","description":"Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…","url":"https://sha-hin.github.io/pattern-playbook/value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Value Object pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/value-object.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Value Object","item":"https://sha-hin.github.io/pattern-playbook/value-object/"}]}]}</script>
 </head>
 <body data-page="value-object" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -72,7 +72,109 @@
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$total = $price + $shipping;           <span class="c">// 0.1 + 0.2 = 0.30000000000000004</span>
 $total = $priceEgp + $feeUsd;          <span class="c">// EGP + USD, no error</span>
 if ($total &lt; 0) { /* this check is copied in 6 places, and missing in 2 */ }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Value Object pattern in PHP</h2><pre><code>final class Money
+  <section class="scratch" aria-labelledby="build-value-object">
+    <h2 class="g" id="build-value-object">Build it yourself: the full Value Object pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Value Object">
+      <div class="role" role="row"><span role="rowheader">Value object</span><span role="cell"><code>Money</code> <small>immutable, checks itself, equal by value</small></span></div><div class="role" role="row"><span role="rowheader">The four rules</span><span role="cell"><code>readonly properties · validation in the constructor ·</code></span></div>
+    </div>
+    <p class="rolenote">equals() compares values · every operation returns a NEW object</p>
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">final class Money  <span class="c">// Value object</span></span>
+{
+    public function __construct(
+<span class="h">        public readonly int $amount,  <span class="c">// smallest unit (piastres): exact math, no floats</span></span>
+        public readonly string $currency,
+    ) {
+<span class="h">        if ($amount &lt; 0) {  <span class="c">// checks itself: an invalid Money cannot exist</span></span>
+            throw new InvalidArgumentException('Money cannot be negative.');
+        }
+        if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
+            throw new InvalidArgumentException(&quot;Invalid currency [{$currency}].&quot;);
+        }
+    }
+
+    public static function egp(int $pounds, int $piastres = 0): self
+    {
+        return new self($pounds * 100 + $piastres, 'EGP');
+    }
+
+    public function add(self $other): self
+    {
+        $this-&gt;assertSameCurrency($other);
+
+<span class="h">        return new self($this-&gt;amount + $other-&gt;amount, $this-&gt;currency);  <span class="c">// a NEW object</span></span>
+    }
+
+    /**
+     * Split fairly without losing a piastre: 100.00 / 3 = 33.34 + 33.33 + 33.33.
+     *
+     * @return list&lt;self&gt;
+     */
+    public function allocate(int $parts): array
+    {
+        if ($parts &lt; 1) {
+            throw new InvalidArgumentException('Parts must be at least 1.');
+        }
+
+        $base = intdiv($this-&gt;amount, $parts);
+        $remainder = $this-&gt;amount % $parts;
+
+        return array_map(
+            fn (int $i): self =&gt; new self($base + ($i &lt; $remainder ? 1 : 0), $this-&gt;currency),
+            range(0, $parts - 1),
+        );
+    }
+
+<span class="h">    public function equals(self $other): bool  <span class="c">// equal by value, not by identity</span></span>
+    {
+        return $this-&gt;amount === $other-&gt;amount &amp;&amp; $this-&gt;currency === $other-&gt;currency;
+    }
+
+    public function format(): string
+    {
+        return sprintf('%d.%02d %s', intdiv($this-&gt;amount, 100), $this-&gt;amount % 100, $this-&gt;currency);
+    }
+
+    private function assertSameCurrency(self $other): void
+    {
+        if ($other-&gt;currency !== $this-&gt;currency) {
+            throw new LogicException(&quot;Cannot combine {$this-&gt;currency} and {$other-&gt;currency}.&quot;);
+        }
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+var_dump(0.1 + 0.2 === 0.3);                                   <span class="c">// false: why money is never a float</span>
+
+$price = Money::egp(100);
+$price-&gt;add(Money::egp(20));                                    <span class="c">// ✗ result thrown away</span>
+echo $price-&gt;format(), PHP_EOL;                                 <span class="c">// still 100.00 EGP</span>
+$price = $price-&gt;add(Money::egp(20));                           <span class="c">// ✓ keep the returned object</span>
+echo $price-&gt;format(), PHP_EOL;
+
+echo implode(' + ', array_map(fn (Money $m) =&gt; $m-&gt;format(), Money::egp(100)-&gt;allocate(3))), PHP_EOL;
+var_dump(Money::egp(5)-&gt;equals(new Money(500, 'EGP')));         <span class="c">// true: same value</span>
+
+try {
+    Money::egp(10)-&gt;add(new Money(500, 'USD'));
+} catch (LogicException $e) {
+    echo $e-&gt;getMessage(), PHP_EOL;
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/value-object.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/value-object.php" data-umami-event="View example" data-umami-event-pattern="value-object">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>bool(false)
+100.00 EGP
+120.00 EGP
+33.34 EGP + 33.33 EGP + 33.33 EGP
+bool(true)
+Cannot combine EGP and USD.</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class Money
 {
     public function __construct(
 <span class="h">        public readonly int $amount,  <span class="c">// smallest unit (piastres): exact math</span></span>
@@ -116,7 +218,7 @@ final class MoneyCast implements \Illuminate\Contracts\Database\Eloquent\CastsAt
 }
 
 <span class="h">$total = $total-&gt;add($shipping);  <span class="c">// always keep the return value</span></span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel has no Money class, but it gives you the plumbing: a custom cast (Illuminate\Contracts\Database\Eloquent\CastsAttributes) turns a column into a value object and back. CarbonImmutable is a value object for dates: addDay() returns a new instance.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>CarbonImmutable</span><span>Laravel custom casts</span><span>brick/money, ramsey/uuid</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -127,6 +229,6 @@ final class MoneyCast implements \Illuminate\Contracts\Database\Eloquent\CastsAt
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

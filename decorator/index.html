@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Decorator Pattern in PHP & Laravel, with Real Code","description":"Decorator explained for PHP and Laravel developers. Add behaviour (cache, log, retry) around a class without editing it - wrap it in a class with the SAME…","url":"https://sha-hin.github.io/pattern-playbook/decorator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/decorator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Decorator","item":"https://sha-hin.github.io/pattern-playbook/decorator/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Decorator Pattern in PHP & Laravel, with Real Code","description":"Decorator explained for PHP and Laravel developers. Add behaviour (cache, log, retry) around a class without editing it - wrap it in a class with the SAME…","url":"https://sha-hin.github.io/pattern-playbook/decorator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/decorator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Decorator pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/decorator.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Decorator","item":"https://sha-hin.github.io/pattern-playbook/decorator/"}]}]}</script>
 </head>
 <body data-page="decorator" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -79,7 +79,99 @@
         <span class="c">// ...heavy SQL...</span>
     }
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Decorator pattern in PHP</h2><pre><code>interface SchoolStats
+  <section class="scratch" aria-labelledby="build-decorator">
+    <h2 class="g" id="build-decorator">Build it yourself: the full Decorator pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Decorator">
+      <div class="role" role="row"><span role="rowheader">Component</span><span role="cell"><code>SchoolStats</code> <small>the interface</small></span></div><div class="role" role="row"><span role="rowheader">Concrete component</span><span role="cell"><code>DbSchoolStats</code> <small>the real, slow work; never edited</small></span></div><div class="role" role="row"><span role="rowheader">Decorators</span><span role="cell"><code>CachedSchoolStats, LoggedSchoolStats</code> <small>same interface, each wraps another SchoolStats</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface SchoolStats  <span class="c">// Component</span></span>
+{
+    /** @return array{school: int, average: int} */
+    public function forSchool(int $schoolId): array;
+}
+
+<span class="h">final class DbSchoolStats implements SchoolStats  <span class="c">// Concrete component: never edited</span></span>
+{
+    public int $queries = 0;
+
+    public function forSchool(int $schoolId): array
+    {
+        $this-&gt;queries++;                                       <span class="c">// imagine 3 seconds of SQL here</span>
+        usleep(20_000);
+
+        return ['school' =&gt; $schoolId, 'average' =&gt; 70 + $schoolId % 20];
+    }
+}
+
+<span class="h">final class CachedSchoolStats implements SchoolStats  <span class="c">// Decorator #1: same interface...</span></span>
+{
+    /** @var array&lt;int, array{value: array{school: int, average: int}, expires: int}&gt; */
+    private array $cache = [];
+
+    public function __construct(
+<span class="h">        private readonly SchoolStats $inner,  <span class="c">// ...wraps another SchoolStats</span></span>
+        private readonly int $ttlSeconds = 600,
+    ) {}
+
+    public function forSchool(int $schoolId): array
+    {
+        $hit = $this-&gt;cache[$schoolId] ?? null;
+
+        if ($hit !== null &amp;&amp; $hit['expires'] &gt; time()) {
+<span class="h">            return $hit['value'];  <span class="c">// added behaviour: served from cache</span></span>
+        }
+
+<span class="h">        $value = $this-&gt;inner-&gt;forSchool($schoolId);  <span class="c">// otherwise pass the call inside</span></span>
+        $this-&gt;cache[$schoolId] = ['value' =&gt; $value, 'expires' =&gt; time() + $this-&gt;ttlSeconds];
+
+        return $value;
+    }
+}
+
+<span class="h">final class LoggedSchoolStats implements SchoolStats  <span class="c">// Decorator #2</span></span>
+{
+    /** @var list&lt;string&gt; */
+    public array $log = [];
+
+    public function __construct(private readonly SchoolStats $inner) {}
+
+    public function forSchool(int $schoolId): array
+    {
+        $start = hrtime(true);
+        $result = $this-&gt;inner-&gt;forSchool($schoolId);
+        $this-&gt;log[] = sprintf('school %d answered in %.1f ms', $schoolId, (hrtime(true) - $start) / 1e6);
+
+        return $result;
+    }
+}
+
+<span class="c">// ── Stack the layers: log → cache → database ────────────────────────────</span>
+$db = new DbSchoolStats();
+<span class="h">$stats = new LoggedSchoolStats(new CachedSchoolStats($db));  <span class="c">// any combination, any order</span></span>
+
+$stats-&gt;forSchool(7);
+$stats-&gt;forSchool(7);                                           <span class="c">// served by the cache layer</span>
+$stats-&gt;forSchool(9);
+
+echo &quot;Database queries: {$db-&gt;queries} (not 3)&quot;, PHP_EOL;
+echo implode(PHP_EOL, $stats-&gt;log), PHP_EOL;
+
+<span class="c">// In local development, skip the cache by simply not wrapping: new LoggedSchoolStats($db).</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/decorator.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/decorator.php" data-umami-event="View example" data-umami-event-pattern="decorator">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Database queries: 2 (not 3)
+school 7 answered in 20.2 ms
+school 7 answered in 0.0 ms
+school 9 answered in 20.1 ms</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>interface SchoolStats
 {
     public function forSchool(int $schoolId): array;
 }
@@ -110,7 +202,7 @@ if (! $this-&gt;app-&gt;isLocal()) {
     $this-&gt;app-&gt;extend(SchoolStats::class, fn (SchoolStats $stats, $app) =&gt;
         new CachedSchoolStats($stats, $app['cache.store']));
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> $app-&gt;extend(SchoolStats::class, fn ($stats) =&gt; new CachedSchoolStats($stats)) tells the container to wrap a service every time it is built. Guzzle, under Laravel's Http client, builds retry() and logging the same way: each middleware wraps the next handler.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel container $app-&gt;extend()</span><span>Cached repositories</span><span>HTTP client middleware (retry, log)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -121,6 +213,6 @@ if (! $this-&gt;app-&gt;isLocal()) {
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

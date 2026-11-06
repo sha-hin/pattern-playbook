@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"State Pattern in PHP & Laravel, with Real Code","description":"State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…","url":"https://sha-hin.github.io/pattern-playbook/state/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/state/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["State design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"State","item":"https://sha-hin.github.io/pattern-playbook/state/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"State Pattern in PHP & Laravel, with Real Code","description":"State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…","url":"https://sha-hin.github.io/pattern-playbook/state/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/state/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["State design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"State pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/state.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"State","item":"https://sha-hin.github.io/pattern-playbook/state/"}]}]}</script>
 </head>
 <body data-page="state" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -76,7 +76,118 @@
     if ($this-&gt;status === 'submitted') { $this-&gt;status = 'approved'; }
     <span class="c">// ...and the same ladder in submit(), reject(), publish()</span>
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the State pattern in PHP</h2><pre><code>abstract class ReportState                          <span class="c">// default: everything forbidden</span>
+  <section class="scratch" aria-labelledby="build-state">
+    <h2 class="g" id="build-state">Build it yourself: the full State pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of State">
+      <div class="role" role="row"><span role="rowheader">Context</span><span role="cell"><code>Report</code> <small>holds its current state and hands every action to it</small></span></div><div class="role" role="row"><span role="rowheader">State</span><span role="cell"><code>ReportState</code> <small>base class: every action forbidden by default</small></span></div><div class="role" role="row"><span role="rowheader">Concrete states</span><span role="cell"><code>Draft, Submitted, Approved</code> <small>each allows only its own moves</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+final class IllegalTransition extends LogicException {}
+
+<span class="h">abstract class ReportState  <span class="c">// State: forbidden unless a child allows it</span></span>
+{
+    abstract public function name(): string;
+
+    public function submit(Report $report): void { $this-&gt;deny('submit'); }
+
+    public function approve(Report $report): void { $this-&gt;deny('approve'); }
+
+    public function reject(Report $report, string $reason): void { $this-&gt;deny('reject'); }
+
+    private function deny(string $action): never
+    {
+        throw new IllegalTransition(&quot;Cannot {$action} a report that is {$this-&gt;name()}.&quot;);
+    }
+}
+
+<span class="h">final class Draft extends ReportState  <span class="c">// Concrete state</span></span>
+{
+    public function name(): string { return 'draft'; }
+
+    public function submit(Report $report): void
+    {
+<span class="h">        $report-&gt;moveTo(new Submitted());  <span class="c">// the state decides what comes next</span></span>
+    }
+}
+
+<span class="h">final class Submitted extends ReportState  <span class="c">// Concrete state</span></span>
+{
+    public function name(): string { return 'submitted'; }
+
+    public function approve(Report $report): void
+    {
+        $report-&gt;moveTo(new Approved());
+    }
+
+    public function reject(Report $report, string $reason): void
+    {
+        if (trim($reason) === '') {
+            throw new InvalidArgumentException('A rejection needs a reason.');
+        }
+        $report-&gt;rejectionReason = $reason;
+        $report-&gt;moveTo(new Draft());
+    }
+}
+
+<span class="h">final class Approved extends ReportState  <span class="c">// Concrete state: final, allows nothing</span></span>
+{
+    public function name(): string { return 'approved'; }
+}
+
+<span class="h">final class Report  <span class="c">// Context</span></span>
+{
+    public ?string $rejectionReason = null;
+
+    /** @var list&lt;string&gt; */
+    public array $history = [];
+
+    public function __construct(private ReportState $state = new Draft()) {}
+
+<span class="h">    public function submit(): void { $this-&gt;state-&gt;submit($this); }  <span class="c">// no if anywhere</span></span>
+
+    public function approve(): void { $this-&gt;state-&gt;approve($this); }
+
+    public function reject(string $reason): void { $this-&gt;state-&gt;reject($this, $reason); }
+
+    public function status(): string { return $this-&gt;state-&gt;name(); }
+
+    /** @internal called only by the state objects */
+    public function moveTo(ReportState $next): void
+    {
+        $this-&gt;history[] = $this-&gt;state-&gt;name() . ' → ' . $next-&gt;name();
+        $this-&gt;state = $next;
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$report = new Report();
+$report-&gt;submit();
+$report-&gt;reject('Missing the science scores.');
+$report-&gt;submit();
+$report-&gt;approve();
+
+echo implode(PHP_EOL, $report-&gt;history), PHP_EOL;
+
+try {
+    $report-&gt;submit();                                          <span class="c">// approved reports are locked</span>
+} catch (IllegalTransition $e) {
+    echo 'Refused: ', $e-&gt;getMessage(), PHP_EOL;
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/state.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/state.php" data-umami-event="View example" data-umami-event-pattern="state">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>draft → submitted
+submitted → draft
+draft → submitted
+submitted → approved
+Refused: Cannot submit a report that is approved.</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>abstract class ReportState                          <span class="c">// default: everything forbidden</span>
 {
     abstract public function name(): string;
     public function submit(Report $r): void              { $this-&gt;deny('submit'); }
@@ -118,7 +229,7 @@ final class Report
     public function reject(string $why): void { $this-&gt;state-&gt;reject($this, $why); }
     public function moveTo(ReportState $s): void { $this-&gt;state = $s; }
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Not built in. The popular package spatie/laravel-model-states stores the state class name in a model column, and each state class declares which transitions are allowed: the same structure as below, with persistence added.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>spatie/laravel-model-states</span><span>Order / payment / subscription lifecycles</span><span>Approval workflows</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -129,6 +240,6 @@ final class Report
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

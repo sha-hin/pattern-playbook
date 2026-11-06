@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Pattern in PHP & Laravel, with Real Code","description":"Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/command/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command","item":"https://sha-hin.github.io/pattern-playbook/command/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Pattern in PHP & Laravel, with Real Code","description":"Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/command/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Command pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/command.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command","item":"https://sha-hin.github.io/pattern-playbook/command/"}]}]}</script>
 </head>
 <body data-page="command" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -76,7 +76,104 @@
     $survey-&gt;saveAnalysis($analysis);
     return back();
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Command pattern in PHP</h2><pre><code><span class="h">final class AnalyzeSurveyResponses implements ShouldQueue  <span class="c">// the action as an object</span></span>
+  <section class="scratch" aria-labelledby="build-command">
+    <h2 class="g" id="build-command">Build it yourself: the full Command pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Command">
+      <div class="role" role="row"><span role="rowheader">Command</span><span role="cell"><code>Command</code> <small>interface: one method, execute()</small></span></div><div class="role" role="row"><span role="rowheader">Concrete command</span><span role="cell"><code>AnalyzeSurvey</code> <small>the action as an object: only data, so it can be stored</small></span></div><div class="role" role="row"><span role="rowheader">Receiver</span><span role="cell"><code>AiAnalyzer</code> <small>the object that does the real work</small></span></div><div class="role" role="row"><span role="rowheader">Invoker</span><span role="cell"><code>CommandQueue</code> <small>stores commands now, runs them later, retries failures</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface Command  <span class="c">// Command</span></span>
+{
+    public function execute(Container $services): void;
+}
+
+final class Container                                           <span class="c">// gives commands their receivers at run time</span>
+{
+    /** @param array&lt;class-string, object&gt; $services */
+    public function __construct(private readonly array $services) {}
+
+    /** @template T of object @param class-string&lt;T&gt; $class @return T */
+    public function get(string $class): object
+    {
+        return $this-&gt;services[$class] ?? throw new RuntimeException(&quot;No service [{$class}].&quot;);
+    }
+}
+
+<span class="h">final class AiAnalyzer  <span class="c">// Receiver: does the real work</span></span>
+{
+    private int $calls = 0;
+
+    public function analyze(int $surveyId): string
+    {
+        if (++$this-&gt;calls === 1) {
+            throw new RuntimeException('AI service timeout');   <span class="c">// fails once, like real APIs do</span>
+        }
+
+        return &quot;Survey {$surveyId}: teachers rate classroom time highest&quot;;
+    }
+}
+
+<span class="h">final class AnalyzeSurvey implements Command  <span class="c">// Concrete command: just data...</span></span>
+{
+    public function __construct(public readonly int $surveyId) {}
+
+    public function execute(Container $services): void          <span class="c">// ...plus how to run it</span>
+    {
+        echo $services-&gt;get(AiAnalyzer::class)-&gt;analyze($this-&gt;surveyId), PHP_EOL;
+    }
+}
+
+<span class="h">final class CommandQueue  <span class="c">// Invoker</span></span>
+{
+    /** @var list&lt;array{payload: string, attempts: int}&gt; */
+    private array $queue = [];
+
+    public function __construct(private readonly int $maxAttempts = 3) {}
+
+<span class="h">    public function push(Command $command): void  <span class="c">// store it now...</span></span>
+    {
+        $this-&gt;queue[] = ['payload' =&gt; serialize($command), 'attempts' =&gt; 0];   <span class="c">// an object can be stored</span>
+    }
+
+<span class="h">    public function work(Container $services): void  <span class="c">// ...run it later</span></span>
+    {
+        while (($job = array_shift($this-&gt;queue)) !== null) {
+            $command = unserialize($job['payload'], ['allowed_classes' =&gt; [AnalyzeSurvey::class]]);
+            try {
+                $command-&gt;execute($services);
+            } catch (Throwable $e) {
+                $attempts = $job['attempts'] + 1;
+                echo &quot;Attempt {$attempts} failed: {$e-&gt;getMessage()}&quot;, PHP_EOL;
+                if ($attempts &lt; $this-&gt;maxAttempts) {
+                    $this-&gt;queue[] = ['payload' =&gt; $job['payload'], 'attempts' =&gt; $attempts];   <span class="c">// retry</span>
+                } else {
+                    echo 'Gave up, moved to failed jobs.', PHP_EOL;        <span class="c">// never silent</span>
+                }
+            }
+        }
+    }
+}
+
+<span class="c">// ── The web request: answers at once ────────────────────────────────────</span>
+$queue = new CommandQueue();
+$queue-&gt;push(new AnalyzeSurvey(42));
+echo 'HTTP 202: analysis started', PHP_EOL;
+
+<span class="c">// ── The worker process: runs it later, retries on failure ──────────────</span>
+$queue-&gt;work(new Container([AiAnalyzer::class =&gt; new AiAnalyzer()]));</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/command.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/command.php" data-umami-event="View example" data-umami-event-pattern="command">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>HTTP 202: analysis started
+Attempt 1 failed: AI service timeout
+Survey 42: teachers rate classroom time highest</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="h">final class AnalyzeSurveyResponses implements ShouldQueue  <span class="c">// the action as an object</span></span>
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -106,7 +203,7 @@ public function close(Survey $survey)
 
     return back()-&gt;with('status', 'Analysis started.');
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Jobs are commands. dispatch(new AnalyzeSurvey($id)) serializes the job object (SerializesModels keeps only model ids) into the queue; a worker unserializes it, calls handle() with dependencies from the container, and retries using $tries and $backoff.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Jobs (dispatch(), queues)</span><span>Artisan commands</span><span>Editor undo / redo</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -117,6 +214,6 @@ public function close(Survey $survey)
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

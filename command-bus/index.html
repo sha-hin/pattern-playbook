@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Bus Pattern in PHP & Laravel, with Real Code","description":"Command Bus explained for PHP and Laravel developers. Split \"what to do\" (a data object) from \"how\" (a handler) - the same action runs from web, CLI or…","url":"https://sha-hin.github.io/pattern-playbook/command-bus/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command-bus/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command Bus design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command Bus","item":"https://sha-hin.github.io/pattern-playbook/command-bus/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Bus Pattern in PHP & Laravel, with Real Code","description":"Command Bus explained for PHP and Laravel developers. Split \"what to do\" (a data object) from \"how\" (a handler) - the same action runs from web, CLI or…","url":"https://sha-hin.github.io/pattern-playbook/command-bus/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command-bus/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command Bus design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Command Bus pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/command-bus.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command Bus","item":"https://sha-hin.github.io/pattern-playbook/command-bus/"}]}]}</script>
 </head>
 <body data-page="command-bus" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -77,7 +77,123 @@
         return back();                                               <span class="c">// need this too... copy it?</span>
     }
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Command Bus pattern in PHP</h2><pre><code><span class="h">final class RecalculateSchoolStats  <span class="c">// the command: only data</span></span>
+  <section class="scratch" aria-labelledby="build-command-bus">
+    <h2 class="g" id="build-command-bus">Build it yourself: the full Command Bus pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Command Bus">
+      <div class="role" role="row"><span role="rowheader">Command</span><span role="cell"><code>RecalculateSchoolStats</code> <small>only data: what should happen</small></span></div><div class="role" role="row"><span role="rowheader">Handler</span><span role="cell"><code>RecalculateSchoolStatsHandler</code> <small>the logic and its dependencies: how</small></span></div><div class="role" role="row"><span role="rowheader">Bus</span><span role="cell"><code>CommandBus</code> <small>finds the handler, runs it through middleware</small></span></div><div class="role" role="row"><span role="rowheader">Middleware</span><span role="cell"><code>LogMiddleware, TransactionMiddleware</code> <small>rules shared by every command</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">final class RecalculateSchoolStats  <span class="c">// Command: only data</span></span>
+{
+    public function __construct(public readonly int $schoolId) {}
+}
+
+<span class="h">final class RecalculateSchoolStatsHandler  <span class="c">// Handler: the logic</span></span>
+{
+    public function __construct(private readonly PDO $db) {}
+
+    public function handle(RecalculateSchoolStats $command): float
+    {
+        $statement = $this-&gt;db-&gt;prepare('SELECT AVG(score) FROM evaluations WHERE school_id = ?');
+        $statement-&gt;execute([$command-&gt;schoolId]);
+        $average = round((float) $statement-&gt;fetchColumn(), 1);
+
+        $this-&gt;db-&gt;prepare('REPLACE INTO school_stats (school_id, average) VALUES (?, ?)')
+            -&gt;execute([$command-&gt;schoolId, $average]);
+
+        return $average;
+    }
+}
+
+interface Middleware
+{
+    /** @param Closure(object): mixed $next */
+    public function handle(object $command, Closure $next): mixed;
+}
+
+final class LogMiddleware implements Middleware
+{
+    public function handle(object $command, Closure $next): mixed
+    {
+        echo '→ ', $command::class, PHP_EOL;
+        $result = $next($command);
+        echo '← done', PHP_EOL;
+
+        return $result;
+    }
+}
+
+final class TransactionMiddleware implements Middleware        <span class="c">// every command is all-or-nothing</span>
+{
+    public function __construct(private readonly PDO $db) {}
+
+    public function handle(object $command, Closure $next): mixed
+    {
+        $this-&gt;db-&gt;beginTransaction();
+        try {
+            $result = $next($command);
+            $this-&gt;db-&gt;commit();
+
+            return $result;
+        } catch (Throwable $e) {
+            $this-&gt;db-&gt;rollBack();
+            throw $e;
+        }
+    }
+}
+
+<span class="h">final class CommandBus  <span class="c">// Bus</span></span>
+{
+    /**
+     * @param array&lt;class-string, Closure(): object&gt; $handlers   command class =&gt; how to build its handler
+     * @param list&lt;Middleware&gt; $middleware
+     */
+    public function __construct(private readonly array $handlers, private readonly array $middleware = []) {}
+
+    public function dispatch(object $command): mixed
+    {
+        $factory = $this-&gt;handlers[$command::class]
+            ?? throw new LogicException('No handler for ' . $command::class);   <span class="c">// wiring bugs fail loudly</span>
+
+<span class="h">        $core = fn (object $c): mixed =&gt; $factory()-&gt;handle($c);  <span class="c">// find and run the handler</span></span>
+
+<span class="h">        $pipeline = array_reduce(  <span class="c">// wrap it in every middleware</span></span>
+            array_reverse($this-&gt;middleware),
+            fn (Closure $next, Middleware $m): Closure =&gt; fn (object $c): mixed =&gt; $m-&gt;handle($c, $next),
+            $core,
+        );
+
+        return $pipeline($command);
+    }
+}
+
+<span class="c">// ── Setup ───────────────────────────────────────────────────────────────</span>
+$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE =&gt; PDO::ERRMODE_EXCEPTION]);
+$db-&gt;exec('CREATE TABLE evaluations (school_id INTEGER, score INTEGER)');
+$db-&gt;exec('CREATE TABLE school_stats (school_id INTEGER PRIMARY KEY, average REAL)');
+$db-&gt;exec('INSERT INTO evaluations VALUES (7, 80), (7, 91), (7, 74)');
+
+$bus = new CommandBus(
+    [RecalculateSchoolStats::class =&gt; fn () =&gt; new RecalculateSchoolStatsHandler($db)],
+    [new LogMiddleware(), new TransactionMiddleware($db)],
+);
+
+<span class="c">// ── The admin button, the nightly schedule and the importer all use this one line ──</span>
+$average = $bus-&gt;dispatch(new RecalculateSchoolStats(7));
+echo &quot;Average: {$average}&quot;, PHP_EOL;</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/command-bus.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/command-bus.php" data-umami-event="View example" data-umami-event-pattern="command-bus">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>→ RecalculateSchoolStats
+← done
+Average: 81.7</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="h">final class RecalculateSchoolStats  <span class="c">// the command: only data</span></span>
 {
     public function __construct(public readonly int $schoolId) {}
 }
@@ -113,7 +229,7 @@ final class CommandBus
 
 <span class="c">// Admin button, nightly schedule, after an import — the same line:</span>
 $bus-&gt;dispatch(new RecalculateSchoolStats($schoolId));</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Bus\Dispatcher: dispatch() sends a job to the queue if it implements ShouldQueue, otherwise runs it now. pipeThrough() and job middleware wrap every job in shared rules (rate limits, no overlapping), using Laravel's Pipeline.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Jobs + dispatch()</span><span>Symfony Messenger</span><span>league/tactician</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -124,6 +240,6 @@ $bus-&gt;dispatch(new RecalculateSchoolStats($schoolId));</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

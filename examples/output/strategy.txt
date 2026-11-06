@@ -1,0 +1,13 @@
+school,average
+Smouha,81
+Miami,77
+[
+    {
+        "school": "Smouha",
+        "average": 81
+    },
+    {
+        "school": "Miami",
+        "average": 77
+    }
+]

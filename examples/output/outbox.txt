@@ -1,0 +1,3 @@
+Relay: will retry (Ministry API: 503 Service Unavailable)
+Ministry: received evaluation 42
+Ministry: already have ministry-sync:42, ignored

@@ -5,6 +5,8 @@ Design patterns for PHP and Laravel developers, one pattern per screen:
 - **A memory hook** from everyday life (Adapter = a travel plug, State = a traffic light)
 - **The pain vs the fix**, drawn side by side, so you recognise when you need it
 - **Real-world before / after code**: exports, SMS providers, caching, queues, imports, approval workflows, paginated APIs
+- **Build it yourself**: a complete, runnable plain-PHP implementation of every pattern, with each part labelled by its role (no framework needed)
+- **In a real Laravel project**: the same pattern the framework way, plus how Laravel builds it internally
 - **Where you already use it** in Laravel
 - **Test me** mode: shuffled real-world scenarios to check you can pick the right pattern
 
@@ -18,11 +20,21 @@ A single static `index.html`, no build step.
 
 By [Mohammed Shahin](https://sha-hin.github.io).
 
-## Editing
+## Run the examples
 
-All content lives in `assets/app.js` (the `BASE` and `EXTRA` arrays). After editing it, regenerate the pages:
+Every pattern has a standalone file in [`examples/`](examples). PHP 8.2+ and the built-in SQLite extension are all you need:
 
 ```bash
+php examples/strategy.php
+php examples/outbox.php
+```
+
+## Editing
+
+Card content lives in `assets/app.js` (the `BASE` and `EXTRA` arrays); each plain-PHP implementation is `examples/<pattern>.php`, with its roles and Laravel note in the file's docblock. After editing, refresh the saved outputs and regenerate the pages:
+
+```bash
+for f in examples/*.php; do php "$f" > "examples/output/$(basename "$f" .php).txt"; done
 node build/build.mjs
 ```
 

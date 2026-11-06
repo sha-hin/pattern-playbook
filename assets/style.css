@@ -177,3 +177,25 @@ header{align-items:end}
 .vshead{border-top:0;font-weight:500}
 .vshead span:nth-child(2){color:var(--fam)}
 @media (max-width:520px){.vsrow{grid-template-columns:1fr 1fr}.vsrow span:first-child{grid-column:1 / -1;padding:0}}
+
+/* ===== Build it yourself (plain PHP) ===== */
+.scratch{display:flex;flex-direction:column;gap:12px;border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--well)}
+.scratch h2,.code h2.lv{margin:0;font-size:12px;letter-spacing:.07em;text-transform:uppercase}
+.scratch h2.g{color:var(--good)}
+.code h2.lv{color:var(--fam)}
+.sub2{margin:0;color:var(--muted);font-size:14px}
+.code .sub2{margin:4px 0 8px}
+.roles{display:grid;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+.role{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:12px;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}
+.role:first-child{border-top:0}
+.role span:first-child{font-weight:500;color:var(--fam)}
+.role code{font-family:var(--mono);font-size:12.5px}
+.role small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.rolenote{margin:0;font-size:13.5px;color:var(--muted)}
+.scratch pre{background:var(--card)}
+.legend code{font-family:var(--mono);font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.legend a{color:var(--fg)}
+.output span{display:block;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.output pre{background:#0f151c;color:#d7dee6;border-color:#0f151c}
+.howlaravel{margin:10px 0 0;font-size:14px;background:var(--fam-bg);border-radius:10px;padding:10px 14px}
+@media (max-width:520px){.role{grid-template-columns:1fr;gap:2px}}

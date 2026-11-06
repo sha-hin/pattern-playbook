@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Composite Pattern in PHP & Laravel, with Real Code","description":"Composite explained for PHP and Laravel developers. Your data is a tree (parts inside wholes, any depth) - items and groups share one interface; a group asks…","url":"https://sha-hin.github.io/pattern-playbook/composite/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/composite/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Composite design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Composite","item":"https://sha-hin.github.io/pattern-playbook/composite/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Composite Pattern in PHP & Laravel, with Real Code","description":"Composite explained for PHP and Laravel developers. Your data is a tree (parts inside wholes, any depth) - items and groups share one interface; a group asks…","url":"https://sha-hin.github.io/pattern-playbook/composite/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/composite/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Composite design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Composite pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/composite.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Composite","item":"https://sha-hin.github.io/pattern-playbook/composite/"}]}]}</script>
 </head>
 <body data-page="composite" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -77,7 +77,105 @@
     }                                                                            <span class="c">// render(), export()...</span>
     return $total;
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Composite pattern in PHP</h2><pre><code><span class="h">interface SurveyNode  <span class="c">// one shape for items and groups</span></span>
+  <section class="scratch" aria-labelledby="build-composite">
+    <h2 class="g" id="build-composite">Build it yourself: the full Composite pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Composite">
+      <div class="role" role="row"><span role="rowheader">Component</span><span role="cell"><code>SurveyNode</code> <small>the interface for items AND groups</small></span></div><div class="role" role="row"><span role="rowheader">Leaf</span><span role="cell"><code>Question</code> <small>no children</small></span></div><div class="role" role="row"><span role="rowheader">Composite</span><span role="cell"><code>Section</code> <small>holds SurveyNodes, which can be Questions or other Sections</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>code that calls maxScore() or render() on the top node, at any depth</code></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface SurveyNode  <span class="c">// Component: one shape for both</span></span>
+{
+    public function maxScore(): int;
+
+    public function questionCount(): int;
+
+    public function render(string $indent = ''): string;
+}
+
+<span class="h">final class Question implements SurveyNode  <span class="c">// Leaf</span></span>
+{
+    public function __construct(private readonly string $text, private readonly int $points) {}
+
+    public function maxScore(): int
+    {
+        return $this-&gt;points;
+    }
+
+    public function questionCount(): int
+    {
+        return 1;
+    }
+
+    public function render(string $indent = ''): string
+    {
+        return &quot;{$indent}- {$this-&gt;text} ({$this-&gt;points} pts)&quot; . PHP_EOL;
+    }
+}
+
+<span class="h">final class Section implements SurveyNode  <span class="c">// Composite</span></span>
+{
+    /** @var list&lt;SurveyNode&gt; */
+    private array $children = [];
+
+    public function __construct(private readonly string $title) {}
+
+<span class="h">    public function add(SurveyNode $node): self  <span class="c">// accepts items or groups</span></span>
+    {
+        $this-&gt;children[] = $node;
+
+        return $this;
+    }
+
+    public function maxScore(): int
+    {
+<span class="h">        return array_sum(array_map(fn (SurveyNode $c): int =&gt; $c-&gt;maxScore(), $this-&gt;children));  <span class="c">// just ask the children</span></span>
+    }
+
+    public function questionCount(): int
+    {
+        return array_sum(array_map(fn (SurveyNode $c): int =&gt; $c-&gt;questionCount(), $this-&gt;children));
+    }
+
+    public function render(string $indent = ''): string
+    {
+        $out = &quot;{$indent}{$this-&gt;title}&quot; . PHP_EOL;
+        foreach ($this-&gt;children as $child) {
+            $out .= $child-&gt;render($indent . '  ');
+        }
+
+        return $out;
+    }
+}
+
+<span class="c">// ── Build a tree of any depth ───────────────────────────────────────────</span>
+$survey = (new Section('Teacher evaluation'))
+    -&gt;add((new Section('Classroom'))
+        -&gt;add(new Question('Explains clearly', 5))
+        -&gt;add((new Section('Time management'))
+            -&gt;add(new Question('Starts on time', 3))
+            -&gt;add(new Question('Finishes the plan', 2))))
+    -&gt;add(new Question('Overall rating', 10));
+
+echo $survey-&gt;render();
+echo &quot;Max score: {$survey-&gt;maxScore()}, questions: {$survey-&gt;questionCount()}&quot;, PHP_EOL;   <span class="c">// no instanceof anywhere</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/composite.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/composite.php" data-umami-event="View example" data-umami-event-pattern="composite">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Teacher evaluation
+  Classroom
+    - Explains clearly (5 pts)
+    Time management
+      - Starts on time (3 pts)
+      - Finishes the plan (2 pts)
+  - Overall rating (10 pts)
+Max score: 20, questions: 4</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="h">interface SurveyNode  <span class="c">// one shape for items and groups</span></span>
 {
     public function maxScore(): int;
 }
@@ -113,7 +211,7 @@ $survey = (new Section('Teacher evaluation'))
     -&gt;add(new Question('Overall', 10));
 
 $survey-&gt;maxScore();   <span class="c">// 20, at any depth</span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's core has little of this. The classic PHP example is Symfony's Form component: a form holds fields and child forms, and submit(), isValid() and getErrors() work the same on a single field or a whole nested form.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Nested Blade components</span><span>Menus and category trees</span><span>Permission groups inside groups</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -124,6 +222,6 @@ $survey-&gt;maxScore();   <span class="c">// 20, at any depth</span></code></pre
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

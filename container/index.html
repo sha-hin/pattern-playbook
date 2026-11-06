@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Dependency Injection Container in PHP & Laravel, with Real Code","description":"DI Container explained for PHP and Laravel developers. A class needs services - ask for them in the constructor; one place (the container) decides what you…","url":"https://sha-hin.github.io/pattern-playbook/container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["DI Container design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"DI Container","item":"https://sha-hin.github.io/pattern-playbook/container/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Dependency Injection Container in PHP & Laravel, with Real Code","description":"DI Container explained for PHP and Laravel developers. A class needs services - ask for them in the constructor; one place (the container) decides what you…","url":"https://sha-hin.github.io/pattern-playbook/container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["DI Container design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"DI Container pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/container.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"DI Container","item":"https://sha-hin.github.io/pattern-playbook/container/"}]}]}</script>
 </head>
 <body data-page="container" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -77,7 +77,132 @@
         $mailer-&gt;send($invoice-&gt;email, new InvoiceMail($invoice));
     }
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the DI Container pattern in PHP</h2><pre><code>final class InvoiceSender
+  <section class="scratch" aria-labelledby="build-container">
+    <h2 class="g" id="build-container">Build it yourself: the full DI Container pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of DI Container">
+      <div class="role" role="row"><span role="rowheader">Container</span><span role="cell"><code>Container</code> <small>knows how to build things; keeps shared instances</small></span></div><div class="role" role="row"><span role="rowheader">Bindings</span><span role="cell"><code>bind() = new object every time, singleton() = one shared object</code></span></div><div class="role" role="row"><span role="rowheader">Autowiring</span><span role="cell"><code>make() reads constructor types with Reflection and builds them</code></span></div><div class="role" role="row"><span role="rowheader">Service</span><span role="cell"><code>InvoiceSender</code> <small>asks for what it needs; never builds it</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+interface Mailer
+{
+    public function send(string $to, string $subject): void;
+}
+
+final class SmtpMailer implements Mailer
+{
+    public function __construct(private readonly string $host) {}
+
+    public function send(string $to, string $subject): void
+    {
+        echo &quot;SMTP {$this-&gt;host}: '{$subject}' → {$to}&quot;, PHP_EOL;
+    }
+}
+
+final class FakeMailer implements Mailer                        <span class="c">// for tests: records instead of sending</span>
+{
+    /** @var list&lt;string&gt; */
+    public array $sent = [];
+
+    public function send(string $to, string $subject): void
+    {
+        $this-&gt;sent[] = &quot;{$to}: {$subject}&quot;;
+    }
+}
+
+<span class="h">final class InvoiceSender  <span class="c">// Service: asks, never builds</span></span>
+{
+    public function __construct(private readonly Mailer $mailer) {}
+
+    public function send(int $invoiceId, string $email): void
+    {
+        $this-&gt;mailer-&gt;send($email, &quot;Invoice #{$invoiceId}&quot;);
+    }
+}
+
+<span class="h">final class Container  <span class="c">// Container</span></span>
+{
+    /** @var array&lt;string, array{factory: Closure(self): object, shared: bool}&gt; */
+    private array $bindings = [];
+
+    /** @var array&lt;string, object&gt; */
+    private array $instances = [];
+
+<span class="h">    public function bind(string $id, Closure $factory): void  <span class="c">// new object every time</span></span>
+    {
+        $this-&gt;bindings[$id] = ['factory' =&gt; $factory, 'shared' =&gt; false];
+    }
+
+<span class="h">    public function singleton(string $id, Closure $factory): void  <span class="c">// one shared object, visibly</span></span>
+    {
+        $this-&gt;bindings[$id] = ['factory' =&gt; $factory, 'shared' =&gt; true];
+    }
+
+    public function make(string $id): object
+    {
+        if (isset($this-&gt;instances[$id])) {
+            return $this-&gt;instances[$id];
+        }
+
+        $binding = $this-&gt;bindings[$id] ?? null;
+        $object = $binding !== null ? ($binding['factory'])($this) : $this-&gt;autowire($id);
+
+        if ($binding !== null &amp;&amp; $binding['shared']) {
+            $this-&gt;instances[$id] = $object;
+        }
+
+        return $object;
+    }
+
+<span class="h">    private function autowire(string $class): object  <span class="c">// read the constructor, build each dependency</span></span>
+    {
+        if (!class_exists($class)) {
+            throw new RuntimeException(&quot;Cannot build [{$class}]: bind it first (is it an interface?).&quot;);
+        }
+
+        $constructor = (new ReflectionClass($class))-&gt;getConstructor();
+        if ($constructor === null) {
+            return new $class();
+        }
+
+        $arguments = array_map(function (ReflectionParameter $p) use ($class): mixed {
+            $type = $p-&gt;getType();
+            if ($type instanceof ReflectionNamedType &amp;&amp; !$type-&gt;isBuiltin()) {
+<span class="h">                return $this-&gt;make($type-&gt;getName());  <span class="c">// recursion: dependencies of dependencies</span></span>
+            }
+            if ($p-&gt;isDefaultValueAvailable()) {
+                return $p-&gt;getDefaultValue();
+            }
+            throw new RuntimeException(&quot;Cannot guess \${$p-&gt;getName()} for [{$class}]: register a factory.&quot;);
+        }, $constructor-&gt;getParameters());
+
+        return new $class(...$arguments);
+    }
+}
+
+<span class="c">// ── The ONE place that decides what Mailer means ───────────────────────</span>
+$app = new Container();
+$app-&gt;singleton(Mailer::class, fn () =&gt; new SmtpMailer('smtp.example.com'));
+
+$app-&gt;make(InvoiceSender::class)-&gt;send(1001, 'school@example.com');   <span class="c">// InvoiceSender built automatically</span>
+echo 'Same Mailer each time? ', var_export($app-&gt;make(Mailer::class) === $app-&gt;make(Mailer::class), true), PHP_EOL;
+
+<span class="c">// ── In a test: no container, no real email ──────────────────────────────</span>
+$fake = new FakeMailer();
+(new InvoiceSender($fake))-&gt;send(1002, 'test@example.com');
+echo 'Fake recorded: ', $fake-&gt;sent[0], PHP_EOL;</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/container.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/container.php" data-umami-event="View example" data-umami-event-pattern="container">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>SMTP smtp.example.com: 'Invoice #1001' → school@example.com
+Same Mailer each time? true
+Fake recorded: test@example.com: Invoice #1002</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class InvoiceSender
 {
 <span class="h">    public function __construct(  <span class="c">// ask, don't build</span></span>
         private Mailer $mailer,
@@ -101,7 +226,7 @@ public function store(Invoice $invoice, InvoiceSender $sender) { $sender-&gt;sen
 $mailer = new FakeMailer();
 (new InvoiceSender($mailer, new \Psr\Log\NullLogger()))-&gt;send($invoice);
 $this-&gt;assertCount(1, $mailer-&gt;sent);</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Container\Container: bind() and singleton() store closures; make() calls build(), which uses ReflectionClass to read the constructor and resolve each typed parameter recursively. That is why type-hinting a class in a controller just works.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel service container, constructor injection</span><span>$this-&gt;app-&gt;singleton()</span><span>Every modern framework</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -112,6 +237,6 @@ $this-&gt;assertCount(1, $mailer-&gt;sent);</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

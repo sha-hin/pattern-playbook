@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Facade Pattern in PHP & Laravel, with Real Code","description":"Facade explained for PHP and Laravel developers. A multi-step job that touches many services, needed from many places - one class with one method that runs…","url":"https://sha-hin.github.io/pattern-playbook/facade/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/facade/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Facade","item":"https://sha-hin.github.io/pattern-playbook/facade/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Facade Pattern in PHP & Laravel, with Real Code","description":"Facade explained for PHP and Laravel developers. A multi-step job that touches many services, needed from many places - one class with one method that runs…","url":"https://sha-hin.github.io/pattern-playbook/facade/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/facade/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Facade pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Facade","item":"https://sha-hin.github.io/pattern-playbook/facade/"}]}]}</script>
 </head>
 <body data-page="facade" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -74,7 +74,120 @@ $user = $users-&gt;createStudent($name, $email);
 $classes-&gt;assign($user, $classId);
 $billing-&gt;openAccount($user, $plan);    <span class="c">// ← the import job forgot this line</span>
 $mailer-&gt;welcome($user);</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Facade pattern in PHP</h2><pre><code><span class="h">final class EnrollStudent  <span class="c">// the one front door</span></span>
+  <section class="scratch" aria-labelledby="build-facade">
+    <h2 class="g" id="build-facade">Build it yourself: the full Facade pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Facade">
+      <div class="role" role="row"><span role="rowheader">Facade</span><span role="cell"><code>EnrollStudent</code> <small>one simple method that runs the whole job</small></span></div><div class="role" role="row"><span role="rowheader">Subsystems</span><span role="cell"><code>Users, Classes, Billing, Mailer</code> <small>still usable on their own</small></span></div><div class="role" role="row"><span role="rowheader">Clients</span><span role="cell"><code>the web form, the API and the CSV import</code> <small>all call the facade</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="c">// ── Subsystems ──────────────────────────────────────────────────────────</span>
+final class Users
+{
+    /** @var array&lt;int, string&gt; */
+    public array $all = [];
+
+    public function create(string $name): int
+    {
+        $id = count($this-&gt;all) + 1;
+        $this-&gt;all[$id] = $name;
+
+        return $id;
+    }
+
+    public function delete(int $id): void
+    {
+        unset($this-&gt;all[$id]);
+    }
+}
+
+final class Classes
+{
+    /** @var array&lt;int, string&gt; */
+    public array $assigned = [];
+
+    public function assign(int $studentId, string $class): void
+    {
+        $this-&gt;assigned[$studentId] = $class;
+    }
+
+    public function unassign(int $studentId): void
+    {
+        unset($this-&gt;assigned[$studentId]);
+    }
+}
+
+final class Billing
+{
+    public function openAccount(int $studentId, string $plan): void
+    {
+        if (!in_array($plan, ['monthly', 'yearly'], true)) {
+            throw new InvalidArgumentException(&quot;Unknown plan [{$plan}].&quot;);
+        }
+    }
+}
+
+final class Mailer
+{
+    public function welcome(string $name): void
+    {
+        echo &quot;Welcome email sent to {$name}&quot;, PHP_EOL;
+    }
+}
+
+<span class="c">// ── The facade ──────────────────────────────────────────────────────────</span>
+<span class="h">final class EnrollStudent  <span class="c">// Facade</span></span>
+{
+    public function __construct(
+        private readonly Users $users,
+        private readonly Classes $classes,
+        private readonly Billing $billing,
+        private readonly Mailer $mailer,
+    ) {}
+
+<span class="h">    public function handle(string $name, string $class, string $plan): int  <span class="c">// one simple door</span></span>
+    {
+<span class="h">        $studentId = $this-&gt;users-&gt;create($name);  <span class="c">// step 1</span></span>
+        try {
+<span class="h">            $this-&gt;classes-&gt;assign($studentId, $class);  <span class="c">// step 2</span></span>
+<span class="h">            $this-&gt;billing-&gt;openAccount($studentId, $plan);  <span class="c">// step 3</span></span>
+        } catch (Throwable $e) {
+            $this-&gt;classes-&gt;unassign($studentId);               <span class="c">// undo what was done: all or nothing</span>
+            $this-&gt;users-&gt;delete($studentId);
+            throw $e;
+        }
+<span class="h">        $this-&gt;mailer-&gt;welcome($name);  <span class="c">// step 4, only after everything saved</span></span>
+
+        return $studentId;
+    }
+}
+
+<span class="c">// ── Every client is one line, and none can forget a step ────────────────</span>
+$users = new Users();
+$classes = new Classes();
+$enroll = new EnrollStudent($users, $classes, new Billing(), new Mailer());
+
+$enroll-&gt;handle('Mona', '3-B', 'monthly');                      <span class="c">// from the web form</span>
+
+try {
+    $enroll-&gt;handle('Omar', '3-B', 'weekly');                   <span class="c">// from the CSV import, with bad data</span>
+} catch (InvalidArgumentException $e) {
+    echo 'Import row rejected: ', $e-&gt;getMessage(), PHP_EOL;
+}
+
+echo 'Students: ', implode(', ', $users-&gt;all), ' | assigned: ', count($classes-&gt;assigned), PHP_EOL;</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/facade.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php" data-umami-event="View example" data-umami-event-pattern="facade">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Welcome email sent to Mona
+Import row rejected: Unknown plan [weekly].
+Students: Mona | assigned: 1</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="h">final class EnrollStudent  <span class="c">// the one front door</span></span>
 {
     public function __construct(
         private Users $users,
@@ -99,7 +212,7 @@ $mailer-&gt;welcome($user);</code></pre></div>
 
 <span class="c">// WebController, ApiController, ImportStudentsJob — all the same single line:</span>
 <span class="h">$student = $enrollStudent-&gt;handle($data);  <span class="c">// can't forget a step</span></span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Foundation\Http\Kernel::handle() is a Facade over the framework itself: one call bootstraps config, providers, middleware and routing in the right order. In your own app, &quot;action&quot; or service classes like EnrollStudent are the same idea. (Laravel's Cache:: style &quot;facades&quot; are something else: see the Laravel Facade card.)</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel &quot;action&quot; / service classes</span><span>Application::handle() in frameworks</span><span>Not Laravel’s Cache:: (that’s a Proxy)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -110,6 +223,6 @@ $mailer-&gt;welcome($user);</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

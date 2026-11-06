@@ -1,0 +1,8 @@
+Teacher evaluation
+  Classroom
+    - Explains clearly (5 pts)
+    Time management
+      - Starts on time (3 pts)
+      - Finishes the plan (2 pts)
+  - Overall rating (10 pts)
+Max score: 20, questions: 4

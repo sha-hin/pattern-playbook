@@ -160,6 +160,45 @@ writeFileSync(join(ROOT, 'index.html'), page({
   main: hubHtml(''),
 }));
 
+// ── Plain-PHP implementations (examples/<id>.php), parsed from their docblock ──
+function loadExample(id) {
+  const file = join(ROOT, 'examples', `${id}.php`);
+  if (!existsSync(file)) throw new Error(`Missing examples/${id}.php`);
+  const src = readFileSync(file, 'utf8');
+  const doc = src.match(/\/\*\*([\s\S]*?)\*\//);
+  if (!doc) throw new Error(`examples/${id}.php has no docblock`);
+  const lines = doc[1].split('\n').map(l => l.replace(/^\s*\* ?/, '').trimEnd());
+
+  const roles = [], notes = [], laravel = [];
+  let section = null;
+  for (const line of lines) {
+    if (line === 'Roles:') { section = 'roles'; continue; }
+    if (line === 'In Laravel:') { section = 'laravel'; continue; }
+    if (!line.trim()) continue;
+    if (section === 'roles') {
+      const m = line.match(/^- ([^:]+): (.+)$/);
+      if (m) {
+        const n = m[2].match(/^(.*?)\s*\((.+)\)$/);
+        roles.push({ role: m[1], classes: n ? n[1] : m[2], note: n ? n[2] : '' });
+      } else {
+        notes.push(line.trim());
+      }
+    } else if (section === 'laravel') {
+      laravel.push(line.trim());
+    }
+  }
+  if (!roles.length) throw new Error(`examples/${id}.php lists no roles`);
+
+  // Show the real file, minus the docblock (its roles are rendered as a table above the code).
+  const code = src.replace(doc[0], '').replace(/\n{3,}/g, '\n\n').trimEnd();
+  const outFile = join(ROOT, 'examples', 'output', `${id}.txt`);
+  const output = existsSync(outFile) ? readFileSync(outFile, 'utf8').trimEnd() : '';
+
+  return { roles, notes, laravel: laravel.join(' '), code, output };
+}
+
+for (const p of P) p.scratch = loadExample(p.id);
+
 // ── One page per pattern ───────────────────────────────────────────────
 for (const p of P) {
   const url = `${SITE}${p.id}/`;
@@ -194,6 +233,14 @@ for (const p of P) {
           isPartOf: { '@id': `${SITE}#website` },
           about: [`${p.name} design pattern`, 'PHP', 'Laravel'],
           proficiencyLevel: 'Beginner',
+        },
+        {
+          '@type': 'SoftwareSourceCode',
+          name: `${p.name} pattern in plain PHP`,
+          programmingLanguage: 'PHP',
+          codeRepository: 'https://github.com/sha-hin/pattern-playbook',
+          url: `https://github.com/sha-hin/pattern-playbook/blob/main/examples/${p.id}.php`,
+          runtimePlatform: 'PHP 8.2+',
         },
         {
           '@type': 'BreadcrumbList',

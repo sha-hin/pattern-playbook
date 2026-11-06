@@ -1290,6 +1290,23 @@ function chipsHtml(current, prefix) {
   ).join('');
 }
 
+const REPO = 'https://github.com/sha-hin/pattern-playbook/blob/main/';
+
+function scratchHtml(p) {
+  const x = p.scratch;
+  return `<section class="scratch" aria-labelledby="build-${p.id}">
+    <h2 class="g" id="build-${p.id}">Build it yourself: the full ${esc(p.name)} pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of ${esc(p.name)}">
+      ${x.roles.map(r => `<div class="role" role="row"><span role="rowheader">${esc(r.role)}</span><span role="cell"><code>${esc(r.classes)}</code>${r.note ? ` <small>${esc(r.note)}</small>` : ''}</span></div>`).join('')}
+    </div>
+    ${x.notes.map(n => `<p class="rolenote">${esc(n)}</p>`).join('')}
+    <pre><code>${codeHtml(x.code)}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/${p.id}.php</code> · <a href="${REPO}examples/${p.id}.php" data-umami-event="View example" data-umami-event-pattern="${p.id}">Open the file on GitHub</a></p>
+    ${x.output ? `<div class="output"><span>Output</span><pre><code>${esc(x.output)}</code></pre></div>` : ''}
+  </section>`;
+}
+
 function cardHtml(p, prefix) {
   const i = P.indexOf(p), prev = P[i - 1], next = P[i + 1];
   return `<article class="card ${p.fam}">
@@ -1305,8 +1322,11 @@ function cardHtml(p, prefix) {
     <div class="box"><h2>Real job where it fits</h2><p>${esc(p.job)}</p></div>
   </div>
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>${codeHtml(p.before)}</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the ${esc(p.name)} pattern in PHP</h2><pre><code>${codeHtml(p.after)}</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  ${p.scratch ? scratchHtml(p) : ''}
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>${codeHtml(p.after)}</code></pre>
+    ${p.scratch && p.scratch.laravel ? `<p class="howlaravel"><b>How Laravel builds it inside:</b> ${esc(p.scratch.laravel)}</p>` : ''}</div>
   ${p.vs ? `<div class="vsbox"><h2>Don't confuse it with <a href="${prefix}${p.vs.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${p.vs.id}" data-umami-event-from="compare">${esc(p.vs.name)}</a></h2>
     <div class="vstable" role="table" aria-label="${esc(p.name)} compared with ${esc(p.vs.name)}">
       <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">${esc(p.name)}</span><span role="columnheader">${esc(p.vs.name)}</span></div>

@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Bridge Pattern in PHP & Laravel, with Real Code","description":"Bridge explained for PHP and Laravel developers. A class varies in two independent ways (what × how) - two hierarchies, one holds the other. A + B classes…","url":"https://sha-hin.github.io/pattern-playbook/bridge/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/bridge/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Bridge design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Bridge","item":"https://sha-hin.github.io/pattern-playbook/bridge/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Bridge Pattern in PHP & Laravel, with Real Code","description":"Bridge explained for PHP and Laravel developers. A class varies in two independent ways (what × how) - two hierarchies, one holds the other. A + B classes…","url":"https://sha-hin.github.io/pattern-playbook/bridge/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/bridge/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Bridge design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Bridge pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/bridge.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Bridge","item":"https://sha-hin.github.io/pattern-playbook/bridge/"}]}]}</script>
 </head>
 <body data-page="bridge" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -74,7 +74,105 @@ final class InvoicePaidSms  { /* ... */ }
 final class OrderShippedMail { /* ... */ }
 final class OrderShippedSms  { /* ... */ }
 <span class="c">// Slack arrives → InvoicePaidSlack, OrderShippedSlack, ...</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Bridge pattern in PHP</h2><pre><code>final class InvoicePaid extends Notification              <span class="c">// WHAT to say: one class</span>
+  <section class="scratch" aria-labelledby="build-bridge">
+    <h2 class="g" id="build-bridge">Build it yourself: the full Bridge pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Bridge">
+      <div class="role" role="row"><span role="rowheader">Abstraction</span><span role="cell"><code>Notification</code> <small>WHAT to say; holds a Channel, which is the bridge</small></span></div><div class="role" role="row"><span role="rowheader">Refined abstractions</span><span role="cell"><code>InvoicePaid, OrderDelayed</code></span></div><div class="role" role="row"><span role="rowheader">Implementor</span><span role="cell"><code>Channel</code> <small>HOW to deliver</small></span></div><div class="role" role="row"><span role="rowheader">Concrete implementors</span><span role="cell"><code>EmailChannel, SmsChannel</code></span></div>
+    </div>
+    <p class="rolenote">Result: 2 + 2 classes cover all 4 combinations, instead of 2 × 2 classes.</p>
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface Channel  <span class="c">// Implementor: HOW</span></span>
+{
+    public function deliver(string $to, string $subject, string $body): void;
+}
+
+<span class="h">final class EmailChannel implements Channel  <span class="c">// Concrete implementor</span></span>
+{
+    public function deliver(string $to, string $subject, string $body): void
+    {
+        echo &quot;EMAIL to {$to}&quot; . PHP_EOL . &quot;  Subject: {$subject}&quot; . PHP_EOL . &quot;  {$body}&quot; . PHP_EOL;
+    }
+}
+
+<span class="h">final class SmsChannel implements Channel  <span class="c">// Concrete implementor</span></span>
+{
+    public function deliver(string $to, string $subject, string $body): void
+    {
+        $text = mb_strlen($body) &gt; 70 ? mb_substr($body, 0, 69) . '…' : $body;   <span class="c">// SMS: no subject, short text</span>
+        echo &quot;SMS to {$to}: {$text}&quot; . PHP_EOL;
+    }
+}
+
+<span class="h">abstract class Notification  <span class="c">// Abstraction: WHAT</span></span>
+{
+<span class="h">    public function __construct(protected readonly Channel $channel) {}  <span class="c">// the bridge: has-a Channel</span></span>
+
+    final public function send(string $to): void
+    {
+        $this-&gt;channel-&gt;deliver($to, $this-&gt;subject(), $this-&gt;body());
+    }
+
+    abstract protected function subject(): string;
+
+    abstract protected function body(): string;
+}
+
+<span class="h">final class InvoicePaid extends Notification  <span class="c">// Refined abstraction</span></span>
+{
+    public function __construct(Channel $channel, private readonly string $invoiceNo)
+    {
+        parent::__construct($channel);
+    }
+
+    protected function subject(): string
+    {
+        return &quot;Invoice {$this-&gt;invoiceNo} paid&quot;;
+    }
+
+    protected function body(): string
+    {
+        return &quot;Thank you. We received the payment for invoice {$this-&gt;invoiceNo}.&quot;;
+    }
+}
+
+<span class="h">final class OrderDelayed extends Notification  <span class="c">// Refined abstraction</span></span>
+{
+    public function __construct(Channel $channel, private readonly int $orderId, private readonly int $minutes)
+    {
+        parent::__construct($channel);
+    }
+
+    protected function subject(): string
+    {
+        return &quot;Order #{$this-&gt;orderId} is running late&quot;;
+    }
+
+    protected function body(): string
+    {
+        return &quot;Sorry, order #{$this-&gt;orderId} will be about {$this-&gt;minutes} minutes late. A driver is on the way.&quot;;
+    }
+}
+
+<span class="c">// ── Any message × any channel, with no class per combination ───────────</span>
+(new InvoicePaid(new EmailChannel(), 'INV-2026-114'))-&gt;send('school@example.com');
+(new InvoicePaid(new SmsChannel(), 'INV-2026-114'))-&gt;send('+201001234567');
+(new OrderDelayed(new SmsChannel(), 42, 15))-&gt;send('+201001234567');
+
+<span class="c">// A WhatsApp channel = 1 new class, and every existing notification can use it.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/bridge.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/bridge.php" data-umami-event="View example" data-umami-event-pattern="bridge">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>EMAIL to school@example.com
+  Subject: Invoice INV-2026-114 paid
+  Thank you. We received the payment for invoice INV-2026-114.
+SMS to +201001234567: Thank you. We received the payment for invoice INV-2026-114.
+SMS to +201001234567: Sorry, order #42 will be about 15 minutes late. A driver is on the wa…</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class InvoicePaid extends Notification              <span class="c">// WHAT to say: one class</span>
 {
     use Queueable;
 
@@ -104,7 +202,7 @@ final class OrderShippedSms  { /* ... */ }
 }
 
 <span class="h">$user-&gt;notify(new InvoicePaid($invoice));  <span class="c">// any notification × any channel</span></span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Notifications: a Notification class (the abstraction) says what to send; via() names the channels, and Illuminate\Notifications\ChannelManager resolves channel classes (MailChannel, DatabaseChannel...) that each call send() and the matching toMail(), toArray()... method. Any notification works on any channel.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Notifications + via() channels</span><span>Report × output format</span><span>Shape × renderer in graphics</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -115,6 +213,6 @@ final class OrderShippedSms  { /* ... */ }
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

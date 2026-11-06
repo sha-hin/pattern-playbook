@@ -1,0 +1,4 @@
+CsvGradeImport imported 2 rows
+JsonGradeImport imported 1 rows
+Rejected: Row 0: score must be 0-100, got 140.
+Stored rows: 3

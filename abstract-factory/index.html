@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Abstract Factory Pattern in PHP & Laravel, with Real Code","description":"Abstract Factory explained for PHP and Laravel developers. Several objects must come from the same family - one factory creates the whole family, so they can…","url":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Abstract Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Abstract Factory","item":"https://sha-hin.github.io/pattern-playbook/abstract-factory/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Abstract Factory Pattern in PHP & Laravel, with Real Code","description":"Abstract Factory explained for PHP and Laravel developers. Several objects must come from the same family - one factory creates the whole family, so they can…","url":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Abstract Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Abstract Factory pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/abstract-factory.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Abstract Factory","item":"https://sha-hin.github.io/pattern-playbook/abstract-factory/"}]}]}</script>
 </head>
 <body data-page="abstract-factory" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -72,7 +72,140 @@
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$storage = app()-&gt;isProduction() ? new S3Storage(...)  : new DiskStorage(...);
 $queue   = app()-&gt;isProduction() ? new SqsQueue(...)   : new DatabaseQueue(...);
 $mailer  = app()-&gt;isProduction() ? new LogMailer(...)  : new SesMailer(...);   <span class="c">// ← swapped by mistake</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Abstract Factory pattern in PHP</h2><pre><code><span class="h">interface CloudKit  <span class="c">// one method per family member</span></span>
+  <section class="scratch" aria-labelledby="build-abstract-factory">
+    <h2 class="g" id="build-abstract-factory">Build it yourself: the full Abstract Factory pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Abstract Factory">
+      <div class="role" role="row"><span role="rowheader">Abstract factory</span><span role="cell"><code>InfrastructureKit</code> <small>one create method per product in the family</small></span></div><div class="role" role="row"><span role="rowheader">Concrete factories</span><span role="cell"><code>CloudKit, LocalKit</code> <small>each makes a whole matching family</small></span></div><div class="role" role="row"><span role="rowheader">Abstract products</span><span role="cell"><code>FileStorage, MessageQueue</code></span></div><div class="role" role="row"><span role="rowheader">Concrete products</span><span role="cell"><code>BucketStorage + RemoteQueue</code> <small>cloud family), DiskStorage + MemoryQueue (local family</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>ReportPublisher</code> <small>uses a kit; can never mix families</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface FileStorage  <span class="c">// Abstract product A</span></span>
+{
+    public function put(string $path, string $contents): string;
+}
+
+<span class="h">interface MessageQueue  <span class="c">// Abstract product B</span></span>
+{
+    public function push(string $message): void;
+}
+
+<span class="h">interface InfrastructureKit  <span class="c">// Abstract factory</span></span>
+{
+    public function storage(): FileStorage;
+
+    public function queue(): MessageQueue;
+}
+
+<span class="c">// ── Family 1: cloud ─────────────────────────────────────────────────────</span>
+final class BucketStorage implements FileStorage
+{
+    public function __construct(private readonly string $bucket) {}
+
+    public function put(string $path, string $contents): string
+    {
+        return &quot;https://{$this-&gt;bucket}.storage.example.com/{$path}&quot;;   <span class="c">// pretend upload</span>
+    }
+}
+
+final class RemoteQueue implements MessageQueue
+{
+    public function push(string $message): void
+    {
+        echo &quot;  [remote queue] {$message}&quot;, PHP_EOL;
+    }
+}
+
+<span class="h">final class CloudKit implements InfrastructureKit  <span class="c">// Concrete factory: cloud family</span></span>
+{
+    public function __construct(private readonly string $bucket) {}
+
+    public function storage(): FileStorage
+    {
+        return new BucketStorage($this-&gt;bucket);
+    }
+
+    public function queue(): MessageQueue
+    {
+        return new RemoteQueue();
+    }
+}
+
+<span class="c">// ── Family 2: local development ─────────────────────────────────────────</span>
+final class DiskStorage implements FileStorage
+{
+    public function __construct(private readonly string $dir) {}
+
+    public function put(string $path, string $contents): string
+    {
+        $file = $this-&gt;dir . '/' . basename($path);
+        if (file_put_contents($file, $contents) === false) {
+            throw new RuntimeException(&quot;Cannot write {$file}&quot;);
+        }
+
+        return $file;
+    }
+}
+
+final class MemoryQueue implements MessageQueue
+{
+    /** @var list&lt;string&gt; */
+    public array $messages = [];
+
+    public function push(string $message): void
+    {
+        $this-&gt;messages[] = $message;
+        echo &quot;  [memory queue] {$message}&quot;, PHP_EOL;
+    }
+}
+
+<span class="h">final class LocalKit implements InfrastructureKit  <span class="c">// Concrete factory: local family</span></span>
+{
+    public function storage(): FileStorage
+    {
+        return new DiskStorage(sys_get_temp_dir());
+    }
+
+    public function queue(): MessageQueue
+    {
+        return new MemoryQueue();
+    }
+}
+
+<span class="c">// ── Client: only knows the abstract factory ─────────────────────────────</span>
+<span class="h">final class ReportPublisher  <span class="c">// Client</span></span>
+{
+    public function __construct(private readonly InfrastructureKit $kit) {}
+
+    public function publish(int $reportId, string $pdf): void
+    {
+<span class="h">        $location = $this-&gt;kit-&gt;storage()-&gt;put(&quot;report-{$reportId}.pdf&quot;, $pdf);  <span class="c">// both products...</span></span>
+<span class="h">        $this-&gt;kit-&gt;queue()-&gt;push(&quot;report {$reportId} ready at {$location}&quot;);  <span class="c">// ...from the SAME family</span></span>
+    }
+}
+
+<span class="c">// ── The ONE decision ────────────────────────────────────────────────────</span>
+$production = getenv('APP_ENV') === 'production';
+$kit = $production ? new CloudKit('school-reports') : new LocalKit();
+
+echo $production ? 'Production:' : 'Local:', PHP_EOL;
+(new ReportPublisher($kit))-&gt;publish(42, '%PDF-1.7 ...');
+@unlink(sys_get_temp_dir() . '/report-42.pdf');               <span class="c">// tidy up the demo file</span>
+
+echo 'Cloud:', PHP_EOL;
+(new ReportPublisher(new CloudKit('school-reports')))-&gt;publish(43, '%PDF-1.7 ...');</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/abstract-factory.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/abstract-factory.php" data-umami-event="View example" data-umami-event-pattern="abstract-factory">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Local:
+  [memory queue] report 42 ready at /tmp/report-42.pdf
+Cloud:
+  [remote queue] report 43 ready at https://school-reports.storage.example.com/report-43.pdf</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code><span class="h">interface CloudKit  <span class="c">// one method per family member</span></span>
 {
     public function storage(): FileStorage;
     public function queue(): MessageQueue;
@@ -103,7 +236,7 @@ $this-&gt;app-&gt;singleton(CloudKit::class, fn ($app) =&gt; $app-&gt;isProducti
 $kit = app(CloudKit::class);
 $kit-&gt;storage()-&gt;put('reports/42.pdf', $pdf);
 $kit-&gt;queue()-&gt;push(new ReportReady(42));</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Database connections: each Connection class makes its own matching family through getDefaultQueryGrammar(), getDefaultSchemaGrammar() and getDefaultPostProcessor(). A MySqlConnection always comes with MySQL grammars, a SQLiteConnection with SQLite ones, so SQL written for one database is never sent to another.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Database connection + its SQL grammar + schema builder</span><span>Cloud provider SDK kits</span><span>UI themes (button + input + dialog)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -114,6 +247,6 @@ $kit-&gt;queue()-&gt;push(new ReportReady(42));</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

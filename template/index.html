@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Template Method Pattern in PHP & Laravel, with Real Code","description":"Template Method explained for PHP and Laravel developers. Several classes run the same steps in the same order, only some steps differ - parent locks the…","url":"https://sha-hin.github.io/pattern-playbook/template/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/template/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Template Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Template Method","item":"https://sha-hin.github.io/pattern-playbook/template/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Template Method Pattern in PHP & Laravel, with Real Code","description":"Template Method explained for PHP and Laravel developers. Several classes run the same steps in the same order, only some steps differ - parent locks the…","url":"https://sha-hin.github.io/pattern-playbook/template/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/template/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Template Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Template Method pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/template.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Template Method","item":"https://sha-hin.github.io/pattern-playbook/template/"}]}]}</script>
 </head>
 <body data-page="template" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -72,7 +72,112 @@
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>final class SystemAImport { public function import($file) { /* read, map, validate, save, log */ } }
 final class SystemBImport { public function import($file) { /* read, map, validate, save, log */ } }
 final class SystemCImport { public function import($file) { /* read, map, validate, save */ } }  <span class="c">// forgot log</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Template Method pattern in PHP</h2><pre><code>abstract class GradeImport
+  <section class="scratch" aria-labelledby="build-template">
+    <h2 class="g" id="build-template">Build it yourself: the full Template Method pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Template Method">
+      <div class="role" role="row"><span role="rowheader">Abstract class</span><span role="cell"><code>GradeImport</code> <small>owns the template method import(), marked final</small></span></div><div class="role" role="row"><span role="rowheader">Template method</span><span role="cell"><code>import</code> <small>) (the fixed order of steps</small></span></div><div class="role" role="row"><span role="rowheader">Primitive operations</span><span role="cell"><code>read</code> <small>), map() (abstract: each child MUST fill them in</small></span></div><div class="role" role="row"><span role="rowheader">Hook</span><span role="cell"><code>afterImport</code> <small>) (has a default: a child MAY override it</small></span></div><div class="role" role="row"><span role="rowheader">Concrete classes</span><span role="cell"><code>CsvGradeImport, JsonGradeImport</code></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+final class GradeStore
+{
+    /** @var list&lt;array{student: string, score: int}&gt; */
+    public array $rows = [];
+}
+
+final class InvalidImport extends RuntimeException {}
+
+<span class="h">abstract class GradeImport  <span class="c">// Abstract class</span></span>
+{
+    public function __construct(protected readonly GradeStore $store) {}
+
+<span class="h">    final public function import(string $source): int  <span class="c">// Template method: the locked recipe</span></span>
+    {
+        $raw = $this-&gt;read($source);                            <span class="c">// differs per system</span>
+        $rows = array_map(fn (array $r): array =&gt; $this-&gt;map($r), $raw);   <span class="c">// differs per system</span>
+        $this-&gt;validate($rows);                                 <span class="c">// same for everyone</span>
+        array_push($this-&gt;store-&gt;rows, ...$rows);               <span class="c">// same for everyone</span>
+        $this-&gt;afterImport(count($rows));                       <span class="c">// hook</span>
+
+        return count($rows);
+    }
+
+    /** @return list&lt;array&lt;string|int, mixed&gt;&gt; */
+<span class="h">    abstract protected function read(string $source): array;  <span class="c">// primitive operation: MUST fill in</span></span>
+
+    /** @return array{student: string, score: int} */
+<span class="h">    abstract protected function map(array $raw): array;  <span class="c">// primitive operation: MUST fill in</span></span>
+
+<span class="h">    protected function afterImport(int $count): void  <span class="c">// hook: MAY override</span></span>
+    {
+        echo static::class . &quot; imported {$count} rows&quot;, PHP_EOL;
+    }
+
+    /** @param list&lt;array{student: string, score: int}&gt; $rows */
+    private function validate(array $rows): void                <span class="c">// private: children cannot skip it</span>
+    {
+        foreach ($rows as $i =&gt; $row) {
+            if ($row['score'] &lt; 0 || $row['score'] &gt; 100) {
+                throw new InvalidImport(&quot;Row {$i}: score must be 0-100, got {$row['score']}.&quot;);
+            }
+        }
+    }
+}
+
+<span class="h">final class CsvGradeImport extends GradeImport  <span class="c">// Concrete class: only the 2 steps</span></span>
+{
+    protected function read(string $source): array
+    {
+        $lines = array_filter(explode(&quot;\n&quot;, trim($source)));
+
+        return array_map(fn (string $line): array =&gt; str_getcsv($line, ',', '&quot;', ''), $lines);
+    }
+
+    protected function map(array $raw): array
+    {
+        return ['student' =&gt; (string) $raw[0], 'score' =&gt; (int) $raw[2]];   <span class="c">// System A: score is column 3</span>
+    }
+}
+
+<span class="h">final class JsonGradeImport extends GradeImport  <span class="c">// Concrete class</span></span>
+{
+    protected function read(string $source): array
+    {
+        return json_decode($source, true, 8, JSON_THROW_ON_ERROR);
+    }
+
+    protected function map(array $raw): array
+    {
+        return ['student' =&gt; (string) $raw['name'], 'score' =&gt; (int) $raw['mark']];   <span class="c">// System B: other names</span>
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$store = new GradeStore();
+
+(new CsvGradeImport($store))-&gt;import(&quot;S-1,Math,88\nS-2,Math,74&quot;);
+(new JsonGradeImport($store))-&gt;import('[{&quot;name&quot;:&quot;S-3&quot;,&quot;mark&quot;:91}]');
+
+try {
+    (new CsvGradeImport($store))-&gt;import('S-4,Math,140');
+} catch (InvalidImport $e) {
+    echo 'Rejected: ', $e-&gt;getMessage(), PHP_EOL;              <span class="c">// validation could not be skipped</span>
+}
+
+echo 'Stored rows: ', count($store-&gt;rows), PHP_EOL;</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/template.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/template.php" data-umami-event="View example" data-umami-event-pattern="template">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>CsvGradeImport imported 2 rows
+JsonGradeImport imported 1 rows
+Rejected: Row 0: score must be 0-100, got 140.
+Stored rows: 3</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>abstract class GradeImport
 {
 <span class="h">    final public function import(string $path): int  <span class="c">// the locked recipe</span></span>
     {
@@ -102,7 +207,7 @@ final class SystemAImport extends GradeImport
     protected function read(string $path): array { return array_map('str_getcsv', file($path)); }
     protected function map(array $row): array    { return ['student_id' =&gt; $row[0], 'score' =&gt; $row[2]]; }
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> FormRequest: ValidatesWhenResolvedTrait::validateResolved() always runs prepareForValidation() → authorize → build validator → fail or passedValidation(), in that order. You only fill in rules() and authorize(), and may override the hooks.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel FormRequest (you fill rules(), authorize())</span><span>Base Command / Job classes</span><span>PHPUnit setUp() / tearDown()</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -113,6 +218,6 @@ final class SystemAImport extends GradeImport
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

@@ -1,0 +1,4 @@
+Local:
+  [memory queue] report 42 ready at /tmp/report-42.pdf
+Cloud:
+  [remote queue] report 43 ready at https://school-reports.storage.example.com/report-43.pdf

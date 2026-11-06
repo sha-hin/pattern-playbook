@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Event Dispatcher Pattern in PHP & Laravel, with Real Code","description":"Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…","url":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Event Dispatcher design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Event Dispatcher","item":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Event Dispatcher Pattern in PHP & Laravel, with Real Code","description":"Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…","url":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Event Dispatcher design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Event Dispatcher pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/event-dispatcher.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Event Dispatcher","item":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/"}]}]}</script>
 </head>
 <body data-page="event-dispatcher" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -78,7 +78,90 @@
 
 $orders-&gt;subscribe($billing);                         <span class="c">// Billing must know every sender</span>
 $payments-&gt;subscribe($billing);</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Event Dispatcher pattern in PHP</h2><pre><code>final class EventDispatcher
+  <section class="scratch" aria-labelledby="build-event-dispatcher">
+    <h2 class="g" id="build-event-dispatcher">Build it yourself: the full Event Dispatcher pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Event Dispatcher">
+      <div class="role" role="row"><span role="rowheader">Dispatcher</span><span role="cell"><code>EventDispatcher</code> <small>the one shared middleman</small></span></div><div class="role" role="row"><span role="rowheader">Events</span><span role="cell"><code>OrderPlaced, PaymentReceived</code> <small>small data classes</small></span></div><div class="role" role="row"><span role="rowheader">Listeners</span><span role="cell"><code>callables registered per event class</code></span></div><div class="role" role="row"><span role="rowheader">Senders</span><span role="cell"><code>OrderService, PaymentService</code> <small>know only the dispatcher</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">final class OrderPlaced  <span class="c">// Event: just data</span></span>
+{
+    public function __construct(public readonly int $orderId, public readonly int $totalInPiastres) {}
+}
+
+<span class="h">final class PaymentReceived  <span class="c">// Event: just data</span></span>
+{
+    public function __construct(public readonly int $orderId, public readonly int $amountInPiastres) {}
+}
+
+<span class="h">final class EventDispatcher  <span class="c">// Dispatcher: the middleman</span></span>
+{
+    /** @var array&lt;class-string, list&lt;callable(object): void&gt;&gt; */
+    private array $listeners = [];
+
+    /** @param class-string $eventClass */
+<span class="h">    public function listen(string $eventClass, callable $listener): void  <span class="c">// register by event TYPE</span></span>
+    {
+        $this-&gt;listeners[$eventClass][] = $listener;
+    }
+
+<span class="h">    public function dispatch(object $event): void  <span class="c">// one door for every sender</span></span>
+    {
+        foreach ($this-&gt;listeners[$event::class] ?? [] as $listener) {
+            $listener($event);                                  <span class="c">// errors are not swallowed</span>
+        }
+    }
+}
+
+<span class="h">final class OrderService  <span class="c">// Sender: knows only the dispatcher</span></span>
+{
+    public function __construct(private readonly EventDispatcher $events) {}
+
+    public function place(int $orderId, int $total): void
+    {
+        <span class="c">// ... save the order ...</span>
+        $this-&gt;events-&gt;dispatch(new OrderPlaced($orderId, $total));
+    }
+}
+
+<span class="h">final class PaymentService  <span class="c">// Sender</span></span>
+{
+    public function __construct(private readonly EventDispatcher $events) {}
+
+    public function receive(int $orderId, int $amount): void
+    {
+        <span class="c">// ... record the payment ...</span>
+        $this-&gt;events-&gt;dispatch(new PaymentReceived($orderId, $amount));
+    }
+}
+
+<span class="c">// ── Wiring: listeners never reference the senders ───────────────────────</span>
+$events = new EventDispatcher();
+
+$events-&gt;listen(OrderPlaced::class, fn (OrderPlaced $e) =&gt; print(&quot;Kitchen: start order #{$e-&gt;orderId}&quot; . PHP_EOL));
+$events-&gt;listen(PaymentReceived::class, fn (PaymentReceived $e) =&gt; print(&quot;Billing: mark order #{$e-&gt;orderId} paid&quot; . PHP_EOL));
+
+<span class="c">// Analytics listens to BOTH senders without knowing either of them:</span>
+$track = fn (object $e) =&gt; print('Analytics: ' . (new ReflectionClass($e))-&gt;getShortName() . PHP_EOL);
+$events-&gt;listen(OrderPlaced::class, $track);
+$events-&gt;listen(PaymentReceived::class, $track);
+
+(new OrderService($events))-&gt;place(12, 15750);
+(new PaymentService($events))-&gt;receive(12, 15750);</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/event-dispatcher.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/event-dispatcher.php" data-umami-event="View example" data-umami-event-pattern="event-dispatcher">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Kitchen: start order #12
+Analytics: OrderPlaced
+Billing: mark order #12 paid
+Analytics: PaymentReceived</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class EventDispatcher
 {
     /** @var array&lt;class-string, list&lt;string|callable&gt;&gt; */
     private array $listeners = [];
@@ -113,7 +196,7 @@ $events-&gt;dispatch(new PaymentReceived($invoice-&gt;id, $amount));
 <span class="c">// Listeners never see PaymentService:</span>
 $events-&gt;listen(PaymentReceived::class, MarkInvoicePaid::class);
 $events-&gt;listen(PaymentReceived::class, SendReceipt::class);</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Events\Dispatcher: listen() stores listeners keyed by event class, dispatch() finds them, builds class listeners through the container, and pushes listeners that implement ShouldQueue onto the queue instead of running them now.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel event() + Event::listen()</span><span>Symfony EventDispatcher</span><span>PSR-14</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -124,6 +207,6 @@ $events-&gt;listen(PaymentReceived::class, SendReceipt::class);</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

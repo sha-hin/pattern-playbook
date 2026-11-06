@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Adapter Pattern in PHP & Laravel, with Real Code","description":"Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…","url":"https://sha-hin.github.io/pattern-playbook/adapter/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/adapter/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Adapter","item":"https://sha-hin.github.io/pattern-playbook/adapter/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Adapter Pattern in PHP & Laravel, with Real Code","description":"Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…","url":"https://sha-hin.github.io/pattern-playbook/adapter/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/adapter/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Adapter pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Adapter","item":"https://sha-hin.github.io/pattern-playbook/adapter/"}]}]}</script>
 </head>
 <body data-page="adapter" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -72,7 +72,98 @@
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in 12 different controllers and jobs:</span>
 $twilio = new \Twilio\Rest\Client(config('services.twilio.sid'), config('services.twilio.token'));
 $twilio-&gt;messages-&gt;create($phone, ['from' =&gt; '+1555...', 'body' =&gt; $text]);</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Adapter pattern in PHP</h2><pre><code>interface SmsSender                                  <span class="c">// YOUR shape</span>
+  <section class="scratch" aria-labelledby="build-adapter">
+    <h2 class="g" id="build-adapter">Build it yourself: the full Adapter pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Adapter">
+      <div class="role" role="row"><span role="rowheader">Target</span><span role="cell"><code>SmsSender</code> <small>the interface YOUR code wants</small></span></div><div class="role" role="row"><span role="rowheader">Adaptee</span><span role="cell"><code>AcmeSmsClient</code> <small>a third-party class with the wrong shape, which you cannot edit</small></span></div><div class="role" role="row"><span role="rowheader">Adapter</span><span role="cell"><code>AcmeSmsAdapter</code> <small>implements the Target, holds the Adaptee, translates between them</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>OrderNotifier</code> <small>only knows the Target</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="c">// ── Third-party code (pretend it came from Composer). You cannot change it. ──</span>
+<span class="h">final class AcmeSmsClient  <span class="c">// Adaptee</span></span>
+{
+    /**
+     * @param array{msisdn: string, text: string} $payload
+     * @return array{status: string, id?: string, error?: string}
+     */
+    public function dispatch(array $payload): array
+    {
+        if (preg_match('/^\+\d{8,15}$/', $payload['msisdn']) !== 1) {
+            return ['status' =&gt; 'rejected', 'error' =&gt; 'invalid msisdn'];
+        }
+
+        return ['status' =&gt; 'queued', 'id' =&gt; 'acme_' . substr(md5($payload['text']), 0, 8)];
+    }
+}
+
+<span class="c">// ── Your code ───────────────────────────────────────────────────────────</span>
+<span class="h">interface SmsSender  <span class="c">// Target</span></span>
+{
+    /** @return string the provider's message id */
+    public function send(string $phone, string $text): string;
+}
+
+final class SmsFailed extends RuntimeException {}
+
+<span class="h">final class AcmeSmsAdapter implements SmsSender  <span class="c">// Adapter: the Target outside...</span></span>
+{
+<span class="h">    public function __construct(private readonly AcmeSmsClient $client) {}  <span class="c">// ...the Adaptee inside</span></span>
+
+    public function send(string $phone, string $text): string
+    {
+<span class="h">        $result = $this-&gt;client-&gt;dispatch([  <span class="c">// translate the call</span></span>
+            'msisdn' =&gt; $this-&gt;toInternational($phone),
+            'text'   =&gt; $text,
+        ]);
+
+<span class="h">        if ($result['status'] !== 'queued') {  <span class="c">// translate a status array into an exception</span></span>
+            throw new SmsFailed(&quot;SMS to {$phone} failed: &quot; . ($result['error'] ?? $result['status']));
+        }
+
+        return $result['id'] ?? throw new SmsFailed('Provider accepted the SMS but returned no id.');
+    }
+
+    private function toInternational(string $phone): string    <span class="c">// Egyptian &quot;010...&quot; becomes &quot;+2010...&quot;</span>
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        return str_starts_with($digits, '0') ? '+2' . $digits : '+' . $digits;
+    }
+}
+
+<span class="h">final class OrderNotifier  <span class="c">// Client: knows only the Target</span></span>
+{
+    public function __construct(private readonly SmsSender $sms) {}
+
+    public function orderReady(string $phone, int $orderId): string
+    {
+        return $this-&gt;sms-&gt;send($phone, &quot;Order #{$orderId} is ready.&quot;);
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$notifier = new OrderNotifier(new AcmeSmsAdapter(new AcmeSmsClient()));
+
+echo 'Sent, id: ', $notifier-&gt;orderReady('0100 123 4567', 42), PHP_EOL;
+
+try {
+    $notifier-&gt;orderReady('12', 43);
+} catch (SmsFailed $e) {
+    echo $e-&gt;getMessage(), PHP_EOL;
+}
+
+<span class="c">// Switching provider = one new adapter class. OrderNotifier never changes.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/adapter.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php" data-umami-event="View example" data-umami-event-pattern="adapter">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Sent, id: acme_78ea98fb
+SMS to 12 failed: invalid msisdn</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>interface SmsSender                                  <span class="c">// YOUR shape</span>
 {
     public function send(string $to, string $text): void;
 }
@@ -106,7 +197,7 @@ $this-&gt;app-&gt;bind(SmsSender::class, fn () =&gt; new TwilioSmsSender(
 <span class="c">// Everywhere else:</span>
 public function __construct(private SmsSender $sms) {}
 $this-&gt;sms-&gt;send($user-&gt;phone, 'Your report is ready.');</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Storage::put() works on S3, local disk or FTP because of adapters. Each Flysystem adapter (AwsS3V3Adapter, LocalFilesystemAdapter...) translates one storage SDK into Flysystem's interface, and Laravel's own Illuminate\Filesystem\FilesystemAdapter adapts Flysystem to Laravel's Filesystem contract.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Storage over Flysystem adapters (S3, local, FTP)</span><span>Mail transports</span><span>Your own payment / SMS gateways</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -117,6 +208,6 @@ $this-&gt;sms-&gt;send($user-&gt;phone, 'Your report is ready.');</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

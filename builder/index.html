@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Builder Pattern in PHP & Laravel, with Real Code","description":"Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…","url":"https://sha-hin.github.io/pattern-playbook/builder/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/builder/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Builder","item":"https://sha-hin.github.io/pattern-playbook/builder/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Builder Pattern in PHP & Laravel, with Real Code","description":"Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…","url":"https://sha-hin.github.io/pattern-playbook/builder/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/builder/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Builder pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/builder.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Builder","item":"https://sha-hin.github.io/pattern-playbook/builder/"}]}]}</script>
 </head>
 <body data-page="builder" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -71,7 +71,145 @@
   </div>
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$search = new EvaluationSearch(12, null, null, ['math'], null, 25, true);
 <span class="c">// which argument is &quot;from&quot;? which is &quot;to&quot;? is from &lt; to? nobody checks</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Builder pattern in PHP</h2><pre><code>final class EvaluationSearchBuilder
+  <section class="scratch" aria-labelledby="build-builder">
+    <h2 class="g" id="build-builder">Build it yourself: the full Builder pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Builder">
+      <div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>EvaluationSearch</code> <small>readonly; can never exist in an invalid state</small></span></div><div class="role" role="row"><span role="rowheader">Builder</span><span role="cell"><code>EvaluationSearchBuilder</code> <small>collects parts step by step, checks everything in build()</small></span></div><div class="role" role="row"><span role="rowheader">Director</span><span role="cell"><code>SearchPresets</code> <small>runs a fixed recipe of builder steps, so it is not repeated</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>any code that needs a search</code></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">final class EvaluationSearch  <span class="c">// Product: readonly, built once</span></span>
+{
+    /** @param list&lt;string&gt; $subjects */
+    public function __construct(
+        public readonly ?int $schoolId,
+        public readonly array $subjects,
+        public readonly ?string $from,
+        public readonly ?string $to,
+        public readonly int $perPage,
+    ) {}
+
+    /** @return array{0: string, 1: list&lt;int|string&gt;} SQL and its bindings */
+    public function toSql(): array
+    {
+        $where = [];
+        $bindings = [];
+
+        if ($this-&gt;schoolId !== null) {
+            $where[] = 'school_id = ?';
+            $bindings[] = $this-&gt;schoolId;
+        }
+        if ($this-&gt;subjects !== []) {
+            $where[] = 'subject IN (' . implode(', ', array_fill(0, count($this-&gt;subjects), '?')) . ')';
+            array_push($bindings, ...$this-&gt;subjects);
+        }
+        if ($this-&gt;from !== null) {
+            $where[] = 'submitted_on BETWEEN ? AND ?';
+            array_push($bindings, $this-&gt;from, $this-&gt;to);
+        }
+
+        $sql = 'SELECT * FROM evaluations'
+            . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where))
+            . ' ORDER BY id LIMIT ' . $this-&gt;perPage;
+
+        return [$sql, $bindings];
+    }
+}
+
+<span class="h">final class EvaluationSearchBuilder  <span class="c">// Builder</span></span>
+{
+    private ?int $schoolId = null;
+    /** @var list&lt;string&gt; */
+    private array $subjects = [];
+    private ?string $from = null;
+    private ?string $to = null;
+    private int $perPage = 25;
+
+<span class="h">    public function school(int $id): self  <span class="c">// each step sets one part...</span></span>
+    {
+        $this-&gt;schoolId = $id;
+
+<span class="h">        return $this;  <span class="c">// ...and returns $this for chaining</span></span>
+    }
+
+    public function subjects(string ...$subjects): self
+    {
+        $this-&gt;subjects = array_values($subjects);
+
+        return $this;
+    }
+
+    public function between(string $from, string $to): self
+    {
+        $this-&gt;from = $from;
+        $this-&gt;to = $to;
+
+        return $this;
+    }
+
+    public function perPage(int $perPage): self
+    {
+        $this-&gt;perPage = $perPage;
+
+        return $this;
+    }
+
+<span class="h">    public function build(): EvaluationSearch  <span class="c">// the one gate: rules that need several parts</span></span>
+    {
+        foreach ([$this-&gt;from, $this-&gt;to] as $date) {
+            if ($date !== null &amp;&amp; DateTimeImmutable::createFromFormat('!Y-m-d', $date) === false) {
+                throw new InvalidArgumentException(&quot;Invalid date [{$date}], use YYYY-MM-DD.&quot;);
+            }
+        }
+        if ($this-&gt;from !== null &amp;&amp; $this-&gt;from &gt; $this-&gt;to) {
+            throw new InvalidArgumentException('&quot;from&quot; must be before &quot;to&quot;.');
+        }
+        if ($this-&gt;perPage &lt; 1 || $this-&gt;perPage &gt; 100) {
+            throw new InvalidArgumentException('perPage must be between 1 and 100.');
+        }
+
+        return new EvaluationSearch($this-&gt;schoolId, $this-&gt;subjects, $this-&gt;from, $this-&gt;to, $this-&gt;perPage);
+    }
+}
+
+<span class="h">final class SearchPresets  <span class="c">// Director: a reusable recipe</span></span>
+{
+    public static function thisTermForSchool(EvaluationSearchBuilder $builder, int $schoolId): EvaluationSearch
+    {
+        return $builder-&gt;school($schoolId)-&gt;between('2026-09-01', '2027-01-31')-&gt;perPage(50)-&gt;build();
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$search = (new EvaluationSearchBuilder())                       <span class="c">// steps in any order</span>
+    -&gt;subjects('math', 'science')
+    -&gt;school(12)
+    -&gt;between('2026-09-01', '2026-10-31')
+    -&gt;build();
+
+[$sql, $bindings] = $search-&gt;toSql();
+echo $sql, PHP_EOL, json_encode($bindings), PHP_EOL;
+
+echo SearchPresets::thisTermForSchool(new EvaluationSearchBuilder(), 7)-&gt;toSql()[0], PHP_EOL;
+
+try {
+    (new EvaluationSearchBuilder())-&gt;between('2026-10-31', '2026-09-01')-&gt;build();
+} catch (InvalidArgumentException $e) {
+    echo 'Refused: ', $e-&gt;getMessage(), PHP_EOL;
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/builder.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/builder.php" data-umami-event="View example" data-umami-event-pattern="builder">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>SELECT * FROM evaluations WHERE school_id = ? AND subject IN (?, ?) AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 25
+[12,&quot;math&quot;,&quot;science&quot;,&quot;2026-09-01&quot;,&quot;2026-10-31&quot;]
+SELECT * FROM evaluations WHERE school_id = ? AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 50
+Refused: &quot;from&quot; must be before &quot;to&quot;.</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class EvaluationSearchBuilder
 {
     private ?int $schoolId = null;
     private array $subjects = [];
@@ -104,7 +242,7 @@
     -&gt;subjects('math', 'science')
     -&gt;between('2026-09-01', '2026-10-31')
     -&gt;build();</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The query builder: Illuminate\Database\Query\Builder only collects parts (wheres, orders, limit, bindings). Nothing touches the database until get(), which asks the Grammar (compileSelect) to turn those parts into one SQL string with bindings.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Query Builder (-&gt;where()-&gt;get())</span><span>MailMessage (-&gt;line()-&gt;action())</span><span>Http::withToken()-&gt;timeout()-&gt;post()</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -115,6 +253,6 @@
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

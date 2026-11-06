@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Observer Pattern in PHP & Laravel, with Real Code","description":"Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…","url":"https://sha-hin.github.io/pattern-playbook/observer/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/observer/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Observer design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Observer","item":"https://sha-hin.github.io/pattern-playbook/observer/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Observer Pattern in PHP & Laravel, with Real Code","description":"Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…","url":"https://sha-hin.github.io/pattern-playbook/observer/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/observer/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Observer design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Observer pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Observer","item":"https://sha-hin.github.io/pattern-playbook/observer/"}]}]}</script>
 </head>
 <body data-page="observer" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -78,7 +78,108 @@
     $this-&gt;analytics-&gt;track('signup', $user-&gt;id); <span class="c">// + 2 more next month</span>
     return $user;
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Observer pattern in PHP</h2><pre><code>final class UserRegistered                                 <span class="c">// the event: just data</span>
+  <section class="scratch" aria-labelledby="build-observer">
+    <h2 class="g" id="build-observer">Build it yourself: the full Observer pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Observer">
+      <div class="role" role="row"><span role="rowheader">Subject</span><span role="cell"><code>Registration</code> <small>keeps a list of observers and notifies them</small></span></div><div class="role" role="row"><span role="rowheader">Observer</span><span role="cell"><code>RegistrationObserver</code> <small>the interface every reaction signs</small></span></div><div class="role" role="row"><span role="rowheader">Concrete observers</span><span role="cell"><code>SendWelcomeEmail, StartFreeTrial, SyncToCrm</code></span></div>
+    </div>
+    <p class="rolenote">PHP has the same two interfaces built in: SplSubject and SplObserver.</p>
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+final class User
+{
+    public function __construct(public readonly int $id, public readonly string $email) {}
+}
+
+<span class="h">interface RegistrationObserver  <span class="c">// Observer</span></span>
+{
+    public function userRegistered(User $user): void;
+}
+
+<span class="h">final class Registration  <span class="c">// Subject</span></span>
+{
+    /** @var array&lt;int, RegistrationObserver&gt; */
+    private array $observers = [];
+
+    private int $nextId = 1;
+
+    /** @param Closure(string): void $report  where failed reactions are reported (a logger) */
+    public function __construct(private readonly Closure $report) {}
+
+<span class="h">    public function attach(RegistrationObserver $observer): void  <span class="c">// subscribe</span></span>
+    {
+        $this-&gt;observers[spl_object_id($observer)] = $observer;
+    }
+
+<span class="h">    public function detach(RegistrationObserver $observer): void  <span class="c">// unsubscribe</span></span>
+    {
+        unset($this-&gt;observers[spl_object_id($observer)]);
+    }
+
+    public function register(string $email): User
+    {
+        $user = new User($this-&gt;nextId++, $email);              <span class="c">// the real work</span>
+        $this-&gt;notify($user);
+
+        return $user;
+    }
+
+    private function notify(User $user): void
+    {
+        foreach ($this-&gt;observers as $observer) {
+            try {
+<span class="h">                $observer-&gt;userRegistered($user);  <span class="c">// ring the bell; don't care who listens</span></span>
+            } catch (Throwable $e) {
+                <span class="c">// One broken reaction must not undo the registration or stop the others,</span>
+                <span class="c">// but it must never be silent either.</span>
+                ($this-&gt;report)($observer::class . ' failed for user ' . $user-&gt;id . ': ' . $e-&gt;getMessage());
+            }
+        }
+    }
+}
+
+final class SendWelcomeEmail implements RegistrationObserver    <span class="c">// Concrete observer</span>
+{
+    public function userRegistered(User $user): void
+    {
+        echo &quot;Welcome email sent to {$user-&gt;email}&quot;, PHP_EOL;
+    }
+}
+
+final class StartFreeTrial implements RegistrationObserver      <span class="c">// Concrete observer</span>
+{
+    public function userRegistered(User $user): void
+    {
+        echo &quot;14-day trial started for user {$user-&gt;id}&quot;, PHP_EOL;
+    }
+}
+
+final class SyncToCrm implements RegistrationObserver           <span class="c">// Concrete observer (broken today)</span>
+{
+    public function userRegistered(User $user): void
+    {
+        throw new RuntimeException('CRM API timed out');
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$registration = new Registration(fn (string $error) =&gt; print(&quot;[error log] {$error}&quot; . PHP_EOL));
+$registration-&gt;attach(new SendWelcomeEmail());
+$registration-&gt;attach(new SyncToCrm());
+$registration-&gt;attach(new StartFreeTrial());                    <span class="c">// a new reaction = attach one more</span>
+
+$registration-&gt;register('ali@example.com');</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/observer.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php" data-umami-event="View example" data-umami-event-pattern="observer">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Welcome email sent to ali@example.com
+[error log] SyncToCrm failed for user 1: CRM API timed out
+14-day trial started for user 1</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>final class UserRegistered                                 <span class="c">// the event: just data</span>
 {
     public function __construct(public readonly int $userId) {}
 }
@@ -107,7 +208,7 @@ public function register(array $data): User
 Event::listen(UserRegistered::class, SendWelcomeEmail::class);
 Event::listen(UserRegistered::class, StartFreeTrial::class);
 Event::listen(UserRegistered::class, SyncToCrm::class);</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Eloquent model observers: User::observe(UserObserver::class) attaches an object whose created(), updated()... methods run when the model fires those events. Under the hood Laravel registers them on its event dispatcher (see the Event Dispatcher card).</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel events + listeners</span><span>Eloquent model observers (created, updated)</span><span>Webhooks</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -118,6 +219,6 @@ Event::listen(UserRegistered::class, SyncToCrm::class);</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

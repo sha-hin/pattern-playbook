@@ -1,0 +1,3 @@
+Margherita, Pepperoni
+Same object? true
+After swap: NULL

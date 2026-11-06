@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Strategy Pattern in PHP & Laravel, with Real Code","description":"Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.","url":"https://sha-hin.github.io/pattern-playbook/strategy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/strategy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Strategy design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Strategy","item":"https://sha-hin.github.io/pattern-playbook/strategy/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Strategy Pattern in PHP & Laravel, with Real Code","description":"Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.","url":"https://sha-hin.github.io/pattern-playbook/strategy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/strategy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Strategy design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Strategy pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/strategy.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Strategy","item":"https://sha-hin.github.io/pattern-playbook/strategy/"}]}]}</script>
 </head>
 <body data-page="strategy" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -77,7 +77,91 @@
         case 'pdf':   /* 50 lines */ break;   <span class="c">// JSON next month = edit this again</span>
     }
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Strategy pattern in PHP</h2><pre><code>interface Exporter
+  <section class="scratch" aria-labelledby="build-strategy">
+    <h2 class="g" id="build-strategy">Build it yourself: the full Strategy pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Strategy">
+      <div class="role" role="row"><span role="rowheader">Strategy</span><span role="cell"><code>Exporter</code> <small>the interface every way of doing the job signs</small></span></div><div class="role" role="row"><span role="rowheader">Concrete strategies</span><span role="cell"><code>CsvExporter, JsonExporter</code> <small>one class per way</small></span></div><div class="role" role="row"><span role="rowheader">Context</span><span role="cell"><code>ReportService</code> <small>uses whichever strategy it is given, never asks which</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface Exporter  <span class="c">// Strategy: one contract for every way</span></span>
+{
+    /** @param list&lt;array&lt;string, scalar&gt;&gt; $rows */
+    public function export(array $rows): string;
+}
+
+<span class="h">final class CsvExporter implements Exporter  <span class="c">// Concrete strategy #1</span></span>
+{
+    public function export(array $rows): string
+    {
+        if ($rows === []) {
+            return '';
+        }
+
+        $out = fopen('php://temp', 'r+') ?: throw new RuntimeException('Cannot open a memory stream.');
+        fputcsv($out, array_keys($rows[0]), ',', '&quot;', '');
+        foreach ($rows as $row) {
+            fputcsv($out, array_values($row), ',', '&quot;', '');
+        }
+        rewind($out);
+        $csv = (string) stream_get_contents($out);
+        fclose($out);
+
+        return $csv;
+    }
+}
+
+<span class="h">final class JsonExporter implements Exporter  <span class="c">// Concrete strategy #2</span></span>
+{
+    public function export(array $rows): string
+    {
+        return json_encode($rows, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL;
+    }
+}
+
+<span class="h">final class ReportService  <span class="c">// Context</span></span>
+{
+    /** @param list&lt;array&lt;string, scalar&gt;&gt; $rows */
+    public function __construct(private readonly array $rows) {}
+
+<span class="h">    public function export(Exporter $exporter): string  <span class="c">// accepts ANY strategy</span></span>
+    {
+<span class="h">        return $exporter-&gt;export($this-&gt;rows);  <span class="c">// never checks which one it got</span></span>
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$report = new ReportService([
+    ['school' =&gt; 'Smouha', 'average' =&gt; 81],
+    ['school' =&gt; 'Miami', 'average' =&gt; 77],
+]);
+
+echo $report-&gt;export(new CsvExporter());
+echo $report-&gt;export(new JsonExporter());
+
+<span class="c">// Adding XML later = one new class that implements Exporter. ReportService never changes.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/strategy.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/strategy.php" data-umami-event="View example" data-umami-event-pattern="strategy">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>school,average
+Smouha,81
+Miami,77
+[
+    {
+        &quot;school&quot;: &quot;Smouha&quot;,
+        &quot;average&quot;: 81
+    },
+    {
+        &quot;school&quot;: &quot;Miami&quot;,
+        &quot;average&quot;: 77
+    }
+]</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>interface Exporter
 {
     public function export(iterable $rows): string;   <span class="c">// returns the file path</span>
     public function extension(): string;
@@ -121,7 +205,7 @@ $service-&gt;export(new InMemoryExporter());
 
 <span class="c">// Note what is NOT here: deciding which exporter matches the user's &quot;pdf&quot; string.</span>
 <span class="c">// That is a different job, with its own pattern: see Simple Factory.</span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Hashing is built this way. Illuminate\Contracts\Hashing\Hasher is the Strategy interface, BcryptHasher and ArgonHasher are the concrete strategies, and your code only ever calls make() and check() on the interface. Which one runs is decided by config('hashing.driver').</p></div>
   <div class="vsbox"><h2>Don't confuse it with <a href="../simple-factory/" data-umami-event="Open pattern" data-umami-event-pattern="simple-factory" data-umami-event-from="compare">Simple Factory</a></h2>
     <div class="vstable" role="table" aria-label="Strategy compared with Simple Factory">
       <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Strategy</span><span role="columnheader">Simple Factory</span></div>
@@ -136,6 +220,6 @@ $service-&gt;export(new InMemoryExporter());
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

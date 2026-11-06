@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Factory Method Pattern in PHP & Laravel, with Real Code","description":"Factory Method explained for PHP and Laravel developers. A parent class runs a process that needs an object, but each child needs a different one - leave a…","url":"https://sha-hin.github.io/pattern-playbook/factory-method/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/factory-method/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Factory Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Factory Method","item":"https://sha-hin.github.io/pattern-playbook/factory-method/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Factory Method Pattern in PHP & Laravel, with Real Code","description":"Factory Method explained for PHP and Laravel developers. A parent class runs a process that needs an object, but each child needs a different one - leave a…","url":"https://sha-hin.github.io/pattern-playbook/factory-method/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/factory-method/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Factory Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Factory Method pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/factory-method.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Factory Method","item":"https://sha-hin.github.io/pattern-playbook/factory-method/"}]}]}</script>
 </head>
 <body data-page="factory-method" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -80,7 +80,114 @@
         foreach ($reader as $row) { /* save */ }
     }
 }</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Factory Method pattern in PHP</h2><pre><code>abstract class StudentImport
+  <section class="scratch" aria-labelledby="build-factory-method">
+    <h2 class="g" id="build-factory-method">Build it yourself: the full Factory Method pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Factory Method">
+      <div class="role" role="row"><span role="rowheader">Creator</span><span role="cell"><code>StudentImport</code> <small>runs the process; leaves createReader() to its children</small></span></div><div class="role" role="row"><span role="rowheader">Factory method</span><span role="cell"><code>createReader</code> <small>) (abstract: &quot;give me a reader, I don't care which&quot;</small></span></div><div class="role" role="row"><span role="rowheader">Concrete creators</span><span role="cell"><code>CsvStudentImport, JsonLinesStudentImport</code> <small>each decides which reader</small></span></div><div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>RowReader; Concrete products: CsvRowReader, JsonLinesRowReader</code></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface RowReader  <span class="c">// Product</span></span>
+{
+    /** @return iterable&lt;array{code: string, name: string}&gt; */
+    public function rows(): iterable;
+}
+
+final class CsvRowReader implements RowReader                   <span class="c">// Concrete product</span>
+{
+    public function __construct(private readonly string $path) {}
+
+    public function rows(): iterable
+    {
+        $file = new SplFileObject($this-&gt;path);
+        $file-&gt;setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::READ_AHEAD);
+        $file-&gt;setCsvControl(',', '&quot;', '');
+        foreach ($file as $cells) {
+            yield ['code' =&gt; (string) $cells[0], 'name' =&gt; (string) $cells[1]];
+        }
+    }
+}
+
+final class JsonLinesRowReader implements RowReader            <span class="c">// Concrete product</span>
+{
+    public function __construct(private readonly string $path) {}
+
+    public function rows(): iterable
+    {
+        foreach (new SplFileObject($this-&gt;path) as $line) {
+            if (trim((string) $line) === '') {
+                continue;
+            }
+            $row = json_decode((string) $line, true, 4, JSON_THROW_ON_ERROR);
+            yield ['code' =&gt; (string) $row['code'], 'name' =&gt; (string) $row['full_name']];
+        }
+    }
+}
+
+<span class="h">abstract class StudentImport  <span class="c">// Creator</span></span>
+{
+    /** @var array&lt;string, string&gt; */
+    public array $students = [];
+
+    final public function run(string $path): int                <span class="c">// the process: same for every format</span>
+    {
+        $count = 0;
+<span class="h">        foreach ($this-&gt;createReader($path)-&gt;rows() as $row) {  <span class="c">// &quot;give me a reader&quot;, don't care which</span></span>
+            $this-&gt;students[$row['code']] = $row['name'];
+            $count++;
+        }
+
+        return $count;
+    }
+
+<span class="h">    abstract protected function createReader(string $path): RowReader;  <span class="c">// the factory method</span></span>
+}
+
+<span class="h">final class CsvStudentImport extends StudentImport  <span class="c">// Concrete creator</span></span>
+{
+    protected function createReader(string $path): RowReader
+    {
+<span class="h">        return new CsvRowReader($path);  <span class="c">// the child decides</span></span>
+    }
+}
+
+<span class="h">final class JsonLinesStudentImport extends StudentImport  <span class="c">// Concrete creator</span></span>
+{
+    protected function createReader(string $path): RowReader
+    {
+        return new JsonLinesRowReader($path);
+    }
+}
+
+<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
+$csv = tempnam(sys_get_temp_dir(), 'students');
+$jsonl = tempnam(sys_get_temp_dir(), 'students');
+file_put_contents($csv, &quot;S-1,Mona Adel\nS-2,Omar Said\n&quot;);
+file_put_contents($jsonl, &quot;{\&quot;code\&quot;:\&quot;S-3\&quot;,\&quot;full_name\&quot;:\&quot;Laila Hassan\&quot;}\n&quot;);
+
+$fromCsv = new CsvStudentImport();
+echo 'CSV imported: ', $fromCsv-&gt;run($csv), PHP_EOL;
+
+$fromJson = new JsonLinesStudentImport();
+echo 'JSONL imported: ', $fromJson-&gt;run($jsonl), PHP_EOL;
+
+echo implode(', ', [...$fromCsv-&gt;students, ...$fromJson-&gt;students]), PHP_EOL;
+
+unlink($csv);
+unlink($jsonl);
+<span class="c">// A new format = one new creator + one new reader. StudentImport::run() never changes.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/factory-method.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/factory-method.php" data-umami-event="View example" data-umami-event-pattern="factory-method">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>CSV imported: 2
+JSONL imported: 1
+Mona Adel, Omar Said, Laila Hassan</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>abstract class StudentImport
 {
     final public function run(string $path): int             <span class="c">// the process: same for every format</span>
     {
@@ -110,7 +217,7 @@ final class XlsxStudentImport extends StudentImport
         return new XlsxRowReader($path);
     }
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Support\Manager: its driver() method runs the process (pick, build once, reuse) and calls create{Name}Driver(), a factory method that each child supplies: CacheManager::createRedisDriver(), createFileDriver(), and so on.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Manager: createRedisDriver(), createFileDriver()</span><span>Notification::toMail() returns your MailMessage</span><span>Test factories</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -121,6 +228,6 @@ final class XlsxStudentImport extends StudentImport
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

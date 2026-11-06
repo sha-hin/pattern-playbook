@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Prototype Pattern in PHP & Laravel, with Real Code","description":"Prototype explained for PHP and Laravel developers. You need \"the same as this one, with small changes\" - copy an existing object, deep-copy what it owns…","url":"https://sha-hin.github.io/pattern-playbook/prototype/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/prototype/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Prototype design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Prototype","item":"https://sha-hin.github.io/pattern-playbook/prototype/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Prototype Pattern in PHP & Laravel, with Real Code","description":"Prototype explained for PHP and Laravel developers. You need \"the same as this one, with small changes\" - copy an existing object, deep-copy what it owns…","url":"https://sha-hin.github.io/pattern-playbook/prototype/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/prototype/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Prototype design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Prototype pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/prototype.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Prototype","item":"https://sha-hin.github.io/pattern-playbook/prototype/"}]}]}</script>
 </head>
 <body data-page="prototype" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -73,7 +73,76 @@
 $copy-&gt;save();
 <span class="c">// $copy has NO questions: replicate() copies the row only.</span>
 <span class="c">// Or worse: pointing the copy at the same question rows → editing one edits both.</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Prototype pattern in PHP</h2><pre><code>public function duplicate(Survey $original, string $newTitle): Survey
+  <section class="scratch" aria-labelledby="build-prototype">
+    <h2 class="g" id="build-prototype">Build it yourself: the full Prototype pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Prototype">
+      <div class="role" role="row"><span role="rowheader">Prototype</span><span role="cell"><code>Survey</code> <small>an existing object you copy instead of building from scratch</small></span></div><div class="role" role="row"><span role="rowheader">Cloning</span><span role="cell"><code>PHP's clone keyword</code> <small>copies the object, but objects inside it stay SHARED</small></span></div><div class="role" role="row"><span role="rowheader">Deep copy</span><span role="cell"><code>__clone</code> <small>) (runs on the new copy; clones what the copy should OWN</small></span></div><div class="role" role="row"><span role="rowheader">Shared on purpose</span><span role="cell"><code>School</code> <small>the copy points to the same school; it is not owned</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+final class School
+{
+    public function __construct(public string $name) {}
+}
+
+final class Option
+{
+    public function __construct(public string $label) {}
+}
+
+final class Question
+{
+    /** @param list&lt;Option&gt; $options */
+    public function __construct(public string $text, public array $options) {}
+
+<span class="h">    public function __clone()  <span class="c">// deep copy: the copy owns its own options</span></span>
+    {
+        $this-&gt;options = array_map(fn (Option $o): Option =&gt; clone $o, $this-&gt;options);
+    }
+}
+
+<span class="h">final class Survey  <span class="c">// Prototype</span></span>
+{
+    /** @param list&lt;Question&gt; $questions */
+    public function __construct(public string $title, public School $school, public array $questions) {}
+
+<span class="h">    public function __clone()  <span class="c">// runs on the NEW copy, right after clone</span></span>
+    {
+        $this-&gt;questions = array_map(fn (Question $q): Question =&gt; clone $q, $this-&gt;questions);
+        <span class="c">// $this-&gt;school is NOT cloned: both surveys belong to the same school (shared on purpose)</span>
+    }
+}
+
+<span class="c">// ── The original: last term's survey ───────────────────────────────────</span>
+$school = new School('Smouha Language School');
+$lastTerm = new Survey('Term 1 evaluation', $school, [
+    new Question('Explains clearly', [new Option('Yes'), new Option('No')]),
+    new Question('Starts on time', [new Option('Always'), new Option('Sometimes')]),
+]);
+
+<span class="c">// ── &quot;Start new term from last term&quot; ────────────────────────────────────</span>
+<span class="h">$nextTerm = clone $lastTerm;  <span class="c">// copy instead of rebuilding</span></span>
+$nextTerm-&gt;title = 'Term 2 evaluation';
+$nextTerm-&gt;questions[0]-&gt;text = 'Explains clearly and checks understanding';
+$nextTerm-&gt;questions[0]-&gt;options[1]-&gt;label = 'Not yet';
+
+echo &quot;Original: {$lastTerm-&gt;title} / {$lastTerm-&gt;questions[0]-&gt;text} / {$lastTerm-&gt;questions[0]-&gt;options[1]-&gt;label}&quot;, PHP_EOL;
+echo &quot;Copy:     {$nextTerm-&gt;title} / {$nextTerm-&gt;questions[0]-&gt;text} / {$nextTerm-&gt;questions[0]-&gt;options[1]-&gt;label}&quot;, PHP_EOL;
+echo 'Same school object? ', var_export($lastTerm-&gt;school === $nextTerm-&gt;school, true), PHP_EOL;
+
+<span class="c">// Remove the two __clone() methods and run again: editing the copy changes the original too.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/prototype.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/prototype.php" data-umami-event="View example" data-umami-event-pattern="prototype">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Original: Term 1 evaluation / Explains clearly / No
+Copy:     Term 2 evaluation / Explains clearly and checks understanding / Not yet
+Same school object? true</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>public function duplicate(Survey $original, string $newTitle): Survey
 {
     return DB::transaction(function () use ($original, $newTitle) {    <span class="c">// all or nothing</span>
 <span class="h">        $copy = $original-&gt;replicate(['published_at']);  <span class="c">// copy the row (not its relations)</span></span>
@@ -90,7 +159,7 @@ $copy-&gt;save();
         return $copy;
     });
 }</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Eloquent's $model-&gt;replicate() is a prototype copy of ONE row: it copies the attributes into a new, unsaved model without the primary key and timestamps. Relations are not copied, so owned children (questions, options) must be replicated by hand, as below.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Eloquent $model-&gt;replicate()</span><span>PHP clone + __clone()</span><span>&quot;Duplicate&quot; buttons in any admin panel</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -101,6 +170,6 @@ $copy-&gt;save();
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

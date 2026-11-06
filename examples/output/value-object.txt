@@ -1,0 +1,6 @@
+bool(false)
+100.00 EGP
+120.00 EGP
+33.34 EGP + 33.33 EGP + 33.33 EGP
+bool(true)
+Cannot combine EGP and USD.

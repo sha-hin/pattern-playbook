@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Null Object Pattern in PHP & Laravel, with Real Code","description":"Null Object explained for PHP and Laravel developers. \"Nothing\" is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…","url":"https://sha-hin.github.io/pattern-playbook/null-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/null-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Null Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Null Object","item":"https://sha-hin.github.io/pattern-playbook/null-object/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Null Object Pattern in PHP & Laravel, with Real Code","description":"Null Object explained for PHP and Laravel developers. \"Nothing\" is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…","url":"https://sha-hin.github.io/pattern-playbook/null-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/null-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Null Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Null Object pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/null-object.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Null Object","item":"https://sha-hin.github.io/pattern-playbook/null-object/"}]}]}</script>
 </head>
 <body data-page="null-object" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -74,7 +74,89 @@ $total = $coupon !== null ? $coupon-&gt;apply($subtotal) : $subtotal;
 
 <span class="c">// MonthlyReport forgot the check:</span>
 $total = $coupon-&gt;apply($subtotal);   <span class="c">// Error: Call to a member function apply() on null</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Null Object pattern in PHP</h2><pre><code>interface Discount
+  <section class="scratch" aria-labelledby="build-null-object">
+    <h2 class="g" id="build-null-object">Build it yourself: the full Null Object pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Null Object">
+      <div class="role" role="row"><span role="rowheader">Abstract object</span><span role="cell"><code>Discount</code> <small>the interface the caller depends on</small></span></div><div class="role" role="row"><span role="rowheader">Real object</span><span role="cell"><code>PercentageCoupon</code> <small>does real work</small></span></div><div class="role" role="row"><span role="rowheader">Null object</span><span role="cell"><code>NoDiscount</code> <small>same interface, safely does nothing</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>Checkout</code> <small>calls apply() without ever checking for null</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+<span class="h">interface Discount  <span class="c">// Abstract object</span></span>
+{
+    public function apply(int $subtotalInPiastres): int;
+
+    public function label(): string;
+}
+
+final class PercentageCoupon implements Discount                <span class="c">// Real object</span>
+{
+    public function __construct(private readonly string $code, private readonly int $percent)
+    {
+        if ($percent &lt; 1 || $percent &gt; 100) {
+            throw new InvalidArgumentException('Percent must be between 1 and 100.');
+        }
+    }
+
+    public function apply(int $subtotalInPiastres): int
+    {
+        return (int) round($subtotalInPiastres * (100 - $this-&gt;percent) / 100);
+    }
+
+    public function label(): string
+    {
+        return &quot;{$this-&gt;code} (-{$this-&gt;percent}%)&quot;;
+    }
+}
+
+<span class="h">final class NoDiscount implements Discount  <span class="c">// Null object</span></span>
+{
+    public function apply(int $subtotalInPiastres): int
+    {
+<span class="h">        return $subtotalInPiastres;  <span class="c">// does nothing, safely</span></span>
+    }
+
+    public function label(): string
+    {
+        return 'no coupon';
+    }
+}
+
+<span class="h">final class Checkout  <span class="c">// Client: no null checks anywhere</span></span>
+{
+    public function __construct(private readonly Discount $discount) {}
+
+    public function total(int $subtotalInPiastres): string
+    {
+        return sprintf('%.2f EGP (%s)', $this-&gt;discount-&gt;apply($subtotalInPiastres) / 100, $this-&gt;discount-&gt;label());
+    }
+}
+
+<span class="c">// ── Decide ONCE, where the input is read ────────────────────────────────</span>
+function discountFor(?string $coupon): Discount
+{
+    return match ($coupon) {
+        null, '' =&gt; new NoDiscount(),                           <span class="c">// &quot;no coupon&quot; is a normal case</span>
+        'STUDENT' =&gt; new PercentageCoupon('STUDENT', 10),
+        default =&gt; throw new InvalidArgumentException(&quot;Unknown coupon [{$coupon}].&quot;),   <span class="c">// a wrong coupon is an error, not &quot;nothing&quot;</span>
+    };
+}
+
+echo (new Checkout(discountFor('STUDENT')))-&gt;total(20000), PHP_EOL;
+echo (new Checkout(discountFor(null)))-&gt;total(20000), PHP_EOL;
+
+<span class="c">// Never use a Null Object where &quot;missing&quot; is a bug: no payment method must throw,</span>
+<span class="c">// not silently charge nothing.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/null-object.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/null-object.php" data-umami-event="View example" data-umami-event-pattern="null-object">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>180.00 EGP (STUDENT (-10%))
+200.00 EGP (no coupon)</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>interface Discount
 {
     public function apply(Money $subtotal): Money;
 }
@@ -99,7 +181,7 @@ $total = $discount-&gt;apply($cart-&gt;subtotal());
 
 <span class="c">// ✗ Never use it for something whose absence is a BUG:</span>
 <span class="c">//   no payment method → throw, don't pass a &quot;NoPayment&quot; that charges nothing.</span></code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel ships several: Illuminate\Cache\NullStore (cache driver &quot;null&quot;), Illuminate\Broadcasting\Broadcasters\NullBroadcaster, and the &quot;null&quot; log channel (Monolog's NullHandler). Choosing them in config turns a feature off without a single if.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Psr\Log\NullLogger</span><span>Laravel &quot;null&quot; cache store, log channel, broadcaster</span><span>Symfony Console NullOutput</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -110,6 +192,6 @@ $total = $discount-&gt;apply($cart-&gt;subtotal());
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>

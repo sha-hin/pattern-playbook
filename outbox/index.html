@@ -29,9 +29,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
+<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Transactional Outbox Pattern in PHP & Laravel, with Real Code","description":"Transactional Outbox explained for PHP and Laravel developers. Saving data AND calling an outside system must never get out of sync - write the message in…","url":"https://sha-hin.github.io/pattern-playbook/outbox/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/outbox/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Transactional Outbox design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Transactional Outbox","item":"https://sha-hin.github.io/pattern-playbook/outbox/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Transactional Outbox Pattern in PHP & Laravel, with Real Code","description":"Transactional Outbox explained for PHP and Laravel developers. Saving data AND calling an outside system must never get out of sync - write the message in…","url":"https://sha-hin.github.io/pattern-playbook/outbox/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/outbox/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Transactional Outbox design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Transactional Outbox pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/outbox.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Transactional Outbox","item":"https://sha-hin.github.io/pattern-playbook/outbox/"}]}]}</script>
 </head>
 <body data-page="outbox" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -72,7 +72,112 @@
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$evaluation-&gt;update(['status' =&gt; 'approved']);
 Http::post($ministryUrl, ['evaluation_id' =&gt; $evaluation-&gt;id]);
 <span class="c">// crash, deploy or timeout between these two lines → the ministry never knows</span></code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Transactional Outbox pattern in PHP</h2><pre><code>DB::transaction(function () use ($evaluation) {
+  <section class="scratch" aria-labelledby="build-outbox">
+    <h2 class="g" id="build-outbox">Build it yourself: the full Transactional Outbox pattern in plain PHP</h2>
+    <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
+    <div class="roles" role="table" aria-label="The parts of Transactional Outbox">
+      <div class="role" role="row"><span role="rowheader">Business write + outbox row</span><span role="cell"><code>ApproveEvaluation</code> <small>both in ONE database transaction</small></span></div><div class="role" role="row"><span role="rowheader">Outbox</span><span role="cell"><code>the &quot;outbox&quot; table</code> <small>messages waiting to be sent</small></span></div><div class="role" role="row"><span role="rowheader">Relay</span><span role="cell"><code>OutboxRelay</code> <small>a worker: sends unsent rows, retries, records failures</small></span></div><div class="role" role="row"><span role="rowheader">Idempotent receiver</span><span role="cell"><code>MinistryApi</code> <small>ignores a message it already processed</small></span></div>
+    </div>
+    
+    <pre><code>&lt;?php
+
+declare(strict_types=1);
+
+final class MinistryApi                                         <span class="c">// the external system (unreliable)</span>
+{
+    /** @var array&lt;string, true&gt; */
+    private array $seen = [];
+
+    private int $calls = 0;
+
+    public function sync(array $payload, string $idempotencyKey): void
+    {
+        if (++$this-&gt;calls === 1) {
+            throw new RuntimeException('Ministry API: 503 Service Unavailable');
+        }
+<span class="h">        if (isset($this-&gt;seen[$idempotencyKey])) {  <span class="c">// idempotent: a repeat does nothing</span></span>
+            echo &quot;Ministry: already have {$idempotencyKey}, ignored&quot;, PHP_EOL;
+
+            return;
+        }
+        $this-&gt;seen[$idempotencyKey] = true;
+        echo &quot;Ministry: received evaluation {$payload['evaluation_id']}&quot;, PHP_EOL;
+    }
+}
+
+final class ApproveEvaluation
+{
+    public function __construct(private readonly PDO $db) {}
+
+    public function handle(int $evaluationId): void
+    {
+<span class="h">        $this-&gt;db-&gt;beginTransaction();  <span class="c">// ONE transaction for both writes</span></span>
+        try {
+            $this-&gt;db-&gt;prepare(&quot;UPDATE evaluations SET status = 'approved' WHERE id = ?&quot;)-&gt;execute([$evaluationId]);
+            $this-&gt;db-&gt;prepare(
+<span class="h">                'INSERT INTO outbox (idempotency_key, payload, attempts) VALUES (?, ?, 0)'  <span class="c">// the message, saved with the data</span></span>
+            )-&gt;execute([&quot;ministry-sync:{$evaluationId}&quot;, json_encode(['evaluation_id' =&gt; $evaluationId])]);
+            $this-&gt;db-&gt;commit();                                <span class="c">// both saved, or neither</span>
+        } catch (Throwable $e) {
+            $this-&gt;db-&gt;rollBack();
+            throw $e;
+        }
+    }
+}
+
+<span class="h">final class OutboxRelay  <span class="c">// Relay: runs every minute</span></span>
+{
+    public function __construct(
+        private readonly PDO $db,
+        private readonly MinistryApi $api,
+        private readonly int $maxAttempts = 10,
+    ) {}
+
+    public function run(): void
+    {
+        $rows = $this-&gt;db-&gt;prepare('SELECT * FROM outbox WHERE sent_at IS NULL AND attempts &lt; ? ORDER BY id LIMIT 100');
+        $rows-&gt;execute([$this-&gt;maxAttempts]);
+
+        foreach ($rows-&gt;fetchAll(PDO::FETCH_ASSOC) as $row) {
+            try {
+                $this-&gt;api-&gt;sync(json_decode($row['payload'], true, 8, JSON_THROW_ON_ERROR), $row['idempotency_key']);
+                $this-&gt;db-&gt;prepare(&quot;UPDATE outbox SET sent_at = datetime('now') WHERE id = ?&quot;)-&gt;execute([$row['id']]);
+            } catch (Throwable $e) {
+                $this-&gt;db-&gt;prepare('UPDATE outbox SET attempts = attempts + 1, last_error = ? WHERE id = ?')
+                    -&gt;execute([substr($e-&gt;getMessage(), 0, 1000), $row['id']]);
+                echo &quot;Relay: will retry ({$e-&gt;getMessage()})&quot;, PHP_EOL;   <span class="c">// a real app logs this</span>
+            }
+        }
+    }
+}
+
+<span class="c">// ── Setup ───────────────────────────────────────────────────────────────</span>
+$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE =&gt; PDO::ERRMODE_EXCEPTION]);
+$db-&gt;exec(&quot;CREATE TABLE evaluations (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'submitted')&quot;);
+$db-&gt;exec('CREATE TABLE outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, idempotency_key TEXT NOT NULL UNIQUE,
+           payload TEXT NOT NULL, attempts INTEGER NOT NULL, last_error TEXT, sent_at TEXT)');
+$db-&gt;exec('INSERT INTO evaluations (id) VALUES (42)');
+
+$api = new MinistryApi();
+$relay = new OutboxRelay($db, $api);
+
+<span class="c">// ── The request: saves both, sends nothing ──────────────────────────────</span>
+(new ApproveEvaluation($db))-&gt;handle(42);
+
+$relay-&gt;run();                                                  <span class="c">// minute 1: the API is down</span>
+$relay-&gt;run();                                                  <span class="c">// minute 2: delivered</span>
+
+<span class="c">// A crash after sending but before marking it sent would send it again:</span>
+$db-&gt;exec('UPDATE outbox SET sent_at = NULL');
+$relay-&gt;run();                                                  <span class="c">// the receiver ignores the repeat</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/outbox.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/outbox.php" data-umami-event="View example" data-umami-event-pattern="outbox">Open the file on GitHub</a></p>
+    <div class="output"><span>Output</span><pre><code>Relay: will retry (Ministry API: 503 Service Unavailable)
+Ministry: received evaluation 42
+Ministry: already have ministry-sync:42, ignored</code></pre></div>
+  </section>
+  <div class="code"><h2 class="lv">In a real Laravel project</h2>
+    <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
+    <pre><code>DB::transaction(function () use ($evaluation) {
     $evaluation-&gt;update(['status' =&gt; 'approved']);
 
 <span class="h">    DB::table('outbox')-&gt;insert([  <span class="c">// same transaction: both or neither</span></span>
@@ -96,7 +201,7 @@ DB::table('outbox')-&gt;whereNull('sent_at')-&gt;where('attempts', '&lt;', 10)-&
             Log::error('outbox.failed', ['id' =&gt; $row-&gt;id, 'error' =&gt; $e-&gt;getMessage()]);   <span class="c">// never silent</span>
         }
     });</code></pre>
-    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Not built in. DB::afterCommit() and $afterCommit on queued jobs stop messages for rolled-back data, but a crash right after the commit can still lose them. An outbox table plus a scheduled worker, as below, closes that gap.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Symfony Messenger doctrine transport</span><span>Laravel afterCommit (closes half the gap)</span><span>Debezium / change data capture</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -107,6 +212,6 @@ DB::table('outbox')-&gt;whereNull('sent_at')-&gt;where('attempts', '&lt;', 10)-&
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9349252d4d" defer></script>
+<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
 </body>
 </html>
