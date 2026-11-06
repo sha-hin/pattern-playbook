@@ -1,0 +1,10 @@
+Teacher evaluation 2026-T2                  3.67
+    Teaching                                4.33   (weight 3)
+        Explains clearly                    5.00
+        Checks that we understood           4.00   (weight 2)
+    Classroom                               2.50   (weight 2)
+        Keeps the class focused             3.00
+        Time management                     2.00
+            Starts lessons on time          2.00
+            Finishes the lesson plan        not answered
+    Overall, I would recommend this teacher 4.00

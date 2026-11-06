@@ -1,0 +1,28 @@
+COUNT
+6 questions in 4 sections
+
+VALIDATE the real survey: no problems
+VALIDATE a draft:
+  - Section "Homework" is empty.
+  - Question code "q1" is used twice; answers would be mixed up.
+
+MARKDOWN HANDOUT
+# Teacher evaluation 2026-T2
+
+## Teaching
+
+- **q1.** Explains clearly ☐1 ☐2 ☐3 ☐4 ☐5
+- **q2.** Checks that we understood ☐1 ☐2 ☐3 ☐4 ☐5
+
+## Classroom
+
+- **q3.** Keeps the class focused ☐1 ☐2 ☐3 ☐4 ☐5
+
+### Time management
+
+- **q4.** Starts lessons on time ☐1 ☐2 ☐3 ☐4 ☐5
+- **q5.** Finishes the lesson plan ☐1 ☐2 ☐3 ☐4 ☐5
+
+# Teacher evaluation 2026-T2 (continued)
+
+- **q6.** Overall, I would recommend this teacher ☐1 ☐2 ☐3 ☐4 ☐5

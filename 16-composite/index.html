@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Chapter 16: Sections inside sections: score the whole tree (Composite in PHP) | Pattern Playbook</title>
+<meta name="description" content="The new survey has sections inside sections, and the score must be calculated at every level. Fix it with the Composite pattern in PHP: questions and sections share one interface.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/16-composite/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chapter 16: Sections inside sections: score the whole tree (Composite in PHP) | Pattern Playbook">
+<meta property="og:description" content="The new survey has sections inside sections, and the score must be calculated at every level. Fix it with the Composite pattern in PHP: questions and sections share one interface.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/16-composite/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in PHP, learned by fixing one real app">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chapter 16: Sections inside sections: score the whole tree (Composite in PHP) | Pattern Playbook">
+<meta name="twitter:description" content="The new survey has sections inside sections, and the score must be calculated at every level. Fix it with the Composite pattern in PHP: questions and sections share one interface.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=c9e8db968e">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Chapter 16: Sections inside sections: score the whole tree","description":"The new survey has sections inside sections, and the score must be calculated at every level. Fix it with the Composite pattern in PHP: questions and sections share one interface.","url":"https://sha-hin.github.io/pattern-playbook/16-composite/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/16-composite/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Composite pattern","PHP"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Evalu8, chapter 16","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/tree/main/chapters/16-composite","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Chapter 16","item":"https://sha-hin.github.io/pattern-playbook/16-composite/"}]}]}</script>
+</head>
+<body data-page="16-composite" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Evalu8 course</a> › Part 4 · Survey structure</p>
+<p class="eyebrow">Chapter 16 of 30</p>
+<h1>Sections inside sections: score the whole tree</h1>
+<p class="tags"><span class="ptag gof" title="In the Gang of Four book">Composite</span></p>
+</header>
+<section class="ticket" aria-label="The ticket">
+<p class="tk-label">New ticket</p>
+<h2>The 2026-T2 survey has sections inside sections</h2>
+<p class="tk-from">From Mona Saleh, Head of Quality</p>
+<p>Until now each answer was one score. From next term the survey has sections (Teaching, Classroom), Classroom contains a sub-section (Time management), and some parts count more than others: Teaching ×3, Classroom ×2. We need a score for every section and for the whole survey, and next year there may be a third level.</p>
+</section>
+<section><h2>Why the quick fix is a trap</h2><p>The first attempt loops over sections, then over their questions:</p>
+<div class="codebox">
+<div class="filehead"><span class="path">the quick fix (we won’t do this)</span></div>
+<pre class="code rejected"><code><span class="v">$total</span> = <span class="n">0</span>;
+<span class="k">foreach</span> (<span class="v">$survey</span>-&gt;sections <span class="k">as</span> <span class="v">$section</span>) {
+    <span class="k">foreach</span> (<span class="v">$section</span>-&gt;questions <span class="k">as</span> <span class="v">$question</span>) {
+        <span class="v">$total</span> += <span class="v">$answers</span>[<span class="v">$question</span>-&gt;code] * <span class="v">$question</span>-&gt;weight;
+    }
+    <span class="c">// ...and if $section contains another section? Another foreach.</span>
+    <span class="c">// And a third level next year? Another one.</span>
+}</code></pre>
+</div>
+<p>The code hard-wires the depth of the tree. Every new level means another nested loop, and code that walks the tree (scoring, printing, counting) needs <code>instanceof</code> checks to know whether it is holding a question or a section.</p><p>A section and a question look different, but the report asks both the same thing: <b>what is your score?</b></p></section>
+<section class="pattern"><h2>The pattern: Composite</h2>
+<p class="rule"><span>Remember it</span>Items and groups of items must be treated the same way, in a tree of any depth → give both one interface; a group answers by asking its children.</p>
+<p><code>SurveyNode</code> is the shared interface (the <b>component</b>). <code>Question</code> is a <b>leaf</b>: it answers <code>score()</code> from the answer sheet. <code>Section</code> is a <b>composite</b>: it holds any <code>SurveyNode</code>s, questions or sections, and answers <code>score()</code> by asking each child and taking the weighted average.</p><p>Nothing checks what kind of node it has. A section inside a section inside a section works automatically, because each level makes the same call.</p><p>Unanswered questions return <code>null</code> and are left out of the average instead of counting as zero, the same rule as the weighted scoring in chapter 3.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Composite: the problem"><rect class="bx" x="30" y="14" width="240" height="142" rx="7"/><text x="46" y="40" class="m">foreach ($sections as $s)</text><text x="56" y="62" class="m">foreach ($s-&gt;questions …)</text><text x="66" y="84" class="m">$total += …</text><text x="56" y="106" class="m">// section in a section?</text><text x="46" y="140" class="kx">works only two levels deep</text></svg><p>The loops assume a fixed depth. A deeper survey breaks the code.</p></figure>
+<figure class="panel good"><figcaption><h3>With Composite</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Composite: the fix"><rect class="bv2" x="110" y="4" width="80" height="26" rx="7"/><text x="150" y="21" text-anchor="middle" class="kv">Survey</text><line class="lk" x1="150" y1="30" x2="50" y2="52" marker-end="url(#ar)"/><line class="lk" x1="150" y1="30" x2="150" y2="52" marker-end="url(#ar)"/><line class="lk" x1="150" y1="30" x2="250" y2="52" marker-end="url(#ar)"/><rect class="bv2" x="10" y="54" width="80" height="26" rx="7"/><text x="50" y="71" text-anchor="middle" class="kv">Teaching</text><rect class="bv2" x="110" y="54" width="80" height="26" rx="7"/><text x="150" y="71" text-anchor="middle" class="kv">Classroom</text><rect class="bn" x="220" y="54" width="60" height="26" rx="7"/><text x="250" y="71" text-anchor="middle" class="">q6</text><line class="ln" x1="50" y1="80" x2="30" y2="104" marker-end="url(#ar)"/><line class="ln" x1="50" y1="80" x2="72" y2="104" marker-end="url(#ar)"/><rect class="bn" x="12" y="106" width="36" height="24" rx="7"/><text x="30" y="122" text-anchor="middle" class="">q1</text><rect class="bn" x="54" y="106" width="36" height="24" rx="7"/><text x="72" y="122" text-anchor="middle" class="">q2</text><line class="ln" x1="150" y1="80" x2="130" y2="104" marker-end="url(#ar)"/><line class="lk" x1="150" y1="80" x2="190" y2="104" marker-end="url(#ar)"/><rect class="bn" x="112" y="106" width="36" height="24" rx="7"/><text x="130" y="122" text-anchor="middle" class="">q3</text><rect class="bv2" x="156" y="106" width="84" height="24" rx="7"/><text x="198" y="122" text-anchor="middle" class="kv">Time mgmt</text><text x="150" y="152" class="s" text-anchor="middle">score(): the same call at every level</text></svg><p>Sections and questions share one interface. A section asks its children.</p></figure>
+</div>
+
+</section>
+<section><h2>Build it, step by step</h2>
+<p class="hint">Changed files show only what changed since chapter 15: <b class="plus">green</b> lines are new, <b class="minus">red</b> lines are removed. <b>Copy</b> always copies the complete file.</p>
+<ol class="steps"><li class="step"><h3><span class="num">1</span>One respondent’s answers</h3><p>Question code → <code>Score</code> (the flyweight from chapter 15). Building it validates every value.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/AnswerSheet.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/src/Survey/AnswerSheet.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Score</span>;
+
+<span class="c">/**</span>
+<span class="c"> * One respondent's answers to a survey: question code =&gt; score.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">AnswerSheet</span>
+{
+    <span class="c">/** @param array&lt;string, Score&gt; $scores */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">array</span> <span class="v">$scores</span>)
+    {
+    }
+
+    <span class="c">/** @param array&lt;string, int&gt; $answers e.g. ['q1' =&gt; 5, 'q2' =&gt; 4]; values are validated by Score */</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromArray</span>(<span class="k">array</span> <span class="v">$answers</span>): <span class="k">self</span>
+    {
+        <span class="v">$scores</span> = [];
+        <span class="k">foreach</span> (<span class="v">$answers</span> <span class="k">as</span> <span class="v">$code</span> =&gt; <span class="v">$value</span>) {
+            <span class="v">$scores</span>[<span class="v">$code</span>] = <span class="t">Score</span>::<span class="f">of</span>(<span class="v">$value</span>);
+        }
+
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$scores</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">scoreFor</span>(<span class="k">string</span> <span class="v">$questionCode</span>): ?<span class="t">Score</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;scores[<span class="v">$questionCode</span>] ?? <span class="k">null</span>;       <span class="c">// null = not answered</span>
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">2</span>The component interface</h3><p>What a question and a section have in common.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/SurveyNode.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/src/Survey/SurveyNode.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="c">/**</span>
+<span class="c"> * The Component: what a single question and a whole section have in common.</span>
+<span class="c"> * Code that works with the survey treats both the same way.</span>
+<span class="c"> */</span>
+<span class="k">interface</span> <span class="t">SurveyNode</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">title</span>(): <span class="k">string</span>;
+
+    <span class="c">/** How much this node counts inside its parent section. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">weight</span>(): <span class="k">float</span>;
+
+    <span class="c">/** @return float|null null when nothing inside this node was answered */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">score</span>(<span class="t">AnswerSheet</span> <span class="v">$answers</span>): ?<span class="k">float</span>;
+
+    <span class="c">/** @return list&lt;SurveyNode&gt; empty for a question */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">children</span>(): <span class="k">array</span>;
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">3</span>The leaf: a question</h3><p>It answers from the answer sheet and has no children. It is <code>readonly</code>: once created, a question never changes.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Question.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/src/Survey/Question.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="k">use</span> <span class="t">InvalidArgumentException</span>;
+
+<span class="c">/**</span>
+<span class="c"> * The Leaf: one question, answered with a 1–5 score. It has no children.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Question</span> <span class="k">implements</span> <span class="t">SurveyNode</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$code</span>,                                <span class="c">// e.g. &quot;q1&quot;; how answers refer to it</span>
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$text</span>,
+        <span class="k">private</span> <span class="k">float</span> <span class="v">$weight</span> = <span class="n">1.0</span>,
+    ) {
+        <span class="k">if</span> (<span class="v">$weight</span> &lt;= <span class="n">0</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Question {$code} must have a positive weight.&quot;</span>);
+        }
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">title</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;text;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">weight</span>(): <span class="k">float</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;weight;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">score</span>(<span class="t">AnswerSheet</span> <span class="v">$answers</span>): ?<span class="k">float</span>
+    {
+        <span class="v">$score</span> = <span class="v">$answers</span>-&gt;<span class="f">scoreFor</span>(<span class="k">$this</span>-&gt;code);
+
+        <span class="k">return</span> <span class="v">$score</span> === <span class="k">null</span> ? <span class="k">null</span> : (<span class="k">float</span>) <span class="v">$score</span>-&gt;value;   <span class="c">// a leaf simply answers</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">children</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [];
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">4</span>The composite: a section</h3><p><code>add()</code> accepts any <code>SurveyNode</code>. <code>score()</code> calls <code>score()</code> on each child, whatever it is, and returns the weighted average of the answered ones.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Section.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/src/Survey/Section.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="k">use</span> <span class="t">InvalidArgumentException</span>;
+
+<span class="c">/**</span>
+<span class="c"> * The Composite: a section holds questions AND other sections, to any depth.</span>
+<span class="c"> * Its score is the weighted average of its children's scores; it never asks what a child is.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">Section</span> <span class="k">implements</span> <span class="t">SurveyNode</span>
+{
+    <span class="c">/** @var list&lt;SurveyNode&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$children</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$title</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="k">float</span> <span class="v">$weight</span> = <span class="n">1.0</span>,
+    ) {
+        <span class="k">if</span> (<span class="v">$weight</span> &lt;= <span class="n">0</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Section \&quot;{$title}\&quot; must have a positive weight.&quot;</span>);
+        }
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">SurveyNode</span> <span class="v">$child</span>): <span class="k">self</span>
+    {
+        <span class="k">$this</span>-&gt;children[] = <span class="v">$child</span>;
+
+        <span class="k">return</span> <span class="k">$this</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">title</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;title;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">weight</span>(): <span class="k">float</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;weight;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">score</span>(<span class="t">AnswerSheet</span> <span class="v">$answers</span>): ?<span class="k">float</span>
+    {
+        <span class="v">$weightedTotal</span> = <span class="n">0.0</span>;
+        <span class="v">$usedWeight</span> = <span class="n">0.0</span>;
+
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;children <span class="k">as</span> <span class="v">$child</span>) {
+            <span class="v">$score</span> = <span class="v">$child</span>-&gt;<span class="f">score</span>(<span class="v">$answers</span>);               <span class="c">// a question or a whole section: same call</span>
+            <span class="k">if</span> (<span class="v">$score</span> === <span class="k">null</span>) {
+                <span class="k">continue</span>;                                   <span class="c">// unanswered parts don't drag the score down</span>
+            }
+
+            <span class="v">$weightedTotal</span> += <span class="v">$score</span> * <span class="v">$child</span>-&gt;<span class="f">weight</span>();
+            <span class="v">$usedWeight</span> += <span class="v">$child</span>-&gt;<span class="f">weight</span>();
+        }
+
+        <span class="k">return</span> <span class="v">$usedWeight</span> &gt; <span class="n">0</span> ? <span class="v">$weightedTotal</span> / <span class="v">$usedWeight</span> : <span class="k">null</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">children</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;children;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">5</span>The real survey</h3><p>Three levels deep. Time management sits inside Classroom.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/TeacherEvaluationSurvey.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/src/Survey/TeacherEvaluationSurvey.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="c">/**</span>
+<span class="c"> * The 2026-T2 teacher evaluation survey, as designed by the quality team.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">TeacherEvaluationSurvey</span>
+{
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">create</span>(): <span class="t">Section</span>
+    {
+        <span class="v">$timeManagement</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Time management'</span>))
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q4'</span>, <span class="s">'Starts lessons on time'</span>))
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q5'</span>, <span class="s">'Finishes the lesson plan'</span>));
+
+        <span class="v">$classroom</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Classroom'</span>, weight: <span class="n">2</span>))
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q3'</span>, <span class="s">'Keeps the class focused'</span>))
+            -&gt;<span class="f">add</span>(<span class="v">$timeManagement</span>);                         <span class="c">// a section inside a section</span>
+
+        <span class="v">$teaching</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teaching'</span>, weight: <span class="n">3</span>))
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q1'</span>, <span class="s">'Explains clearly'</span>))
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q2'</span>, <span class="s">'Checks that we understood'</span>, weight: <span class="n">2</span>));
+
+        <span class="k">return</span> (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teacher evaluation 2026-T2'</span>))
+            -&gt;<span class="f">add</span>(<span class="v">$teaching</span>)
+            -&gt;<span class="f">add</span>(<span class="v">$classroom</span>)
+            -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q6'</span>, <span class="s">'Overall, I would recommend this teacher'</span>));
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">6</span>Score every node</h3><p><code>show()</code> calls <code>score()</code> and recurses through <code>children()</code>. It never asks whether it holds a question or a section.</p><div class="codebox">
+<div class="filehead"><span class="path">bin/survey.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/16-composite/bin/survey.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">/*</span>
+<span class="c"> * Evalu8, chapter 16: score a survey tree of any depth.</span>
+<span class="c"> *</span>
+<span class="c"> *     composer dump-autoload</span>
+<span class="c"> *     php bin/survey.php</span>
+<span class="c"> */</span>
+
+<span class="k">require</span> __DIR__ . <span class="s">'/../vendor/autoload.php'</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">AnswerSheet</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">SurveyNode</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">TeacherEvaluationSurvey</span>;
+
+<span class="v">$survey</span> = <span class="t">TeacherEvaluationSurvey</span>::<span class="f">create</span>();
+
+<span class="c">// One student's answers. They skipped q5.</span>
+<span class="v">$answers</span> = <span class="t">AnswerSheet</span>::<span class="f">fromArray</span>([<span class="s">'q1'</span> =&gt; <span class="n">5</span>, <span class="s">'q2'</span> =&gt; <span class="n">4</span>, <span class="s">'q3'</span> =&gt; <span class="n">3</span>, <span class="s">'q4'</span> =&gt; <span class="n">2</span>, <span class="s">'q6'</span> =&gt; <span class="n">4</span>]);
+
+<span class="k">function</span> <span class="f">show</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>, <span class="t">AnswerSheet</span> <span class="v">$answers</span>, <span class="k">int</span> <span class="v">$depth</span> = <span class="n">0</span>): <span class="k">void</span>
+{
+    <span class="v">$score</span> = <span class="v">$node</span>-&gt;<span class="f">score</span>(<span class="v">$answers</span>);                        <span class="c">// the same call at every level</span>
+    <span class="k">echo</span> <span class="f">str_repeat</span>(<span class="s">'    '</span>, <span class="v">$depth</span>)
+        . <span class="f">str_pad</span>(<span class="v">$node</span>-&gt;<span class="f">title</span>(), <span class="n">44</span> - <span class="n">4</span> * <span class="v">$depth</span>)
+        . (<span class="v">$score</span> === <span class="k">null</span> ? <span class="s">'not answered'</span> : <span class="f">number_format</span>(<span class="v">$score</span>, <span class="n">2</span>))
+        . (<span class="v">$node</span>-&gt;<span class="f">weight</span>() !== <span class="n">1.0</span> ? <span class="s">&quot;   (weight {$node-&gt;weight()})&quot;</span> : <span class="s">''</span>)
+        . <span class="s">&quot;\n&quot;</span>;
+
+    <span class="k">foreach</span> (<span class="v">$node</span>-&gt;<span class="f">children</span>() <span class="k">as</span> <span class="v">$child</span>) {
+        <span class="f">show</span>(<span class="v">$child</span>, <span class="v">$answers</span>, <span class="v">$depth</span> + <span class="n">1</span>);
+    }
+}
+
+<span class="f">show</span>(<span class="v">$survey</span>, <span class="v">$answers</span>);</code></pre>
+</div></li></ol></section>
+<section class="run"><h2>Run it</h2><p>Every level has a score. Time management ignores the skipped q5 instead of counting it as 0, and the overall 3.67 is (4.33 × 3 + 2.50 × 2 + 4.00 × 1) / 6.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">terminal, inside chapters/16-composite</span></div>
+<pre class="code"><code>composer dump-autoload
+php bin/survey.php</code></pre>
+</div>
+<div class="output"><span>Output</span><pre>Teacher evaluation 2026-T2                  3.67
+    Teaching                                4.33   (weight 3)
+        Explains clearly                    5.00
+        Checks that we understood           4.00   (weight 2)
+    Classroom                               2.50   (weight 2)
+        Keeps the class focused             3.00
+        Time management                     2.00
+            Starts lessons on time          2.00
+            Finishes the lesson plan        not answered
+    Overall, I would recommend this teacher 4.00</pre></div></section>
+<section class="laravel"><h2>How Laravel does it</h2><p>Laravel’s query builder uses Composite for nested conditions: <code>where(function ($q) { ... })</code> stores a whole group as one condition, and when SQL is generated, a group compiles its own conditions inside brackets, to any depth.</p><p>In your app, a self-referencing Eloquent relation stores the same tree in one table:</p>
+<div class="codebox">
+<div class="filehead"><span class="path">Laravel</span></div>
+<pre class="code"><code><span class="c">// survey_nodes: id, parent_id, type ('section' | 'question'), title, code, weight</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">SurveyNode</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">children</span>(): <span class="t">HasMany</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="k">self</span>::class, <span class="s">'parent_id'</span>);
+    }
+}
+
+<span class="c">// Nested where groups: a group of conditions treated as one condition.</span>
+<span class="t">Response</span>::<span class="f">where</span>(<span class="s">'term'</span>, <span class="s">'2026-T1'</span>)
+    -&gt;<span class="f">where</span>(<span class="k">fn</span> (<span class="v">$q</span>) =&gt; <span class="v">$q</span>-&gt;<span class="f">where</span>(<span class="s">'score'</span>, <span class="s">'&lt;='</span>, <span class="n">2</span>)-&gt;<span class="f">orWhere</span>(<span class="k">fn</span> (<span class="v">$q</span>) =&gt; <span class="v">$q</span>-&gt;<span class="f">whereNull</span>(<span class="s">'score'</span>)-&gt;<span class="f">where</span>(<span class="s">'role'</span>, <span class="s">'peer'</span>)))
+    -&gt;<span class="f">get</span>();</code></pre>
+</div></section>
+<section class="check"><h2>Check yourself</h2><p class="hint">Answer in your head, then open the answer.</p>
+<details><summary>A fourth level of sections is added. What changes in the scoring code?</summary><p>Nothing. Each section asks its children; depth doesn’t matter.</p></details><details><summary>Why does an unanswered question return <code>null</code> and not <code>0</code>?</summary><p>A skipped question is not a score of zero. Returning <code>null</code> lets the section leave it out of the average.</p></details><details><summary>Which class is the leaf and which is the composite?</summary><p><code>Question</code> is the leaf (no children). <code>Section</code> is the composite (holds other nodes).</p></details></section>
+<section class="nextup"><p>Now the quality team wants to count questions, check surveys for mistakes and print them as handouts. Each request adds another method to both Question and Section.</p>
+<nav class="pager" aria-label="Chapters">
+<a rel="prev" href="../15-flyweight/"><small>← Chapter 15</small>100,000 response objects repeat the same question data</a>
+<a rel="next" href="../17-visitor/"><small>Chapter 17 →</small>Export, validate and count the tree without editing it</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"The code we inherited","patterns":[],"slug":"00-the-mess","ready":true},{"n":1,"title":"Scores of 140 got into the database","patterns":["Value Object"],"slug":"01-value-object","ready":true},{"n":2,"title":"Only this term’s answers must count","patterns":["Repository","Data Mapper vs Active Record"],"slug":"02-repository","ready":true},{"n":3,"title":"Each school scores teachers its own way","patterns":["Strategy"],"slug":"03-strategy","ready":true},{"n":4,"title":"The scoring method must come from school settings","patterns":["Simple Factory"],"slug":"04-simple-factory","ready":true},{"n":5,"title":"Schools without AI analysis crash the report","patterns":["Null Object"],"slug":"05-null-object","ready":true},{"n":6,"title":"Classes create their own database and mailer","patterns":["Singleton","Dependency Injection Container"],"slug":"06-container","ready":true},{"n":7,"title":"Move from the OpenAI SDK to a local LLM","patterns":["Adapter"],"slug":"07-adapter","ready":true},{"n":8,"title":"Local model in development, hosted model in production","patterns":["Manager / Driver"],"slug":"08-manager","ready":true},{"n":9,"title":"AI calls are slow and expensive","patterns":["Decorator"],"slug":"09-decorator","ready":true},{"n":10,"title":"Load the 50 MB results only when opened, only for allowed users","patterns":["Proxy"],"slug":"10-proxy","ready":true},{"n":11,"title":"Closing a survey takes six steps, and callers forget some","patterns":["Facade"],"slug":"11-facade","ready":true},{"n":12,"title":"Import answers from Google Forms CSV, Excel and JSON","patterns":["Template Method"],"slug":"12-template-method","ready":true},{"n":13,"title":"Each importer needs its own reader","patterns":["Factory Method"],"slug":"13-factory-method","ready":true},{"n":14,"title":"Exporting 100,000 responses runs out of memory","patterns":["Iterator","Generators"],"slug":"14-iterator","ready":true},{"n":15,"title":"100,000 response objects repeat the same question data","patterns":["Flyweight"],"slug":"15-flyweight","ready":true},{"n":16,"title":"Sections inside sections: score the whole tree","patterns":["Composite"],"slug":"16-composite","ready":true},{"n":17,"title":"Export, validate and count the tree without editing it","patterns":["Visitor"],"slug":"17-visitor","ready":true},{"n":18,"title":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","patterns":["Interpreter"],"slug":"18-interpreter","ready":true},{"n":19,"title":"Start next term from last term’s survey","patterns":["Prototype"],"slug":"19-prototype","ready":true},{"n":20,"title":"Build complex report searches and documents","patterns":["Builder"],"slug":"20-builder","ready":true},{"n":21,"title":"Survey lifecycle: draft, open, closed, archived","patterns":["State"],"slug":"","ready":false},{"n":22,"title":"When a survey closes, five things must happen","patterns":["Observer","Event Dispatcher"],"slug":"","ready":false},{"n":23,"title":"The 40-second AI analysis times out the request","patterns":["Command","Command Bus"],"slug":"","ready":false},{"n":24,"title":"The Ministry sync was lost when the server died","patterns":["Unit of Work","Transactional Outbox"],"slug":"","ready":false},{"n":25,"title":"Submitting an answer needs six checks","patterns":["Chain of Responsibility","Pipeline"],"slug":"","ready":false},{"n":26,"title":"“Teachers with 3+ evaluations this term, not on leave”","patterns":["Specification"],"slug":"","ready":false},{"n":27,"title":"Local vs cloud: storage and queue must always match","patterns":["Abstract Factory"],"slug":"","ready":false},{"n":28,"title":"Three notification types × four channels","patterns":["Bridge"],"slug":"","ready":false},{"n":29,"title":"Survey editor parts keep changing each other","patterns":["Mediator"],"slug":"","ready":false},{"n":30,"title":"“Undo” in the survey editor","patterns":["Memento"],"slug":"","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Scores of 140 got into the database","slug":"01-value-object","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Strategy","chapter":3,"chapterTitle":"Each school scores teachers its own way","slug":"03-strategy","ready":true,"gof":true},{"name":"Simple Factory","chapter":4,"chapterTitle":"The scoring method must come from school settings","slug":"04-simple-factory","ready":true,"gof":false},{"name":"Null Object","chapter":5,"chapterTitle":"Schools without AI analysis crash the report","slug":"05-null-object","ready":true,"gof":false},{"name":"Singleton","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":false},{"name":"Adapter","chapter":7,"chapterTitle":"Move from the OpenAI SDK to a local LLM","slug":"07-adapter","ready":true,"gof":true},{"name":"Manager / Driver","chapter":8,"chapterTitle":"Local model in development, hosted model in production","slug":"08-manager","ready":true,"gof":false},{"name":"Decorator","chapter":9,"chapterTitle":"AI calls are slow and expensive","slug":"09-decorator","ready":true,"gof":true},{"name":"Proxy","chapter":10,"chapterTitle":"Load the 50 MB results only when opened, only for allowed users","slug":"10-proxy","ready":true,"gof":true},{"name":"Facade","chapter":11,"chapterTitle":"Closing a survey takes six steps, and callers forget some","slug":"11-facade","ready":true,"gof":true},{"name":"Template Method","chapter":12,"chapterTitle":"Import answers from Google Forms CSV, Excel and JSON","slug":"12-template-method","ready":true,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Each importer needs its own reader","slug":"13-factory-method","ready":true,"gof":true},{"name":"Iterator","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":true},{"name":"Generators","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":false},{"name":"Flyweight","chapter":15,"chapterTitle":"100,000 response objects repeat the same question data","slug":"15-flyweight","ready":true,"gof":true},{"name":"Composite","chapter":16,"chapterTitle":"Sections inside sections: score the whole tree","slug":"16-composite","ready":true,"gof":true},{"name":"Visitor","chapter":17,"chapterTitle":"Export, validate and count the tree without editing it","slug":"17-visitor","ready":true,"gof":true},{"name":"Interpreter","chapter":18,"chapterTitle":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","slug":"18-interpreter","ready":true,"gof":true},{"name":"Prototype","chapter":19,"chapterTitle":"Start next term from last term’s survey","slug":"19-prototype","ready":true,"gof":true},{"name":"Builder","chapter":20,"chapterTitle":"Build complex report searches and documents","slug":"20-builder","ready":true,"gof":true},{"name":"State","chapter":21,"chapterTitle":"Survey lifecycle: draft, open, closed, archived","slug":"","ready":false,"gof":true},{"name":"Observer","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":false},{"name":"Command","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":true},{"name":"Command Bus","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":false},{"name":"Unit of Work","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":true},{"name":"Pipeline","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":false},{"name":"Specification","chapter":26,"chapterTitle":"“Teachers with 3+ evaluations this term, not on leave”","slug":"","ready":false,"gof":false},{"name":"Abstract Factory","chapter":27,"chapterTitle":"Local vs cloud: storage and queue must always match","slug":"","ready":false,"gof":true},{"name":"Bridge","chapter":28,"chapterTitle":"Three notification types × four channels","slug":"","ready":false,"gof":true},{"name":"Mediator","chapter":29,"chapterTitle":"Survey editor parts keep changing each other","slug":"","ready":false,"gof":true},{"name":"Memento","chapter":30,"chapterTitle":"“Undo” in the survey editor","slug":"","ready":false,"gof":true}]}</script>
+<script src="../assets/site.js?v=d61b3d9de7" defer></script>
+</body>
+</html>

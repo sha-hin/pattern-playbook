@@ -1,0 +1,43 @@
+SURVEY BUILT: Teacher evaluation 2026-T2, 7 questions in 4 sections
+
+The survey can't be built:
+  - Section "Homework" was never closed with end().
+  - Question code "q1" is used twice; answers would be mixed up.
+  - Section "Homework" is empty.
+
+[info] comment analysis comments=2 ms=0
+[info] comment analysis comments=1 ms=0
+[info] comment analysis comments=2 ms=0
+TEACHER EVALUATION RESULTS 2026-T1
+==================================
+
+Miami
+  Karim Adel      median    4.00
+
+Smouha
+  Hany Mostafa    weighted  4.13
+  Nadia Fawzy     weighted  2.75
+
+Victoria
+  Laila Samir     average   3.50
+
+* Each school chooses its own scoring method; scores are on the 1–5 scale.
+
+<h1>Teacher evaluation results 2026-T1</h1>
+<h2>Miami</h2>
+<table>
+<tr><th>Teacher</th><th>Method</th><th>Score</th></tr>
+<tr><td>Karim Adel</td><td>median</td><td>4.00</td></tr>
+</table>
+<h2>Smouha</h2>
+<table>
+<tr><th>Teacher</th><th>Method</th><th>Score</th></tr>
+<tr><td>Hany Mostafa</td><td>weighted</td><td>4.13</td></tr>
+<tr><td>Nadia Fawzy</td><td>weighted</td><td>2.75</td></tr>
+</table>
+<h2>Victoria</h2>
+<table>
+<tr><th>Teacher</th><th>Method</th><th>Score</th></tr>
+<tr><td>Laila Samir</td><td>average</td><td>3.50</td></tr>
+</table>
+<p><small>Each school chooses its own scoring method; scores are on the 1–5 scale.</small></p>

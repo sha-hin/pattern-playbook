@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Chapter 17: Export, validate and count the tree without editing it (Visitor in PHP) | Pattern Playbook</title>
+<meta name="description" content="Every new operation on the survey tree adds a method to Question and Section. Add operations without touching them, with the Visitor pattern in PHP.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/17-visitor/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chapter 17: Export, validate and count the tree without editing it (Visitor in PHP) | Pattern Playbook">
+<meta property="og:description" content="Every new operation on the survey tree adds a method to Question and Section. Add operations without touching them, with the Visitor pattern in PHP.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/17-visitor/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in PHP, learned by fixing one real app">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chapter 17: Export, validate and count the tree without editing it (Visitor in PHP) | Pattern Playbook">
+<meta name="twitter:description" content="Every new operation on the survey tree adds a method to Question and Section. Add operations without touching them, with the Visitor pattern in PHP.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=c9e8db968e">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Chapter 17: Export, validate and count the tree without editing it","description":"Every new operation on the survey tree adds a method to Question and Section. Add operations without touching them, with the Visitor pattern in PHP.","url":"https://sha-hin.github.io/pattern-playbook/17-visitor/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/17-visitor/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Visitor pattern","PHP"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Evalu8, chapter 17","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/tree/main/chapters/17-visitor","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Chapter 17","item":"https://sha-hin.github.io/pattern-playbook/17-visitor/"}]}]}</script>
+</head>
+<body data-page="17-visitor" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Evalu8 course</a> › Part 4 · Survey structure</p>
+<p class="eyebrow">Chapter 17 of 30</p>
+<h1>Export, validate and count the tree without editing it</h1>
+<p class="tags"><span class="ptag gof" title="In the Gang of Four book">Visitor</span></p>
+</header>
+<section class="ticket" aria-label="The ticket">
+<p class="tk-label">New ticket</p>
+<h2>Count, check and print our surveys</h2>
+<p class="tk-from">From Mona Saleh, Head of Quality</p>
+<p>We need three things before term starts: how many questions each survey has, a check that catches design mistakes (two questions with the same code, empty sections), and a printable handout for schools without tablets. Next term we will probably ask for a PDF and an accessibility check too.</p>
+</section>
+<section><h2>Why the quick fix is a trap</h2><p>The obvious way adds a method per request to both node classes:</p>
+<div class="codebox">
+<div class="filehead"><span class="path">the quick fix (we won’t do this)</span></div>
+<pre class="code rejected"><code><span class="k">interface</span> <span class="t">SurveyNode</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">score</span>(<span class="t">AnswerSheet</span> <span class="v">$answers</span>): ?<span class="k">float</span>;
+    <span class="k">public</span> <span class="k">function</span> <span class="f">countQuestions</span>(): <span class="k">int</span>;
+    <span class="k">public</span> <span class="k">function</span> <span class="f">validate</span>(<span class="k">array</span> &amp;<span class="v">$errors</span>, <span class="k">array</span> &amp;<span class="v">$codesSeen</span>): <span class="k">void</span>;
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toMarkdown</span>(<span class="k">int</span> <span class="v">$depth</span>): <span class="k">string</span>;
+    <span class="c">// next term: toPdf(), accessibilityIssues(), ...</span>
+}</code></pre>
+</div>
+<p><code>Question</code> and <code>Section</code> were small and stable. Now they grow with every report request, they mix scoring with printing and checking, and all the code for &quot;printing a survey&quot; is split across two classes.</p><p>The tree’s <b>structure</b> rarely changes (there are only questions and sections). The <b>operations</b> on it keep growing. We want to add operations without editing the node classes.</p></section>
+<section class="pattern"><h2>The pattern: Visitor</h2>
+<p class="rule"><span>Remember it</span>A stable set of node types needs a growing list of operations → put each operation in its own visitor class with one method per node type; the nodes only accept visitors.</p>
+<p>Each node gets one method, <code>accept(SurveyVisitor $visitor)</code>, and calls back the visitor method for its own type: a question calls <code>visitQuestion($this)</code>, a section calls <code>visitSection($this)</code>. This is <b>double dispatch</b>: the right method is chosen by both the visitor and the node, without any <code>instanceof</code>.</p><p>Each operation is now one class: <code>QuestionCounter</code>, <code>SurveyValidator</code>, <code>MarkdownExporter</code>. Everything about printing is in one file, and a new operation never touches <code>Question</code> or <code>Section</code>.</p><p><b>The trade-off:</b> adding a new node type (say, a free-text question) means adding a method to every visitor. Use Visitor when the types are stable and the operations change, not the other way round.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Visitor: the problem"><rect class="bx" x="10" y="14" width="130" height="138" rx="7"/><text x="20" y="36" class="m">Question</text><text x="26" y="60" class="m">score()</text><text x="26" y="80" class="m">count()</text><text x="26" y="100" class="m">validate()</text><text x="26" y="120" class="m">toMarkdown()</text><text x="26" y="140" class="kx">toPdf() …</text><rect class="bx" x="160" y="14" width="130" height="138" rx="7"/><text x="170" y="36" class="m">Section</text><text x="176" y="60" class="m">score()</text><text x="176" y="80" class="m">count()</text><text x="176" y="100" class="m">validate()</text><text x="176" y="120" class="m">toMarkdown()</text><text x="176" y="140" class="kx">toPdf() …</text></svg><p>Every request adds a method to both node classes.</p></figure>
+<figure class="panel good"><figcaption><h3>With Visitor</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Visitor: the fix"><rect class="bn" x="6" y="30" width="90" height="34" rx="7"/><text x="51" y="51" text-anchor="middle" class="">Question</text><rect class="bn" x="6" y="96" width="90" height="34" rx="7"/><text x="51" y="117" text-anchor="middle" class="">Section</text><text x="51" y="84" class="s" text-anchor="middle">accept($v)</text><line class="lk" x1="96" y1="47" x2="198" y2="28" marker-end="url(#ar)"/><line class="lk" x1="96" y1="113" x2="198" y2="134" marker-end="url(#ar)"/><line class="lk" x1="96" y1="80" x2="198" y2="81" marker-end="url(#ar)"/><rect class="bv" x="200" y="10" width="96" height="34" rx="7"/><text x="248" y="31" text-anchor="middle" class="kv">Counter</text><rect class="bv" x="200" y="64" width="96" height="34" rx="7"/><text x="248" y="85" text-anchor="middle" class="kv">Validator</text><rect class="bv" x="200" y="118" width="96" height="34" rx="7"/><text x="248" y="139" text-anchor="middle" class="kv">Markdown</text><text x="150" y="162" class="s" text-anchor="middle">new operation = new visitor</text></svg><p>Nodes only accept visitors. Each operation is its own class.</p></figure>
+</div>
+
+</section>
+<section><h2>Build it, step by step</h2>
+<p class="hint">Changed files show only what changed since chapter 16: <b class="plus">green</b> lines are new, <b class="minus">red</b> lines are removed. <b>Copy</b> always copies the complete file.</p>
+<ol class="steps"><li class="step"><h3><span class="num">1</span>The visitor interface</h3><p>One method per node type. There are two node types, so two methods.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/SurveyVisitor.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/SurveyVisitor.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>;
+
+<span class="c">/**</span>
+<span class="c"> * The Visitor: one method per kind of node. A new operation on the survey is a new</span>
+<span class="c"> * class implementing this interface; Question and Section never change again.</span>
+<span class="c"> */</span>
+<span class="k">interface</span> <span class="t">SurveyVisitor</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitQuestion</span>(<span class="t">Question</span> <span class="v">$question</span>): <span class="k">void</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitSection</span>(<span class="t">Section</span> <span class="v">$section</span>): <span class="k">void</span>;
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">2</span>Nodes accept a visitor</h3><p>The only change to the tree, made once.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/SurveyNode.php</span><span class="badge chg" title="Lines added and removed since chapter 16"><b class="plus">+3</b> <b class="minus">−0</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/SurveyNode.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code diff" data-copy="&lt;?php
+
+declare(strict_types=1);
+
+namespace Evalu8\Survey;
+
+/**
+ * The Component: what a single question and a whole section have in common.
+ * Code that works with the survey treats both the same way.
+ */
+interface SurveyNode
+{
+    public function title(): string;
+
+    /** How much this node counts inside its parent section. */
+    public function weight(): float;
+
+    /** @return float|null null when nothing inside this node was answered */
+    public function score(AnswerSheet $answers): ?float;
+
+    /** @return list&lt;SurveyNode&gt; empty for a question */
+    public function children(): array;
+
+    /** Double dispatch: the node tells the visitor which kind of node it is. */
+    public function accept(SurveyVisitor $visitor): void;
+}
+"><code><span class="ln fold">⋯ 19 unchanged lines</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return list&lt;SurveyNode&gt; empty for a question */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">children</span>(): <span class="k">array</span>;</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Double dispatch: the node tells the visitor which kind of node it is. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">accept</span>(<span class="t">SurveyVisitor</span> <span class="v">$visitor</span>): <span class="k">void</span>;</span><span class="ln">}</span></code></pre>
+</div></li><li class="step"><h3><span class="num">3</span>A question calls visitQuestion()</h3><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Question.php</span><span class="badge chg" title="Lines added and removed since chapter 16"><b class="plus">+5</b> <b class="minus">−0</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/Question.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code diff" data-copy="&lt;?php
+
+declare(strict_types=1);
+
+namespace Evalu8\Survey;
+
+use InvalidArgumentException;
+
+/**
+ * The Leaf: one question, answered with a 1–5 score. It has no children.
+ */
+final readonly class Question implements SurveyNode
+{
+    public function __construct(
+        public string $code,                                // e.g. &quot;q1&quot;; how answers refer to it
+        public string $text,
+        private float $weight = 1.0,
+    ) {
+        if ($weight &lt;= 0) {
+            throw new InvalidArgumentException(&quot;Question {$code} must have a positive weight.&quot;);
+        }
+    }
+
+    public function title(): string
+    {
+        return $this-&gt;text;
+    }
+
+    public function weight(): float
+    {
+        return $this-&gt;weight;
+    }
+
+    public function score(AnswerSheet $answers): ?float
+    {
+        $score = $answers-&gt;scoreFor($this-&gt;code);
+
+        return $score === null ? null : (float) $score-&gt;value;   // a leaf simply answers
+    }
+
+    public function children(): array
+    {
+        return [];
+    }
+
+    public function accept(SurveyVisitor $visitor): void
+    {
+        $visitor-&gt;visitQuestion($this);
+    }
+}
+"><code><span class="ln fold">⋯ 41 unchanged lines</span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [];</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">accept</span>(<span class="t">SurveyVisitor</span> <span class="v">$visitor</span>): <span class="k">void</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$visitor</span>-&gt;<span class="f">visitQuestion</span>(<span class="k">$this</span>);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></li><li class="step"><h3><span class="num">4</span>A section calls visitSection()</h3><p>The visitor decides whether to go inside, by calling <code>accept()</code> on each child.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Section.php</span><span class="badge chg" title="Lines added and removed since chapter 16"><b class="plus">+5</b> <b class="minus">−0</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/Section.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code diff" data-copy="&lt;?php
+
+declare(strict_types=1);
+
+namespace Evalu8\Survey;
+
+use InvalidArgumentException;
+
+/**
+ * The Composite: a section holds questions AND other sections, to any depth.
+ * Its score is the weighted average of its children's scores; it never asks what a child is.
+ */
+final class Section implements SurveyNode
+{
+    /** @var list&lt;SurveyNode&gt; */
+    private array $children = [];
+
+    public function __construct(
+        private readonly string $title,
+        private readonly float $weight = 1.0,
+    ) {
+        if ($weight &lt;= 0) {
+            throw new InvalidArgumentException(&quot;Section \&quot;{$title}\&quot; must have a positive weight.&quot;);
+        }
+    }
+
+    public function add(SurveyNode $child): self
+    {
+        $this-&gt;children[] = $child;
+
+        return $this;
+    }
+
+    public function title(): string
+    {
+        return $this-&gt;title;
+    }
+
+    public function weight(): float
+    {
+        return $this-&gt;weight;
+    }
+
+    public function score(AnswerSheet $answers): ?float
+    {
+        $weightedTotal = 0.0;
+        $usedWeight = 0.0;
+
+        foreach ($this-&gt;children as $child) {
+            $score = $child-&gt;score($answers);               // a question or a whole section: same call
+            if ($score === null) {
+                continue;                                   // unanswered parts don't drag the score down
+            }
+
+            $weightedTotal += $score * $child-&gt;weight();
+            $usedWeight += $child-&gt;weight();
+        }
+
+        return $usedWeight &gt; 0 ? $weightedTotal / $usedWeight : null;
+    }
+
+    public function children(): array
+    {
+        return $this-&gt;children;
+    }
+
+    public function accept(SurveyVisitor $visitor): void
+    {
+        $visitor-&gt;visitSection($this);                      // the visitor decides whether to go inside
+    }
+}
+"><code><span class="ln fold">⋯ 62 unchanged lines</span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;children;</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">accept</span>(<span class="t">SurveyVisitor</span> <span class="v">$visitor</span>): <span class="k">void</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$visitor</span>-&gt;<span class="f">visitSection</span>(<span class="k">$this</span>);                      <span class="c">// the visitor decides whether to go inside</span></span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></li><li class="step"><h3><span class="num">5</span>Visitor 1: count</h3><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Visitor/QuestionCounter.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/Visitor/QuestionCounter.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Question</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Section</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">SurveyVisitor</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Counts questions and sections, at any depth.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">QuestionCounter</span> <span class="k">implements</span> <span class="t">SurveyVisitor</span>
+{
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$questions</span> = <span class="n">0</span>;
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$sections</span> = <span class="n">0</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitQuestion</span>(<span class="t">Question</span> <span class="v">$question</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;questions++;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitSection</span>(<span class="t">Section</span> <span class="v">$section</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;sections++;
+        <span class="k">foreach</span> (<span class="v">$section</span>-&gt;<span class="f">children</span>() <span class="k">as</span> <span class="v">$child</span>) {
+            <span class="v">$child</span>-&gt;<span class="f">accept</span>(<span class="k">$this</span>);
+        }
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">6</span>Visitor 2: check for mistakes</h3><p>It remembers the codes it has seen while walking the tree, so it can spot a duplicate anywhere, at any depth.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Visitor/SurveyValidator.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/Visitor/SurveyValidator.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Question</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Section</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">SurveyVisitor</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Finds mistakes a survey designer can make: duplicate question codes, empty sections,</span>
+<span class="c"> * and question texts that are too long for the phone layout.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">SurveyValidator</span> <span class="k">implements</span> <span class="t">SurveyVisitor</span>
+{
+    <span class="k">private</span> <span class="k">const</span> <span class="t">MAX_QUESTION_LENGTH</span> = <span class="n">80</span>;
+
+    <span class="c">/** @var list&lt;string&gt; */</span>
+    <span class="k">public</span> <span class="k">array</span> <span class="v">$errors</span> = [];
+
+    <span class="c">/** @var array&lt;string, true&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$codesSeen</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitQuestion</span>(<span class="t">Question</span> <span class="v">$question</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;codesSeen[<span class="v">$question</span>-&gt;code])) {
+            <span class="k">$this</span>-&gt;errors[] = <span class="s">&quot;Question code \&quot;{$question-&gt;code}\&quot; is used twice; answers would be mixed up.&quot;</span>;
+        }
+        <span class="k">$this</span>-&gt;codesSeen[<span class="v">$question</span>-&gt;code] = <span class="k">true</span>;
+
+        <span class="k">if</span> (<span class="f">mb_strlen</span>(<span class="v">$question</span>-&gt;text) &gt; <span class="k">self</span>::<span class="t">MAX_QUESTION_LENGTH</span>) {
+            <span class="k">$this</span>-&gt;errors[] = <span class="s">&quot;Question {$question-&gt;code} is longer than &quot;</span> . <span class="k">self</span>::<span class="t">MAX_QUESTION_LENGTH</span> . <span class="s">' characters.'</span>;
+        }
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitSection</span>(<span class="t">Section</span> <span class="v">$section</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="f">count</span>(<span class="v">$section</span>-&gt;<span class="f">children</span>()) === <span class="n">0</span>) {
+            <span class="k">$this</span>-&gt;errors[] = <span class="s">&quot;Section \&quot;{$section-&gt;title()}\&quot; is empty.&quot;</span>;
+        }
+
+        <span class="k">foreach</span> (<span class="v">$section</span>-&gt;<span class="f">children</span>() <span class="k">as</span> <span class="v">$child</span>) {
+            <span class="v">$child</span>-&gt;<span class="f">accept</span>(<span class="k">$this</span>);
+        }
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">isValid</span>(): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="f">count</span>(<span class="k">$this</span>-&gt;errors) === <span class="n">0</span>;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">7</span>Visitor 3: the printable handout</h3><p>Sections become headings and questions become lines with five boxes. When a sub-section ends and more questions follow, the parent’s heading is repeated with &quot;(continued)&quot;, because Markdown can’t close a heading.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Survey/Visitor/MarkdownExporter.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/src/Survey/Visitor/MarkdownExporter.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Question</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Section</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">SurveyVisitor</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Writes the survey as Markdown, for the printed handout: sections become headings,</span>
+<span class="c"> * questions become lines with five boxes.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">MarkdownExporter</span> <span class="k">implements</span> <span class="t">SurveyVisitor</span>
+{
+    <span class="k">private</span> <span class="k">string</span> <span class="v">$markdown</span> = <span class="s">''</span>;
+
+    <span class="c">/** @var list&lt;string&gt; titles of the sections we are inside, outermost first */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$open</span> = [];
+
+    <span class="c">/** true after a sub-section ends: the next question needs its section's heading again */</span>
+    <span class="k">private</span> <span class="k">bool</span> <span class="v">$resumeHeading</span> = <span class="k">false</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitQuestion</span>(<span class="t">Question</span> <span class="v">$question</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;resumeHeading) {
+            <span class="k">$this</span>-&gt;<span class="f">heading</span>(<span class="f">end</span>(<span class="k">$this</span>-&gt;open) . <span class="s">' (continued)'</span>);
+            <span class="k">$this</span>-&gt;resumeHeading = <span class="k">false</span>;
+        }
+
+        <span class="k">$this</span>-&gt;markdown .= <span class="s">&quot;- **{$question-&gt;code}.** {$question-&gt;text} ☐1 ☐2 ☐3 ☐4 ☐5\n&quot;</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">visitSection</span>(<span class="t">Section</span> <span class="v">$section</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;open[] = <span class="v">$section</span>-&gt;<span class="f">title</span>();
+        <span class="k">$this</span>-&gt;<span class="f">heading</span>(<span class="v">$section</span>-&gt;<span class="f">title</span>());
+        <span class="k">$this</span>-&gt;resumeHeading = <span class="k">false</span>;
+
+        <span class="k">foreach</span> (<span class="v">$section</span>-&gt;<span class="f">children</span>() <span class="k">as</span> <span class="v">$child</span>) {
+            <span class="v">$child</span>-&gt;<span class="f">accept</span>(<span class="k">$this</span>);
+        }
+
+        <span class="f">array_pop</span>(<span class="k">$this</span>-&gt;open);
+        <span class="k">$this</span>-&gt;resumeHeading = <span class="k">true</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">markdown</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;markdown;
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">heading</span>(<span class="k">string</span> <span class="v">$title</span>): <span class="k">void</span>
+    {
+        <span class="v">$level</span> = <span class="f">str_repeat</span>(<span class="s">'#'</span>, <span class="f">min</span>(<span class="f">count</span>(<span class="k">$this</span>-&gt;open), <span class="n">6</span>));
+        <span class="v">$separator</span> = <span class="k">$this</span>-&gt;markdown === <span class="s">''</span> || <span class="f">str_ends_with</span>(<span class="k">$this</span>-&gt;markdown, <span class="s">&quot;\n\n&quot;</span>) ? <span class="s">''</span> : <span class="s">&quot;\n&quot;</span>;
+        <span class="k">$this</span>-&gt;markdown .= <span class="s">&quot;{$separator}{$level} {$title}\n\n&quot;</span>;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">8</span>Use all three</h3><p>Each operation is: create the visitor, <code>accept()</code> it on the root, read the result.</p><div class="codebox">
+<div class="filehead"><span class="path">bin/survey.php</span><span class="badge chg" title="Lines added and removed since chapter 16"><b class="plus">+25</b> <b class="minus">−21</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/17-visitor/bin/survey.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code diff" data-copy="&lt;?php
+
+declare(strict_types=1);
+
+/*
+ * Evalu8, chapter 17: new operations on the survey, without editing Question or Section.
+ *
+ *     composer dump-autoload
+ *     php bin/survey.php
+ */
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Evalu8\Survey\Question;
+use Evalu8\Survey\Section;
+use Evalu8\Survey\TeacherEvaluationSurvey;
+use Evalu8\Survey\Visitor\MarkdownExporter;
+use Evalu8\Survey\Visitor\QuestionCounter;
+use Evalu8\Survey\Visitor\SurveyValidator;
+
+$survey = TeacherEvaluationSurvey::create();
+
+$counter = new QuestionCounter();
+$survey-&gt;accept($counter);
+echo &quot;COUNT\n{$counter-&gt;questions} questions in {$counter-&gt;sections} sections\n\n&quot;;
+
+$validator = new SurveyValidator();
+$survey-&gt;accept($validator);
+echo 'VALIDATE the real survey: ' . ($validator-&gt;isValid() ? 'no problems' : implode(' ', $validator-&gt;errors)) . &quot;\n&quot;;
+
+$draft = (new Section('Draft'))
+    -&gt;add(new Question('q1', 'Explains clearly'))
+    -&gt;add(new Section('Homework'))                          // forgot to add questions
+    -&gt;add(new Question('q1', 'Gives useful feedback'));     // copied q1 by mistake
+$validator = new SurveyValidator();
+$draft-&gt;accept($validator);
+echo &quot;VALIDATE a draft:\n  - &quot; . implode(&quot;\n  - &quot;, $validator-&gt;errors) . &quot;\n\n&quot;;
+
+$exporter = new MarkdownExporter();
+$survey-&gt;accept($exporter);
+echo &quot;MARKDOWN HANDOUT\n&quot; . $exporter-&gt;markdown();
+"><code><span class="ln fold">⋯ 2 unchanged lines</span><span class="ln"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="ln"> </span><span class="ln"><span class="c">/*</span></span><span class="ln del"><span class="c"> * Evalu8, chapter 16: score a survey tree of any depth.</span></span><span class="ln add"><span class="c"> * Evalu8, chapter 17: new operations on the survey, without editing Question or Section.</span></span><span class="ln"><span class="c"> *</span></span><span class="ln"><span class="c"> *     composer dump-autoload</span></span><span class="ln"><span class="c"> *     php bin/survey.php</span></span><span class="ln fold">⋯ 1 unchanged line</span><span class="ln"> </span><span class="ln"><span class="k">require</span> __DIR__ . <span class="s">'/../vendor/autoload.php'</span>;</span><span class="ln"> </span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">AnswerSheet</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">SurveyNode</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Question</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Section</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">TeacherEvaluationSurvey</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>\<span class="t">MarkdownExporter</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>\<span class="t">QuestionCounter</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Survey</span>\<span class="t">Visitor</span>\<span class="t">SurveyValidator</span>;</span><span class="ln"> </span><span class="ln"><span class="v">$survey</span> = <span class="t">TeacherEvaluationSurvey</span>::<span class="f">create</span>();</span><span class="ln"> </span><span class="ln del"><span class="c">// One student's answers. They skipped q5.</span></span><span class="ln del"><span class="v">$answers</span> = <span class="t">AnswerSheet</span>::<span class="f">fromArray</span>([<span class="s">'q1'</span> =&gt; <span class="n">5</span>, <span class="s">'q2'</span> =&gt; <span class="n">4</span>, <span class="s">'q3'</span> =&gt; <span class="n">3</span>, <span class="s">'q4'</span> =&gt; <span class="n">2</span>, <span class="s">'q6'</span> =&gt; <span class="n">4</span>]);</span><span class="ln del"> </span><span class="ln del"><span class="k">function</span> <span class="f">show</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>, <span class="t">AnswerSheet</span> <span class="v">$answers</span>, <span class="k">int</span> <span class="v">$depth</span> = <span class="n">0</span>): <span class="k">void</span></span><span class="ln del">{</span><span class="ln del">    <span class="v">$score</span> = <span class="v">$node</span>-&gt;<span class="f">score</span>(<span class="v">$answers</span>);                        <span class="c">// the same call at every level</span></span><span class="ln del">    <span class="k">echo</span> <span class="f">str_repeat</span>(<span class="s">'    '</span>, <span class="v">$depth</span>)</span><span class="ln del">        . <span class="f">str_pad</span>(<span class="v">$node</span>-&gt;<span class="f">title</span>(), <span class="n">44</span> - <span class="n">4</span> * <span class="v">$depth</span>)</span><span class="ln del">        . (<span class="v">$score</span> === <span class="k">null</span> ? <span class="s">'not answered'</span> : <span class="f">number_format</span>(<span class="v">$score</span>, <span class="n">2</span>))</span><span class="ln del">        . (<span class="v">$node</span>-&gt;<span class="f">weight</span>() !== <span class="n">1.0</span> ? <span class="s">&quot;   (weight {$node-&gt;weight()})&quot;</span> : <span class="s">''</span>)</span><span class="ln del">        . <span class="s">&quot;\n&quot;</span>;</span><span class="ln del"> </span><span class="ln del">    <span class="k">foreach</span> (<span class="v">$node</span>-&gt;<span class="f">children</span>() <span class="k">as</span> <span class="v">$child</span>) {</span><span class="ln del">        <span class="f">show</span>(<span class="v">$child</span>, <span class="v">$answers</span>, <span class="v">$depth</span> + <span class="n">1</span>);</span><span class="ln del">    }</span><span class="ln del">}</span><span class="ln del"> </span><span class="ln del"><span class="f">show</span>(<span class="v">$survey</span>, <span class="v">$answers</span>);</span><span class="ln add"><span class="v">$counter</span> = <span class="k">new</span> <span class="f">QuestionCounter</span>();</span><span class="ln add"><span class="v">$survey</span>-&gt;<span class="f">accept</span>(<span class="v">$counter</span>);</span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;COUNT\n{$counter-&gt;questions} questions in {$counter-&gt;sections} sections\n\n&quot;</span>;</span><span class="ln add"> </span><span class="ln add"><span class="v">$validator</span> = <span class="k">new</span> <span class="f">SurveyValidator</span>();</span><span class="ln add"><span class="v">$survey</span>-&gt;<span class="f">accept</span>(<span class="v">$validator</span>);</span><span class="ln add"><span class="k">echo</span> <span class="s">'VALIDATE the real survey: '</span> . (<span class="v">$validator</span>-&gt;<span class="f">isValid</span>() ? <span class="s">'no problems'</span> : <span class="f">implode</span>(<span class="s">' '</span>, <span class="v">$validator</span>-&gt;errors)) . <span class="s">&quot;\n&quot;</span>;</span><span class="ln add"> </span><span class="ln add"><span class="v">$draft</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Draft'</span>))</span><span class="ln add">    -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q1'</span>, <span class="s">'Explains clearly'</span>))</span><span class="ln add">    -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Homework'</span>))                          <span class="c">// forgot to add questions</span></span><span class="ln add">    -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'q1'</span>, <span class="s">'Gives useful feedback'</span>));     <span class="c">// copied q1 by mistake</span></span><span class="ln add"><span class="v">$validator</span> = <span class="k">new</span> <span class="f">SurveyValidator</span>();</span><span class="ln add"><span class="v">$draft</span>-&gt;<span class="f">accept</span>(<span class="v">$validator</span>);</span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;VALIDATE a draft:\n  - &quot;</span> . <span class="f">implode</span>(<span class="s">&quot;\n  - &quot;</span>, <span class="v">$validator</span>-&gt;errors) . <span class="s">&quot;\n\n&quot;</span>;</span><span class="ln add"> </span><span class="ln add"><span class="v">$exporter</span> = <span class="k">new</span> <span class="f">MarkdownExporter</span>();</span><span class="ln add"><span class="v">$survey</span>-&gt;<span class="f">accept</span>(<span class="v">$exporter</span>);</span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;MARKDOWN HANDOUT\n&quot;</span> . <span class="v">$exporter</span>-&gt;<span class="f">markdown</span>();</span></code></pre>
+</div></li></ol></section>
+<section class="run"><h2>Run it</h2><p>The real survey passes the check; the draft fails with both mistakes named. The handout keeps q6 under the survey’s own heading, not under Time management.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">terminal, inside chapters/17-visitor</span></div>
+<pre class="code"><code>composer dump-autoload
+php bin/survey.php</code></pre>
+</div>
+<div class="output"><span>Output</span><pre>COUNT
+6 questions in 4 sections
+
+VALIDATE the real survey: no problems
+VALIDATE a draft:
+  - Section &quot;Homework&quot; is empty.
+  - Question code &quot;q1&quot; is used twice; answers would be mixed up.
+
+MARKDOWN HANDOUT
+# Teacher evaluation 2026-T2
+
+## Teaching
+
+- **q1.** Explains clearly ☐1 ☐2 ☐3 ☐4 ☐5
+- **q2.** Checks that we understood ☐1 ☐2 ☐3 ☐4 ☐5
+
+## Classroom
+
+- **q3.** Keeps the class focused ☐1 ☐2 ☐3 ☐4 ☐5
+
+### Time management
+
+- **q4.** Starts lessons on time ☐1 ☐2 ☐3 ☐4 ☐5
+- **q5.** Finishes the lesson plan ☐1 ☐2 ☐3 ☐4 ☐5
+
+# Teacher evaluation 2026-T2 (continued)
+
+- **q6.** Overall, I would recommend this teacher ☐1 ☐2 ☐3 ☐4 ☐5</pre></div></section>
+<section class="laravel"><h2>How Laravel does it</h2><p>PHP-Parser (used by PHPStan, Rector and Laravel Pint’s tooling) is the best-known PHP visitor: a <code>NodeVisitor</code> walks a syntax tree that has many node types and few new ones. Laravel’s query grammars apply the same idea to queries: one grammar class per database &quot;visits&quot; each part of a query and turns it into SQL.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">Laravel</span></div>
+<pre class="code"><code><span class="c">// With nikic/php-parser: one class per operation over PHP code</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">FindDdCalls</span> <span class="k">extends</span> <span class="t">NodeVisitorAbstract</span>
+{
+    <span class="c">/** @var list&lt;int&gt; */</span>
+    <span class="k">public</span> <span class="k">array</span> <span class="v">$lines</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">enterNode</span>(<span class="t">Node</span> <span class="v">$node</span>): <span class="k">null</span>
+    {
+        <span class="k">if</span> (<span class="v">$node</span> <span class="k">instanceof</span> <span class="t">Node</span>\<span class="t">Expr</span>\<span class="t">FuncCall</span> &amp;&amp; <span class="v">$node</span>-&gt;name <span class="k">instanceof</span> <span class="t">Node</span>\<span class="t">Name</span> &amp;&amp; <span class="v">$node</span>-&gt;name-&gt;<span class="f">toString</span>() === <span class="s">'dd'</span>) {
+            <span class="k">$this</span>-&gt;lines[] = <span class="v">$node</span>-&gt;<span class="f">getStartLine</span>();
+        }
+
+        <span class="k">return</span> <span class="k">null</span>;
+    }
+}</code></pre>
+</div></section>
+<section class="check"><h2>Check yourself</h2><p class="hint">Answer in your head, then open the answer.</p>
+<details><summary>Next term needs a PDF export. Which classes change?</summary><p>None. You add one class, <code>PdfExporter implements SurveyVisitor</code>.</p></details><details><summary>A new node type, <code>TextQuestion</code>, is added. What changes?</summary><p>The visitor interface gains <code>visitTextQuestion()</code>, and every existing visitor must implement it. That is Visitor’s cost.</p></details><details><summary>What is double dispatch here?</summary><p>The method that runs depends on two things: the visitor (which operation) and the node (which <code>visit...</code> method it calls back).</p></details></section>
+<section class="nextup"><p>The quality team wants follow-up questions that appear only for some respondents, and they want to write those rules themselves, without waiting for a developer.</p>
+<nav class="pager" aria-label="Chapters">
+<a rel="prev" href="../16-composite/"><small>← Chapter 16</small>Sections inside sections: score the whole tree</a>
+<a rel="next" href="../18-interpreter/"><small>Chapter 18 →</small>“Show Q5 only if Q3 ≥ 4 and the role is teacher”</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"The code we inherited","patterns":[],"slug":"00-the-mess","ready":true},{"n":1,"title":"Scores of 140 got into the database","patterns":["Value Object"],"slug":"01-value-object","ready":true},{"n":2,"title":"Only this term’s answers must count","patterns":["Repository","Data Mapper vs Active Record"],"slug":"02-repository","ready":true},{"n":3,"title":"Each school scores teachers its own way","patterns":["Strategy"],"slug":"03-strategy","ready":true},{"n":4,"title":"The scoring method must come from school settings","patterns":["Simple Factory"],"slug":"04-simple-factory","ready":true},{"n":5,"title":"Schools without AI analysis crash the report","patterns":["Null Object"],"slug":"05-null-object","ready":true},{"n":6,"title":"Classes create their own database and mailer","patterns":["Singleton","Dependency Injection Container"],"slug":"06-container","ready":true},{"n":7,"title":"Move from the OpenAI SDK to a local LLM","patterns":["Adapter"],"slug":"07-adapter","ready":true},{"n":8,"title":"Local model in development, hosted model in production","patterns":["Manager / Driver"],"slug":"08-manager","ready":true},{"n":9,"title":"AI calls are slow and expensive","patterns":["Decorator"],"slug":"09-decorator","ready":true},{"n":10,"title":"Load the 50 MB results only when opened, only for allowed users","patterns":["Proxy"],"slug":"10-proxy","ready":true},{"n":11,"title":"Closing a survey takes six steps, and callers forget some","patterns":["Facade"],"slug":"11-facade","ready":true},{"n":12,"title":"Import answers from Google Forms CSV, Excel and JSON","patterns":["Template Method"],"slug":"12-template-method","ready":true},{"n":13,"title":"Each importer needs its own reader","patterns":["Factory Method"],"slug":"13-factory-method","ready":true},{"n":14,"title":"Exporting 100,000 responses runs out of memory","patterns":["Iterator","Generators"],"slug":"14-iterator","ready":true},{"n":15,"title":"100,000 response objects repeat the same question data","patterns":["Flyweight"],"slug":"15-flyweight","ready":true},{"n":16,"title":"Sections inside sections: score the whole tree","patterns":["Composite"],"slug":"16-composite","ready":true},{"n":17,"title":"Export, validate and count the tree without editing it","patterns":["Visitor"],"slug":"17-visitor","ready":true},{"n":18,"title":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","patterns":["Interpreter"],"slug":"18-interpreter","ready":true},{"n":19,"title":"Start next term from last term’s survey","patterns":["Prototype"],"slug":"19-prototype","ready":true},{"n":20,"title":"Build complex report searches and documents","patterns":["Builder"],"slug":"20-builder","ready":true},{"n":21,"title":"Survey lifecycle: draft, open, closed, archived","patterns":["State"],"slug":"","ready":false},{"n":22,"title":"When a survey closes, five things must happen","patterns":["Observer","Event Dispatcher"],"slug":"","ready":false},{"n":23,"title":"The 40-second AI analysis times out the request","patterns":["Command","Command Bus"],"slug":"","ready":false},{"n":24,"title":"The Ministry sync was lost when the server died","patterns":["Unit of Work","Transactional Outbox"],"slug":"","ready":false},{"n":25,"title":"Submitting an answer needs six checks","patterns":["Chain of Responsibility","Pipeline"],"slug":"","ready":false},{"n":26,"title":"“Teachers with 3+ evaluations this term, not on leave”","patterns":["Specification"],"slug":"","ready":false},{"n":27,"title":"Local vs cloud: storage and queue must always match","patterns":["Abstract Factory"],"slug":"","ready":false},{"n":28,"title":"Three notification types × four channels","patterns":["Bridge"],"slug":"","ready":false},{"n":29,"title":"Survey editor parts keep changing each other","patterns":["Mediator"],"slug":"","ready":false},{"n":30,"title":"“Undo” in the survey editor","patterns":["Memento"],"slug":"","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Scores of 140 got into the database","slug":"01-value-object","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Strategy","chapter":3,"chapterTitle":"Each school scores teachers its own way","slug":"03-strategy","ready":true,"gof":true},{"name":"Simple Factory","chapter":4,"chapterTitle":"The scoring method must come from school settings","slug":"04-simple-factory","ready":true,"gof":false},{"name":"Null Object","chapter":5,"chapterTitle":"Schools without AI analysis crash the report","slug":"05-null-object","ready":true,"gof":false},{"name":"Singleton","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":false},{"name":"Adapter","chapter":7,"chapterTitle":"Move from the OpenAI SDK to a local LLM","slug":"07-adapter","ready":true,"gof":true},{"name":"Manager / Driver","chapter":8,"chapterTitle":"Local model in development, hosted model in production","slug":"08-manager","ready":true,"gof":false},{"name":"Decorator","chapter":9,"chapterTitle":"AI calls are slow and expensive","slug":"09-decorator","ready":true,"gof":true},{"name":"Proxy","chapter":10,"chapterTitle":"Load the 50 MB results only when opened, only for allowed users","slug":"10-proxy","ready":true,"gof":true},{"name":"Facade","chapter":11,"chapterTitle":"Closing a survey takes six steps, and callers forget some","slug":"11-facade","ready":true,"gof":true},{"name":"Template Method","chapter":12,"chapterTitle":"Import answers from Google Forms CSV, Excel and JSON","slug":"12-template-method","ready":true,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Each importer needs its own reader","slug":"13-factory-method","ready":true,"gof":true},{"name":"Iterator","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":true},{"name":"Generators","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":false},{"name":"Flyweight","chapter":15,"chapterTitle":"100,000 response objects repeat the same question data","slug":"15-flyweight","ready":true,"gof":true},{"name":"Composite","chapter":16,"chapterTitle":"Sections inside sections: score the whole tree","slug":"16-composite","ready":true,"gof":true},{"name":"Visitor","chapter":17,"chapterTitle":"Export, validate and count the tree without editing it","slug":"17-visitor","ready":true,"gof":true},{"name":"Interpreter","chapter":18,"chapterTitle":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","slug":"18-interpreter","ready":true,"gof":true},{"name":"Prototype","chapter":19,"chapterTitle":"Start next term from last term’s survey","slug":"19-prototype","ready":true,"gof":true},{"name":"Builder","chapter":20,"chapterTitle":"Build complex report searches and documents","slug":"20-builder","ready":true,"gof":true},{"name":"State","chapter":21,"chapterTitle":"Survey lifecycle: draft, open, closed, archived","slug":"","ready":false,"gof":true},{"name":"Observer","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":false},{"name":"Command","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":true},{"name":"Command Bus","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":false},{"name":"Unit of Work","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":true},{"name":"Pipeline","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":false},{"name":"Specification","chapter":26,"chapterTitle":"“Teachers with 3+ evaluations this term, not on leave”","slug":"","ready":false,"gof":false},{"name":"Abstract Factory","chapter":27,"chapterTitle":"Local vs cloud: storage and queue must always match","slug":"","ready":false,"gof":true},{"name":"Bridge","chapter":28,"chapterTitle":"Three notification types × four channels","slug":"","ready":false,"gof":true},{"name":"Mediator","chapter":29,"chapterTitle":"Survey editor parts keep changing each other","slug":"","ready":false,"gof":true},{"name":"Memento","chapter":30,"chapterTitle":"“Undo” in the survey editor","slug":"","ready":false,"gof":true}]}</script>
+<script src="../assets/site.js?v=d61b3d9de7" defer></script>
+</body>
+</html>

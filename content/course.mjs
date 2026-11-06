@@ -9,6 +9,7 @@
 import { PART1 } from './part1.mjs';
 import { PART2 } from './part2.mjs';
 import { PART3 } from './part3.mjs';
+import { PART4 } from './part4.mjs';
 
 export const PARTS = {
   1: 'Foundations',
@@ -37,11 +38,11 @@ export const PLAN = [
   { n: 13, part: 3, slug: '13-factory-method', ready: true, title: 'Each importer needs its own reader', patterns: ['Factory Method'] },
   { n: 14, part: 3, slug: '14-iterator', ready: true, title: 'Exporting 100,000 responses runs out of memory', patterns: ['Iterator', 'Generators'] },
   { n: 15, part: 3, slug: '15-flyweight', ready: true, title: '100,000 response objects repeat the same question data', patterns: ['Flyweight'] },
-  { n: 16, part: 4, title: 'Sections inside sections: score the whole tree', patterns: ['Composite'] },
-  { n: 17, part: 4, title: 'Export, validate and count the tree without editing it', patterns: ['Visitor'] },
-  { n: 18, part: 4, title: '“Show Q5 only if Q3 ≥ 4 and the role is teacher”', patterns: ['Interpreter'] },
-  { n: 19, part: 4, title: 'Start next term from last term’s survey', patterns: ['Prototype'] },
-  { n: 20, part: 4, title: 'Build complex report searches and documents', patterns: ['Builder'] },
+  { n: 16, part: 4, slug: '16-composite', ready: true, title: 'Sections inside sections: score the whole tree', patterns: ['Composite'] },
+  { n: 17, part: 4, slug: '17-visitor', ready: true, title: 'Export, validate and count the tree without editing it', patterns: ['Visitor'] },
+  { n: 18, part: 4, slug: '18-interpreter', ready: true, title: '“Show Q5 only if Q3 ≥ 4 and the role is teacher”', patterns: ['Interpreter'] },
+  { n: 19, part: 4, slug: '19-prototype', ready: true, title: 'Start next term from last term’s survey', patterns: ['Prototype'] },
+  { n: 20, part: 4, slug: '20-builder', ready: true, title: 'Build complex report searches and documents', patterns: ['Builder'] },
   { n: 21, part: 5, title: 'Survey lifecycle: draft, open, closed, archived', patterns: ['State'] },
   { n: 22, part: 5, title: 'When a survey closes, five things must happen', patterns: ['Observer', 'Event Dispatcher'] },
   { n: 23, part: 5, title: 'The 40-second AI analysis times out the request', patterns: ['Command', 'Command Bus'] },
@@ -66,6 +67,7 @@ export const CHAPTERS = {
   ...PART1,
   ...PART2,
   ...PART3,
+  ...PART4,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {

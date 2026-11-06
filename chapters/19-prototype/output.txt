@@ -1,0 +1,10 @@
+THIS TERM: Teacher evaluation 2026-T2
+  questions: 6
+  Time management: 2 questions
+
+NEXT TERM: Teacher evaluation 2027-T1
+  questions: 7
+  Time management: 3 questions
+
+Sections shared between the two? no, each survey has its own
+Questions shared between the two? yes, safely: a Question can never change
