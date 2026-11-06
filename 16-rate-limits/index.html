@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Airbnb blocked us for an hour · Decorator in Laravel | Pattern Playbook</title>
+<meta name="description" content="Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel with Decorators around the channel API: one that retries only real blips, one that stays under the rate limit with Redis, and jobs that wait for Retry-After.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/16-rate-limits/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Airbnb blocked us for an hour · Decorator in Laravel | Pattern Playbook">
+<meta property="og:description" content="Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel with Decorators around the channel API: one that retries only real blips, one that stays under the rate limit with Redis, and jobs that wait for Retry-After.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/16-rate-limits/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Airbnb blocked us for an hour · Decorator in Laravel | Pattern Playbook">
+<meta name="twitter:description" content="Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel with Decorators around the channel API: one that retries only real blips, one that stays under the rate limit with Redis, and jobs that wait for Retry-After.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 16: Airbnb blocked us for an hour","description":"Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel with Decorators around the channel API: one that retries only real blips, one that stays under the rate limit with Redis, and jobs that wait for Retry-After.","url":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 16: Airbnb blocked us for an hour","item":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/"}]}]}</script>
+</head>
+<body data-page="16-rate-limits" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 3 · Channels › Scene 16 of 42</p>
+<h1>Airbnb blocked us for an hour</h1>
+<p class="subtitle">Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()</p>
+<p class="tags"><span class="ptag">Decorator</span></p>
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Friday 09:40</span></p>
+<p class="inc-msg"><span class="inc-who">Alert · channels</span>Airbnb: <b>429 Too Many Requests</b> on 100% of calls since 09:12. 31,000 requests in the last 30 minutes.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>Airbnb’s partner team says we sent 40 times our limit, and our app key is blocked until 10:15. Every booking made in that hour is a possible double booking.</p>
+</section>
+<section><h2>The broken code</h2><p>After the 401 outage in scene 13, retries were added in a hurry, in each adapter:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php (before) · the same line in BookingComApi</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))
+    -&gt;<span class="f">retry</span>(<span class="n">5</span>, <span class="n">100</span>)                                      <span class="c">// every error, 429 included, 100 ms apart</span>
+    -&gt;<span class="f">put</span>(<span class="s">&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;</span>, [<span class="c">/* ... */</span>]);
+
+<span class="c">// CloseChannelDates: public int $tries = 5;  with no backoff, so a failed job runs again at once</span></code></pre>
+</div><p>At 09:12 Airbnb got busy and answered a few calls with 429: &quot;too many requests, slow down&quot;. Each call was retried 5 times within half a second, and each failed job ran 5 more times right away: up to <b>25 requests</b> for one calendar change, all arriving exactly when Airbnb asked us to stop. That turned a short slowdown into a one-hour block.</p><p>Not every error deserves a retry. A <b>network blip or a 5xx</b> usually succeeds a moment later. A <b>429</b> means &quot;wait as long as I tell you&quot;. A <b>4xx</b> like 400 or 401 will fail the same way every time.</p></div></div></section>
+<section><h2>The fix, part 1: a 429 is its own error</h2><p>The adapters already turn failures into <code>ChannelRequestFailed</code> (scene 13). A 429 now becomes a subclass that carries how long the channel asked us to wait.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/ChannelRateLimited.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">ChannelRateLimited</span> <span class="k">extends</span> <span class="t">ChannelRequestFailed</span>
+{
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$retryAfter</span> = <span class="n">60</span>;                           <span class="c">// seconds</span>
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">wait</span>(<span class="k">string</span> <span class="v">$channel</span>, <span class="k">int</span> <span class="v">$seconds</span>): <span class="k">self</span>
+    {
+        <span class="v">$exception</span> = <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel} is rate limiting us; retry in {$seconds}s.&quot;</span>);
+        <span class="v">$exception</span>-&gt;retryAfter = <span class="f">max</span>(<span class="n">1</span>, <span class="v">$seconds</span>);
+
+        <span class="k">return</span> <span class="v">$exception</span>;
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php (from() changed)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">from</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">Response</span> <span class="v">$response</span>): <span class="k">self</span>
+{
+    <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">status</span>() === <span class="n">429</span>) {
+        <span class="k">return</span> <span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="v">$channel</span>-&gt;value, (<span class="k">int</span>) (<span class="v">$response</span>-&gt;<span class="f">header</span>(<span class="s">'Retry-After'</span>) ?: <span class="n">60</span>));
+    }
+
+    <span class="v">$exception</span> = <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot;</span> . <span class="f">mb_substr</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="n">0</span>, <span class="n">500</span>));
+    <span class="v">$exception</span>-&gt;status = <span class="v">$response</span>-&gt;<span class="f">status</span>();                <span class="c">// the retry decorator reads it</span>
+
+    <span class="k">return</span> <span class="v">$exception</span>;
+}
+
+<span class="c">// The class is no longer final (ChannelRateLimited extends it), and gains: public ?int $status = null;</span></code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 2: wrap the API instead of changing it</h2><p>Retrying and rate limiting have nothing to do with how Airbnb or Booking.com work, and every channel needs them the same way. So they don’t go <b>into</b> the adapters. They go <b>around</b> them: a class that implements the same <code>ChannelApi</code> interface, holds another <code>ChannelApi</code>, adds one behaviour, and passes the call on.</p><p>Code that receives a <code>ChannelApi</code> can’t tell whether it got the plain adapter or one wrapped twice. That is what lets the layers stack.</p><div class="blocks"><div class="block"><h3>Retry real blips, nothing else</h3><p>Two more attempts, 200 ms and 600 ms apart, only for connection errors and 5xx. Laravel’s <code>Sleep</code> is used instead of <code>usleep()</code> so tests can fake the waiting.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/RetryingChannelApi.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Closure</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">ConnectionException</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Sleep</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">RetryingChannelApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span>
+{
+    <span class="k">private</span> <span class="k">const</span> <span class="t">PAUSES_MS</span> = [<span class="n">200</span>, <span class="n">600</span>];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">ChannelApi</span> <span class="v">$inner</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">retry</span>(<span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;inner-&gt;<span class="f">closeDates</span>(<span class="v">$listing</span>, <span class="v">$nights</span>));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">retry</span>(<span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;inner-&gt;<span class="f">openDates</span>(<span class="v">$listing</span>, <span class="v">$nights</span>));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;inner-&gt;<span class="f">reservationsUpdatedSince</span>(<span class="v">$listing</span>, <span class="v">$since</span>);   <span class="c">// a half-read page sequence can't be replayed; the next poll retries</span>
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">retry</span>(<span class="t">Closure</span> <span class="v">$call</span>): <span class="k">void</span>
+    {
+        <span class="k">foreach</span> ([...<span class="k">self</span>::<span class="t">PAUSES_MS</span>, <span class="k">null</span>] <span class="k">as</span> <span class="v">$pause</span>) {
+            <span class="k">try</span> {
+                <span class="v">$call</span>();
+
+                <span class="k">return</span>;
+            } <span class="k">catch</span> (<span class="t">ConnectionException</span>|<span class="t">ChannelRequestFailed</span> <span class="v">$e</span>) {
+                <span class="v">$transient</span> = <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ConnectionException</span>
+                    || (! <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ChannelRateLimited</span> &amp;&amp; <span class="v">$e</span>-&gt;status &gt;= <span class="n">500</span>);
+
+                <span class="k">if</span> (! <span class="v">$transient</span> || <span class="v">$pause</span> === <span class="k">null</span>) {
+                    <span class="k">throw</span> <span class="v">$e</span>;                                              <span class="c">// 429, 4xx, or out of attempts</span>
+                }
+
+                <span class="t">Sleep</span>::<span class="f">for</span>(<span class="v">$pause</span>)-&gt;<span class="f">milliseconds</span>();
+            }
+        }
+    }
+}</code></pre>
+</div></div><div class="block"><h3>Stay under the limit before the channel has to say so</h3><p>Each channel publishes a request limit. A Redis counter shared by <b>every worker</b> counts our calls per channel per minute; at the limit, the call isn’t made at all, and the caller is told how long to wait, exactly like a 429 from the channel. <code>RateLimiter::attempt()</code> is atomic in Redis, so twenty workers can’t all slip through at the same instant.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/ThrottledChannelApi.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Closure</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">RateLimiter</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">ThrottledChannelApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="t">ChannelApi</span> <span class="v">$inner</span>,
+        <span class="k">private</span> <span class="k">string</span> <span class="v">$channel</span>,
+        <span class="k">private</span> <span class="k">int</span> <span class="v">$perMinute</span>,
+    ) {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">throttle</span>(<span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;inner-&gt;<span class="f">closeDates</span>(<span class="v">$listing</span>, <span class="v">$nights</span>));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">throttle</span>(<span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;inner-&gt;<span class="f">openDates</span>(<span class="v">$listing</span>, <span class="v">$nights</span>));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">throttle</span>(<span class="k">fn</span> () =&gt; <span class="k">null</span>);                                  <span class="c">// counts the first page; polls are rare</span>
+        <span class="k">return</span> <span class="k">$this</span>-&gt;inner-&gt;<span class="f">reservationsUpdatedSince</span>(<span class="v">$listing</span>, <span class="v">$since</span>);
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">throttle</span>(<span class="t">Closure</span> <span class="v">$call</span>): <span class="k">void</span>
+    {
+        <span class="v">$key</span> = <span class="s">&quot;channel-api:{$this-&gt;channel}&quot;</span>;
+
+        <span class="k">if</span> (<span class="t">RateLimiter</span>::<span class="f">attempt</span>(<span class="v">$key</span>, <span class="k">$this</span>-&gt;perMinute, <span class="v">$call</span>, decaySeconds: <span class="n">60</span>) === <span class="k">false</span>) {
+            <span class="k">throw</span> <span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="k">$this</span>-&gt;channel, <span class="t">RateLimiter</span>::<span class="f">availableIn</span>(<span class="v">$key</span>));
+        }
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The kits put the layers together</h3><p>The order matters. The throttle sits <b>inside</b> the retry, so every real HTTP call, retries included, takes a slot from the limit. If it sat outside, one slot would cover up to three calls.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbKit.php (api() changed) · the same in BookingComKit</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">api</span>(): <span class="t">ChannelApi</span>
+{
+    <span class="v">$airbnb</span> = <span class="k">new</span> <span class="f">AirbnbApi</span>(
+        <span class="k">new</span> <span class="f">AirbnbTokens</span>(<span class="k">$this</span>-&gt;config[<span class="s">'token_url'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_id'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_secret'</span>]),
+        <span class="k">$this</span>-&gt;config[<span class="s">'base_url'</span>],
+    );
+
+    <span class="k">return</span> <span class="k">new</span> <span class="f">RetryingChannelApi</span>(                       <span class="c">// outer: retries blips</span>
+        <span class="k">new</span> <span class="f">ThrottledChannelApi</span>(<span class="v">$airbnb</span>, <span class="s">'airbnb'</span>, perMinute: (<span class="k">int</span>) (<span class="k">$this</span>-&gt;config[<span class="s">'requests_per_minute'</span>] ?? <span class="n">60</span>)),   <span class="c">// inner: counts every call</span>
+    );
+}</code></pre>
+</div><p><code>requests_per_minute</code> goes in <code>config/services.php</code> next to each channel’s credentials: the partner’s published limit, with 60 when it isn’t set. The plain adapters lose their <code>retry()</code> lines; they only translate again.</p></div></div></section>
+<section><h2>The fix, part 3: jobs wait as long as they’re told</h2><p>A rate-limited job doesn’t fail and doesn’t retry at once: it goes back on the queue for exactly <code>Retry-After</code> seconds with <code>release()</code>. Every other failure waits a growing backoff. <code>retryUntil()</code> replaces a fixed number of tries, so a long rate limit can’t burn all of a job’s attempts.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php (after)</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRateLimited</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">DateTimeInterface</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;
+
+<span class="k">class</span> <span class="t">CloseChannelDates</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>
+{
+    <span class="k">use</span> <span class="t">Queueable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="k">public</span> <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">public</span> <span class="k">bool</span> <span class="v">$close</span> = <span class="k">true</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">retryUntil</span>(): <span class="t">DateTimeInterface</span>
+    {
+        <span class="k">return</span> <span class="f">now</span>()-&gt;<span class="f">addHours</span>(<span class="n">2</span>);                        <span class="c">// keep trying for two hours, however many releases that takes</span>
+    }
+
+    <span class="c">/** @return list&lt;int&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">backoff</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="n">30</span>, <span class="n">120</span>, <span class="n">300</span>, <span class="n">900</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="k">void</span>
+    {
+        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel)-&gt;<span class="f">api</span>();
+
+        <span class="k">try</span> {
+            <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
+        } <span class="k">catch</span> (<span class="t">ChannelRateLimited</span> <span class="v">$e</span>) {
+            <span class="k">$this</span>-&gt;<span class="f">release</span>(<span class="v">$e</span>-&gt;retryAfter);               <span class="c">// back on the queue, not a failure</span>
+        }
+    }
+}</code></pre>
+</div><p>A limit of how many of these jobs may <b>start</b> per minute is also built in: the <code>RateLimited</code> job middleware with a <code>RateLimiter::for()</code> definition. The decorator is the stricter guard because it counts actual HTTP calls, wherever they come from.</p></div></div></section>
+<section class="reveal"><h2>You just wrote the Decorator pattern</h2>
+<p class="rule"><span>Decorator</span>A class that implements the same interface as the object it wraps, adds one behaviour, and passes every call on. Decorators can be stacked.</p>
+
+
+
+<ul class="points"><li>The adapters only translate; retrying and throttling each live in one small class. Adding logging or metrics to every channel would be one more decorator, and no adapter would change.</li><li>The order of the layers is a decision you can see, in one place: the kit.</li><li>Each decorator is tested on its own, around a fake <code>ChannelApi</code>.</li></ul>
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>A behaviour only one class needs: put it in that class.</li><li>Many layers that depend on each other’s order in subtle ways are hard to follow. Two or three, built in one visible place, is the comfortable range.</li></ul>
+</section>
+<section class="laravel"><h2>Laravel does the same: the logger</h2><p><code>Log::error()</code> reaches Laravel’s <code>Logger</code>, which implements the PSR <code>LoggerInterface</code>, wraps a Monolog logger implementing the same interface, and adds two behaviours: shared context and a <code>MessageLogged</code> event. Monolog does the writing.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Log/Logger.php (simplified)</span></div>
+<pre class="code"><code><span class="k">class</span> <span class="t">Logger</span> <span class="k">implements</span> <span class="t">LoggerInterface</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">protected</span> <span class="t">LoggerInterface</span> <span class="v">$logger</span>, <span class="k">protected</span> ?<span class="t">Dispatcher</span> <span class="v">$dispatcher</span> = <span class="k">null</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">error</span>(<span class="v">$message</span>, <span class="k">array</span> <span class="v">$context</span> = []): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">writeLog</span>(__FUNCTION__, <span class="v">$message</span>, <span class="v">$context</span>);
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">writeLog</span>(<span class="v">$level</span>, <span class="v">$message</span>, <span class="v">$context</span>): <span class="k">void</span>
+    {
+        <span class="v">$context</span> = <span class="f">array_merge</span>(<span class="k">$this</span>-&gt;context, <span class="v">$context</span>);           <span class="c">// added behaviour 1: shared context</span>
+
+        <span class="k">$this</span>-&gt;logger-&gt;{<span class="v">$level</span>}(<span class="v">$message</span>, <span class="v">$context</span>);                <span class="c">// the wrapped logger does the real work</span>
+
+        <span class="k">$this</span>-&gt;<span class="f">fireLogEvent</span>(<span class="v">$level</span>, <span class="v">$message</span>, <span class="v">$context</span>);            <span class="c">// added behaviour 2: an event</span>
+    }
+}</code></pre>
+</div></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>What is retried and what isn’t, the shared limit, and a job that waits</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Unit/ChannelDecoratorsTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRateLimited</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">RetryingChannelApi</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ThrottledChannelApi</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Sleep</span>;
+
+<span class="c">/** A ChannelApi that fails with the given errors, in order, then succeeds. */</span>
+<span class="k">function</span> <span class="f">flaky</span>(<span class="t">Throwable</span> ...<span class="v">$errors</span>): <span class="t">ChannelApi</span>
+{
+    <span class="k">return</span> <span class="k">new</span> <span class="k">class</span> (<span class="v">$errors</span>) <span class="k">implements</span> <span class="t">ChannelApi</span> {
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$calls</span> = <span class="n">0</span>;
+
+        <span class="c">/** @param list&lt;Throwable&gt; $errors */</span>
+        <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">array</span> <span class="v">$errors</span>)
+        {
+        }
+
+        <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+        {
+            <span class="k">$this</span>-&gt;calls++;
+            <span class="k">if</span> (<span class="v">$error</span> = <span class="f">array_shift</span>(<span class="k">$this</span>-&gt;errors)) {
+                <span class="k">throw</span> <span class="v">$error</span>;
+            }
+        }
+
+        <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>
+        {
+        }
+
+        <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>
+        {
+            <span class="k">return</span> [];
+        }
+    };
+}
+
+<span class="k">function</span> <span class="f">failedWith</span>(<span class="k">int</span> <span class="v">$status</span>): <span class="t">ChannelRequestFailed</span>
+{
+    <span class="v">$e</span> = <span class="k">new</span> <span class="f">ChannelRequestFailed</span>(<span class="s">&quot;answered {$status}&quot;</span>);
+    <span class="v">$e</span>-&gt;status = <span class="v">$status</span>;
+
+    <span class="k">return</span> <span class="v">$e</span>;
+}
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="t">Sleep</span>::<span class="f">fake</span>();
+    <span class="k">$this</span>-&gt;listing = <span class="k">new</span> <span class="f">ChannelListing</span>();
+    <span class="k">$this</span>-&gt;nights = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-13'</span>);
+});
+
+<span class="f">it</span>(<span class="s">'retries a 503 and succeeds, pausing 200 then 600 ms'</span>, <span class="k">function</span> () {
+    <span class="v">$inner</span> = <span class="f">flaky</span>(<span class="f">failedWith</span>(<span class="n">503</span>), <span class="f">failedWith</span>(<span class="n">503</span>));
+
+    (<span class="k">new</span> <span class="f">RetryingChannelApi</span>(<span class="v">$inner</span>))-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
+
+    <span class="f">expect</span>(<span class="v">$inner</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">3</span>);
+    <span class="t">Sleep</span>::<span class="f">assertSequence</span>([<span class="t">Sleep</span>::<span class="f">for</span>(<span class="n">200</span>)-&gt;<span class="f">milliseconds</span>(), <span class="t">Sleep</span>::<span class="f">for</span>(<span class="n">600</span>)-&gt;<span class="f">milliseconds</span>()]);
+});
+
+<span class="f">it</span>(<span class="s">'never retries a 429 or a 400'</span>, <span class="k">function</span> (<span class="t">Throwable</span> <span class="v">$error</span>) {
+    <span class="v">$inner</span> = <span class="f">flaky</span>(<span class="v">$error</span>);
+
+    <span class="f">expect</span>(<span class="k">fn</span> () =&gt; (<span class="k">new</span> <span class="f">RetryingChannelApi</span>(<span class="v">$inner</span>))-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights))-&gt;<span class="f">toThrow</span>(<span class="v">$error</span>::class)
+        -&gt;<span class="f">and</span>(<span class="v">$inner</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">1</span>);
+})-&gt;<span class="f">with</span>([
+    <span class="s">'rate limited'</span> =&gt; [<span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="s">'airbnb'</span>, <span class="n">30</span>)],
+    <span class="s">'bad request'</span> =&gt; [<span class="f">failedWith</span>(<span class="n">400</span>)],
+]);
+
+<span class="f">it</span>(<span class="s">'stops calling at the limit and says how long to wait'</span>, <span class="k">function</span> () {
+    <span class="v">$inner</span> = <span class="f">flaky</span>();
+    <span class="v">$api</span> = <span class="k">new</span> <span class="f">ThrottledChannelApi</span>(<span class="v">$inner</span>, <span class="s">'airbnb'</span>, perMinute: <span class="n">2</span>);
+
+    <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
+    <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
+
+    <span class="f">expect</span>(<span class="k">fn</span> () =&gt; <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights))-&gt;<span class="f">toThrow</span>(<span class="t">ChannelRateLimited</span>::class)
+        -&gt;<span class="f">and</span>(<span class="v">$inner</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">2</span>);                                   <span class="c">// the third call never reached the channel</span>
+});</code></pre>
+</div><p><code>ChannelListing</code> and <code>Stay</code> are only passed through here, so an unsaved listing is enough. The limiter uses the test cache (<code>array</code>), which is fresh for every test.</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/CloseChannelDatesTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelConnection</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;
+
+<span class="f">it</span>(<span class="s">'puts itself back on the queue for exactly Retry-After seconds'</span>, <span class="k">function</span> () {
+    <span class="f">config</span>([<span class="s">'services.airbnb'</span> =&gt; [<span class="s">'base_url'</span> =&gt; <span class="s">'https://airbnb.test/v2'</span>, <span class="s">'token_url'</span> =&gt; <span class="s">'https://airbnb.test/oauth/token'</span>, <span class="s">'client_id'</span> =&gt; <span class="s">'id'</span>, <span class="s">'client_secret'</span> =&gt; <span class="s">'secret'</span>, <span class="s">'webhook_secret'</span> =&gt; <span class="s">'s'</span>, <span class="s">'requests_per_minute'</span> =&gt; <span class="n">300</span>]]);
+    <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="t">ChannelConnection</span>::<span class="f">forceCreate</span>([<span class="s">'account_id'</span> =&gt; <span class="v">$property</span>-&gt;account_id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'access_token'</span> =&gt; <span class="s">'a'</span>, <span class="s">'refresh_token'</span> =&gt; <span class="s">'r'</span>, <span class="s">'expires_at'</span> =&gt; <span class="f">now</span>()-&gt;<span class="f">addHour</span>()]);
+    <span class="v">$listing</span> = <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="v">$property</span>-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'41793625'</span>]);
+    <span class="t">Http</span>::<span class="f">fake</span>([<span class="s">'airbnb.test/v2/*'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>(<span class="s">'Too Many Requests'</span>, <span class="n">429</span>, [<span class="s">'Retry-After'</span> =&gt; <span class="s">'120'</span>])]);
+
+    <span class="v">$job</span> = (<span class="k">new</span> <span class="f">CloseChannelDates</span>(<span class="v">$listing</span>, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-13'</span>)))-&gt;<span class="f">withFakeQueueInteractions</span>();
+    <span class="v">$job</span>-&gt;<span class="f">handle</span>(<span class="f">app</span>(<span class="t">ChannelManager</span>::class));
+
+    <span class="v">$job</span>-&gt;<span class="f">assertReleased</span>(delay: <span class="n">120</span>);
+    <span class="t">Http</span>::<span class="f">assertSentCount</span>(<span class="n">1</span>);                                             <span class="c">// no instant retries on a 429</span>
+});</code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>Channels now get exactly as many requests as they allow. Monday morning, after a Booking.com outage, Nordic Stays queues 642 pushes in one minute.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../15-out-of-order/"><small>← Scene 15</small>A cancellation arrived before the booking</a>
+<a rel="next" href="../17-queues/"><small>Scene 17 →</small>642 pushes queued in one minute</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"Guest charged €450.29 for a €450.30 stay","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"She booked 4 nights, we billed 3","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict policy","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"A Booking.com cancellation cancelled an Airbnb booking","patterns":["One kit per channel: API client, signature verifier and payload mapper that always match"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["Scoping every query and exists rule to the account, IDOR, mass assignment"],"slug":"19-tenancy","ready":false,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":false,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["send_at from the property timezone, DST with frozen time, the scheduler, withoutOverlapping()"],"slug":"21-send-times","ready":false,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["Unique index + atomic pending → sent; one event, many reactions"],"slug":"22-never-twice","ready":false,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot and restore; rescheduling guest messages"],"slug":"23-date-change","ready":false,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["Template variables, escaping, sensitive values only close to check-in"],"slug":"24-template-variables","ready":false,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Notifications inside; via() per guest; a WhatsApp channel; Notification::fake()"],"slug":"25-channels","ready":false,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks between stays, due times in the property timezone, review requests"],"slug":"26-turnovers","ready":false,"label":"Day 5 · Scene 26"},{"n":27,"title":"Host duplicated a listing, editing the copy changed the original","patterns":["Eloquent replicate(), deep vs shallow copies"],"slug":"27-duplicate-listing","ready":false,"label":"Day 5 · Scene 27"},{"n":28,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans as a tree of rules; the calendar_days table"],"slug":"28-rate-plans","ready":false,"label":"Day 5 · Scene 28"},{"n":29,"title":"Accepted 1 night with a 3-night minimum","patterns":["Booking rules and price stages; Laravel’s middleware pipeline inside"],"slug":"29-acceptance-rules","ready":false,"label":"Day 5 · Scene 29"},{"n":30,"title":"Free 12–15 July, 3 bedrooms, pets OK?","patterns":["Availability search on SQL, then Meilisearch behind the same interface"],"slug":"30-search","ready":false,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":false,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Cached price, guest charged the old one","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Guest charged €450.29 for a €450.30 stay","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Template Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Factory Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"A Booking.com cancellation cancelled an Airbnb booking","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":false},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":false},{"name":"Prototype","chapter":27,"chapterTitle":"Host duplicated a listing, editing the copy changed the original","slug":"27-duplicate-listing","ready":false},{"name":"Composite","chapter":28,"chapterTitle":"Summer prices ignored the weekend rule","slug":"28-rate-plans","ready":false},{"name":"Pipeline","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Chain of Responsibility","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Specification","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Repository","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

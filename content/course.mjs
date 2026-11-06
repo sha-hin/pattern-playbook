@@ -29,13 +29,13 @@ export const SCENES = [
   { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
 
   // Day 3 · Channels
-  { n: 12, day: 3, slug: '12-ical', incident: 'Dates blocked on Airbnb never reached us', patterns: ['Template Method', 'Factory Method'], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction' },
-  { n: 13, day: 3, slug: '13-channel-api', incident: 'We need the real Airbnb API now', patterns: ['Adapter', 'Manager / Driver'], learn: 'One interface for every channel, listings mapping, OAuth token refresh' },
-  { n: 14, day: 3, slug: '14-channel-kits', incident: 'A Booking.com webhook passed Airbnb’s signature check', patterns: ['Abstract Factory'], learn: 'One matching set per channel: client, signature verifier, payload mapper' },
-  { n: 15, day: 3, slug: '15-out-of-order', incident: 'A cancellation arrived before the booking', patterns: [], learn: 'Upsert by (channel, external_id), versions, polling fallback, recorded payloads with Http::fake()' },
-  { n: 16, day: 3, slug: '16-rate-limits', incident: 'Airbnb blocked us for an hour', patterns: ['Decorator'], learn: 'Timeouts, retries, 429 and Retry-After, the RateLimited job middleware' },
-  { n: 17, day: 3, slug: '17-queues', incident: '200 pushes for one calendar edit', patterns: ['Command', 'Command Bus'], learn: 'Jobs, tries, backoff, failed(), ShouldBeUnique, WithoutOverlapping, Redis, Horizon, the worker loop' },
-  { n: 18, day: 3, slug: '18-overbooking', incident: 'Same night sold on Airbnb and Booking.com', patterns: ['Mediator'], learn: 'One sync coordinator between channels; handling overbookings' },
+  { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: ['Template Method', 'Factory Method'], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },
+  { n: 13, day: 3, slug: '13-channel-api', incident: 'Every Airbnb call has failed with 401 for an hour', patterns: ['Adapter', 'Manager / Driver'], learn: 'One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock', ready: true },
+  { n: 14, day: 3, slug: '14-channel-kits', incident: 'A Booking.com cancellation cancelled an Airbnb booking', patterns: ['Abstract Factory'], learn: 'One kit per channel: API client, signature verifier and payload mapper that always match', ready: true },
+  { n: 15, day: 3, slug: '15-out-of-order', incident: 'A cancellation arrived before the booking', patterns: [], learn: 'Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()', ready: true },
+  { n: 16, day: 3, slug: '16-rate-limits', incident: 'Airbnb blocked us for an hour', patterns: ['Decorator'], learn: 'Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()', ready: true },
+  { n: 17, day: 3, slug: '17-queues', incident: '642 pushes queued in one minute', patterns: ['Command', 'Command Bus'], learn: 'State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop', ready: true },
+  { n: 18, day: 3, slug: '18-overbooking', incident: 'Same night sold on Airbnb and Booking.com', patterns: ['Mediator'], learn: 'One coordinator for every calendar change: overbookings recorded and reported once, every channel updated', ready: true },
 
   // Day 4 · Hosts and guests
   { n: 19, day: 4, slug: '19-tenancy', incident: 'A host saw another host’s bookings', patterns: [], learn: 'Scoping every query and exists rule to the account, IDOR, mass assignment' },

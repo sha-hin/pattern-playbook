@@ -94,6 +94,18 @@ const LANGS = {
     [String.raw`\b(?:CREATE|DATABASE|TABLE|IF|NOT|EXISTS|SELECT|FROM|WHERE|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GRANT|ON|TO|EXPLAIN|INDEX|ORDER|BY|LIMIT)\b`, 'k'],
     [String.raw`\b\d+\b`, 'n'],
   ],
+  json: [
+    [String.raw`"(?:\\.|[^"\\])*"(?=\s*:)`, 't'],
+    [String.raw`"(?:\\.|[^"\\])*"`, 's'],
+    [String.raw`\b(?:true|false|null)\b`, 'k'],
+    [String.raw`-?\b\d+(?:\.\d+)?\b`, 'n'],
+  ],
+  // iCalendar (RFC 5545): BEGIN/END as keywords, property names as types, parameters as variables.
+  ics: [
+    [String.raw`^(?:BEGIN|END)(?=:)`, 'k'],
+    [String.raw`^[A-Z][A-Z-]*(?=[;:])`, 't'],
+    [String.raw`(?<=;)[A-Z-]+=[^:;\n]+`, 'v'],
+  ],
   // A directory tree: the drawing characters muted, folder names as types, (notes) as comments.
   tree: [
     [String.raw`[│├└─]+`, 'c'],

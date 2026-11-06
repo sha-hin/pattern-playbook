@@ -342,5 +342,5 @@ it('records the dashboard refund as an issue, once, however often it runs', func
       },
     ],
   },
-  next: 'Day 2 is done: prices, webhooks, the booking lifecycle, refunds and reconciliation. Day 3 starts on Monday, when dates a host blocked on Airbnb never reach Nordic Stays.',
+  next: 'Day 2 is done: prices, webhooks, the booking lifecycle, refunds and reconciliation. Day 3 starts on Monday, when two families arrive at the Lake Cabin for the same night.',
 };

@@ -53,8 +53,10 @@ for (const b of blocks) {
   const imported = new Set([...b.code.matchAll(/^use ([^;]+);$/gm)].map(m => m[1].split(/\s+as\s+/).pop().split('\\').pop()));
   const local = new Set([...b.code.matchAll(/(?:class|interface|enum|trait) (\w+)/g)].map(m => m[1]));
   const used = new Set();
+  // Comments and strings can mention classes (Route::post in a comment, "Foo::bar" in a message): ignore them.
+  const code = b.code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g, '""');
   for (const re of [/\b(?:extends|implements|new|instanceof|catch \() *([A-Z]\w*)/g, /(?<![\\\w$])([A-Z]\w*)::/g, /^\s+use ([A-Z]\w*(?:, [A-Z]\w*)*);/gm]) {
-    for (const m of b.code.matchAll(re)) m[1].split(', ').forEach(n => used.add(n));
+    for (const m of code.matchAll(re)) m[1].split(', ').forEach(n => used.add(n));
   }
   for (const name of used) {
     if (['self', 'static', 'parent'].includes(name) || (!ns && PHP_GLOBALS.has(name)) || imported.has(name) || local.has(name) || declared.has(`${ns}\\${name}`)) continue;

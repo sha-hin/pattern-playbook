@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>642 pushes queued in one minute · Command, Command Bus in Laravel | Pattern Playbook</title>
+<meta name="description" content="After a Booking.com outage, Nordic Stays queued 642 calendar pushes in a minute, and some opened nights that later pushes had closed. Fix it in Laravel with one self-contained command per listing, ShouldBeUniqueUntilProcessing to coalesce bursts, WithoutOverlapping, Redis queues under Horizon, and a look at the worker loop.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/17-queues/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="642 pushes queued in one minute · Command, Command Bus in Laravel | Pattern Playbook">
+<meta property="og:description" content="After a Booking.com outage, Nordic Stays queued 642 calendar pushes in a minute, and some opened nights that later pushes had closed. Fix it in Laravel with one self-contained command per listing, ShouldBeUniqueUntilProcessing to coalesce bursts, WithoutOverlapping, Redis queues under Horizon, and a look at the worker loop.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/17-queues/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="642 pushes queued in one minute · Command, Command Bus in Laravel | Pattern Playbook">
+<meta name="twitter:description" content="After a Booking.com outage, Nordic Stays queued 642 calendar pushes in a minute, and some opened nights that later pushes had closed. Fix it in Laravel with one self-contained command per listing, ShouldBeUniqueUntilProcessing to coalesce bursts, WithoutOverlapping, Redis queues under Horizon, and a look at the worker loop.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 17: 642 pushes queued in one minute","description":"After a Booking.com outage, Nordic Stays queued 642 calendar pushes in a minute, and some opened nights that later pushes had closed. Fix it in Laravel with one self-contained command per listing, ShouldBeUniqueUntilProcessing to coalesce bursts, WithoutOverlapping, Redis queues under Horizon, and a look at the worker loop.","url":"https://sha-hin.github.io/pattern-playbook/17-queues/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/17-queues/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command pattern","Command Bus pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 17: 642 pushes queued in one minute","item":"https://sha-hin.github.io/pattern-playbook/17-queues/"}]}]}</script>
+</head>
+<body data-page="17-queues" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 3 · Channels › Scene 17 of 42</p>
+<h1>642 pushes queued in one minute</h1>
+<p class="subtitle">State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop</p>
+<p class="tags"><span class="ptag">Command</span><span class="ptag">Command Bus</span></p>
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Monday 07:55</span></p>
+<p class="inc-msg"><span class="inc-who">Alert · queues</span>Queue <code>default</code>: <b>642 jobs</b> waiting, oldest 38 minutes. Guest emails are stuck behind them.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Booking.com was down overnight. At 07:30 the poll (scene 15) caught up 214 reservations at once, and every import queued a push to Airbnb for each of its nights. And Ahmed says two nights that are <b>booked</b> show as <b>open</b> on Airbnb.</p>
+</section>
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">every place that changes the calendar (before)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="c">// one job per change, per listing, describing the change</span>
+<span class="k">foreach</span> (<span class="v">$property</span>-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {
+    <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay)-&gt;<span class="f">afterCommit</span>();
+}
+
+<span class="c">// CancelBooking: the same, with $close = false</span></code></pre>
+</div><p>Each job carries a <b>change</b>: &quot;close 1–4 August&quot;, &quot;open 2–3 August&quot;. 214 imports produced 642 of them, and they all wait in the one queue that also sends guest emails.</p><p>Worse, changes only make sense in order, and queues don’t promise order. Workers run jobs in parallel and retries come back later, so an &quot;open&quot; that was queued first can finish after the &quot;close&quot; that should have replaced it. That’s how booked nights showed as open on Airbnb.</p></div></div></section>
+<section><h2>The fix, part 1: push the state, not the change</h2><p>Instead of &quot;what changed&quot;, each push sends <b>how the calendar is now</b>: every night for the next 12 months, grouped into runs of open and closed nights, read fresh from the database when the job runs. A push like that can run twice, late, or out of order, and the result is always correct, because the last one to run sends the latest truth.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/AvailabilityRuns.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">AvailabilityRuns</span>
+{
+    <span class="c">/** @return list&lt;array{nights: Stay, open: bool}&gt; consecutive nights grouped by open/closed */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="k">int</span> <span class="v">$days</span>): <span class="k">array</span>
+    {
+        <span class="v">$window</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$from</span>-&gt;<span class="f">toDateString</span>(), <span class="v">$from</span>-&gt;<span class="f">addDays</span>(<span class="v">$days</span>)-&gt;<span class="f">toDateString</span>());
+        <span class="v">$closed</span> = [];                                                   <span class="c">// 'Y-m-d' =&gt; true for every occupied night</span>
+
+        <span class="v">$occupy</span> = <span class="k">function</span> (<span class="t">CarbonImmutable</span> <span class="v">$first</span>, <span class="t">CarbonImmutable</span> <span class="v">$end</span>) <span class="k">use</span> (&amp;<span class="v">$closed</span>): <span class="k">void</span> {
+            <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$first</span>; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$end</span>); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {
+                <span class="v">$closed</span>[<span class="v">$night</span>-&gt;<span class="f">toDateString</span>()] = <span class="k">true</span>;
+            }
+        };
+
+        <span class="k">foreach</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$window</span>)-&gt;<span class="f">get</span>([<span class="s">'check_in'</span>, <span class="s">'check_out'</span>]) <span class="k">as</span> <span class="v">$booking</span>) {
+            <span class="v">$occupy</span>(<span class="v">$booking</span>-&gt;check_in, <span class="v">$booking</span>-&gt;check_out);                <span class="c">// pending and confirmed only (scene 3)</span>
+        }
+        <span class="k">foreach</span> (<span class="v">$property</span>-&gt;<span class="f">externalBlocks</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$window</span>)-&gt;<span class="f">get</span>([<span class="s">'starts_on'</span>, <span class="s">'ends_on'</span>]) <span class="k">as</span> <span class="v">$block</span>) {
+            <span class="v">$occupy</span>(<span class="v">$block</span>-&gt;starts_on, <span class="v">$block</span>-&gt;ends_on);                     <span class="c">// scene 12</span>
+        }
+
+        <span class="v">$runs</span> = [];
+        <span class="v">$start</span> = <span class="v">$window</span>-&gt;checkIn;
+        <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$window</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$window</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {
+            <span class="v">$next</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>();
+            <span class="v">$isOpen</span> = ! <span class="f">isset</span>(<span class="v">$closed</span>[<span class="v">$night</span>-&gt;<span class="f">toDateString</span>()]);
+
+            <span class="k">if</span> (<span class="v">$next</span>-&gt;<span class="f">equalTo</span>(<span class="v">$window</span>-&gt;checkOut) || <span class="v">$isOpen</span> !== ! <span class="f">isset</span>(<span class="v">$closed</span>[<span class="v">$next</span>-&gt;<span class="f">toDateString</span>()])) {
+                <span class="v">$runs</span>[] = [<span class="s">'nights'</span> =&gt; <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$start</span>-&gt;<span class="f">toDateString</span>(), <span class="v">$next</span>-&gt;<span class="f">toDateString</span>()), <span class="s">'open'</span> =&gt; <span class="v">$isOpen</span>];
+                <span class="v">$start</span> = <span class="v">$next</span>;                                         <span class="c">// the next run starts tomorrow</span>
+            }
+        }
+
+        <span class="k">return</span> <span class="v">$runs</span>;
+    }
+}</code></pre>
+</div><p>A year with 30 bookings is about 60 runs, so about 60 calls per push, well inside the rate limit from scene 16.</p></div></div></section>
+<section><h2>The fix, part 2: one command, coalesced</h2><p>The job is a <b>command</b>: one object that holds everything needed to do one thing (&quot;bring this listing up to date&quot;), and can be queued, retried and logged as a unit.</p><p>Because it always sends the current state, ten pushes waiting for the same listing are worth exactly one. <code>ShouldBeUniqueUntilProcessing</code> takes a Redis lock per listing when the job is dispatched; while one push is <b>waiting</b>, further dispatches are dropped. The lock is released when the push <b>starts</b>, so a change that happens during a push queues one more, which will see it. <code>WithoutOverlapping</code> makes that next push wait until the running one ends.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_03_09_000001_add_push_status_to_channel_listings_table.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
+
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">table</span>(<span class="s">'channel_listings'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">timestamp</span>(<span class="s">'last_pushed_at'</span>)-&gt;<span class="f">nullable</span>();
+            <span class="v">$table</span>-&gt;<span class="f">text</span>(<span class="s">'last_push_error'</span>)-&gt;<span class="f">nullable</span>();              <span class="c">// shown to the host: &quot;Airbnb is not in sync&quot;</span>
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Jobs/PushAvailability.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">AvailabilityRuns</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRateLimited</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">DateTimeInterface</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldBeUniqueUntilProcessing</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Queue</span>\<span class="t">Middleware</span>\<span class="t">WithoutOverlapping</span>;
+<span class="k">use</span> <span class="t">Throwable</span>;
+
+<span class="k">class</span> <span class="t">PushAvailability</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>, <span class="t">ShouldBeUniqueUntilProcessing</span>
+{
+    <span class="k">use</span> <span class="t">Queueable</span>;
+
+    <span class="k">public</span> <span class="k">const</span> <span class="t">DAYS</span> = <span class="n">365</span>;
+
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$uniqueFor</span> = <span class="n">900</span>;                                       <span class="c">// a stuck lock frees itself after 15 minutes</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ChannelListing</span> <span class="v">$listing</span>)
+    {
+        <span class="k">$this</span>-&gt;<span class="f">onQueue</span>(<span class="s">'channels'</span>);                                     <span class="c">// never in front of guest emails again</span>
+    }
+
+    <span class="c">/** Dispatch one push per listing of the property, after the current transaction commits. */</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">forProperty</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span>
+    {
+        <span class="k">foreach</span> (<span class="v">$property</span>-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {
+            <span class="k">self</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>)-&gt;<span class="f">afterCommit</span>();
+        }
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">uniqueId</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> (<span class="k">string</span>) <span class="k">$this</span>-&gt;listing-&gt;id;                             <span class="c">// one waiting push per listing</span>
+    }
+
+    <span class="c">/** @return list&lt;object&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">middleware</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [(<span class="k">new</span> <span class="f">WithoutOverlapping</span>(<span class="s">&quot;push-listing-{$this-&gt;listing-&gt;id}&quot;</span>))-&gt;<span class="f">releaseAfter</span>(<span class="n">30</span>)-&gt;<span class="f">expireAfter</span>(<span class="n">600</span>)];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">retryUntil</span>(): <span class="t">DateTimeInterface</span>
+    {
+        <span class="k">return</span> <span class="f">now</span>()-&gt;<span class="f">addHours</span>(<span class="n">2</span>);
+    }
+
+    <span class="c">/** @return list&lt;int&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">backoff</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="n">30</span>, <span class="n">120</span>, <span class="n">300</span>, <span class="n">900</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>, <span class="t">AvailabilityRuns</span> <span class="v">$runs</span>): <span class="k">void</span>
+    {
+        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel)-&gt;<span class="f">api</span>();
+
+        <span class="k">try</span> {
+            <span class="k">foreach</span> (<span class="v">$runs</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;property, <span class="f">now</span>()-&gt;<span class="f">startOfDay</span>(), <span class="k">self</span>::<span class="t">DAYS</span>) <span class="k">as</span> <span class="v">$run</span>) {
+                <span class="v">$run</span>[<span class="s">'open'</span>] ? <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="v">$run</span>[<span class="s">'nights'</span>]) : <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="v">$run</span>[<span class="s">'nights'</span>]);
+            }
+        } <span class="k">catch</span> (<span class="t">ChannelRateLimited</span> <span class="v">$e</span>) {
+            <span class="k">$this</span>-&gt;<span class="f">release</span>(<span class="v">$e</span>-&gt;retryAfter);                             <span class="c">// scene 16</span>
+            <span class="k">return</span>;
+        }
+
+        <span class="k">$this</span>-&gt;listing-&gt;<span class="f">forceFill</span>([<span class="s">'last_pushed_at'</span> =&gt; <span class="f">now</span>(), <span class="s">'last_push_error'</span> =&gt; <span class="k">null</span>])-&gt;<span class="f">save</span>();
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">failed</span>(<span class="t">Throwable</span> <span class="v">$exception</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;listing-&gt;<span class="f">forceFill</span>([<span class="s">'last_push_error'</span> =&gt; <span class="v">$exception</span>-&gt;<span class="f">getMessage</span>()])-&gt;<span class="f">save</span>();
+    }
+}</code></pre>
+</div><p>Every caller that used <code>CloseChannelDates</code> now calls <code>PushAvailability::forProperty($property)</code>, and <code>CloseChannelDates</code> is deleted.</p></div></div></section>
+<section><h2>The fix, part 3: queues on Redis, run by Horizon</h2><p>Two queues: <code>default</code> for guest-facing work (emails, payments) and <code>channels</code> for pushes, each with its own workers, so a flood on one never delays the other. Horizon runs and supervises the workers, restarts them when they die, and shows throughput, wait times and failed jobs in a dashboard.</p><p>One rule ties the two files together: a worker’s <code>timeout</code> must be <b>shorter</b> than the queue’s <code>retry_after</code>. Redis hands a job to another worker if it has been reserved for <code>retry_after</code> seconds without finishing. A job allowed to run longer than that runs <b>twice, at the same time</b>.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">terminal · config/queue.php (redis connection)</span></div>
+<pre class="code"><code><span class="f">composer</span> require laravel/horizon
+<span class="f">php</span> artisan horizon:install
+<span class="f">
+#</span> config/queue.php
+<span class="s">'redis'</span> =&gt; [
+<span class="f">    'driver'</span> =&gt; <span class="s">'redis'</span>,
+<span class="f">    'connection'</span> =&gt; <span class="s">'default'</span>,
+<span class="f">    'queue'</span> =&gt; <span class="s">'default'</span>,
+<span class="f">    'retry_after'</span> =&gt; 660,            <span class="c"># longer than the slowest job's timeout (600 below)</span>
+<span class="f">    'block_for'</span> =&gt; 5,                <span class="c"># wait up to 5 s for a job instead of polling Redis in a tight loop</span>
+<span class="f">    'after_commit'</span> =&gt; true,          <span class="c"># every dispatch waits for the open transaction to commit</span>
+<span class="f">],</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">config/horizon.php (environments)</span></div>
+<pre class="code"><code><span class="s">'environments'</span> =&gt; [
+    <span class="s">'production'</span> =&gt; [
+        <span class="s">'guests'</span> =&gt; [
+            <span class="s">'connection'</span> =&gt; <span class="s">'redis'</span>,
+            <span class="s">'queue'</span> =&gt; [<span class="s">'default'</span>],
+            <span class="s">'balance'</span> =&gt; <span class="s">'auto'</span>,
+            <span class="s">'minProcesses'</span> =&gt; <span class="n">2</span>,
+            <span class="s">'maxProcesses'</span> =&gt; <span class="n">10</span>,
+            <span class="s">'tries'</span> =&gt; <span class="n">0</span>,                                   <span class="c">// the jobs decide: $tries, retryUntil()</span>
+            <span class="s">'timeout'</span> =&gt; <span class="n">120</span>,
+        ],
+        <span class="s">'channels'</span> =&gt; [
+            <span class="s">'connection'</span> =&gt; <span class="s">'redis'</span>,
+            <span class="s">'queue'</span> =&gt; [<span class="s">'channels'</span>],
+            <span class="s">'maxProcesses'</span> =&gt; <span class="n">4</span>,                            <span class="c">// more workers wouldn't help: the channels' limits are the limit</span>
+            <span class="s">'tries'</span> =&gt; <span class="n">0</span>,
+            <span class="s">'timeout'</span> =&gt; <span class="n">600</span>,                               <span class="c">// a full push can take minutes; still &lt; retry_after (660)</span>
+        ],
+    ],
+],</code></pre>
+</div><p>In production, <code>php artisan horizon</code> runs under Supervisor, and every deploy ends with <code>php artisan horizon:terminate</code> so workers restart on the new code (scene 38).</p></div></div></section>
+<section class="reveal"><h2>You just met Command and Command Bus</h2>
+<p class="rule"><span>Command</span>A request turned into an object: everything needed to perform one action, which can then be queued, retried, logged or undone.</p><p class="rule"><span>Command Bus</span>One dispatcher that takes any command and gets it executed: now, or through a queue. Callers only say what should happen.</p>
+
+
+
+<ul class="points"><li><code>PushAvailability</code> is the command: it carries the listing, and its <code>handle()</code> does the work. Everything about retries, uniqueness and overlap lives on the command itself.</li><li><code>PushAvailability::dispatch()</code> hands it to the bus. Whether it runs now (<code>sync</code> in tests) or on Redis in production is configuration, not code.</li><li>Because the command sends state instead of a change, running it twice is harmless, which is what makes coalescing and retries safe.</li></ul>
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>Work the caller needs the result of right now (a price for the page) is a normal method call, not a queued command.</li><li>Don’t queue tiny steps of one action separately; queue the action.</li></ul>
+</section>
+<section class="laravel"><h2>Laravel inside: the bus and the worker loop</h2><p><code>dispatch()</code> returns a <code>PendingDispatch</code>. When it goes out of scope, its destructor asks the unique lock first (that’s where coalescing happens), then hands the job to the bus.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Foundation/Bus/PendingDispatch.php · Illuminate/Bus/Dispatcher.php (simplified)</span></div>
+<pre class="code"><code><span class="c">// PendingDispatch</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">__destruct</span>()
+{
+    <span class="k">if</span> (! <span class="k">$this</span>-&gt;<span class="f">shouldDispatch</span>()) {                         <span class="c">// ShouldBeUnique: Cache::lock(uniqueId)-&gt;get() failed</span>
+        <span class="k">return</span>;                                              <span class="c">// dropped: a push for this listing is already waiting</span>
+    }
+
+    <span class="f">app</span>(<span class="t">Dispatcher</span>::class)-&gt;<span class="f">dispatch</span>(<span class="k">$this</span>-&gt;job);
+}
+
+<span class="c">// Dispatcher</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="v">$command</span>)
+{
+    <span class="k">return</span> <span class="k">$this</span>-&gt;queueResolver &amp;&amp; <span class="v">$command</span> <span class="k">instanceof</span> <span class="t">ShouldQueue</span>
+        ? <span class="k">$this</span>-&gt;<span class="f">dispatchToQueue</span>(<span class="v">$command</span>)                   <span class="c">// serialize and push to Redis</span>
+        : <span class="k">$this</span>-&gt;<span class="f">dispatchNow</span>(<span class="v">$command</span>);                      <span class="c">// call handle() now, with its dependencies injected</span>
+}</code></pre>
+</div></div><div class="block"><h3>What a worker does, forever</h3><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Queue/Worker.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">daemon</span>(<span class="v">$connectionName</span>, <span class="v">$queue</span>, <span class="t">WorkerOptions</span> <span class="v">$options</span>)
+{
+    <span class="k">while</span> (<span class="k">true</span>) {
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;shouldQuit || <span class="k">$this</span>-&gt;<span class="f">memoryExceeded</span>(<span class="v">$options</span>-&gt;memory) || <span class="k">$this</span>-&gt;<span class="f">queueShouldRestart</span>(<span class="v">$lastRestart</span>)) {
+            <span class="k">$this</span>-&gt;<span class="f">stop</span>();                                   <span class="c">// queue:restart, or a memory limit: Supervisor starts a fresh one</span>
+        }
+
+        <span class="v">$job</span> = <span class="k">$this</span>-&gt;<span class="f">getNextJob</span>(<span class="v">$connection</span>, <span class="v">$queue</span>);      <span class="c">// Redis: move the job to a &quot;reserved&quot; set until retry_after</span>
+
+        <span class="k">if</span> (<span class="v">$job</span>) {
+            <span class="k">$this</span>-&gt;<span class="f">registerTimeoutHandler</span>(<span class="v">$job</span>, <span class="v">$options</span>);  <span class="c">// pcntl alarm: kill the worker if the job passes its timeout</span>
+            <span class="k">$this</span>-&gt;<span class="f">runJob</span>(<span class="v">$job</span>, <span class="v">$connectionName</span>, <span class="v">$options</span>); <span class="c">// handle(); then delete, release($delay), or fail</span>
+        } <span class="k">else</span> {
+            <span class="k">$this</span>-&gt;<span class="f">sleep</span>(<span class="v">$options</span>-&gt;sleep);
+        }
+    }
+}</code></pre>
+</div></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>A burst becomes one push, the runs are right, and the push sends them</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/PushAvailabilityTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">AvailabilityRuns</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelConnection</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Queue</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;property = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="k">$this</span>-&gt;listing = <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'41793625'</span>]);
+});
+
+<span class="f">it</span>(<span class="s">'queues one push for a burst of 200 changes'</span>, <span class="k">function</span> () {
+    <span class="t">Queue</span>::<span class="f">fake</span>();
+
+    <span class="k">foreach</span> (<span class="f">range</span>(<span class="n">1</span>, <span class="n">200</span>) <span class="k">as</span> <span class="v">$change</span>) {
+        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="k">$this</span>-&gt;property);
+    }
+
+    <span class="t">Queue</span>::<span class="f">assertPushedTimes</span>(<span class="t">PushAvailability</span>::class, <span class="n">1</span>);
+    <span class="t">Queue</span>::<span class="f">assertPushedOn</span>(<span class="s">'channels'</span>, <span class="t">PushAvailability</span>::class);
+});
+
+<span class="f">it</span>(<span class="s">'groups the window into open and closed runs'</span>, <span class="k">function</span> () {
+    <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">forStay</span>(<span class="s">'2027-06-03'</span>, <span class="n">2</span>)-&gt;<span class="f">create</span>();          <span class="c">// closes 3 and 4 June</span>
+
+    <span class="v">$runs</span> = (<span class="k">new</span> <span class="f">AvailabilityRuns</span>())-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property, <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">'2027-06-01'</span>), <span class="n">7</span>);
+
+    <span class="f">expect</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="k">array</span> <span class="v">$run</span>): <span class="k">array</span> =&gt; [<span class="v">$run</span>[<span class="s">'nights'</span>]-&gt;checkIn-&gt;<span class="f">toDateString</span>(), <span class="v">$run</span>[<span class="s">'nights'</span>]-&gt;<span class="f">nights</span>(), <span class="v">$run</span>[<span class="s">'open'</span>]], <span class="v">$runs</span>))-&gt;<span class="f">toBe</span>([
+        [<span class="s">'2027-06-01'</span>, <span class="n">2</span>, <span class="k">true</span>],
+        [<span class="s">'2027-06-03'</span>, <span class="n">2</span>, <span class="k">false</span>],
+        [<span class="s">'2027-06-05'</span>, <span class="n">3</span>, <span class="k">true</span>],
+    ]);
+});
+
+<span class="f">it</span>(<span class="s">'sends every run and records the push'</span>, <span class="k">function</span> () {
+    <span class="f">config</span>([<span class="s">'services.airbnb'</span> =&gt; [<span class="s">'base_url'</span> =&gt; <span class="s">'https://airbnb.test/v2'</span>, <span class="s">'token_url'</span> =&gt; <span class="s">'https://airbnb.test/oauth/token'</span>, <span class="s">'client_id'</span> =&gt; <span class="s">'id'</span>, <span class="s">'client_secret'</span> =&gt; <span class="s">'secret'</span>, <span class="s">'webhook_secret'</span> =&gt; <span class="s">'s'</span>]]);
+    <span class="t">ChannelConnection</span>::<span class="f">forceCreate</span>([<span class="s">'account_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;account_id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'access_token'</span> =&gt; <span class="s">'a'</span>, <span class="s">'refresh_token'</span> =&gt; <span class="s">'r'</span>, <span class="s">'expires_at'</span> =&gt; <span class="f">now</span>()-&gt;<span class="f">addHour</span>()]);
+    <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">forStay</span>(<span class="s">'2027-06-03'</span>, <span class="n">2</span>)-&gt;<span class="f">create</span>();
+    <span class="t">Http</span>::<span class="f">fake</span>([<span class="s">'airbnb.test/v2/*'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>([<span class="s">'ok'</span> =&gt; <span class="k">true</span>])]);
+
+    <span class="f">app</span>()-&gt;<span class="f">call</span>([<span class="k">new</span> <span class="f">PushAvailability</span>(<span class="k">$this</span>-&gt;listing), <span class="s">'handle'</span>]);
+
+    <span class="t">Http</span>::<span class="f">assertSent</span>(<span class="k">fn</span> (<span class="t">Request</span> <span class="v">$request</span>): <span class="k">bool</span> =&gt; <span class="v">$request</span>[<span class="s">'start_date'</span>] === <span class="s">'2027-06-03'</span> &amp;&amp; <span class="v">$request</span>[<span class="s">'availability'</span>] === <span class="s">'unavailable'</span>);
+    <span class="f">expect</span>(<span class="k">$this</span>-&gt;listing-&gt;<span class="f">fresh</span>()-&gt;last_pushed_at)-&gt;not-&gt;<span class="f">toBeNull</span>();
+});</code></pre>
+</div><p><code>Queue::fake()</code> keeps the unique lock: the job’s <code>ShouldBeUnique</code> check runs in <code>PendingDispatch</code> before any queue, real or fake, sees it.</p></div></div></div></details></section>
+<section class="nextup"><p>Pushes are calm and correct. Tuesday night, a guest books the Lake Cabin on Airbnb while another books the same nights on Booking.com, 40 seconds apart.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../16-rate-limits/"><small>← Scene 16</small>Airbnb blocked us for an hour</a>
+<a rel="next" href="../18-overbooking/"><small>Scene 18 →</small>Same night sold on Airbnb and Booking.com</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"Guest charged €450.29 for a €450.30 stay","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"She booked 4 nights, we billed 3","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict policy","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"A Booking.com cancellation cancelled an Airbnb booking","patterns":["One kit per channel: API client, signature verifier and payload mapper that always match"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["Scoping every query and exists rule to the account, IDOR, mass assignment"],"slug":"19-tenancy","ready":false,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":false,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["send_at from the property timezone, DST with frozen time, the scheduler, withoutOverlapping()"],"slug":"21-send-times","ready":false,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["Unique index + atomic pending → sent; one event, many reactions"],"slug":"22-never-twice","ready":false,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot and restore; rescheduling guest messages"],"slug":"23-date-change","ready":false,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["Template variables, escaping, sensitive values only close to check-in"],"slug":"24-template-variables","ready":false,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Notifications inside; via() per guest; a WhatsApp channel; Notification::fake()"],"slug":"25-channels","ready":false,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks between stays, due times in the property timezone, review requests"],"slug":"26-turnovers","ready":false,"label":"Day 5 · Scene 26"},{"n":27,"title":"Host duplicated a listing, editing the copy changed the original","patterns":["Eloquent replicate(), deep vs shallow copies"],"slug":"27-duplicate-listing","ready":false,"label":"Day 5 · Scene 27"},{"n":28,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans as a tree of rules; the calendar_days table"],"slug":"28-rate-plans","ready":false,"label":"Day 5 · Scene 28"},{"n":29,"title":"Accepted 1 night with a 3-night minimum","patterns":["Booking rules and price stages; Laravel’s middleware pipeline inside"],"slug":"29-acceptance-rules","ready":false,"label":"Day 5 · Scene 29"},{"n":30,"title":"Free 12–15 July, 3 bedrooms, pets OK?","patterns":["Availability search on SQL, then Meilisearch behind the same interface"],"slug":"30-search","ready":false,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":false,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Cached price, guest charged the old one","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Guest charged €450.29 for a €450.30 stay","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Template Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Factory Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"A Booking.com cancellation cancelled an Airbnb booking","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":false},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":false},{"name":"Prototype","chapter":27,"chapterTitle":"Host duplicated a listing, editing the copy changed the original","slug":"27-duplicate-listing","ready":false},{"name":"Composite","chapter":28,"chapterTitle":"Summer prices ignored the weekend rule","slug":"28-rate-plans","ready":false},{"name":"Pipeline","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Chain of Responsibility","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Specification","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Repository","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

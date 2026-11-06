@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Same night sold on Airbnb and Booking.com · Mediator in Laravel | Pattern Playbook</title>
+<meta name="description" content="The same nights were sold on Airbnb and Booking.com 40 seconds apart, and nobody knew until both families arrived, because every class that changed the calendar told a different subset of the others. Fix it in Laravel with a Mediator: every change reports to one CalendarSync, which detects overbookings and updates every channel.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/18-overbooking/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Same night sold on Airbnb and Booking.com · Mediator in Laravel | Pattern Playbook">
+<meta property="og:description" content="The same nights were sold on Airbnb and Booking.com 40 seconds apart, and nobody knew until both families arrived, because every class that changed the calendar told a different subset of the others. Fix it in Laravel with a Mediator: every change reports to one CalendarSync, which detects overbookings and updates every channel.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/18-overbooking/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Same night sold on Airbnb and Booking.com · Mediator in Laravel | Pattern Playbook">
+<meta name="twitter:description" content="The same nights were sold on Airbnb and Booking.com 40 seconds apart, and nobody knew until both families arrived, because every class that changed the calendar told a different subset of the others. Fix it in Laravel with a Mediator: every change reports to one CalendarSync, which detects overbookings and updates every channel.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 18: Same night sold on Airbnb and Booking.com","description":"The same nights were sold on Airbnb and Booking.com 40 seconds apart, and nobody knew until both families arrived, because every class that changed the calendar told a different subset of the others. Fix it in Laravel with a Mediator: every change reports to one CalendarSync, which detects overbookings and updates every channel.","url":"https://sha-hin.github.io/pattern-playbook/18-overbooking/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/18-overbooking/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Mediator pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 18: Same night sold on Airbnb and Booking.com","item":"https://sha-hin.github.io/pattern-playbook/18-overbooking/"}]}]}</script>
+</head>
+<body data-page="18-overbooking" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 3 · Channels › Scene 18 of 42</p>
+<h1>Same night sold on Airbnb and Booking.com</h1>
+<p class="subtitle">One coordinator for every calendar change: overbookings recorded and reported once, every channel updated</p>
+<p class="tags"><span class="ptag">Mediator</span></p>
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Wednesday 15:10</span></p>
+<p class="inc-msg"><span class="inc-who">Ahmed · host</span>Two families are booked into the Lake Cabin for 12–15 July: one from <b>Airbnb</b>, one from <b>Booking.com</b>, made 40 seconds apart last night. Nordic Stays showed both as confirmed and warned nobody.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>The Airbnb import (scene 15) saves the booking, but never pushes to the other channels: only our own confirmations do. And the overlap check only runs for direct bookings.</p>
+</section>
+<section><h2>The broken code</h2><p>Everything that changes the calendar has to remember what else must happen. Each one remembers a different part:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">four classes (before)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="c">// BookingConfirmation (scene 6): pushes to the channels</span>
+<span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);
+
+<span class="c">// CancelBooking (scene 10): pushes, and frees the nights</span>
+<span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);
+
+<span class="c">// ExpireHolds (scene 9): forgot to push, so expired holds stay closed on Airbnb</span>
+
+<span class="c">// ImportChannelReservation (scene 15): saves the booking, pushes nothing, checks nothing</span></code></pre>
+</div><p>Four colleagues, each wired to some of the others. When the team added overbooking detection, it went into one of the four. When it adds a fifth source of bookings (a Vrbo import, an admin tool), the list of &quot;what to remember&quot; has to be copied again.</p><p>A channel booking can’t be refused the way a direct one can (scene 3 answers 409): the guest has already paid the channel. The best Nordic Stays can do is <b>notice instantly</b>, tell the host, and close the nights everywhere else.</p></div></div></section>
+<section><h2>The fix, part 1: overbookings are recorded, not lost</h2><p>An overbooking is a fact the host has to act on, so it gets a table. The unique pair means detecting the same clash twice records it once.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_03_10_000001_create_overbookings_table.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
+
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">create</span>(<span class="s">'overbookings'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">id</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'property_id'</span>)-&gt;<span class="f">constrained</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'booking_id'</span>)-&gt;<span class="f">constrained</span>();                 <span class="c">// the booking that arrived later</span>
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'conflicting_booking_id'</span>)-&gt;<span class="f">constrained</span>(<span class="s">'bookings'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">timestamp</span>(<span class="s">'resolved_at'</span>)-&gt;<span class="f">nullable</span>();                   <span class="c">// the host moved a guest, or one cancelled</span>
+            <span class="v">$table</span>-&gt;<span class="f">timestamps</span>();
+            <span class="v">$table</span>-&gt;<span class="f">unique</span>([<span class="s">'booking_id'</span>, <span class="s">'conflicting_booking_id'</span>]);
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Models/Overbooking.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">Overbooking</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'property_id'</span>, <span class="s">'booking_id'</span>, <span class="s">'conflicting_booking_id'</span>];
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="s">'resolved_at'</span> =&gt; <span class="s">'datetime'</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">booking</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Booking</span>::class);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">conflictingBooking</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Booking</span>::class, <span class="s">'conflicting_booking_id'</span>);
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The host hears about it at once</h3><div class="codebox">
+<div class="filehead"><span class="path">app/Notifications/OverbookingDetected.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;
+
+<span class="k">class</span> <span class="t">OverbookingDetected</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>
+{
+    <span class="k">use</span> <span class="t">Queueable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">Overbooking</span> <span class="v">$overbooking</span>)
+    {
+    }
+
+    <span class="c">/** @return list&lt;string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="s">'mail'</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span>
+    {
+        <span class="v">$later</span> = <span class="k">$this</span>-&gt;overbooking-&gt;booking;
+        <span class="v">$earlier</span> = <span class="k">$this</span>-&gt;overbooking-&gt;conflictingBooking;
+
+        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())
+            -&gt;<span class="f">error</span>()
+            -&gt;<span class="f">subject</span>(<span class="s">&quot;Overbooking at {$later-&gt;property-&gt;name}&quot;</span>)
+            -&gt;<span class="f">line</span>(<span class="s">&quot;{$later-&gt;guest_name} ({$later-&gt;channel?-&gt;value}) and {$earlier-&gt;guest_name} ({$earlier-&gt;channel?-&gt;value}) are both booked for nights between {$later-&gt;check_in-&gt;toDateString()} and {$later-&gt;check_out-&gt;toDateString()}.&quot;</span>)
+            -&gt;<span class="f">line</span>(<span class="s">'The earlier booking keeps the property. Please contact the later guest about another property or a cancellation through their channel.'</span>);
+    }
+}</code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 2: one coordinator</h2><p>Every class that changes the calendar tells <b>one</b> object what happened, and nothing else. That object knows who else has to react, and in which order: first find any clash, then close or open the nights on every channel. The colleagues no longer know about each other, the channels, or overbookings.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/CalendarSync.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">OverbookingDetected</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CalendarSync</span>
+{
+    <span class="c">/** A booking was created, confirmed, imported, cancelled or expired. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">bookingChanged</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="f">in_array</span>(<span class="v">$booking</span>-&gt;status, <span class="t">BookingStatus</span>::<span class="f">blocking</span>(), <span class="k">true</span>)) {
+            <span class="k">$this</span>-&gt;<span class="f">recordClashes</span>(<span class="v">$booking</span>);
+        }
+
+        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);           <span class="c">// every channel learns the new state (scene 17)</span>
+    }
+
+    <span class="c">/** An iCal sync changed the blocks of a property (scene 12). */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">blocksChanged</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span>
+    {
+        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$property</span>);
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">recordClashes</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span>
+    {
+        <span class="v">$clashes</span> = <span class="v">$booking</span>-&gt;property-&gt;<span class="f">bookings</span>()
+            -&gt;<span class="f">overlapping</span>(<span class="v">$booking</span>-&gt;stay)
+            -&gt;<span class="f">whereKeyNot</span>(<span class="v">$booking</span>-&gt;id)
+            -&gt;<span class="f">where</span>(<span class="s">'id'</span>, <span class="s">'&lt;'</span>, <span class="v">$booking</span>-&gt;id)                               <span class="c">// earlier bookings only: each clash is recorded once, on the later one</span>
+            -&gt;<span class="f">get</span>();
+
+        <span class="k">foreach</span> (<span class="v">$clashes</span> <span class="k">as</span> <span class="v">$earlier</span>) {
+            <span class="v">$overbooking</span> = <span class="t">Overbooking</span>::<span class="f">createOrFirst</span>([
+                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,
+                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,
+                <span class="s">'conflicting_booking_id'</span> =&gt; <span class="v">$earlier</span>-&gt;id,
+            ]);
+
+            <span class="k">if</span> (<span class="v">$overbooking</span>-&gt;wasRecentlyCreated) {
+                <span class="v">$owners</span> = <span class="v">$booking</span>-&gt;property-&gt;account-&gt;<span class="f">users</span>()-&gt;<span class="f">wherePivot</span>(<span class="s">'role'</span>, <span class="t">MembershipRole</span>::<span class="t">Owner</span>-&gt;value)-&gt;<span class="f">get</span>();
+                <span class="t">Notification</span>::<span class="f">send</span>(<span class="v">$owners</span>, (<span class="k">new</span> <span class="f">OverbookingDetected</span>(<span class="v">$overbooking</span>))-&gt;<span class="f">afterCommit</span>());
+            }
+        }
+    }
+}</code></pre>
+</div><p>Direct bookings can’t clash, because scene 4 refuses them under a lock. Clashes can only come from the channels, which is exactly where this catches them.</p></div><div class="block"><h3>The colleagues, now</h3><p>Each one reports what happened, in one line, inside its own transaction; the pushes and emails it triggers wait for the commit. <code>CalendarSync</code> is injected by the container (scene 5).</p><div class="codebox">
+<div class="filehead"><span class="path">the same four classes (after)</span></div>
+<pre class="code"><code><span class="c">// BookingConfirmation, after the state changed (scene 9)</span>
+<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+<span class="c">// CancelBooking, after the state changed (scene 10)</span>
+<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+<span class="c">// ExpireHolds, after each expiry</span>
+<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+<span class="c">// ImportChannelReservation, after saving (only when the reservation was applied)</span>
+<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+<span class="c">// SyncIcalFeed, after the import</span>
+<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">blocksChanged</span>(<span class="k">$this</span>-&gt;feed-&gt;property);</code></pre>
+</div></div></div></section>
+<section class="reveal"><h2>You just wrote the Mediator pattern</h2>
+<p class="rule"><span>Mediator</span>One object that coordinates how a group of objects interact, so they talk to it instead of to each other.</p>
+
+
+
+<ul class="points"><li>Five colleagues and three reactions used to mean up to fifteen connections, each a chance to forget one. Now there are five lines into the mediator and three out of it.</li><li>The rules about <b>order</b> live in one place: detect clashes before pushing, record once, notify once.</li><li>A new source of bookings is one line: <code>bookingChanged($booking)</code>.</li></ul>
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>When reactions are independent and their order doesn’t matter, events fit better: anyone can listen without the sender knowing (scene 22).</li><li>Don’t let the mediator absorb the colleagues’ own work. It decides who reacts; the push is still <code>PushAvailability</code>, the email is still a notification.</li></ul>
+</section>
+<section class="tests"><details><summary><span>Tests</span><small>A channel clash is recorded and reported once, and every change reaches the channels</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/CalendarSyncTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">OverbookingDetected</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Queue</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="t">Queue</span>::<span class="f">fake</span>();
+    <span class="t">Notification</span>::<span class="f">fake</span>();
+    <span class="k">$this</span>-&gt;property = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="k">$this</span>-&gt;owner = <span class="f">hostOf</span>(<span class="k">$this</span>-&gt;property);
+    <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'41793625'</span>]);
+});
+
+<span class="f">it</span>(<span class="s">'records a cross-channel clash once and tells the owner once'</span>, <span class="k">function</span> () {
+    <span class="v">$airbnb</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-12'</span>, <span class="n">3</span>)-&gt;<span class="f">create</span>([<span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_id'</span> =&gt; <span class="s">'HM1'</span>]);
+    <span class="v">$bookingCom</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-12'</span>, <span class="n">3</span>)-&gt;<span class="f">create</span>([<span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="s">'external_id'</span> =&gt; <span class="s">'553'</span>]);
+
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="v">$bookingCom</span>);
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="v">$bookingCom</span>);              <span class="c">// a duplicate webhook</span>
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="v">$airbnb</span>);                  <span class="c">// the earlier one: nothing to record</span>
+
+    <span class="f">expect</span>(<span class="t">Overbooking</span>::<span class="f">sole</span>())
+        -&gt;booking_id-&gt;<span class="f">toBe</span>(<span class="v">$bookingCom</span>-&gt;id)
+        -&gt;conflicting_booking_id-&gt;<span class="f">toBe</span>(<span class="v">$airbnb</span>-&gt;id);
+    <span class="t">Notification</span>::<span class="f">assertSentToTimes</span>(<span class="k">$this</span>-&gt;owner, <span class="t">OverbookingDetected</span>::class, <span class="n">1</span>);
+});
+
+<span class="f">it</span>(<span class="s">'pushes the new state to the channels on every change, cancellations included'</span>, <span class="k">function</span> () {
+    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">create</span>([<span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::<span class="t">Cancelled</span>]);
+
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+    <span class="t">Queue</span>::<span class="f">assertPushed</span>(<span class="t">PushAvailability</span>::class);
+    <span class="f">expect</span>(<span class="t">Overbooking</span>::<span class="f">count</span>())-&gt;<span class="f">toBe</span>(<span class="n">0</span>);
+});</code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>Day 3 is done: iCal, the real APIs, matching kits, ordered imports, rate limits, coalesced pushes and one coordinator for the calendar. Day 4 starts on Monday, when a host logs in and sees another host’s bookings.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../17-queues/"><small>← Scene 17</small>642 pushes queued in one minute</a>
+<span class="soon"><small>Scene 19, coming soon</small>A host saw another host’s bookings</span>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"Guest charged €450.29 for a €450.30 stay","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"She booked 4 nights, we billed 3","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict policy","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"A Booking.com cancellation cancelled an Airbnb booking","patterns":["One kit per channel: API client, signature verifier and payload mapper that always match"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["Scoping every query and exists rule to the account, IDOR, mass assignment"],"slug":"19-tenancy","ready":false,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":false,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["send_at from the property timezone, DST with frozen time, the scheduler, withoutOverlapping()"],"slug":"21-send-times","ready":false,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["Unique index + atomic pending → sent; one event, many reactions"],"slug":"22-never-twice","ready":false,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot and restore; rescheduling guest messages"],"slug":"23-date-change","ready":false,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["Template variables, escaping, sensitive values only close to check-in"],"slug":"24-template-variables","ready":false,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Notifications inside; via() per guest; a WhatsApp channel; Notification::fake()"],"slug":"25-channels","ready":false,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks between stays, due times in the property timezone, review requests"],"slug":"26-turnovers","ready":false,"label":"Day 5 · Scene 26"},{"n":27,"title":"Host duplicated a listing, editing the copy changed the original","patterns":["Eloquent replicate(), deep vs shallow copies"],"slug":"27-duplicate-listing","ready":false,"label":"Day 5 · Scene 27"},{"n":28,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans as a tree of rules; the calendar_days table"],"slug":"28-rate-plans","ready":false,"label":"Day 5 · Scene 28"},{"n":29,"title":"Accepted 1 night with a 3-night minimum","patterns":["Booking rules and price stages; Laravel’s middleware pipeline inside"],"slug":"29-acceptance-rules","ready":false,"label":"Day 5 · Scene 29"},{"n":30,"title":"Free 12–15 July, 3 bedrooms, pets OK?","patterns":["Availability search on SQL, then Meilisearch behind the same interface"],"slug":"30-search","ready":false,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":false,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Cached price, guest charged the old one","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Guest charged €450.29 for a €450.30 stay","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Template Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Factory Method","chapter":12,"chapterTitle":"Two families, one cabin, one night","slug":"12-ical","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"A Booking.com cancellation cancelled an Airbnb booking","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":false},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":false},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":false},{"name":"Prototype","chapter":27,"chapterTitle":"Host duplicated a listing, editing the copy changed the original","slug":"27-duplicate-listing","ready":false},{"name":"Composite","chapter":28,"chapterTitle":"Summer prices ignored the weekend rule","slug":"28-rate-plans","ready":false},{"name":"Pipeline","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Chain of Responsibility","chapter":29,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"29-acceptance-rules","ready":false},{"name":"Specification","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Repository","chapter":30,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"30-search","ready":false},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Four patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>
