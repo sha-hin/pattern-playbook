@@ -233,10 +233,8 @@ final class CancelBooking
             $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
             $nothing = Money::zero($booking->total->currency);
 
-            $changed = $booking->state()->cancel($booking);       // does the transition (or throws)
-
-            if (! $changed) {
-                return $nothing;                                  // it was already cancelled
+            if (! $booking->state()->cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
             }
 
             $payment = $booking->payments()

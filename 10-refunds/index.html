@@ -228,10 +228,8 @@
             <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();
             <span class="v">$nothing</span> = <span class="t">Money</span>::<span class="f">zero</span>(<span class="v">$booking</span>-&gt;total-&gt;currency);
 
-            <span class="v">$changed</span> = <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">cancel</span>(<span class="v">$booking</span>);       <span class="c">// does the transition (or throws)</span>
-
-            <span class="k">if</span> (! <span class="v">$changed</span>) {
-                <span class="k">return</span> <span class="v">$nothing</span>;                                  <span class="c">// it was already cancelled</span>
+            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">cancel</span>(<span class="v">$booking</span>)) {          <span class="c">// scene 9: already cancelled</span>
+                <span class="k">return</span> <span class="v">$nothing</span>;
             }
 
             <span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()
