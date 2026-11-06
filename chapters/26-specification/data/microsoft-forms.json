@@ -1,0 +1,6 @@
+[
+    {"id": 1, "submitDate": "2026-01-13T08:01:00Z", "answers": {"teacher": "3", "role": "Peer (colleague)", "rating": "5", "feedback": "Great lab sessions"}},
+    {"id": 2, "submitDate": "2026-01-13T08:03:00Z", "answers": {"teacher": "4", "role": "Student", "rating": "4", "feedback": ""}},
+    {"id": 3, "submitDate": "2026-01-13T08:07:00Z", "answers": {"teacher": "4", "role": "Parent", "rating": "5", "feedback": "Parents are not in this survey"}},
+    {"id": 4, "submitDate": "2026-01-13T08:09:00Z", "answers": {"teacher": "3", "role": "Principal / Head", "rating": "4", "feedback": "Organised and calm"}}
+]

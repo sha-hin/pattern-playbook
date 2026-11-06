@@ -10,6 +10,7 @@ import { PART1 } from './part1.mjs';
 import { PART2 } from './part2.mjs';
 import { PART3 } from './part3.mjs';
 import { PART4 } from './part4.mjs';
+import { PART5 } from './part5.mjs';
 
 export const PARTS = {
   1: 'Foundations',
@@ -43,12 +44,12 @@ export const PLAN = [
   { n: 18, part: 4, slug: '18-interpreter', ready: true, title: '“Show Q5 only if Q3 ≥ 4 and the role is teacher”', patterns: ['Interpreter'] },
   { n: 19, part: 4, slug: '19-prototype', ready: true, title: 'Start next term from last term’s survey', patterns: ['Prototype'] },
   { n: 20, part: 4, slug: '20-builder', ready: true, title: 'Build complex report searches and documents', patterns: ['Builder'] },
-  { n: 21, part: 5, title: 'Survey lifecycle: draft, open, closed, archived', patterns: ['State'] },
-  { n: 22, part: 5, title: 'When a survey closes, five things must happen', patterns: ['Observer', 'Event Dispatcher'] },
-  { n: 23, part: 5, title: 'The 40-second AI analysis times out the request', patterns: ['Command', 'Command Bus'] },
-  { n: 24, part: 5, title: 'The Ministry sync was lost when the server died', patterns: ['Unit of Work', 'Transactional Outbox'] },
-  { n: 25, part: 5, title: 'Submitting an answer needs six checks', patterns: ['Chain of Responsibility', 'Pipeline'] },
-  { n: 26, part: 5, title: '“Teachers with 3+ evaluations this term, not on leave”', patterns: ['Specification'] },
+  { n: 21, part: 5, slug: '21-state', ready: true, title: 'Survey lifecycle: draft, open, closed, archived', patterns: ['State'] },
+  { n: 22, part: 5, slug: '22-observer', ready: true, title: 'When a survey closes, five things must happen', patterns: ['Observer', 'Event Dispatcher'] },
+  { n: 23, part: 5, slug: '23-command', ready: true, title: 'The 40-second AI analysis times out the request', patterns: ['Command', 'Command Bus'] },
+  { n: 24, part: 5, slug: '24-outbox', ready: true, title: 'The Ministry sync was lost when the server died', patterns: ['Unit of Work', 'Transactional Outbox'] },
+  { n: 25, part: 5, slug: '25-pipeline', ready: true, title: 'Submitting an answer needs six checks', patterns: ['Chain of Responsibility', 'Pipeline'] },
+  { n: 26, part: 5, slug: '26-specification', ready: true, title: '“Teachers with 3+ evaluations this term, not on leave”', patterns: ['Specification'] },
   { n: 27, part: 6, title: 'Local vs cloud: storage and queue must always match', patterns: ['Abstract Factory'] },
   { n: 28, part: 6, title: 'Three notification types × four channels', patterns: ['Bridge'] },
   { n: 29, part: 6, title: 'Survey editor parts keep changing each other', patterns: ['Mediator'] },
@@ -68,6 +69,7 @@ export const CHAPTERS = {
   ...PART2,
   ...PART3,
   ...PART4,
+  ...PART5,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {

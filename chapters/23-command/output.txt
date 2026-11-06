@@ -1,0 +1,26 @@
+── THE WEB REQUEST: the principal clicks "Close survey" ──
+  mail to <principal@smouha.edu.eg>: Survey closed: Teacher evaluation
+[info] queued command='AnalyzeTeacherComments' job=1
+[info] queued command='AnalyzeTeacherComments' job=2
+[warning] listener failed event='Evalu8\\Lifecycle\\SurveyClosed' listener='Evalu8\\Lifecycle\\Listeners\\NotifyMinistry' error='Ministry API: 503 Service Unavailable'
+[info] audit: survey closed survey='Teacher evaluation' answers=1 at='2026-06-11'
+[info] queued command='AnalyzeTeacherComments' job=3
+HTTP 202 Accepted: the analysis runs in the background.
+
+── LATER, THE WORKER PROCESS ──
+[info] comment analysis comments=2 ms=0
+[info] job done job=1 attempt=1
+[info] comment analysis comments=1 ms=0
+[info] job done job=2 attempt=1
+[warning] job failed, will retry job=3 attempt=1 error='No teacher with id 99.'
+[warning] job failed, will retry job=3 attempt=2 error='No teacher with id 99.'
+[warning] ALERT job failed for good job=3 attempts=3 error='No teacher with id 99.'
+
+── STORED SUMMARIES ──
+  teacher 1: 2 comment(s); main topics: explains, clearly.
+  teacher 2: 1 comment(s); main topics: starts.
+
+── JOBS TABLE ──
+  job 1: done after 1 attempt(s)
+  job 2: done after 1 attempt(s)
+  job 3: failed after 3 attempt(s) (No teacher with id 99.)

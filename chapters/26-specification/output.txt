@@ -1,0 +1,17 @@
+[info] comment analysis comments=2 ms=0
+[info] comment analysis comments=1 ms=0
+[info] comment analysis comments=2 ms=0
+
+SUPPORT PROGRAM
+  rule: score below 3.0 and at least 3 answers and not on leave
+   -   Hany Mostafa  score 4.13, 5 answers
+  yes  Nadia Fawzy   score 2.75, 4 answers
+   -   Karim Adel    score 4.00, 4 answers, on leave
+   -   Laila Samir   score 3.50, 2 answers
+
+EXCELLENCE AWARD
+  rule: score of at least 4.0 and at least 4 answers and not on leave
+  yes  Hany Mostafa  score 4.13, 5 answers
+   -   Nadia Fawzy   score 2.75, 4 answers
+   -   Karim Adel    score 4.00, 4 answers, on leave
+   -   Laila Samir   score 3.50, 2 answers

@@ -1,0 +1,15 @@
+Student answers the draft         refused: This survey is draft; it doesn't accept answers.
+Principal opens it                ok, now open
+Student answers                   ok, now open
+Student answers                   ok, now open
+Closed on day 10                  ok, now closed
+Late student answers              refused: This survey is closed; it doesn't accept answers.
+Reopened on day 12                ok, now open
+Late student answers              ok, now open
+Closed again on day 14            ok, now closed
+Reopen attempt on day 30          refused: Can't reopen: it was closed 16 days ago, and the limit is 7 days.
+Archived                          ok, now archived
+Reopen the archive                refused: Can't reopen a survey that is archived.
+
+3 answers accepted
+History: draft → open, open → closed, closed → open, open → closed, closed → archived

@@ -1,0 +1,15 @@
+A normal answer                  saved:   Thank you, your answer was saved.
+The same link again              refused: This invitation has already been used.
+A link for another teacher       refused: This invitation link is not valid for this teacher.
+Score typo, then corrected       refused: A score must be between 1 and 5, got 40.
+Corrected                        saved:   Thank you, your answer was saved.
+Abusive comment                  saved:   Thank you, your answer was saved. Your comment was rejected automatically.
+Harsh comment, Smouha teacher    saved:   Thank you, your answer was saved. Your comment was sent to Smouha's moderator.
+Harsh comment, Victoria teacher  saved:   Thank you, your answer was saved. Your comment was sent to the quality team.
+A script guessing tokens (1)     refused: This invitation link is not valid for this teacher.
+A script guessing tokens (2)     refused: This invitation link is not valid for this teacher.
+A script guessing tokens (3)     refused: This invitation link is not valid for this teacher.
+A script guessing tokens (4)     refused: Too many submissions from this device. Try again later.
+After the survey closed          refused: This survey is closed; it doesn't accept answers.
+
+5 answers saved
