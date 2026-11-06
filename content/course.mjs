@@ -11,6 +11,7 @@ import { PART2 } from './part2.mjs';
 import { PART3 } from './part3.mjs';
 import { PART4 } from './part4.mjs';
 import { PART5 } from './part5.mjs';
+import { PART6 } from './part6.mjs';
 
 export const PARTS = {
   1: 'Foundations',
@@ -50,10 +51,10 @@ export const PLAN = [
   { n: 24, part: 5, slug: '24-outbox', ready: true, title: 'The Ministry sync was lost when the server died', patterns: ['Unit of Work', 'Transactional Outbox'] },
   { n: 25, part: 5, slug: '25-pipeline', ready: true, title: 'Submitting an answer needs six checks', patterns: ['Chain of Responsibility', 'Pipeline'] },
   { n: 26, part: 5, slug: '26-specification', ready: true, title: '“Teachers with 3+ evaluations this term, not on leave”', patterns: ['Specification'] },
-  { n: 27, part: 6, title: 'Local vs cloud: storage and queue must always match', patterns: ['Abstract Factory'] },
-  { n: 28, part: 6, title: 'Three notification types × four channels', patterns: ['Bridge'] },
-  { n: 29, part: 6, title: 'Survey editor parts keep changing each other', patterns: ['Mediator'] },
-  { n: 30, part: 6, title: '“Undo” in the survey editor', patterns: ['Memento'] },
+  { n: 27, part: 6, slug: '27-abstract-factory', ready: true, title: 'Local vs cloud: storage and queue must always match', patterns: ['Abstract Factory'] },
+  { n: 28, part: 6, slug: '28-bridge', ready: true, title: 'Three notification types × four channels', patterns: ['Bridge'] },
+  { n: 29, part: 6, slug: '29-mediator', ready: true, title: 'Survey editor parts keep changing each other', patterns: ['Mediator'] },
+  { n: 30, part: 6, slug: '30-memento', ready: true, title: '“Undo” in the survey editor', patterns: ['Memento'] },
 ];
 
 // Patterns from the Gang of Four book (1994). Everything else is marked "not in the book".
@@ -70,6 +71,7 @@ export const CHAPTERS = {
   ...PART3,
   ...PART4,
   ...PART5,
+  ...PART6,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {

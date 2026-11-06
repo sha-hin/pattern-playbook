@@ -1,0 +1,15 @@
+RESULTS PUBLISHED
+  mail to <hany@smouha.edu.eg>: Your 2026-T1 evaluation result
+[whatsapp → +201117654321] Evalu8: Nadia Fawzy, your 2026-T1 result is 2.70. Details in Evalu8.
+
+LOW RESPONSE RATE
+  mail to <amal@smouha.edu.eg>: Low response rate: Laila Samir
+
+SURVEY REMINDER
+[sms → +201550000088] Reminder: "Teacher evaluation 2026-T1" closes 20 Nov. About 3 minutes.
+
+UNREACHABLE ON THE CHOSEN CHANNEL
+Not sent: Can't send email to Youssef: no email address on file.
+
+IN-APP INBOX
+principal-smouha: Low response rate: Laila Samir

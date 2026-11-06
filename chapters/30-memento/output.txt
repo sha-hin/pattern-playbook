@@ -1,0 +1,35 @@
+
+> Type the question
+  preview: Explains the lesson clearly  [1 … 5]   scored: yes
+  problems: none
+  [Undo on] [Redo off]
+
+> Change the scale to 1–7
+  preview: Explains the lesson clearly  [1 … 7]   scored: yes
+  problems: Scored questions must use the 1–5 scale, or teachers’ scores can’t be compared.
+  [Undo on] [Redo off]
+
+> Make it a comment question (scoring is switched off)
+  preview: Explains the lesson clearly  [__________]   scored: no
+  problems: none
+  [Undo on] [Redo off]
+
+> Undo
+  preview: Explains the lesson clearly  [1 … 7]   scored: yes
+  problems: Scored questions must use the 1–5 scale, or teachers’ scores can’t be compared.
+  [Undo on] [Redo on]
+
+> Undo again: back to the 1–5 scored scale
+  preview: Explains the lesson clearly  [1 … 5]   scored: yes
+  problems: none
+  [Undo on] [Redo on]
+
+> Redo
+  preview: Explains the lesson clearly  [1 … 7]   scored: yes
+  problems: Scored questions must use the 1–5 scale, or teachers’ scores can’t be compared.
+  [Undo on] [Redo on]
+
+> A new change clears Redo
+  preview: Explains the lesson clearly and checks understanding  [1 … 7]   scored: yes
+  problems: Scored questions must use the 1–5 scale, or teachers’ scores can’t be compared.
+  [Undo on] [Redo off]

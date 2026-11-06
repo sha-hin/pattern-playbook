@@ -1,0 +1,20 @@
+{
+    "name": "sha-hin/evalu8",
+    "description": "Evalu8: a school evaluation platform, refactored one design pattern at a time.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "ext-pdo_sqlite": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Evalu8\\": "src/",
+            "OpenAI\\": "fakes/OpenAI/",
+            "Ollama\\": "fakes/Ollama/",
+            "FakeLlm\\": "fakes/FakeLlm/",
+            "Ministry\\": "fakes/Ministry/",
+            "Aws\\": "fakes/Aws/"
+        }
+    }
+}
