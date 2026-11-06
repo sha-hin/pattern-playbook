@@ -15,6 +15,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TODAY = new Date().toISOString().slice(0, 10);
 const PUBLISHED = '2026-11-06';
 const AUTHOR = { name: 'Mohammed Shahin', url: 'https://sha-hin.github.io' };
+// Umami Cloud website id (same account as the portfolio). Tracking only runs on sha-hin.github.io, never locally.
+const UMAMI_ID = '37b7903a-c779-475f-b20f-18fe98cd4d70';
 
 // Load the shared data + renderers exactly as the browser does (no DOM: the browser part is skipped).
 const ctx = vm.createContext({});
@@ -82,6 +84,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, header, m
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="${prefix}assets/style.css">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="${UMAMI_ID}" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">${JSON.stringify(jsonld)}</script>
 </head>
 <body data-page="${pageId}" data-prefix="${prefix}">
@@ -95,7 +98,7 @@ ${modes}
 <main id="view">
 ${main}
 </main>
-<footer class="credit">By <a href="${AUTHOR.url}">${AUTHOR.name}</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+<footer class="credit">By <a href="${AUTHOR.url}" data-umami-event="Visit portfolio">${AUTHOR.name}</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
 <script src="${prefix}assets/app.js" defer></script>
 </body>

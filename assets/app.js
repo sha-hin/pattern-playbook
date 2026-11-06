@@ -1254,7 +1254,7 @@ const svg = (els, label) => `<svg class="d" viewBox="0 0 300 166" role="img" ari
 
 function chipsHtml(current, prefix) {
   return P.map(p =>
-    `<a class="${p.fam}${p.gof ? '' : ' ext'}" href="${prefix}${p.id}/"${p.id === current ? ' aria-current="page"' : ''}><i></i>${esc(p.name)}</a>`
+    `<a class="${p.fam}${p.gof ? '' : ' ext'}" href="${prefix}${p.id}/"${p.id === current ? ' aria-current="page"' : ''} data-umami-event="Open pattern" data-umami-event-pattern="${p.id}" data-umami-event-from="chips"><i></i>${esc(p.name)}</a>`
   ).join('');
 }
 
@@ -1277,8 +1277,8 @@ function cardHtml(p, prefix) {
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
   <div><h2 class="seenh">You already use it in</h2><div class="seen">${p.seen.map(s => `<span>${esc(s)}</span>`).join('')}</div></div>
   <nav class="nav" aria-label="Previous and next pattern">
-    ${prev ? `<a class="navbtn" rel="prev" href="${prefix}${prev.id}/"><small>← Previous</small>${esc(prev.name)}</a>` : '<span></span>'}
-    ${next ? `<a class="navbtn" rel="next" href="${prefix}${next.id}/"><small>Next →</small>${esc(next.name)}</a>` : `<a class="navbtn" href="${prefix}"><small>Done →</small>All patterns</a>`}
+    ${prev ? `<a class="navbtn" rel="prev" href="${prefix}${prev.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${prev.id}" data-umami-event-from="previous"><small>← Previous</small>${esc(prev.name)}</a>` : '<span></span>'}
+    ${next ? `<a class="navbtn" rel="next" href="${prefix}${next.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${next.id}" data-umami-event-from="next"><small>Next →</small>${esc(next.name)}</a>` : `<a class="navbtn" href="${prefix}"><small>Done →</small>All patterns</a>`}
   </nav>
 </article>`;
 }
@@ -1290,7 +1290,7 @@ function hubHtml(prefix) {
     ['Specialised: learn them last', P.slice(18)],
   ];
   return groups.map(([title, items]) => `<section class="group"><h2>${title}</h2><div class="tiles">${items.map(p =>
-    `<a class="tile ${p.fam}" href="${prefix}${p.id}/"><span class="tnum">${P.indexOf(p) + 1}</span><b>${esc(p.name)}</b><span class="tags"><span class="fam">${FAMILY[p.fam]}</span>${p.gof ? '' : '<span class="book ext">Not in the book</span>'}</span><span class="th">${esc(p.hook)}</span><span class="tr">${esc(p.rule)}</span></a>`
+    `<a class="tile ${p.fam}" href="${prefix}${p.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${p.id}" data-umami-event-from="hub"><span class="tnum">${P.indexOf(p) + 1}</span><b>${esc(p.name)}</b><span class="tags"><span class="fam">${FAMILY[p.fam]}</span>${p.gof ? '' : '<span class="book ext">Not in the book</span>'}</span><span class="th">${esc(p.hook)}</span><span class="tr">${esc(p.rule)}</span></a>`
   ).join('')}</div></section>`).join('');
 }
 
@@ -1301,6 +1301,8 @@ if (typeof document !== 'undefined') {
   const prefix = document.body.dataset.prefix || '';
   const pageId = document.body.dataset.page;          // 'hub' or a pattern id
   const view = $('#view');
+  // Umami custom events; a no-op when the script is blocked or not loaded yet.
+  const track = (name, data) => { try { window.umami && window.umami.track(name, data); } catch (e) {} };
   const learnHtml = view.innerHTML;
 
   // Old #strategy-style links from the first version → the real page
@@ -1314,7 +1316,7 @@ if (typeof document !== 'undefined') {
     mode = m;
     $('#m-learn').setAttribute('aria-pressed', String(m === 'learn'));
     $('#m-test').setAttribute('aria-pressed', String(m === 'test'));
-    if (m === 'learn') { view.innerHTML = learnHtml; } else { deck = []; test(); }
+    if (m === 'learn') { view.innerHTML = learnHtml; } else { deck = []; track('Start test', { page: pageId }); test(); }
     window.scrollTo({ top: 0 });
   }
 
@@ -1332,14 +1334,18 @@ if (typeof document !== 'undefined') {
     </section>`;
     $('#reveal').onclick = () => {
       $('#ans').innerHTML = `<div class="ans"><b>${esc(p.name)}</b>${esc(p.rule)}</div>`;
-      $('#btns').innerHTML = `<button class="primary" id="ok">I got it</button><button id="no">I missed it</button><a class="btnlink" href="${prefix}${p.id}/">Open the ${esc(p.name)} page</a>`;
-      const nextQ = got => { done++; if (got) right++; pos++; pos >= deck.length ? finish() : test(); };
+      $('#btns').innerHTML = `<button class="primary" id="ok">I got it</button><button id="no">I missed it</button><a class="btnlink" href="${prefix}${p.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${p.id}" data-umami-event-from="test">Open the ${esc(p.name)} page</a>`;
+      const nextQ = got => {
+        track('Test answer', { pattern: p.id, result: got ? 'got it' : 'missed' });
+        done++; if (got) right++; pos++; pos >= deck.length ? finish() : test();
+      };
       $('#ok').onclick = () => nextQ(true);
       $('#no').onclick = () => nextQ(false);
     };
   }
 
   function finish() {
+    track('Test finished', { score: `${right}/${done}`, percent: Math.round(right / done * 100) });
     view.innerHTML = `<section class="test"><p class="q">You got ${right} of ${done}.</p><p class="lab">${right === done ? 'All of them.' : 'Open the patterns you missed, then try again.'}</p><div class="row"><button class="primary" id="again">Shuffle and try again</button></div></section>`;
     deck = [];
     $('#again').onclick = test;
