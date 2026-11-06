@@ -2,7 +2,7 @@
 // Each lesson's content lives in content/lessons/<slug>.mjs; lessons with `ready: true` get a page.
 
 export const PLAN = [
-  { n: 0, slug: '00-foundation', patterns: [], title: 'Foundation: setup and the data model', problem: 'Set up the PMS and design every table the course uses', ready: true },
+  { n: 0, slug: '00-foundation', patterns: [], title: 'Foundation: everything the course stands on', problem: 'Every table, model, factory and test helper, ready before lesson 1', ready: true },
   { n: 1, slug: '01-value-object', patterns: ['Value Object'], problem: 'Money and stays are passed around as bare numbers', ready: true },
   { n: 2, slug: '02-active-record', patterns: ['Active Record', 'Data Mapper', 'Repository'], problem: 'Where booking logic and SQL belong', ready: true },
   { n: 3, slug: '03-container', patterns: ['Singleton', 'Dependency Injection Container'], problem: 'The Stripe client is created everywhere', ready: true },

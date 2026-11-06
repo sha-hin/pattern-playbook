@@ -133,7 +133,7 @@ final readonly class StripeGateway
           title: 'One binding, in one place',
           text: [
             '`singleton()` builds the client the first time something needs it and reuses it after. `StripeGateway` needs no binding at all: the container sees its constructor, builds the `StripeClient` from the binding, and passes it in (autowiring).',
-            'Bindings go in `register()`. Nothing is resolved there, because other providers may not be registered yet.',
+            'Bindings go in `register()`. Nothing is resolved there, because other providers may not be registered yet. The `boot()` defaults from [the foundation](F#app-provider) stay as they are; the keys come from [config/services.php](F#services-config).',
           ],
           path: 'app/Providers/AppServiceProvider.php',
           code: String.raw`<?php
@@ -157,12 +157,14 @@ class AppServiceProvider extends ServiceProvider
         },
         {
           title: 'Consumers declare what they need',
-          text: ['The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds.'],
+          text: ['The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds. The row goes into [payments](F#table-bookings), whose unique `provider_payment_id` means one Stripe intent can never be recorded twice.'],
           path: 'app/Payments/StartBookingPayment.php',
           code: String.raw`<?php
 
 namespace App\Payments;
 
+use App\Enums\PaymentKind;
+use App\Enums\PaymentStatus;
 use App\Models\Booking;
 
 final readonly class StartBookingPayment
@@ -182,10 +184,10 @@ final readonly class StartBookingPayment
         );
 
         $booking->payments()->create([
-            'kind' => 'deposit',
+            'kind' => PaymentKind::Deposit,
             'amount_cents' => $deposit->amount,
             'currency' => $deposit->currency->value,
-            'status' => 'pending',
+            'status' => PaymentStatus::Pending,
             'provider_payment_id' => $intent['id'],
         ]);
 

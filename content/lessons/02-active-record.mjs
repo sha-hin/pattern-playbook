@@ -124,7 +124,7 @@ class StoreBookingRequest extends FormRequest
         },
         {
           title: 'The Policy: who may create a booking on this property',
-          text: ['Only members of the account that owns the property, and not cleaners. A user of another account gets 403. `User::roleIn()` reads the role from the membership pivot (lesson 0); lesson 11 extends this into a full role model.'],
+          text: ['Only members of the account that owns the property, and not cleaners. A user of another account gets 403. [`User::roleIn()`](F#model-user) reads the role from the membership pivot; lesson 11 extends this into a full role model.'],
           path: 'app/Policies/PropertyPolicy.php',
           code: String.raw`<?php
 
@@ -171,7 +171,7 @@ final class BookingConflict extends RuntimeException
         {
           title: 'The action: the business rule, reusable by any caller',
           text: [
-            'One class, one job: create a booking if the nights are free. The controller, the channel import and an admin command all call the same `handle()`, so there is one overlap rule.',
+            'One class, one job: create a booking if the nights are free. The controller, the channel import and an admin command all call the same `handle()`, so there is one overlap rule: [`scopeOverlapping()`](F#model-booking) on the model, served by the composite index on [the bookings table](F#table-bookings).',
             'The property row is locked inside the transaction, so two requests for the same property run one after the other: the second one sees the first booking and gets a 409 instead of a double booking. Lesson 27 explains the lock in depth.',
           ],
           path: 'app/Bookings/CreateBooking.php',
@@ -205,6 +205,7 @@ final class CreateBooking
             $booking = new Booking($guest);
             $booking->stay = $stay;
             $booking->total = Money::of($property->nightly_rate_cents, $property->currency)->times($stay->nights());
+            $booking->cancellation_policy = $property->cancellation_policy;   // the terms the guest agreed to, frozen
             $booking->status = BookingStatus::Pending;
             $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
             $property->bookings()->save($booking);
@@ -479,16 +480,14 @@ arch()->preset()->laravel();          // Laravel's own conventions (naming, fold
         path: 'tests/Feature/CreateBookingTest.php',
         code: String.raw`<?php
 
-use App\Enums\MembershipRole;
 use App\Models\Booking;
 use App\Models\Property;
 use App\Models\User;
 
+// The clock is frozen at 2027-06-01 for every test (tests/Pest.php).
 beforeEach(function () {
-    $this->travelTo('2027-06-01');                                  // "after_or_equal:today" must not depend on the real date
-    $this->property = Property::factory()->create(['nightly_rate_cents' => 15_000, 'currency' => 'EUR', 'max_guests' => 4]);
-    $this->host = User::factory()->create();
-    $this->property->account->users()->attach($this->host, ['role' => MembershipRole::Owner->value]);
+    $this->property = Property::factory()->create();                // 150.00 EUR a night, up to 4 guests
+    $this->host = hostOf($this->property);                          // an owner of the property's account
 });
 
 function book(Property $property, array $overrides = []): array

@@ -4,9 +4,11 @@
 export const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // Inline text: `code`, **bold**. Everything else is escaped.
+// [text](F#anchor) links to a section of the foundation page (lesson 0).
 export const inline = s => esc(s)
   .replace(/`([^`]+)`/g, '<code>$1</code>')
-  .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+  .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => `<a href="${url.startsWith('F#') ? `../00-foundation/#${url.slice(2)}` : url}">${text}</a>`);
 
 export const paras = list => (list || []).map(p => `<p>${inline(p)}</p>`).join('');
 

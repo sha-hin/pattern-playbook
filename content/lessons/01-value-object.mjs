@@ -319,18 +319,23 @@ final class StayCast implements CastsAttributes
 }`,
         },
         {
-          title: 'Using the casts on the models',
-          text: ['The cast arguments come after a colon. `total` is not a column: it is a virtual attribute built from `total_cents` and `currency`. The `Stay` cast follows the same idea with `check_in` and `check_out`.'],
+          title: 'Using the casts on the model',
+          text: ['Two lines added to the casts of the [Booking model](F#model-booking). The cast arguments come after a colon. `total` is not a column: it is a virtual attribute built from `total_cents` and `currency` ([the bookings table](F#table-bookings)). `stay` does the same with `check_in` and `check_out`.'],
           path: 'app/Models/Booking.php (casts)', fragment: true,
           code: String.raw`protected function casts(): array
 {
     return [
         'check_in' => 'date:Y-m-d',
         'check_out' => 'date:Y-m-d',
+        'total' => MoneyCast::class . ':total_cents',   // new: Money from total_cents + currency
+        'stay' => StayCast::class,                      // new: Stay from check_in + check_out
         'status' => BookingStatus::class,
-        'total' => MoneyCast::class . ':total_cents',
-        'stay' => StayCast::class,
+        'source' => BookingSource::class,
+        'guest_channel' => GuestChannel::class,
+        'cancellation_policy' => CancellationPolicy::class,
+        'door_code' => 'encrypted',
         'expires_at' => 'datetime',
+        'confirmed_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
 }

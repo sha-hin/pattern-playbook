@@ -119,7 +119,7 @@ function codeBlock({ path, code, lang }) {
 // A block is { title?, text?: string[], code?, path?, lang?, after?: string[], table?: string[][] }.
 function blockHtml(b, numbered, index) {
   const head = b.title ? `<h3>${numbered ? `<span class="num">${index + 1}</span>` : ''}${inline(b.title)}</h3>` : '';
-  return `<div class="block">${head}${paras(b.text)}${b.table ? tableHtml(b.table) : ''}${b.code ? codeBlock(b) : ''}${paras(b.after)}</div>`;
+  return `<div class="block"${b.id ? ` id="${b.id}"` : ''}>${head}${paras(b.text)}${b.table ? tableHtml(b.table) : ''}${b.code ? codeBlock(b) : ''}${paras(b.after)}</div>`;
 }
 
 const blocksHtml = (list, numbered = false) => (list || []).map((b, i) => blockHtml(b, numbered, i)).join('');
@@ -148,6 +148,11 @@ ${l.patterns.length ? `<p class="tags">${l.patterns.map(tagHtml).join('')}</p>` 
 
   if (body.intro) s.push(`<section class="lead">${paras(body.intro)}</section>`);
 
+  if (body.toc) {
+    s.push(`<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol>${(body.sections || []).filter(sec => sec.id).map(sec =>
+      `<li><a href="#${sec.id}">${inline(sec.title)}</a>${sec.blocks.some(b => b.id) ? `<ul>${sec.blocks.filter(b => b.id).map(b => `<li><a href="#${b.id}">${inline(b.title)}</a></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></nav>`);
+  }
+
   if (body.ticket) {
     s.push(`<section class="ticket" aria-label="The ticket"><p class="tk-label">The ticket</p>
 <h2>${inline(body.ticket.title)}</h2><p class="tk-from">From ${esc(body.ticket.from)}</p><p>${inline(body.ticket.body)}</p></section>`);
@@ -168,7 +173,7 @@ ${p.table ? tableHtml(p.table) : ''}</section>`);
   }
 
   for (const sec of body.sections || []) {
-    s.push(`<section><h2>${inline(sec.title)}</h2>${paras(sec.text)}<div class="blocks${sec.numbered === false ? '' : ' numbered'}">${blocksHtml(sec.blocks, sec.numbered !== false)}</div></section>`);
+    s.push(`<section${sec.id ? ` id="${sec.id}"` : ''}><h2>${inline(sec.title)}</h2>${paras(sec.text)}<div class="blocks${sec.numbered === false ? '' : ' numbered'}">${blocksHtml(sec.blocks, sec.numbered !== false)}</div></section>`);
   }
 
   if (body.laravel) {

@@ -48,8 +48,8 @@ $booking->update(['status' => BookingStatus::Confirmed]);      // and nothing el
           text: ['Each one is built in its own lesson; here only their entry points matter. None of them knows about the others.'],
           table: [
             ['Class', 'Job', 'Built in'],
-            ['`ScheduleGuestMessages`', 'Creates the `scheduled_messages` rows for this booking', 'Lesson 15'],
-            ['`CreateCleaningTask`', 'Creates the turnover task with a copy of the checklist', 'Lesson 8'],
+            ['`ScheduleGuestMessages`', 'Creates the [`scheduled_messages`](F#table-messaging) rows for this booking', 'Lesson 15'],
+            ['`CreateCleaningTask`', 'Creates the [turnover task](F#table-operations) with a copy of the [checklist](F#table-properties)', 'Lesson 8'],
             ['`PushAvailability` (job)', 'Closes the dates on every connected channel', 'Lessons 9 and 18'],
             ['`BookingConfirmed` (notification)', 'Emails the guest', 'Lesson 13'],
           ],
@@ -96,6 +96,7 @@ final readonly class BookingConfirmation
             }
 
             $booking->status = BookingStatus::Confirmed;
+            $booking->confirmed_at = now();
             $booking->expires_at = null;                              // no longer a hold
             $booking->save();
 

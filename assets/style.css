@@ -264,3 +264,10 @@ pre.diff .ln.fold{color:var(--muted);font-style:italic;background:var(--well);ma
 .testbody{padding:4px 18px 18px}
 .crow .ct small{font-weight:400;font-size:14px;color:var(--muted)}
 .clist{list-style:none}
+
+.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+.toc h2{font-size:19px}
+.toc ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.toc ul{margin:4px 0 2px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px}
+.toc a{color:var(--fg)} .toc ul a{color:var(--muted)}
+[id]{scroll-margin-top:76px}
