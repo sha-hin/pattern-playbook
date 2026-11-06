@@ -253,15 +253,65 @@
 }</code></pre>
 </div></div><div class="block"><h3>Every status code, and where it comes from</h3><div class="tablewrap"><table><thead><tr><th scope="col">Code</th><th scope="col">When</th><th scope="col">Produced by</th></tr></thead>
 <tbody><tr><th scope="row">201 Created</th><td>The booking was created</td><td><code>BookingResource</code> on a model with <code>wasRecentlyCreated</code></td></tr><tr><th scope="row">401 Unauthorized</th><td>No valid token</td><td><code>auth:sanctum</code></td></tr><tr><th scope="row">403 Forbidden</th><td>Not a host of this property</td><td><code>can()</code> → <code>PropertyPolicy</code></td></tr><tr><th scope="row">404 Not Found</th><td>Unknown property</td><td>Route model binding</td></tr><tr><th scope="row">409 Conflict</th><td>Some nights are taken</td><td><code>BookingConflict::render()</code></td></tr><tr><th scope="row">422 Unprocessable</th><td>Invalid input</td><td><code>StoreBookingRequest</code></td></tr></tbody></table></div></div></div></section>
-<section class="reveal"><h2>You just met Active Record, Data Mapper and Repository</h2>
-<p class="rule"><span>Active Record</span>One object wraps one database row: it holds the data, knows its table, and saves itself. Eloquent is Active Record.</p><p class="rule"><span>Data Mapper</span>The objects know nothing about the database; a separate mapper copies data between rows and objects.</p><p class="rule"><span>Repository</span>A collection-like interface for loading and saving objects, hiding where they are stored.</p>
-<p>The question behind today’s fix was <b>who talks to the database</b>. In Laravel the answer is the model itself: <code>$property-&gt;bookings()-&gt;save($booking)</code> is Active Record. That’s what keeps Laravel code short. The cost is that it’s tempting to pile rules onto the model until it’s a 2,000-line class, which is why the rule went into the <code>CreateBooking</code> action and the model only kept data, relations and a scope.</p><p>For comparison, the same idea with a Data Mapper (Doctrine, as in Symfony) and with a repository over Eloquent. Neither is added to Nordic Stays:</p>
+<section class="reveal"><h2>You just wrote the Active Record pattern</h2>
+<p class="rule"><span>Active Record</span>One object wraps one database row: it holds the data, knows its table, and saves itself. Eloquent is Active Record.</p>
+<p>The question behind today’s fix was <b>who talks to the database</b>. In Laravel the answer is the model itself: <code>$property-&gt;bookings()-&gt;save($booking)</code> is Active Record. That’s what keeps Laravel code short.</p><p>The cost is that it’s tempting to pile rules onto the model until it’s a 2,000-line class. That’s why the rule went into the <code>CreateBooking</code> action, and the model only kept data, relations and a scope.</p>
 
-<div class="tablewrap"><table><thead><tr><th scope="col"></th><th scope="col">Active Record (Eloquent)</th><th scope="col">Data Mapper (Doctrine)</th></tr></thead>
-<tbody><tr><th scope="row">Who saves?</th><td><code>$booking-&gt;save()</code></td><td><code>$entityManager-&gt;persist($booking); $entityManager-&gt;flush();</code></td></tr><tr><th scope="row">Does the object know its table?</th><td>Yes</td><td>No</td></tr><tr><th scope="row">Testing a rule without a database</th><td>Put the rule in a plain class (like <code>Stay</code>)</td><td>Natural</td></tr><tr><th scope="row">Best for</th><td>Most web apps, fast delivery</td><td>Domains whose rules are much richer than their tables</td></tr></tbody></table></div>
-<ul class="points"><li><b>Why no repository here:</b> a <code>BookingRepository</code> interface over Eloquent would still take and return Eloquent models, so it hides nothing, and every query gets written twice. Add one only when there’s a real second storage (an external API, say), not &quot;in case&quot;.</li></ul>
-<p class="whennot-label">When not to use it</p><ul class="whennot"><li>Don’t add a repository layer over Eloquent &quot;for testability&quot;: Laravel tests run against a real database fast enough, and the trap tests below need one.</li><li>Don’t mix two ORMs in one Laravel app.</li></ul>
+
+
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>When the business rules are much richer than the tables (complex insurance or trading domains), objects that know nothing about the database are easier to keep correct. That’s the Data Mapper, below.</li></ul>
 </section>
+<section><h2>The two other answers, and why Nordic Stays doesn’t use them</h2><p>There are two other common answers to &quot;who talks to the database?&quot;. Here is the same booking written with each, so you can recognise them in other codebases.</p><div class="blocks"><div class="block"><h3>Data Mapper: the object doesn’t know the database</h3><p>In a Data Mapper ORM, such as Doctrine (the default in Symfony), <code>Booking</code> is a plain PHP class. It has no <code>save()</code>, no table and no query methods. A separate object, the <b>entity manager</b>, copies data between rows and objects, and writes every change in one go when you call <code>flush()</code>.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Entity/Booking.php (Doctrine, in a Symfony app)</span></div>
+<pre class="code"><code><span class="k">use</span> <span class="t">Doctrine</span>\<span class="t">ORM</span>\<span class="t">Mapping</span> <span class="k">as</span> <span class="t">ORM</span>;
+
+#[<span class="t">ORM</span>\<span class="t">Entity</span>]
+#[<span class="t">ORM</span>\<span class="f">Table</span>(name: <span class="s">'bookings'</span>)]
+<span class="k">class</span> <span class="t">Booking</span>
+{
+    #[<span class="t">ORM</span>\<span class="t">Id</span>, <span class="t">ORM</span>\<span class="t">GeneratedValue</span>, <span class="t">ORM</span>\<span class="t">Column</span>]
+    <span class="k">private</span> ?<span class="k">int</span> <span class="v">$id</span> = <span class="k">null</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        #[<span class="t">ORM</span>\<span class="t">ManyToOne</span>] <span class="k">private</span> <span class="t">Property</span> <span class="v">$property</span>,
+        #[<span class="t">ORM</span>\<span class="t">Column</span>] <span class="k">private</span> <span class="k">string</span> <span class="v">$guestName</span>,
+        #[<span class="t">ORM</span>\<span class="t">Embedded</span>] <span class="k">private</span> <span class="t">Stay</span> <span class="v">$stay</span>,                 <span class="c">// a value object stored in two columns</span>
+    ) {
+    }
+}
+
+<span class="c">// Saving it: the object can't save itself, the mapper does</span>
+<span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$property</span>, <span class="s">'Mona Adel'</span>, <span class="v">$stay</span>);
+<span class="v">$entityManager</span>-&gt;<span class="f">persist</span>(<span class="v">$booking</span>);                          <span class="c">// start tracking it</span>
+<span class="v">$entityManager</span>-&gt;<span class="f">flush</span>();                                    <span class="c">// one INSERT, inside a transaction</span></code></pre>
+</div></div><div class="block"><h3>Repository: storage behind a collection-like interface</h3><p>A repository looks like a collection of bookings: you ask it for bookings and hand it new ones, and it hides where they are stored. Over Eloquent, it would look like this:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Bookings/BookingRepository.php (not added to Nordic Stays)</span></div>
+<pre class="code"><code><span class="k">interface</span> <span class="t">BookingRepository</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">hasOverlap</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">bool</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span>;
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">EloquentBookingRepository</span> <span class="k">implements</span> <span class="t">BookingRepository</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">hasOverlap</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>();   <span class="c">// the same scope, one more layer</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span>
+    {
+        <span class="v">$booking</span>-&gt;<span class="f">save</span>();                                              <span class="c">// still Eloquent underneath</span>
+    }
+}
+
+<span class="c">// CreateBooking would then ask for the repository instead of using the model</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">BookingRepository</span> <span class="v">$bookings</span>)
+{
+}</code></pre>
+</div><p>Look at what it hides: nothing. The interface takes and returns Eloquent <code>Booking</code> models, so the app still depends on Eloquent, and every query is now written twice (once in the scope, once in the repository).</p></div><div class="block"><h3>Side by side</h3><div class="tablewrap"><table><thead><tr><th scope="col"></th><th scope="col">Active Record (Eloquent)</th><th scope="col">Data Mapper (Doctrine)</th><th scope="col">Repository over Eloquent</th></tr></thead>
+<tbody><tr><th scope="row">Who saves?</th><td><code>$booking-&gt;save()</code></td><td><code>$entityManager-&gt;flush()</code></td><td><code>$bookings-&gt;add($booking)</code></td></tr><tr><th scope="row">Does the object know its table?</th><td>Yes</td><td>No</td><td>Yes, underneath</td></tr><tr><th scope="row">Extra code per query</th><td>None</td><td>Mapping configuration</td><td>An interface method and an implementation</td></tr><tr><th scope="row">Use it when</th><td>Most Laravel apps</td><td>Rules much richer than the tables</td><td>There is a real second storage, like an external API</td></tr></tbody></table></div><p>Nordic Stays stays with Active Record: it is what Laravel is built around, and the rules already live in actions and value objects. A repository would be added only on the day bookings also come from somewhere that isn’t our database, never &quot;just in case&quot;.</p></div></div></section>
 <section class="laravel"><h2>Laravel inside</h2><p>How an Active Record saves itself, and why a fresh resource answers 201.</p><div class="blocks"><div class="block"><h3>Model::save()</h3><p>The model decides between INSERT and UPDATE from <code>$exists</code>, fires its events, and after an insert sets <code>wasRecentlyCreated</code>.</p><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Database/Eloquent/Model.php (simplified)</span></div>
 <pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">save</span>(<span class="k">array</span> <span class="v">$options</span> = [])

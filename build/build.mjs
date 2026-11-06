@@ -192,6 +192,7 @@ ${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join(''
   s.push(incidentHtml(body.incident));
   for (const sec of body.sections) s.push(sectionHtml(sec));
   if (body.reveal) s.push(revealHtml(body.reveal));
+  for (const sec of body.afterReveal || []) s.push(sectionHtml(sec));
   if (body.laravel) s.push(sectionHtml({ kind: 'laravel', title: body.laravel.title || 'Laravel does the same', ...body.laravel }));
   if (body.tests) {
     s.push(`<section class="tests"><details><summary><span>Tests</span><small>${esc(body.tests.summary)}</small></summary>

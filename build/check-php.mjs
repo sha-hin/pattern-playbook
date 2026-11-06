@@ -15,7 +15,7 @@ let checked = 0, failed = 0;
 const collect = (lesson) => {
   const out = [];
   const add = (b, where) => { if (b && b.code && (b.lang || 'php') === 'php' && !b.fragment) out.push({ ...b, where }); };
-  for (const s of lesson.sections || []) for (const b of s.blocks || []) add(b, s.title);
+  for (const s of [...(lesson.sections || []), ...(lesson.afterReveal || [])]) for (const b of s.blocks || []) add(b, s.title);
   for (const k of ['laravel', 'reveal', 'tests']) for (const b of lesson[k]?.blocks || []) add(b, k);
   return out;
 };
