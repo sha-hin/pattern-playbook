@@ -159,3 +159,10 @@ pre.before{border-color:var(--bad)}
 .cmdk-item[aria-selected="true"] .ci{background:var(--fam,var(--fg));color:var(--card)}
 .cmdk-empty{padding:18px 12px;color:var(--muted);font-size:14px}
 @media (prefers-reduced-motion:no-preference){.cmdk:not([hidden]) .cmdk-panel{animation:cmdkin .16s ease-out}@keyframes cmdkin{from{opacity:0;transform:translateY(-6px) scale(.985)}}}
+
+/* ===== Top bar: brand left, search + theme right (as on sha-hin.github.io) ===== */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-24px 0 18px;padding:12px 0;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid transparent}
+.topbar .brand{font-size:18px}
+.topbar .tools{flex-wrap:nowrap}
+header{align-items:end}
+@media (max-width:600px){.searchbtn span:not(.keys){display:none}.searchbtn{width:40px;padding:0;justify-content:center}}
