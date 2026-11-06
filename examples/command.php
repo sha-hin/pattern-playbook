@@ -41,6 +41,9 @@ final class AiAnalyzer                                      // ★ Receiver
 }
 
 // ── Step 3: a concrete command. The action, as an object. ──
+// Book form: the command keeps a reference to its receiver.
+// Queue form (Laravel jobs): the command keeps only plain data (the survey id), because it is
+// saved as text in the queue; the worker passes the receiver in when it runs: handle(AiAnalyzer $analyzer).
 final class AnalyzeSurvey implements Command                // ★ Concrete command
 {
     public function __construct(private readonly AiAnalyzer $analyzer, private readonly int $surveyId)
@@ -71,7 +74,7 @@ final class CommandQueue                                    // ★ Invoker
 
             try {
                 $job['command']->execute();
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $job['attempts']++;
                 echo "Attempt {$job['attempts']} failed: {$e->getMessage()}\n";
 

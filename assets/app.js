@@ -81,6 +81,20 @@ smells:['A vendor SDK is called directly all over your code','"We might switch p
 job:'You send SMS through Twilio today. Management wants to try Vonage next quarter.',
 seen:['Laravel Storage over Flysystem adapters (S3, local, FTP)','Mail transports','Your own payment / SMS gateways'],
 test:'Your code calls the Twilio SDK directly in 12 controllers. Next quarter you may switch to another SMS provider.',
+vs:{id:'decorator', name:'Decorator', rows:[
+  ['The object inside','Has the WRONG interface (a vendor SDK you can’t edit)','Already has the SAME interface as the wrapper'],
+  ['Why you wrap it','To make it fit: your code can’t use it as it is','To add behaviour: cache, logs, retries'],
+  ['Method names','Change: their createMessage() / sendText() become your send()','Stay the same: forSchool() in, forSchool() out'],
+  ['Adds features?','No, it only translates','Yes, that is its whole job'],
+  ['Stacking','One adapter per SDK','Layers stack: log → cache → real'],
+]},
+vs:{id:'adapter', name:'Adapter', rows:[
+  ['The object inside','Already has the SAME interface as the wrapper','Has the WRONG interface (a vendor SDK you can’t edit)'],
+  ['Why you wrap it','To add behaviour: cache, logs, retries','To make it fit: your code can’t use it as it is'],
+  ['Method names','Stay the same: forSchool() in, forSchool() out','Change: their createMessage() / sendText() become your send()'],
+  ['Adds features?','Yes, that is its whole job','No, it only translates'],
+  ['Stacking','Layers stack: log → cache → real','One adapter per SDK'],
+]},
 diagram:{bad:[['b',6,14,80,26,'Controller','n'],['b',6,72,80,26,'Job','n'],['b',6,130,80,26,'Command','n'],['a',86,27,200,78,'','x'],['a',86,85,200,85,'','x'],['a',86,143,200,92,'','x'],['b',202,62,92,46,'Twilio SDK','x'],['t',150,160,'switch = edit everywhere','kx','middle']],
 good:[['b',6,64,62,40,'Your code','n'],['a',68,84,84,84],['b',86,62,70,44,'SmsSender','i'],['a',156,84,170,84,'','k'],['b',172,60,64,48,'Adapter','v'],['a',236,84,248,84],['b',250,62,46,44,'SDK','n'],['t',204,128,'translates','kv','middle'],['t',273,128,"can't edit",'s','middle']]},
 before:String.raw`// in 12 different controllers and jobs:
@@ -228,7 +242,7 @@ id:'facade', name:'Facade', fam:'str', famName:'Structure',
 hook:'Hotel reception: you talk to one desk, they call housekeeping, the kitchen and the taxi.',
 rule:'A multi-step job that touches many services, needed from many places → one class with one method that runs it all.',
 pain:'Web, API and CSV import each repeat the same 4 steps. The import forgot step 3.',
-fix:'One EnrollStudent class owns the steps. Every caller is one line, and can’t forget a step.',
+fix:'One front-door class owns the steps. Every caller is one line, and can’t forget a step.',
 smells:['The same 3–5 service calls are copied in several controllers/jobs','A bug where one copy forgot a step','New developers ask "what do I call to do X?"'],
 job:'Enrolling a student: create user, assign class, open billing, send welcome. From web, API and CSV import.',
 seen:['Laravel "action" / service classes','Application::handle() in frameworks','Not Laravel’s Cache:: (that’s a Proxy)'],
@@ -379,44 +393,49 @@ before:String.raw`public function approve(): void
 after:String.raw`abstract class ReportState                          // default: everything forbidden
 {
     abstract public function name(): string;
-    public function submit(Report $r): void              { $this->deny('submit'); }
-    public function approve(Report $r): void             { $this->deny('approve'); }
-    public function reject(Report $r, string $why): void { $this->deny('reject'); }
 
-    private function deny(string $action): never
+    public function submit(): ReportState  { throw $this->deny('submit'); }
+    public function approve(): ReportState { throw $this->deny('approve'); }
+    public function reject(): ReportState  { throw $this->deny('reject'); }
+
+    private function deny(string $action): IllegalTransition
     {
-        throw new IllegalTransition("Cannot {$action} a {$this->name()} report.");
+        return new IllegalTransition("Cannot {$action} a {$this->name()} report.");
     }
 }
 
 final class Draft extends ReportState
 {
     public function name(): string { return 'draft'; }
-    public function submit(Report $r): void { $r->moveTo(new Submitted()); }    // ★ allowed here
+    public function submit(): ReportState { return new Submitted(); }      // ★ allowed here: returns the next state
 }
 
 final class Submitted extends ReportState
 {
     public function name(): string { return 'submitted'; }
-    public function approve(Report $r): void { $r->moveTo(new Approved()); }
-    public function reject(Report $r, string $why): void
-    {
-        $r->rejectionReason = $why;
-        $r->moveTo(new Draft());
-    }
+    public function approve(): ReportState { return new Approved(); }
+    public function reject(): ReportState { return new Draft(); }
 }
 
-final class Approved extends ReportState { public function name(): string { return 'approved'; } }
+final class Approved extends ReportState
+{
+    public function name(): string { return 'approved'; }
+}
 
 final class Report
 {
-    public ?string $rejectionReason = null;
+    private ?string $rejectionReason = null;
+
     public function __construct(private ReportState $state = new Draft()) {}
 
-    public function submit(): void  { $this->state->submit($this); }        // ★ no if anywhere
-    public function approve(): void { $this->state->approve($this); }
-    public function reject(string $why): void { $this->state->reject($this, $why); }
-    public function moveTo(ReportState $s): void { $this->state = $s; }
+    public function submit(): void  { $this->state = $this->state->submit(); }   // ★ no if anywhere
+    public function approve(): void { $this->state = $this->state->approve(); }
+
+    public function reject(string $why): void
+    {
+        $this->state = $this->state->reject();
+        $this->rejectionReason = $why;                  // only saved if the move was allowed
+    }
 }`},
 {
 id:'command', name:'Command', fam:'beh', famName:'Behaviour',

@@ -7,15 +7,20 @@ declare(strict_types=1);
  * Run it: php examples/builder.php
  *
  * Roles:
- * - Product: EvaluationSearch (the finished object; readonly, so it can never become invalid)
- * - Builder: EvaluationSearchBuilder (collects the parts step by step, checks everything in build())
- * - Director: SearchPresets (a saved recipe of builder steps, so it isn't repeated)
- * - Client: any code that needs a search
+ * - Product: EvaluationSearch (Part 1; readonly, so it can never become invalid)
+ * - Fluent builder: EvaluationSearchBuilder (Part 1; collects parts step by step, checks everything in build())
+ * - Builder interface: ReportBuilder (Part 2; the steps every builder must support)
+ * - Concrete builders: HtmlReportBuilder, CsvReportBuilder (Part 2; same steps, different products)
+ * - Director: ReportDirector (Part 2; runs the steps in order without knowing which builder it has)
+ * Part 1 is the modern fluent builder you meet every day (query builders, HTTP clients).
+ * Part 2 is the book's original form: one recipe, several builders, several kinds of result.
  *
  * In Laravel:
  * The query builder. where(), orderBy() and limit() only collect parts and return $this.
  * Nothing touches the database until get(), which turns all the parts into one SQL string.
  */
+
+// ═══ Part 1: the modern fluent builder ═══
 
 // ── Step 1: the Product. Built once, cannot change afterwards. ──
 final class EvaluationSearch                                // ★ Product
@@ -102,20 +107,7 @@ final class EvaluationSearchBuilder                         // ★ Builder
     }
 }
 
-// ── Step 3: the Director. A recipe you use often, written once. ──
-final class SearchPresets                                   // ★ Director
-{
-    public static function thisTerm(int $schoolId): EvaluationSearch
-    {
-        return (new EvaluationSearchBuilder())
-            ->school($schoolId)
-            ->between('2026-09-01', '2027-01-31')
-            ->perPage(50)
-            ->build();
-    }
-}
-
-// ── Using it ──
+// ── Using Part 1 ──
 $search = (new EvaluationSearchBuilder())                   // steps in any order
     ->subjects('math', 'science')
     ->school(12)
@@ -123,10 +115,86 @@ $search = (new EvaluationSearchBuilder())                   // steps in any orde
     ->build();
 
 echo $search->describe() . "\n";
-echo SearchPresets::thisTerm(7)->describe() . "\n";
 
 try {
     (new EvaluationSearchBuilder())->between('2026-10-31', '2026-09-01')->build();
 } catch (InvalidArgumentException $e) {
     echo 'Refused: ' . $e->getMessage() . "\n";
 }
+
+// ═══ Part 2: the book's form. The SAME steps build DIFFERENT products. ═══
+
+// ── Step 1: the Builder interface. The steps every builder supports. ──
+interface ReportBuilder                                     // ★ Builder
+{
+    public function title(string $title): void;
+
+    public function score(string $teacher, int $score): void;
+}
+
+// ── Step 2: concrete builders. Each turns the same steps into its own product. ──
+final class HtmlReportBuilder implements ReportBuilder      // ★ Concrete builder #1
+{
+    private string $html = '';
+
+    public function title(string $title): void
+    {
+        $this->html .= '<h1>' . htmlspecialchars($title) . "</h1>\n";
+    }
+
+    public function score(string $teacher, int $score): void
+    {
+        $this->html .= '<p>' . htmlspecialchars($teacher) . ": <b>{$score}</b></p>\n";
+    }
+
+    public function html(): string                          // each builder returns its own product type
+    {
+        return $this->html;
+    }
+}
+
+final class CsvReportBuilder implements ReportBuilder       // ★ Concrete builder #2
+{
+    /** @var list<string> */
+    private array $lines = ['teacher,score'];
+
+    public function title(string $title): void
+    {
+        // a CSV file has no title row: this builder simply skips the step
+    }
+
+    public function score(string $teacher, int $score): void
+    {
+        $this->lines[] = "{$teacher},{$score}";
+    }
+
+    public function csv(): string
+    {
+        return implode("\n", $this->lines) . "\n";
+    }
+}
+
+// ── Step 3: the Director. Knows the ORDER of the steps, not the builder. ──
+final class ReportDirector                                  // ★ Director
+{
+    /** @param array<string, int> $scores teacher => score */
+    public function build(ReportBuilder $builder, string $title, array $scores): void
+    {
+        $builder->title($title);                            // ★ same recipe...
+        foreach ($scores as $teacher => $score) {
+            $builder->score($teacher, $score);
+        }
+    }
+}
+
+// ── Using Part 2: one recipe, two products ──
+$scores = ['Mona' => 88, 'Omar' => 74];
+$director = new ReportDirector();
+
+$html = new HtmlReportBuilder();
+$director->build($html, 'Term 1 evaluation', $scores);
+echo $html->html();                                         // ★ ...an HTML page
+
+$csv = new CsvReportBuilder();
+$director->build($csv, 'Term 1 evaluation', $scores);
+echo $csv->csv();                                           // ★ ...or a CSV file

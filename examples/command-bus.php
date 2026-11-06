@@ -77,7 +77,7 @@ final class CommandBus                                      // ★ Bus
         try {
             $result = $handler->handle($command);           // ★ run it
             $this->db->commit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }

@@ -37,14 +37,24 @@ final class Registration                                    // ★ Subject
     /** @var list<RegistrationObserver> */
     private array $observers = [];
 
+    private int $lastUserId = 0;
+
     public function attach(RegistrationObserver $observer): void   // ★ subscribe
     {
         $this->observers[] = $observer;
     }
 
+    public function detach(RegistrationObserver $observer): void   // ★ unsubscribe
+    {
+        $this->observers = array_values(array_filter(
+            $this->observers,
+            fn (RegistrationObserver $attached): bool => $attached !== $observer,
+        ));
+    }
+
     public function register(string $email): User
     {
-        $user = new User(1, $email);                        // the real work (saving the user)
+        $user = new User(++$this->lastUserId, $email);      // the real work (saving the user)
         $this->notify($user);
 
         return $user;
@@ -55,7 +65,7 @@ final class Registration                                    // ★ Subject
         foreach ($this->observers as $observer) {
             try {
                 $observer->userRegistered($user);           // ★ ring the bell, don't care who listens
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 // One broken reaction must not stop the others, but it must not be silent.
                 echo '[error log] ' . get_class($observer) . ' failed: ' . $e->getMessage() . "\n";
             }
@@ -90,8 +100,14 @@ final class SyncToCrm implements RegistrationObserver
 
 // ── Using it ──
 $registration = new Registration();
+$crm = new SyncToCrm();
+
 $registration->attach(new SendWelcomeEmail());
-$registration->attach(new SyncToCrm());
+$registration->attach($crm);
 $registration->attach(new StartFreeTrial());                // a new reaction = attach one more
 
 $registration->register('ali@example.com');
+
+echo "-- CRM integration switched off --\n";
+$registration->detach($crm);                                // stop listening, nobody else changes
+$registration->register('mona@example.com');

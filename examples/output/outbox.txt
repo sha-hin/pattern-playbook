@@ -1,3 +1,6 @@
-Relay: will retry next minute (Ministry API: 503 Service Unavailable)
+Relay: ministry-sync:42 attempt 1 failed, will retry (503 Service Unavailable)
+Relay: ministry-sync:43 attempt 1 failed, will retry (503 Service Unavailable)
 Ministry: received evaluation 42
+Relay: ministry-sync:43 attempt 2 failed, will retry (503 Service Unavailable)
+[ALERT] Outbox message ministry-sync:43 failed 3 times: 503 Service Unavailable
 Ministry: already have ministry-sync:42, ignored

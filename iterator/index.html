@@ -81,23 +81,25 @@
     <div class="roles" role="table" aria-label="The parts of Iterator">
       <div class="role" role="row"><span role="rowheader">Iterator</span><span role="cell"><code>PHP's built-in Iterator interface</code> <small>5 methods: rewind, valid, current, key, next</small></span></div><div class="role" role="row"><span role="rowheader">Concrete iterator</span><span role="cell"><code>CustomerIterator</code> <small>walks a paginated API one customer at a time</small></span></div><div class="role" role="row"><span role="rowheader">Aggregate</span><span role="cell"><code>PHP's built-in IteratorAggregate</code> <small>an object that hands out an iterator</small></span></div><div class="role" role="row"><span role="rowheader">Concrete aggregate</span><span role="cell"><code>CrmCustomers</code> <small>what the caller loops over with foreach</small></span></div>
     </div>
-    
+    <p class="rolenote">foreach calls them in this order: rewind() → valid() → current() / key() → next() → valid() ...</p>
     <pre><code>&lt;?php
 
 <span class="k">declare</span>(strict_types=<span class="n">1</span>);
 
-<span class="c">// ── A fake API that returns customers 3 at a time (like a real paginated API) ──</span>
+<span class="c">// ── A fake API that returns customers one page at a time (like a real paginated API) ──</span>
 <span class="k">final</span> <span class="k">class</span> <span class="t">FakeCrmApi</span>
 {
+    <span class="k">public</span> <span class="k">const</span> <span class="t">PAGE_SIZE</span> = <span class="n">3</span>;
+
     <span class="k">public</span> <span class="k">int</span> <span class="v">$requests</span> = <span class="n">0</span>;
 
-    <span class="c">/** @return list&lt;string&gt; */</span>
+    <span class="c">/** @return list&lt;string&gt; an empty list when there are no more customers */</span>
     <span class="k">public</span> <span class="k">function</span> <span class="f">page</span>(<span class="k">int</span> <span class="v">$page</span>): <span class="k">array</span>
     {
         <span class="k">$this</span>-&gt;<span class="p">requests</span>++;
         <span class="v">$all</span> = [<span class="s">'ali@x.com'</span>, <span class="s">'mona@x.com'</span>, <span class="s">'omar@x.com'</span>, <span class="s">'laila@x.com'</span>, <span class="s">'sara@x.com'</span>, <span class="s">'adam@x.com'</span>, <span class="s">'nour@x.com'</span>];
 
-        <span class="k">return</span> <span class="f">array_slice</span>(<span class="v">$all</span>, (<span class="v">$page</span> - <span class="n">1</span>) * <span class="n">3</span>, <span class="n">3</span>);       <span class="c">// 3 customers per page</span>
+        <span class="k">return</span> <span class="f">array_slice</span>(<span class="v">$all</span>, (<span class="v">$page</span> - <span class="n">1</span>) * <span class="k">self</span>::<span class="t">PAGE_SIZE</span>, <span class="k">self</span>::<span class="t">PAGE_SIZE</span>);
     }
 }
 
@@ -106,8 +108,10 @@
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">CustomerIterator</span> <span class="k">implements</span> <span class="t">Iterator</span>  <span class="c">// Concrete iterator</span></span>
 {
     <span class="k">private</span> <span class="k">int</span> <span class="v">$page</span> = <span class="n">1</span>;
+
     <span class="c">/** @var list&lt;string&gt; */</span>
-    <span class="k">private</span> <span class="k">array</span> <span class="v">$current</span> = [];                            <span class="c">// the customers of the current page</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$items</span> = [];                              <span class="c">// the customers of the current page</span>
+
     <span class="k">private</span> <span class="k">int</span> <span class="v">$index</span> = <span class="n">0</span>;                                 <span class="c">// position inside the current page</span>
     <span class="k">private</span> <span class="k">int</span> <span class="v">$position</span> = <span class="n">0</span>;                              <span class="c">// position overall</span>
 
@@ -118,25 +122,19 @@
 <span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">rewind</span>(): <span class="k">void</span>  <span class="c">// 1. start from the beginning</span></span>
     {
         <span class="k">$this</span>-&gt;<span class="p">page</span> = <span class="n">1</span>;
-        <span class="k">$this</span>-&gt;<span class="p">current</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="n">1</span>);
+        <span class="k">$this</span>-&gt;<span class="p">items</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="k">$this</span>-&gt;<span class="p">page</span>);
         <span class="k">$this</span>-&gt;<span class="p">index</span> = <span class="n">0</span>;
         <span class="k">$this</span>-&gt;<span class="p">position</span> = <span class="n">0</span>;
     }
 
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">valid</span>(): <span class="k">bool</span>  <span class="c">// 2. is there a customer here?</span></span>
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">valid</span>(): <span class="k">bool</span>  <span class="c">// 2. is there a customer here? (only answers, never fetches)</span></span>
     {
-        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">index</span> &gt;= <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>) &amp;&amp; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>) === <span class="n">3</span>) {
-            <span class="k">$this</span>-&gt;<span class="p">page</span>++;                                  <span class="c">// page used up: fetch the next one now</span>
-            <span class="k">$this</span>-&gt;<span class="p">current</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="k">$this</span>-&gt;<span class="p">page</span>);
-            <span class="k">$this</span>-&gt;<span class="p">index</span> = <span class="n">0</span>;
-        }
-
-        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">index</span> &lt; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>);
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">index</span> &lt; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">items</span>);
     }
 
 <span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">current</span>(): <span class="k">string</span>  <span class="c">// 3. give me the customer</span></span>
     {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">current</span>[<span class="k">$this</span>-&gt;<span class="p">index</span>];
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">items</span>[<span class="k">$this</span>-&gt;<span class="p">index</span>];
     }
 
 <span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">key</span>(): <span class="k">int</span>  <span class="c">// 4. give me its position</span></span>
@@ -144,10 +142,19 @@
         <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">position</span>;
     }
 
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">next</span>(): <span class="k">void</span>  <span class="c">// 5. move forward</span></span>
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">next</span>(): <span class="k">void</span>  <span class="c">// 5. move forward, fetching the next page when needed</span></span>
     {
         <span class="k">$this</span>-&gt;<span class="p">index</span>++;
         <span class="k">$this</span>-&gt;<span class="p">position</span>++;
+
+        <span class="v">$pageUsedUp</span> = <span class="k">$this</span>-&gt;<span class="p">index</span> &gt;= <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">items</span>);
+        <span class="v">$pageWasFull</span> = <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">items</span>) === <span class="t">FakeCrmApi</span>::<span class="t">PAGE_SIZE</span>;   <span class="c">// a short page means it was the last one</span>
+
+        <span class="k">if</span> (<span class="v">$pageUsedUp</span> &amp;&amp; <span class="v">$pageWasFull</span>) {
+            <span class="k">$this</span>-&gt;<span class="p">page</span>++;
+            <span class="k">$this</span>-&gt;<span class="p">items</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="k">$this</span>-&gt;<span class="p">page</span>);
+            <span class="k">$this</span>-&gt;<span class="p">index</span> = <span class="n">0</span>;
+        }
     }
 }
 
@@ -233,6 +240,6 @@ Stopped at Mona after 1 request</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

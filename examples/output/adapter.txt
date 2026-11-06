@@ -1,3 +1,4 @@
+Without an adapter: TypeError, FakeTwilioClient is not an SmsSender
 Twilio message id: SM1
 Vonage message id: VN-1
 Caught SmsFailed: Twilio refused SMS to 12345: The 'To' number 12345 is not a valid phone number.

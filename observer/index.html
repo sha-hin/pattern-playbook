@@ -108,14 +108,24 @@
     <span class="c">/** @var list&lt;RegistrationObserver&gt; */</span>
     <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = [];
 
+    <span class="k">private</span> <span class="k">int</span> <span class="v">$lastUserId</span> = <span class="n">0</span>;
+
 <span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">attach</span>(<span class="t">RegistrationObserver</span> <span class="v">$observer</span>): <span class="k">void</span>  <span class="c">// subscribe</span></span>
     {
         <span class="k">$this</span>-&gt;<span class="p">observers</span>[] = <span class="v">$observer</span>;
     }
 
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">detach</span>(<span class="t">RegistrationObserver</span> <span class="v">$observer</span>): <span class="k">void</span>  <span class="c">// unsubscribe</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">observers</span> = <span class="f">array_values</span>(<span class="f">array_filter</span>(
+            <span class="k">$this</span>-&gt;<span class="p">observers</span>,
+            <span class="k">fn</span> (<span class="t">RegistrationObserver</span> <span class="v">$attached</span>): <span class="k">bool</span> =&gt; <span class="v">$attached</span> !== <span class="v">$observer</span>,
+        ));
+    }
+
     <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">string</span> <span class="v">$email</span>): <span class="t">User</span>
     {
-        <span class="v">$user</span> = <span class="k">new</span> <span class="f">User</span>(<span class="n">1</span>, <span class="v">$email</span>);                        <span class="c">// the real work (saving the user)</span>
+        <span class="v">$user</span> = <span class="k">new</span> <span class="f">User</span>(++<span class="k">$this</span>-&gt;<span class="p">lastUserId</span>, <span class="v">$email</span>);      <span class="c">// the real work (saving the user)</span>
         <span class="k">$this</span>-&gt;<span class="f">notify</span>(<span class="v">$user</span>);
 
         <span class="k">return</span> <span class="v">$user</span>;
@@ -126,7 +136,7 @@
         <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">observers</span> <span class="k">as</span> <span class="v">$observer</span>) {
             <span class="k">try</span> {
 <span class="h">                <span class="v">$observer</span>-&gt;<span class="f">userRegistered</span>(<span class="v">$user</span>);  <span class="c">// ring the bell, don't care who listens</span></span>
-            } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+            } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
                 <span class="c">// One broken reaction must not stop the others, but it must not be silent.</span>
                 <span class="k">echo</span> <span class="s">'[error log] '</span> . <span class="f">get_class</span>(<span class="v">$observer</span>) . <span class="s">' failed: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
             }
@@ -161,15 +171,24 @@
 
 <span class="c">// ── Using it ──</span>
 <span class="v">$registration</span> = <span class="k">new</span> <span class="f">Registration</span>();
+<span class="v">$crm</span> = <span class="k">new</span> <span class="f">SyncToCrm</span>();
+
 <span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SendWelcomeEmail</span>());
-<span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SyncToCrm</span>());
+<span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="v">$crm</span>);
 <span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">StartFreeTrial</span>());                <span class="c">// a new reaction = attach one more</span>
 
-<span class="v">$registration</span>-&gt;<span class="f">register</span>(<span class="s">'ali@example.com'</span>);</code></pre>
+<span class="v">$registration</span>-&gt;<span class="f">register</span>(<span class="s">'ali@example.com'</span>);
+
+<span class="k">echo</span> <span class="s">&quot;-- CRM integration switched off --\n&quot;</span>;
+<span class="v">$registration</span>-&gt;<span class="f">detach</span>(<span class="v">$crm</span>);                                <span class="c">// stop listening, nobody else changes</span>
+<span class="v">$registration</span>-&gt;<span class="f">register</span>(<span class="s">'mona@example.com'</span>);</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/observer.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php" data-umami-event="View example" data-umami-event-pattern="observer">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Welcome email sent to ali@example.com
 [error log] SyncToCrm failed: CRM API timed out
-14-day trial started for user 1</code></pre></div>
+14-day trial started for user 1
+-- CRM integration switched off --
+Welcome email sent to mona@example.com
+14-day trial started for user 2</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -213,6 +232,6 @@
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

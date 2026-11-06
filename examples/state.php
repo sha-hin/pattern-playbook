@@ -7,34 +7,46 @@ declare(strict_types=1);
  * Run it: php examples/state.php
  *
  * Roles:
- * - Context: Report (holds its current state and passes every action to it)
+ * - Context: Report (holds its current state; ONLY the report can change it)
  * - State: ReportState (base class: every action is refused unless a child allows it)
  * - Concrete states: Draft, Submitted, Approved (each allows only its own moves)
+ * Each action on a state returns the NEXT state, and the report switches to it.
+ * Nothing outside the report can jump to a state directly, so the rules can't be skipped.
  *
  * In Laravel:
  * Laravel's core has no State class: a status is usually a string or enum column. When each
  * status also needs its own behaviour, the spatie/laravel-model-states package adds exactly
- * this structure: it saves the state class in the column and gives each state its own class.
+ * this structure: it saves the state class in the column, gives each state its own class,
+ * and only allows the transitions you register.
  */
+
+final class TransitionNotAllowed extends LogicException
+{
+}
 
 // ── Step 1: the State base class. Everything is refused by default. ──
 abstract class ReportState                                  // ★ State
 {
     abstract public function name(): string;
 
-    public function submit(Report $report): void
+    public function submit(): ReportState
     {
-        throw new LogicException("Cannot submit a report that is {$this->name()}.");
+        throw $this->refuse('submit');
     }
 
-    public function approve(Report $report): void
+    public function approve(): ReportState
     {
-        throw new LogicException("Cannot approve a report that is {$this->name()}.");
+        throw $this->refuse('approve');
     }
 
-    public function reject(Report $report, string $reason): void
+    public function reject(): ReportState
     {
-        throw new LogicException("Cannot reject a report that is {$this->name()}.");
+        throw $this->refuse('reject');
+    }
+
+    private function refuse(string $action): TransitionNotAllowed
+    {
+        return new TransitionNotAllowed("Cannot {$action} a report that is {$this->name()}.");
     }
 }
 
@@ -46,9 +58,9 @@ final class Draft extends ReportState                       // ★ Concrete stat
         return 'draft';
     }
 
-    public function submit(Report $report): void            // a draft CAN be submitted
+    public function submit(): ReportState                   // a draft CAN be submitted
     {
-        $report->moveTo(new Submitted());                   // ★ the state decides what comes next
+        return new Submitted();                             // ★ the state decides what comes next
     }
 }
 
@@ -59,15 +71,14 @@ final class Submitted extends ReportState                   // ★ Concrete stat
         return 'submitted';
     }
 
-    public function approve(Report $report): void
+    public function approve(): ReportState
     {
-        $report->moveTo(new Approved());
+        return new Approved();
     }
 
-    public function reject(Report $report, string $reason): void
+    public function reject(): ReportState
     {
-        $report->rejectionReason = $reason;
-        $report->moveTo(new Draft());                       // rejected reports go back to draft
+        return new Draft();                                 // rejected reports go back to draft
     }
 }
 
@@ -79,13 +90,14 @@ final class Approved extends ReportState                    // ★ Concrete stat
     }
 }
 
-// ── Step 3: the Context. It has no if statements at all. ──
+// ── Step 3: the Context. No if statements, and no public way to set the state. ──
 final class Report                                          // ★ Context
 {
     private ReportState $state;
-    public ?string $rejectionReason = null;
+    private ?string $rejectionReason = null;
+
     /** @var list<string> */
-    public array $history = [];
+    private array $history = [];
 
     public function __construct()
     {
@@ -94,20 +106,37 @@ final class Report                                          // ★ Context
 
     public function submit(): void
     {
-        $this->state->submit($this);                        // ★ just ask the current state
+        $this->switchTo($this->state->submit());            // ★ ask the current state for the next one
     }
 
     public function approve(): void
     {
-        $this->state->approve($this);
+        $this->switchTo($this->state->approve());
     }
 
     public function reject(string $reason): void
     {
-        $this->state->reject($this, $reason);
+        $this->switchTo($this->state->reject());
+        $this->rejectionReason = $reason;                   // only saved if the move was allowed
     }
 
-    public function moveTo(ReportState $next): void         // called by the state classes
+    public function status(): string
+    {
+        return $this->state->name();
+    }
+
+    public function rejectionReason(): ?string
+    {
+        return $this->rejectionReason;
+    }
+
+    /** @return list<string> */
+    public function history(): array
+    {
+        return $this->history;
+    }
+
+    private function switchTo(ReportState $next): void      // ★ private: the only place the state changes
     {
         $this->history[] = $this->state->name() . ' -> ' . $next->name();
         $this->state = $next;
@@ -121,10 +150,11 @@ $report->reject('Missing the science scores.');
 $report->submit();
 $report->approve();
 
-echo implode("\n", $report->history) . "\n";
+echo implode("\n", $report->history()) . "\n";
+echo "Status: {$report->status()}\n";
 
 try {
     $report->submit();                                      // approved reports are locked
-} catch (LogicException $e) {
+} catch (TransitionNotAllowed $e) {
     echo 'Refused: ' . $e->getMessage() . "\n";
 }

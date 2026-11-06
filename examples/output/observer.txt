@@ -1,3 +1,6 @@
 Welcome email sent to ali@example.com
 [error log] SyncToCrm failed: CRM API timed out
 14-day trial started for user 1
+-- CRM integration switched off --
+Welcome email sent to mona@example.com
+14-day trial started for user 2

@@ -92,15 +92,30 @@ final class Container                                       // ★ Container
     /** @param class-string $class */
     private function autowire(string $class): object       // ★ read the constructor, build what it needs
     {
-        $constructor = (new ReflectionClass($class))->getConstructor();
+        if (!class_exists($class) && !interface_exists($class)) {
+            throw new LogicException("Nothing registered for [{$class}], and it is not a class that can be built.");
+        }
+
+        $reflection = new ReflectionClass($class);
+        if (!$reflection->isInstantiable()) {               // an interface or abstract class needs a binding
+            throw new LogicException("[{$class}] is an interface or abstract class: bind it with singleton() first.");
+        }
+
+        $constructor = $reflection->getConstructor();
         if ($constructor === null) {
             return new $class();                            // no constructor: nothing to inject
         }
 
         $arguments = [];
         foreach ($constructor->getParameters() as $parameter) {
-            $type = $parameter->getType()->getName();       // e.g. "Mailer"
-            $arguments[] = $this->make($type);              // ★ build each dependency the same way
+            $type = $parameter->getType();
+
+            if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+                // a string, an int or a union type can't be guessed: it must be registered by hand
+                throw new LogicException("Cannot autowire \${$parameter->getName()} of {$class}: register {$class} with singleton().");
+            }
+
+            $arguments[] = $this->make($type->getName());   // ★ build each dependency the same way
         }
 
         return new $class(...$arguments);
@@ -118,6 +133,13 @@ $sender->send(1001, 'school@example.com');
 
 $same = $app->make(Mailer::class) === $app->make(Mailer::class);
 echo 'Same Mailer each time? ' . ($same ? 'yes' : 'no') . "\n";
+
+// ── A clear error instead of a crash when something can't be built ──
+try {
+    (new Container())->make(InvoiceSender::class);          // nobody said which Mailer to use
+} catch (LogicException $e) {
+    echo 'Error: ' . $e->getMessage() . "\n";
+}
 
 // ── In a test: no container needed, and no real email is sent ──
 $fake = new FakeMailer();

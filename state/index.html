@@ -80,31 +80,40 @@
     <h2 class="g" id="build-state">Build it yourself: the full State pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of State">
-      <div class="role" role="row"><span role="rowheader">Context</span><span role="cell"><code>Report</code> <small>holds its current state and passes every action to it</small></span></div><div class="role" role="row"><span role="rowheader">State</span><span role="cell"><code>ReportState</code> <small>base class: every action is refused unless a child allows it</small></span></div><div class="role" role="row"><span role="rowheader">Concrete states</span><span role="cell"><code>Draft, Submitted, Approved</code> <small>each allows only its own moves</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Context</span><span role="cell"><code>Report</code> <small>holds its current state; ONLY the report can change it</small></span></div><div class="role" role="row"><span role="rowheader">State</span><span role="cell"><code>ReportState</code> <small>base class: every action is refused unless a child allows it</small></span></div><div class="role" role="row"><span role="rowheader">Concrete states</span><span role="cell"><code>Draft, Submitted, Approved</code> <small>each allows only its own moves</small></span></div>
     </div>
-    
+    <p class="rolenote">Each action on a state returns the NEXT state, and the report switches to it.</p><p class="rolenote">Nothing outside the report can jump to a state directly, so the rules can't be skipped.</p>
     <pre><code>&lt;?php
 
 <span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">TransitionNotAllowed</span> <span class="k">extends</span> <span class="t">LogicException</span>
+{
+}
 
 <span class="c">// ── Step 1: the State base class. Everything is refused by default. ──</span>
 <span class="h"><span class="k">abstract</span> <span class="k">class</span> <span class="t">ReportState</span>  <span class="c">// State</span></span>
 {
     <span class="k">abstract</span> <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span>;
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(<span class="t">Report</span> <span class="v">$report</span>): <span class="k">void</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="t">ReportState</span>
     {
-        <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;Cannot submit a report that is {$this-&gt;name()}.&quot;</span>);
+        <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">refuse</span>(<span class="s">'submit'</span>);
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(<span class="t">Report</span> <span class="v">$report</span>): <span class="k">void</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="t">ReportState</span>
     {
-        <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;Cannot approve a report that is {$this-&gt;name()}.&quot;</span>);
+        <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">refuse</span>(<span class="s">'approve'</span>);
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="t">Report</span> <span class="v">$report</span>, <span class="k">string</span> <span class="v">$reason</span>): <span class="k">void</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(): <span class="t">ReportState</span>
     {
-        <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;Cannot reject a report that is {$this-&gt;name()}.&quot;</span>);
+        <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">refuse</span>(<span class="s">'reject'</span>);
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">refuse</span>(<span class="k">string</span> <span class="v">$action</span>): <span class="t">TransitionNotAllowed</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">TransitionNotAllowed</span>(<span class="s">&quot;Cannot {$action} a report that is {$this-&gt;name()}.&quot;</span>);
     }
 }
 
@@ -116,9 +125,9 @@
         <span class="k">return</span> <span class="s">'draft'</span>;
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(<span class="t">Report</span> <span class="v">$report</span>): <span class="k">void</span>            <span class="c">// a draft CAN be submitted</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="t">ReportState</span>                   <span class="c">// a draft CAN be submitted</span>
     {
-<span class="h">        <span class="v">$report</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Submitted</span>());  <span class="c">// the state decides what comes next</span></span>
+<span class="h">        <span class="k">return</span> <span class="k">new</span> <span class="f">Submitted</span>();  <span class="c">// the state decides what comes next</span></span>
     }
 }
 
@@ -129,15 +138,14 @@
         <span class="k">return</span> <span class="s">'submitted'</span>;
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(<span class="t">Report</span> <span class="v">$report</span>): <span class="k">void</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="t">ReportState</span>
     {
-        <span class="v">$report</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Approved</span>());
+        <span class="k">return</span> <span class="k">new</span> <span class="f">Approved</span>();
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="t">Report</span> <span class="v">$report</span>, <span class="k">string</span> <span class="v">$reason</span>): <span class="k">void</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(): <span class="t">ReportState</span>
     {
-        <span class="v">$report</span>-&gt;<span class="p">rejectionReason</span> = <span class="v">$reason</span>;
-        <span class="v">$report</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Draft</span>());                       <span class="c">// rejected reports go back to draft</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="f">Draft</span>();                                 <span class="c">// rejected reports go back to draft</span>
     }
 }
 
@@ -149,13 +157,14 @@
     }
 }
 
-<span class="c">// ── Step 3: the Context. It has no if statements at all. ──</span>
+<span class="c">// ── Step 3: the Context. No if statements, and no public way to set the state. ──</span>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">Report</span>  <span class="c">// Context</span></span>
 {
     <span class="k">private</span> <span class="t">ReportState</span> <span class="v">$state</span>;
-    <span class="k">public</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;
+    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;
+
     <span class="c">/** @var list&lt;string&gt; */</span>
-    <span class="k">public</span> <span class="k">array</span> <span class="v">$history</span> = [];
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$history</span> = [];
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>()
     {
@@ -164,20 +173,37 @@
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="k">void</span>
     {
-<span class="h">        <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">submit</span>(<span class="k">$this</span>);  <span class="c">// just ask the current state</span></span>
+<span class="h">        <span class="k">$this</span>-&gt;<span class="f">switchTo</span>(<span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">submit</span>());  <span class="c">// ask the current state for the next one</span></span>
     }
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="k">void</span>
     {
-        <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">approve</span>(<span class="k">$this</span>);
+        <span class="k">$this</span>-&gt;<span class="f">switchTo</span>(<span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">approve</span>());
     }
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="k">string</span> <span class="v">$reason</span>): <span class="k">void</span>
     {
-        <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">reject</span>(<span class="k">$this</span>, <span class="v">$reason</span>);
+        <span class="k">$this</span>-&gt;<span class="f">switchTo</span>(<span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">reject</span>());
+        <span class="k">$this</span>-&gt;<span class="p">rejectionReason</span> = <span class="v">$reason</span>;                   <span class="c">// only saved if the move was allowed</span>
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">moveTo</span>(<span class="t">ReportState</span> <span class="v">$next</span>): <span class="k">void</span>         <span class="c">// called by the state classes</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">status</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">name</span>();
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">rejectionReason</span>(): ?<span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">rejectionReason</span>;
+    }
+
+    <span class="c">/** @return list&lt;string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">history</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">history</span>;
+    }
+
+<span class="h">    <span class="k">private</span> <span class="k">function</span> <span class="f">switchTo</span>(<span class="t">ReportState</span> <span class="v">$next</span>): <span class="k">void</span>  <span class="c">// private: the only place the state changes</span></span>
     {
         <span class="k">$this</span>-&gt;<span class="p">history</span>[] = <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">name</span>() . <span class="s">' -&gt; '</span> . <span class="v">$next</span>-&gt;<span class="f">name</span>();
         <span class="k">$this</span>-&gt;<span class="p">state</span> = <span class="v">$next</span>;
@@ -191,11 +217,12 @@
 <span class="v">$report</span>-&gt;<span class="f">submit</span>();
 <span class="v">$report</span>-&gt;<span class="f">approve</span>();
 
-<span class="k">echo</span> <span class="f">implode</span>(<span class="s">&quot;\n&quot;</span>, <span class="v">$report</span>-&gt;<span class="p">history</span>) . <span class="s">&quot;\n&quot;</span>;
+<span class="k">echo</span> <span class="f">implode</span>(<span class="s">&quot;\n&quot;</span>, <span class="v">$report</span>-&gt;<span class="f">history</span>()) . <span class="s">&quot;\n&quot;</span>;
+<span class="k">echo</span> <span class="s">&quot;Status: {$report-&gt;status()}\n&quot;</span>;
 
 <span class="k">try</span> {
     <span class="v">$report</span>-&gt;<span class="f">submit</span>();                                      <span class="c">// approved reports are locked</span>
-} <span class="k">catch</span> (<span class="t">LogicException</span> <span class="v">$e</span>) {
+} <span class="k">catch</span> (<span class="t">TransitionNotAllowed</span> <span class="v">$e</span>) {
     <span class="k">echo</span> <span class="s">'Refused: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
 }</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/state.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/state.php" data-umami-event="View example" data-umami-event-pattern="state">Open the file on GitHub</a></p>
@@ -203,6 +230,7 @@
 submitted -&gt; draft
 draft -&gt; submitted
 submitted -&gt; approved
+Status: approved
 Refused: Cannot submit a report that is approved.</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
@@ -210,46 +238,51 @@ Refused: Cannot submit a report that is approved.</code></pre></div>
     <pre><code><span class="k">abstract</span> <span class="k">class</span> <span class="t">ReportState</span>                          <span class="c">// default: everything forbidden</span>
 {
     <span class="k">abstract</span> <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span>;
-    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span>              { <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'submit'</span>); }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span>             { <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'approve'</span>); }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="t">Report</span> <span class="v">$r</span>, <span class="k">string</span> <span class="v">$why</span>): <span class="k">void</span> { <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'reject'</span>); }
 
-    <span class="k">private</span> <span class="k">function</span> <span class="f">deny</span>(<span class="k">string</span> <span class="v">$action</span>): <span class="k">never</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="t">ReportState</span>  { <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'submit'</span>); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="t">ReportState</span> { <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'approve'</span>); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(): <span class="t">ReportState</span>  { <span class="k">throw</span> <span class="k">$this</span>-&gt;<span class="f">deny</span>(<span class="s">'reject'</span>); }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">deny</span>(<span class="k">string</span> <span class="v">$action</span>): <span class="t">IllegalTransition</span>
     {
-        <span class="k">throw</span> <span class="k">new</span> <span class="f">IllegalTransition</span>(<span class="s">&quot;Cannot {$action} a {$this-&gt;name()} report.&quot;</span>);
+        <span class="k">return</span> <span class="k">new</span> <span class="f">IllegalTransition</span>(<span class="s">&quot;Cannot {$action} a {$this-&gt;name()} report.&quot;</span>);
     }
 }
 
 <span class="k">final</span> <span class="k">class</span> <span class="t">Draft</span> <span class="k">extends</span> <span class="t">ReportState</span>
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'draft'</span>; }
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span> { <span class="v">$r</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Submitted</span>()); }  <span class="c">// allowed here</span></span>
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="t">ReportState</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">Submitted</span>(); }  <span class="c">// allowed here: returns the next state</span></span>
 }
 
 <span class="k">final</span> <span class="k">class</span> <span class="t">Submitted</span> <span class="k">extends</span> <span class="t">ReportState</span>
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'submitted'</span>; }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span> { <span class="v">$r</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Approved</span>()); }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="t">Report</span> <span class="v">$r</span>, <span class="k">string</span> <span class="v">$why</span>): <span class="k">void</span>
-    {
-        <span class="v">$r</span>-&gt;<span class="p">rejectionReason</span> = <span class="v">$why</span>;
-        <span class="v">$r</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Draft</span>());
-    }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="t">ReportState</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">Approved</span>(); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(): <span class="t">ReportState</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">Draft</span>(); }
 }
 
-<span class="k">final</span> <span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'approved'</span>; } }
+<span class="k">final</span> <span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'approved'</span>; }
+}
 
 <span class="k">final</span> <span class="k">class</span> <span class="t">Report</span>
 {
-    <span class="k">public</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;
+    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;
+
     <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">ReportState</span> <span class="v">$state</span> = <span class="k">new</span> <span class="f">Draft</span>()) {}
 
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="k">void</span>  { <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">submit</span>(<span class="k">$this</span>); }  <span class="c">// no if anywhere</span></span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="k">void</span> { <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">approve</span>(<span class="k">$this</span>); }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="k">string</span> <span class="v">$why</span>): <span class="k">void</span> { <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">reject</span>(<span class="k">$this</span>, <span class="v">$why</span>); }
-    <span class="k">public</span> <span class="k">function</span> <span class="f">moveTo</span>(<span class="t">ReportState</span> <span class="v">$s</span>): <span class="k">void</span> { <span class="k">$this</span>-&gt;<span class="p">state</span> = <span class="v">$s</span>; }
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(): <span class="k">void</span>  { <span class="k">$this</span>-&gt;<span class="p">state</span> = <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">submit</span>(); }  <span class="c">// no if anywhere</span></span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(): <span class="k">void</span> { <span class="k">$this</span>-&gt;<span class="p">state</span> = <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">approve</span>(); }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">reject</span>(<span class="k">string</span> <span class="v">$why</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">state</span> = <span class="k">$this</span>-&gt;<span class="p">state</span>-&gt;<span class="f">reject</span>();
+        <span class="k">$this</span>-&gt;<span class="p">rejectionReason</span> = <span class="v">$why</span>;                  <span class="c">// only saved if the move was allowed</span>
+    }
 }</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's core has no State class: a status is usually a string or enum column. When each status also needs its own behaviour, the spatie/laravel-model-states package adds exactly this structure: it saves the state class in the column and gives each state its own class.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's core has no State class: a status is usually a string or enum column. When each status also needs its own behaviour, the spatie/laravel-model-states package adds exactly this structure: it saves the state class in the column, gives each state its own class, and only allows the transitions you register.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>spatie/laravel-model-states</span><span>Order / payment / subscription lifecycles</span><span>Approval workflows</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -260,6 +293,6 @@ Refused: Cannot submit a report that is approved.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

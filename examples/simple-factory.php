@@ -33,7 +33,7 @@ final class PaymentSucceeded implements WebhookEvent
 
     public function summary(): string
     {
-        return "Payment {$this->paymentId} succeeded: " . ($this->amountInPiastres / 100) . ' EGP';
+        return "Payment {$this->paymentId} succeeded: " . number_format($this->amountInPiastres / 100, 2) . ' EGP';
     }
 }
 
@@ -49,6 +49,10 @@ final class PaymentFailed implements WebhookEvent
     }
 }
 
+final class InvalidWebhook extends InvalidArgumentException
+{
+}
+
 // ── Step 3: the Factory. The ONE place that reads the input and builds the right object. ──
 final class WebhookEventFactory                             // ★ Factory
 {
@@ -59,14 +63,40 @@ final class WebhookEventFactory                             // ★ Factory
         $data = $payload['data'] ?? [];
 
         if ($type === 'payment.succeeded') {                // ★ decide which class...
-            return new PaymentSucceeded($data['id'], (int) $data['amount']);   // ★ ...and build it
+            return new PaymentSucceeded(                    // ★ ...and build it
+                self::requireString($data, 'id'),
+                self::requireInt($data, 'amount'),
+            );
         }
 
         if ($type === 'payment.failed') {
-            return new PaymentFailed($data['id'], $data['failure_message'] ?? 'unknown');
+            return new PaymentFailed(
+                self::requireString($data, 'id'),
+                is_string($data['failure_message'] ?? null) ? $data['failure_message'] : 'unknown',
+            );
         }
 
-        throw new InvalidArgumentException("Unknown webhook type [{$type}].");   // ★ never silently ignored
+        throw new InvalidWebhook("Unknown webhook type [{$type}].");   // ★ never silently ignored
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function requireString(array $data, string $field): string
+    {
+        if (!isset($data[$field]) || !is_string($data[$field])) {
+            throw new InvalidWebhook("Field [{$field}] is missing or not text.");
+        }
+
+        return $data[$field];
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function requireInt(array $data, string $field): int
+    {
+        if (!isset($data[$field]) || !is_int($data[$field])) {
+            throw new InvalidWebhook("Field [{$field}] is missing or not a whole number.");
+        }
+
+        return $data[$field];
     }
 }
 
@@ -75,13 +105,14 @@ $incoming = [
     ['type' => 'payment.succeeded', 'data' => ['id' => 'pay_1', 'amount' => 15750]],
     ['type' => 'payment.failed', 'data' => ['id' => 'pay_2', 'failure_message' => 'card declined']],
     ['type' => 'payment.teleported', 'data' => ['id' => 'pay_3']],
+    ['type' => 'payment.succeeded', 'data' => ['amount' => 900]],   // no id
 ];
 
 foreach ($incoming as $payload) {
     try {
         $event = WebhookEventFactory::fromPayload($payload);
         echo $event->summary() . "\n";
-    } catch (InvalidArgumentException $e) {
+    } catch (InvalidWebhook $e) {
         echo 'Rejected: ' . $e->getMessage() . "\n";       // a real app logs it and answers 422
     }
 }

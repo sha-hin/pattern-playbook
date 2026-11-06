@@ -147,7 +147,7 @@
         <span class="k">try</span> {
 <span class="h">            <span class="v">$result</span> = <span class="v">$handler</span>-&gt;<span class="f">handle</span>(<span class="v">$command</span>);  <span class="c">// run it</span></span>
             <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">commit</span>();
-        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+        } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
             <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">rollBack</span>();
             <span class="k">throw</span> <span class="v">$e</span>;
         }
@@ -227,6 +227,6 @@ Average: 81.7</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

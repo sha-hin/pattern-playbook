@@ -7,14 +7,14 @@ declare(strict_types=1);
  * Run it: php examples/facade.php
  *
  * Roles:
- * - Facade: EnrollStudent (one simple method that runs the whole job)
+ * - Facade: StudentEnrollment (a few simple methods; each one runs a whole job across the subsystems)
  * - Subsystems: Users, Classes, Billing, Mailer (still usable on their own)
  * - Clients: the web form, the API and the CSV import (all call the facade)
  *
  * In Laravel:
  * The HTTP Kernel is a Facade over the framework itself: one call, handle($request), sets up
  * config and service providers, runs the middleware, calls the router and reports errors.
- * In your own app, "action" classes like EnrollStudent are the same idea.
+ * In your own app, a service like StudentEnrollment in front of several classes is the same idea.
  * (Laravel's Cache:: style "facades" are something else: see the Laravel Facade card.)
  */
 
@@ -24,9 +24,11 @@ final class Users
     /** @var array<int, string> id => name */
     public array $all = [];
 
+    private int $lastId = 0;
+
     public function create(string $name): int
     {
-        $id = count($this->all) + 1;
+        $id = ++$this->lastId;                              // ids are never reused, even after a delete
         $this->all[$id] = $name;
 
         return $id;
@@ -62,6 +64,11 @@ final class Billing
             throw new InvalidArgumentException("Unknown plan [{$plan}].");
         }
     }
+
+    public function closeAccount(int $studentId): void
+    {
+        echo "Billing closed for student {$studentId}\n";
+    }
 }
 
 final class Mailer
@@ -73,7 +80,7 @@ final class Mailer
 }
 
 // ── The Facade. One simple door that runs every step in the right order. ──
-final class EnrollStudent                                   // ★ Facade
+final class StudentEnrollment                               // ★ Facade
 {
     public function __construct(
         private readonly Users $users,
@@ -83,14 +90,14 @@ final class EnrollStudent                                   // ★ Facade
     ) {
     }
 
-    public function handle(string $name, string $class, string $plan): int   // ★ the one method callers use
+    public function enroll(string $name, string $class, string $plan): int   // ★ one simple call for a whole job
     {
         $studentId = $this->users->create($name);           // ★ step 1
 
         try {
             $this->classes->assign($studentId, $class);     // ★ step 2
             $this->billing->openAccount($studentId, $plan); // ★ step 3
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->classes->unassign($studentId);           // something failed: undo the earlier steps
             $this->users->delete($studentId);
             throw $e;
@@ -100,19 +107,29 @@ final class EnrollStudent                                   // ★ Facade
 
         return $studentId;
     }
+
+    public function withdraw(int $studentId): void          // ★ another whole job, in the right order
+    {
+        $this->billing->closeAccount($studentId);
+        $this->classes->unassign($studentId);
+        $this->users->delete($studentId);
+    }
 }
 
 // ── Using it: every caller is one line, and none of them can forget a step ──
 $users = new Users();
 $classes = new Classes();
-$enroll = new EnrollStudent($users, $classes, new Billing(), new Mailer());
+$enrollment = new StudentEnrollment($users, $classes, new Billing(), new Mailer());
 
-$enroll->handle('Mona', '3-B', 'monthly');                  // from the web form
+$monaId = $enrollment->enroll('Mona', '3-B', 'monthly');    // from the web form
+$enrollment->enroll('Sara', '3-B', 'yearly');               // from the API
 
 try {
-    $enroll->handle('Omar', '3-B', 'weekly');               // from the CSV import, with a bad plan
+    $enrollment->enroll('Omar', '3-B', 'weekly');           // from the CSV import, with a bad plan
 } catch (InvalidArgumentException $e) {
     echo 'Import row rejected: ' . $e->getMessage() . "\n";
 }
+
+$enrollment->withdraw($monaId);                             // from the admin panel
 
 echo 'Students: ' . implode(', ', $users->all) . ' | assigned to a class: ' . count($classes->assigned) . "\n";

@@ -1,4 +1,4 @@
 Database queries: 2 (not 3)
 school 7 answered in 20.1 ms
 school 7 answered in 0 ms
-school 9 answered in 20.1 ms
+school 9 answered in 20.2 ms

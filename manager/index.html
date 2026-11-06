@@ -137,7 +137,7 @@
 <span class="h">            <span class="v">$method</span> = <span class="s">'create'</span> . <span class="f">ucfirst</span>(<span class="v">$name</span>) . <span class="s">'Driver'</span>;  <span class="c">// 'local' becomes createLocalDriver()</span></span>
 
             <span class="k">if</span> (!<span class="f">method_exists</span>(<span class="k">$this</span>, <span class="v">$method</span>)) {
-                <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;AI driver [{$name}] is not supported.&quot;</span>);
+                <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'Driver ['</span> . <span class="v">$name</span> . <span class="s">'] is not supported by '</span> . <span class="k">static</span>::class . <span class="s">'.'</span>);
             }
 
 <span class="h">            <span class="k">$this</span>-&gt;<span class="p">drivers</span>[<span class="v">$name</span>] = <span class="k">$this</span>-&gt;<span class="v">$method</span>();  <span class="c">// build it the first time...</span></span>
@@ -150,6 +150,17 @@
 <span class="c">// ── Step 3: the concrete manager. One small method per backend. ──</span>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AiManager</span> <span class="k">extends</span> <span class="t">Manager</span>  <span class="c">// Concrete manager</span></span>
 {
+    <span class="k">public</span> <span class="k">function</span> <span class="f">driver</span>(?<span class="k">string</span> <span class="v">$name</span> = <span class="k">null</span>): <span class="t">AiClient</span>  <span class="c">// narrows the return type: callers get an AiClient</span>
+    {
+        <span class="v">$driver</span> = <span class="k">parent</span>::<span class="f">driver</span>(<span class="v">$name</span>);
+
+        <span class="k">if</span> (!<span class="v">$driver</span> <span class="k">instanceof</span> <span class="t">AiClient</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'AI drivers must implement AiClient.'</span>);
+        }
+
+        <span class="k">return</span> <span class="v">$driver</span>;
+    }
+
     <span class="k">protected</span> <span class="k">function</span> <span class="f">defaultDriver</span>(): <span class="k">string</span>
     {
         <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">config</span>[<span class="s">'default'</span>];
@@ -223,6 +234,6 @@ Built only once? yes</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

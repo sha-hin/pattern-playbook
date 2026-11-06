@@ -12,6 +12,9 @@ declare(strict_types=1);
  * - Adapters: TwilioSmsSender, VonageSmsSender (each implements SmsSender and translates to one SDK)
  * - Client: OrderNotifier (only knows SmsSender, so it never changes when the provider changes)
  * The two fake SDKs are shaped like the real Twilio and Vonage SDKs, simplified so the file runs on its own.
+ * Adapter vs Decorator: both wrap an object, but a Decorator wraps something that ALREADY has your
+ * interface and adds behaviour. An Adapter wraps something that does NOT have your interface and
+ * adds nothing: it only translates, so the object fits where it otherwise couldn't.
  *
  * In Laravel:
  * Storage::put() works on S3, local disk or FTP because of adapters. Laravel's
@@ -142,7 +145,16 @@ final class OrderNotifier                                   // ★ Client
     }
 }
 
-// ═══ Using it: the SAME OrderNotifier with either provider ═══
+// ═══ Using it ═══
+
+// ── The problem: the SDK doesn't fit. OrderNotifier needs an SmsSender, and the SDK isn't one. ──
+try {
+    new OrderNotifier(new FakeTwilioClient());              // ✗ wrong shape: no send() method, different everything
+} catch (TypeError) {
+    echo "Without an adapter: TypeError, FakeTwilioClient is not an SmsSender\n";
+}
+
+// ── The fix: wrap each SDK in its adapter. Now the SAME OrderNotifier works with either provider. ──
 $withTwilio = new OrderNotifier(new TwilioSmsSender(new FakeTwilioClient(), '+15550001111'));
 $withVonage = new OrderNotifier(new VonageSmsSender(new FakeVonageClient(), 'PizzaShop'));
 

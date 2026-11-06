@@ -123,7 +123,7 @@
 <span class="c">/** @param iterable&lt;array&lt;string, mixed&gt;&gt; $rows */</span>
 <span class="k">function</span> <span class="f">exportCsv</span>(<span class="k">iterable</span> <span class="v">$rows</span>): <span class="k">int</span>
 {
-    <span class="v">$file</span> = <span class="f">fopen</span>(<span class="s">'php://memory'</span>, <span class="s">'w'</span>);
+    <span class="v">$file</span> = <span class="f">fopen</span>(<span class="s">'php://temp/maxmemory:0'</span>, <span class="s">'w'</span>);   <span class="c">// a temp file on disk, so the CSV itself isn't counted as memory</span>
     <span class="v">$count</span> = <span class="n">0</span>;
 
     <span class="k">foreach</span> (<span class="v">$rows</span> <span class="k">as</span> <span class="v">$row</span>) {
@@ -136,23 +136,27 @@
     <span class="k">return</span> <span class="v">$count</span>;
 }
 
-<span class="c">// ── Compare the memory used ──</span>
+<span class="c">// ── Compare the extra memory each approach needs ──</span>
+<span class="c">// memory_reset_peak_usage() (PHP 8.2+) starts a fresh measurement, so the setup above isn't counted.</span>
+<span class="f">memory_reset_peak_usage</span>();
 <span class="v">$start</span> = <span class="f">memory_get_usage</span>();
 <span class="h"><span class="v">$count</span> = <span class="f">exportCsv</span>(<span class="f">evaluations</span>(<span class="v">$db</span>));  <span class="c">// looks like any other loop</span></span>
 <span class="v">$usedByGenerator</span> = <span class="f">memory_get_peak_usage</span>() - <span class="v">$start</span>;
 
+<span class="f">memory_reset_peak_usage</span>();
 <span class="v">$start</span> = <span class="f">memory_get_usage</span>();
 <span class="v">$allRows</span> = <span class="v">$db</span>-&gt;<span class="f">query</span>(<span class="s">'SELECT * FROM evaluations'</span>)-&gt;<span class="f">fetchAll</span>(<span class="t">PDO</span>::<span class="t">FETCH_ASSOC</span>);   <span class="c">// everything at once</span>
 <span class="f">exportCsv</span>(<span class="v">$allRows</span>);
 <span class="v">$usedByFetchAll</span> = <span class="f">memory_get_peak_usage</span>() - <span class="v">$start</span>;
+<span class="f">unset</span>(<span class="v">$allRows</span>);
 
 <span class="k">echo</span> <span class="s">&quot;Exported {$count} rows\n&quot;</span>;
-<span class="k">echo</span> <span class="s">'Generator: about '</span> . <span class="f">round</span>(<span class="v">$usedByGenerator</span> / <span class="n">1048576</span>) . <span class="s">&quot; MB\n&quot;</span>;
-<span class="k">echo</span> <span class="s">'fetchAll:  about '</span> . <span class="f">round</span>(<span class="v">$usedByFetchAll</span> / <span class="n">1048576</span>) . <span class="s">&quot; MB\n&quot;</span>;</code></pre>
+<span class="k">echo</span> <span class="s">'Generator: about '</span> . <span class="f">number_format</span>(<span class="v">$usedByGenerator</span> / <span class="n">1048576</span>, <span class="n">1</span>) . <span class="s">&quot; MB\n&quot;</span>;
+<span class="k">echo</span> <span class="s">'fetchAll:  about '</span> . <span class="f">number_format</span>(<span class="v">$usedByFetchAll</span> / <span class="n">1048576</span>, <span class="n">1</span>) . <span class="s">&quot; MB\n&quot;</span>;</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/generators.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/generators.php" data-umami-event="View example" data-umami-event-pattern="generators">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Exported 100000 rows
-Generator: about 8 MB
-fetchAll:  about 55 MB</code></pre></div>
+Generator: about 0.9 MB
+fetchAll:  about 47.8 MB</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -195,6 +199,6 @@ fetchAll:  about 55 MB</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

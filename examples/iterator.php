@@ -11,6 +11,7 @@ declare(strict_types=1);
  * - Concrete iterator: CustomerIterator (walks a paginated API one customer at a time)
  * - Aggregate: PHP's built-in IteratorAggregate (an object that hands out an iterator)
  * - Concrete aggregate: CrmCustomers (what the caller loops over with foreach)
+ * foreach calls them in this order: rewind() → valid() → current() / key() → next() → valid() ...
  *
  * In Laravel:
  * Collection implements IteratorAggregate: its getIterator() returns a new ArrayIterator over
@@ -18,18 +19,20 @@ declare(strict_types=1);
  * items of the current page.
  */
 
-// ── A fake API that returns customers 3 at a time (like a real paginated API) ──
+// ── A fake API that returns customers one page at a time (like a real paginated API) ──
 final class FakeCrmApi
 {
+    public const PAGE_SIZE = 3;
+
     public int $requests = 0;
 
-    /** @return list<string> */
+    /** @return list<string> an empty list when there are no more customers */
     public function page(int $page): array
     {
         $this->requests++;
         $all = ['ali@x.com', 'mona@x.com', 'omar@x.com', 'laila@x.com', 'sara@x.com', 'adam@x.com', 'nour@x.com'];
 
-        return array_slice($all, ($page - 1) * 3, 3);       // 3 customers per page
+        return array_slice($all, ($page - 1) * self::PAGE_SIZE, self::PAGE_SIZE);
     }
 }
 
@@ -38,8 +41,10 @@ final class FakeCrmApi
 final class CustomerIterator implements Iterator            // ★ Concrete iterator
 {
     private int $page = 1;
+
     /** @var list<string> */
-    private array $current = [];                            // the customers of the current page
+    private array $items = [];                              // the customers of the current page
+
     private int $index = 0;                                 // position inside the current page
     private int $position = 0;                              // position overall
 
@@ -50,25 +55,19 @@ final class CustomerIterator implements Iterator            // ★ Concrete iter
     public function rewind(): void                          // ★ 1. start from the beginning
     {
         $this->page = 1;
-        $this->current = $this->api->page(1);
+        $this->items = $this->api->page($this->page);
         $this->index = 0;
         $this->position = 0;
     }
 
-    public function valid(): bool                           // ★ 2. is there a customer here?
+    public function valid(): bool                           // ★ 2. is there a customer here? (only answers, never fetches)
     {
-        if ($this->index >= count($this->current) && count($this->current) === 3) {
-            $this->page++;                                  // page used up: fetch the next one now
-            $this->current = $this->api->page($this->page);
-            $this->index = 0;
-        }
-
-        return $this->index < count($this->current);
+        return $this->index < count($this->items);
     }
 
     public function current(): string                       // ★ 3. give me the customer
     {
-        return $this->current[$this->index];
+        return $this->items[$this->index];
     }
 
     public function key(): int                              // ★ 4. give me its position
@@ -76,10 +75,19 @@ final class CustomerIterator implements Iterator            // ★ Concrete iter
         return $this->position;
     }
 
-    public function next(): void                            // ★ 5. move forward
+    public function next(): void                            // ★ 5. move forward, fetching the next page when needed
     {
         $this->index++;
         $this->position++;
+
+        $pageUsedUp = $this->index >= count($this->items);
+        $pageWasFull = count($this->items) === FakeCrmApi::PAGE_SIZE;   // a short page means it was the last one
+
+        if ($pageUsedUp && $pageWasFull) {
+            $this->page++;
+            $this->items = $this->api->page($this->page);
+            $this->index = 0;
+        }
     }
 }
 

@@ -76,25 +76,36 @@
     <h2 class="g" id="build-outbox">Build it yourself: the full Transactional Outbox pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Transactional Outbox">
-      <div class="role" role="row"><span role="rowheader">Business write + outbox row</span><span role="cell"><code>ApproveEvaluation</code> <small>both saved in ONE database transaction</small></span></div><div class="role" role="row"><span role="rowheader">Outbox</span><span role="cell"><code>the &quot;outbox&quot; table</code> <small>messages waiting to be sent</small></span></div><div class="role" role="row"><span role="rowheader">Relay</span><span role="cell"><code>OutboxRelay</code> <small>a worker that sends waiting messages and retries failures</small></span></div><div class="role" role="row"><span role="rowheader">Idempotent receiver</span><span role="cell"><code>MinistryApi</code> <small>ignores a message it has already processed</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Business write + outbox row</span><span role="cell"><code>ApproveEvaluation</code> <small>both saved in ONE database transaction</small></span></div><div class="role" role="row"><span role="rowheader">Outbox</span><span role="cell"><code>the &quot;outbox&quot; table</code> <small>messages waiting to be sent: pending → sent, or → failed</small></span></div><div class="role" role="row"><span role="rowheader">Relay</span><span role="cell"><code>OutboxRelay</code> <small>a worker that sends pending messages, retries, and raises an alert when it gives up</small></span></div><div class="role" role="row"><span role="rowheader">Idempotent receiver</span><span role="cell"><code>MinistryApi</code> <small>ignores a message it has already processed</small></span></div>
     </div>
-    
+    <p class="rolenote">Delivery is &quot;at least once&quot;: a message can arrive twice, never zero times, so the receiver must</p><p class="rolenote">ignore repeats. With several workers on MySQL 8 / PostgreSQL, pick rows with</p><p class="rolenote">SELECT ... FOR UPDATE SKIP LOCKED inside a transaction so two workers never take the same row.</p>
     <pre><code>&lt;?php
 
 <span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">/** Stands in for a real alert channel (Slack, Sentry, PagerDuty...). */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">Alerts</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">critical</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;[ALERT] {$message}\n&quot;</span>;
+    }
+}
 
 <span class="c">// ── The external system. Unreliable, like real APIs. ──</span>
 <span class="k">final</span> <span class="k">class</span> <span class="t">MinistryApi</span>
 {
     <span class="c">/** @var array&lt;string, true&gt; */</span>
     <span class="k">private</span> <span class="k">array</span> <span class="v">$alreadyReceived</span> = [];
-    <span class="k">private</span> <span class="k">int</span> <span class="v">$calls</span> = <span class="n">0</span>;
+
+    <span class="c">/** @var array&lt;int, int&gt; evaluation id =&gt; how many calls fail before it works */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$failuresLeft</span> = [<span class="n">42</span> =&gt; <span class="n">1</span>, <span class="n">43</span> =&gt; <span class="n">99</span>];
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">sync</span>(<span class="k">int</span> <span class="v">$evaluationId</span>, <span class="k">string</span> <span class="v">$key</span>): <span class="k">void</span>
     {
-        <span class="k">$this</span>-&gt;<span class="p">calls</span>++;
-        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">calls</span> === <span class="n">1</span>) {
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">'Ministry API: 503 Service Unavailable'</span>);
+        <span class="k">if</span> ((<span class="k">$this</span>-&gt;<span class="p">failuresLeft</span>[<span class="v">$evaluationId</span>] ?? <span class="n">0</span>) &gt; <span class="n">0</span>) {
+            <span class="k">$this</span>-&gt;<span class="p">failuresLeft</span>[<span class="v">$evaluationId</span>]--;
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">'503 Service Unavailable'</span>);
         }
 
 <span class="h">        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">alreadyReceived</span>[<span class="v">$key</span>])) {  <span class="c">// idempotent: a repeat does nothing</span></span>
@@ -127,7 +138,7 @@
 <span class="h">            <span class="v">$message</span>-&gt;<span class="f">execute</span>([<span class="s">&quot;ministry-sync:{$evaluationId}&quot;</span>, <span class="v">$evaluationId</span>]);  <span class="c">// the message, saved with the data</span></span>
 
             <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">commit</span>();                            <span class="c">// both are saved, or neither is</span>
-        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+        } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
             <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">rollBack</span>();
             <span class="k">throw</span> <span class="v">$e</span>;
         }
@@ -137,26 +148,51 @@
 <span class="c">// ── Step 2: the relay. A worker that runs every minute. ──</span>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">OutboxRelay</span>  <span class="c">// Relay</span></span>
 {
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="t">MinistryApi</span> <span class="v">$api</span>)
-    {
+    <span class="k">public</span> <span class="k">const</span> <span class="t">MAX_ATTEMPTS</span> = <span class="n">3</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">MinistryApi</span> <span class="v">$api</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">Alerts</span> <span class="v">$alerts</span>,
+    ) {
     }
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">run</span>(): <span class="k">void</span>
     {
-        <span class="v">$rows</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">query</span>(<span class="s">'SELECT * FROM outbox WHERE sent_at IS NULL AND attempts &lt; 10'</span>)-&gt;<span class="f">fetchAll</span>();
+        <span class="v">$rows</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">query</span>(<span class="s">&quot;SELECT * FROM outbox WHERE status = 'pending' ORDER BY id&quot;</span>)-&gt;<span class="f">fetchAll</span>();
 
         <span class="k">foreach</span> (<span class="v">$rows</span> <span class="k">as</span> <span class="v">$row</span>) {
             <span class="k">try</span> {
-                <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">sync</span>((<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'evaluation_id'</span>], <span class="v">$row</span>[<span class="s">'message_key'</span>]);
-
-                <span class="v">$sent</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">&quot;UPDATE outbox SET sent_at = datetime('now') WHERE id = ?&quot;</span>);
-                <span class="v">$sent</span>-&gt;<span class="f">execute</span>([<span class="v">$row</span>[<span class="s">'id'</span>]]);
-            } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
-                <span class="v">$failed</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'UPDATE outbox SET attempts = attempts + 1, last_error = ? WHERE id = ?'</span>);
-                <span class="v">$failed</span>-&gt;<span class="f">execute</span>([<span class="v">$e</span>-&gt;<span class="f">getMessage</span>(), <span class="v">$row</span>[<span class="s">'id'</span>]]);
-                <span class="k">echo</span> <span class="s">&quot;Relay: will retry next minute ({$e-&gt;getMessage()})\n&quot;</span>;
+                <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">sync</span>((<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'evaluation_id'</span>], (<span class="k">string</span>) <span class="v">$row</span>[<span class="s">'message_key'</span>]);
+                <span class="k">$this</span>-&gt;<span class="f">markSent</span>((<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'id'</span>]);
+            } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
+                <span class="k">$this</span>-&gt;<span class="f">recordFailure</span>(<span class="v">$row</span>, <span class="v">$e</span>);
             }
         }
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">markSent</span>(<span class="k">int</span> <span class="v">$id</span>): <span class="k">void</span>
+    {
+        <span class="v">$sent</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">&quot;UPDATE outbox SET status = 'sent', sent_at = datetime('now') WHERE id = ?&quot;</span>);
+        <span class="v">$sent</span>-&gt;<span class="f">execute</span>([<span class="v">$id</span>]);
+    }
+
+    <span class="c">/** @param array&lt;string, mixed&gt; $row */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">recordFailure</span>(<span class="k">array</span> <span class="v">$row</span>, <span class="t">Throwable</span> <span class="v">$e</span>): <span class="k">void</span>
+    {
+        <span class="v">$attempts</span> = (<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'attempts'</span>] + <span class="n">1</span>;
+<span class="h">        <span class="v">$status</span> = <span class="v">$attempts</span> &gt;= <span class="k">self</span>::<span class="t">MAX_ATTEMPTS</span> ? <span class="s">'failed'</span> : <span class="s">'pending'</span>;  <span class="c">// give up after N tries...</span></span>
+
+        <span class="v">$update</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'UPDATE outbox SET attempts = ?, last_error = ?, status = ? WHERE id = ?'</span>);
+        <span class="v">$update</span>-&gt;<span class="f">execute</span>([<span class="v">$attempts</span>, <span class="v">$e</span>-&gt;<span class="f">getMessage</span>(), <span class="v">$status</span>, <span class="v">$row</span>[<span class="s">'id'</span>]]);
+
+<span class="h">        <span class="k">if</span> (<span class="v">$status</span> === <span class="s">'failed'</span>) {  <span class="c">// ...but NEVER silently</span></span>
+            <span class="k">$this</span>-&gt;<span class="p">alerts</span>-&gt;<span class="f">critical</span>(<span class="s">&quot;Outbox message {$row['message_key']} failed {$attempts} times: {$e-&gt;getMessage()}&quot;</span>);
+
+            <span class="k">return</span>;
+        }
+
+        <span class="k">echo</span> <span class="s">&quot;Relay: {$row['message_key']} attempt {$attempts} failed, will retry ({$e-&gt;getMessage()})\n&quot;</span>;
     }
 }
 
@@ -164,31 +200,38 @@
 <span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite::memory:'</span>);
 <span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);
 <span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_DEFAULT_FETCH_MODE</span>, <span class="t">PDO</span>::<span class="t">FETCH_ASSOC</span>);
-<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;CREATE TABLE evaluations (id INTEGER PRIMARY KEY, status TEXT DEFAULT 'submitted')&quot;</span>);
-<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE outbox (</span>
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;CREATE TABLE evaluations (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'submitted')&quot;</span>);
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;CREATE TABLE outbox (</span>
 <span class="s">    id INTEGER PRIMARY KEY AUTOINCREMENT,</span>
 <span class="s">    message_key TEXT NOT NULL UNIQUE,</span>
 <span class="s">    evaluation_id INTEGER NOT NULL,</span>
+<span class="s">    status TEXT NOT NULL DEFAULT 'pending',</span>
 <span class="s">    attempts INTEGER NOT NULL DEFAULT 0,</span>
 <span class="s">    last_error TEXT,</span>
 <span class="s">    sent_at TEXT</span>
-<span class="s">)'</span>);
-<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'INSERT INTO evaluations (id) VALUES (42)'</span>);
+<span class="s">)&quot;</span>);
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'INSERT INTO evaluations (id) VALUES (42), (43)'</span>);
 
-<span class="v">$relay</span> = <span class="k">new</span> <span class="f">OutboxRelay</span>(<span class="v">$db</span>, <span class="k">new</span> <span class="f">MinistryApi</span>());
+<span class="v">$relay</span> = <span class="k">new</span> <span class="f">OutboxRelay</span>(<span class="v">$db</span>, <span class="k">new</span> <span class="f">MinistryApi</span>(), <span class="k">new</span> <span class="f">Alerts</span>());
+<span class="v">$approve</span> = <span class="k">new</span> <span class="f">ApproveEvaluation</span>(<span class="v">$db</span>);
 
 <span class="c">// ── Using it ──</span>
-(<span class="k">new</span> <span class="f">ApproveEvaluation</span>(<span class="v">$db</span>))-&gt;<span class="f">handle</span>(<span class="n">42</span>);                   <span class="c">// the request saves both, sends nothing</span>
+<span class="v">$approve</span>-&gt;<span class="f">handle</span>(<span class="n">42</span>);                                       <span class="c">// the request saves both, sends nothing</span>
+<span class="v">$approve</span>-&gt;<span class="f">handle</span>(<span class="n">43</span>);                                       <span class="c">// this one will never get through</span>
 
-<span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// minute 1: the API is down</span>
-<span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// minute 2: delivered</span>
+<span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// minute 1: the API is down for both</span>
+<span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// minute 2: 42 delivered, 43 fails again</span>
+<span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// minute 3: 43 gives up and raises an alert</span>
 
-<span class="c">// If the worker crashed after sending but before marking it sent, it would send it again:</span>
-<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'UPDATE outbox SET sent_at = NULL'</span>);
+<span class="c">// If the worker crashed after sending 42 but before marking it sent, it would send it again:</span>
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;UPDATE outbox SET status = 'pending' WHERE evaluation_id = 42&quot;</span>);
 <span class="v">$relay</span>-&gt;<span class="f">run</span>();                                              <span class="c">// the receiver ignores the repeat</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/outbox.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/outbox.php" data-umami-event="View example" data-umami-event-pattern="outbox">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Relay: will retry next minute (Ministry API: 503 Service Unavailable)
+    <div class="output"><span>Output</span><pre><code>Relay: ministry-sync:42 attempt 1 failed, will retry (503 Service Unavailable)
+Relay: ministry-sync:43 attempt 1 failed, will retry (503 Service Unavailable)
 Ministry: received evaluation 42
+Relay: ministry-sync:43 attempt 2 failed, will retry (503 Service Unavailable)
+[ALERT] Outbox message ministry-sync:43 failed 3 times: 503 Service Unavailable
 Ministry: already have ministry-sync:42, ignored</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
@@ -217,7 +260,7 @@ Ministry: already have ministry-sync:42, ignored</code></pre></div>
             <span class="t">Log</span>::<span class="f">error</span>(<span class="s">'outbox.failed'</span>, [<span class="s">'id'</span> =&gt; <span class="v">$row</span>-&gt;<span class="p">id</span>, <span class="s">'error'</span> =&gt; <span class="v">$e</span>-&gt;<span class="f">getMessage</span>()]);   <span class="c">// never silent</span>
         }
     });</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> With the &quot;database&quot; queue driver, a queued job is just a row in the jobs table. Dispatch a job inside DB::transaction() on the same connection, and the job row is saved in the SAME transaction as your data: the jobs table becomes your outbox, and queue:work is the relay.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> With the &quot;database&quot; queue driver, a queued job is just a row in the jobs table. Dispatch a job inside DB::transaction() on the same connection, and the job row is saved in the SAME transaction as your data: the jobs table becomes your outbox, queue:work is the relay, and jobs that run out of $tries land in failed_jobs (watch it, or alert on the JobFailed event).</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Symfony Messenger doctrine transport</span><span>Laravel afterCommit (closes half the gap)</span><span>Debezium / change data capture</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -228,6 +271,6 @@ Ministry: already have ministry-sync:42, ignored</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

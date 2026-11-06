@@ -1,3 +1,4 @@
 SMTP smtp.example.com: 'Invoice #1001' -> school@example.com
 Same Mailer each time? yes
+Error: [Mailer] is an interface or abstract class: bind it with singleton() first.
 The fake mailer recorded: test@example.com: Invoice #1002

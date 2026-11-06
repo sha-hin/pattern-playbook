@@ -55,7 +55,7 @@ function evaluations(PDO $db): Generator                   // ★ generator func
 /** @param iterable<array<string, mixed>> $rows */
 function exportCsv(iterable $rows): int
 {
-    $file = fopen('php://memory', 'w');
+    $file = fopen('php://temp/maxmemory:0', 'w');   // a temp file on disk, so the CSV itself isn't counted as memory
     $count = 0;
 
     foreach ($rows as $row) {
@@ -68,16 +68,20 @@ function exportCsv(iterable $rows): int
     return $count;
 }
 
-// ── Compare the memory used ──
+// ── Compare the extra memory each approach needs ──
+// memory_reset_peak_usage() (PHP 8.2+) starts a fresh measurement, so the setup above isn't counted.
+memory_reset_peak_usage();
 $start = memory_get_usage();
 $count = exportCsv(evaluations($db));                       // ★ looks like any other loop
 $usedByGenerator = memory_get_peak_usage() - $start;
 
+memory_reset_peak_usage();
 $start = memory_get_usage();
 $allRows = $db->query('SELECT * FROM evaluations')->fetchAll(PDO::FETCH_ASSOC);   // everything at once
 exportCsv($allRows);
 $usedByFetchAll = memory_get_peak_usage() - $start;
+unset($allRows);
 
 echo "Exported {$count} rows\n";
-echo 'Generator: about ' . round($usedByGenerator / 1048576) . " MB\n";
-echo 'fetchAll:  about ' . round($usedByFetchAll / 1048576) . " MB\n";
+echo 'Generator: about ' . number_format($usedByGenerator / 1048576, 1) . " MB\n";
+echo 'fetchAll:  about ' . number_format($usedByFetchAll / 1048576, 1) . " MB\n";

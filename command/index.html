@@ -110,6 +110,9 @@
 }
 
 <span class="c">// ── Step 3: a concrete command. The action, as an object. ──</span>
+<span class="c">// Book form: the command keeps a reference to its receiver.</span>
+<span class="c">// Queue form (Laravel jobs): the command keeps only plain data (the survey id), because it is</span>
+<span class="c">// saved as text in the queue; the worker passes the receiver in when it runs: handle(AiAnalyzer $analyzer).</span>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AnalyzeSurvey</span> <span class="k">implements</span> <span class="t">Command</span>  <span class="c">// Concrete command</span></span>
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AiAnalyzer</span> <span class="v">$analyzer</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$surveyId</span>)
@@ -140,7 +143,7 @@
 
             <span class="k">try</span> {
                 <span class="v">$job</span>[<span class="s">'command'</span>]-&gt;<span class="f">execute</span>();
-            } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+            } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
                 <span class="v">$job</span>[<span class="s">'attempts'</span>]++;
                 <span class="k">echo</span> <span class="s">&quot;Attempt {$job['attempts']} failed: {$e-&gt;getMessage()}\n&quot;</span>;
 
@@ -211,6 +214,6 @@ Survey 42: teachers rate classroom time highest</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

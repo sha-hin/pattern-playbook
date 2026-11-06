@@ -72,7 +72,7 @@ abstract class Manager                                      // ★ Manager
             $method = 'create' . ucfirst($name) . 'Driver'; // ★ 'local' becomes createLocalDriver()
 
             if (!method_exists($this, $method)) {
-                throw new InvalidArgumentException("AI driver [{$name}] is not supported.");
+                throw new InvalidArgumentException('Driver [' . $name . '] is not supported by ' . static::class . '.');
             }
 
             $this->drivers[$name] = $this->$method();       // ★ build it the first time...
@@ -85,6 +85,17 @@ abstract class Manager                                      // ★ Manager
 // ── Step 3: the concrete manager. One small method per backend. ──
 final class AiManager extends Manager                       // ★ Concrete manager
 {
+    public function driver(?string $name = null): AiClient  // narrows the return type: callers get an AiClient
+    {
+        $driver = parent::driver($name);
+
+        if (!$driver instanceof AiClient) {
+            throw new LogicException('AI drivers must implement AiClient.');
+        }
+
+        return $driver;
+    }
+
     protected function defaultDriver(): string
     {
         return $this->config['default'];

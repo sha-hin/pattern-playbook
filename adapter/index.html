@@ -78,7 +78,7 @@
     <div class="roles" role="table" aria-label="The parts of Adapter">
       <div class="role" role="row"><span role="rowheader">Target</span><span role="cell"><code>SmsSender</code> <small>the ONE interface your app uses to send an SMS</small></span></div><div class="role" role="row"><span role="rowheader">Adaptees</span><span role="cell"><code>FakeTwilioClient, FakeVonageClient</code> <small>third-party SDKs: different method names, different results, can't be edited</small></span></div><div class="role" role="row"><span role="rowheader">Adapters</span><span role="cell"><code>TwilioSmsSender, VonageSmsSender</code> <small>each implements SmsSender and translates to one SDK</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>OrderNotifier</code> <small>only knows SmsSender, so it never changes when the provider changes</small></span></div>
     </div>
-    <p class="rolenote">The two fake SDKs are shaped like the real Twilio and Vonage SDKs, simplified so the file runs on its own.</p>
+    <p class="rolenote">The two fake SDKs are shaped like the real Twilio and Vonage SDKs, simplified so the file runs on its own.</p><p class="rolenote">Adapter vs Decorator: both wrap an object, but a Decorator wraps something that ALREADY has your</p><p class="rolenote">interface and adds behaviour. An Adapter wraps something that does NOT have your interface and</p><p class="rolenote">adds nothing: it only translates, so the object fits where it otherwise couldn't.</p>
     <pre><code>&lt;?php
 
 <span class="k">declare</span>(strict_types=<span class="n">1</span>);
@@ -206,7 +206,16 @@
     }
 }
 
-<span class="c">// ═══ Using it: the SAME OrderNotifier with either provider ═══</span>
+<span class="c">// ═══ Using it ═══</span>
+
+<span class="c">// ── The problem: the SDK doesn't fit. OrderNotifier needs an SmsSender, and the SDK isn't one. ──</span>
+<span class="k">try</span> {
+    <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">FakeTwilioClient</span>());              <span class="c">// ✗ wrong shape: no send() method, different everything</span>
+} <span class="k">catch</span> (<span class="t">TypeError</span>) {
+    <span class="k">echo</span> <span class="s">&quot;Without an adapter: TypeError, FakeTwilioClient is not an SmsSender\n&quot;</span>;
+}
+
+<span class="c">// ── The fix: wrap each SDK in its adapter. Now the SAME OrderNotifier works with either provider. ──</span>
 <span class="v">$withTwilio</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">TwilioSmsSender</span>(<span class="k">new</span> <span class="f">FakeTwilioClient</span>(), <span class="s">'+15550001111'</span>));
 <span class="v">$withVonage</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">VonageSmsSender</span>(<span class="k">new</span> <span class="f">FakeVonageClient</span>(), <span class="s">'PizzaShop'</span>));
 
@@ -224,7 +233,8 @@
 
 <span class="c">// Switching provider = pass a different adapter. OrderNotifier never changes.</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/adapter.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php" data-umami-event="View example" data-umami-event-pattern="adapter">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Twilio message id: SM1
+    <div class="output"><span>Output</span><pre><code>Without an adapter: TypeError, FakeTwilioClient is not an SmsSender
+Twilio message id: SM1
 Vonage message id: VN-1
 Caught SmsFailed: Twilio refused SMS to 12345: The 'To' number 12345 is not a valid phone number.
 Caught SmsFailed: Vonage refused SMS to 12345: Invalid to number</code></pre></div>
@@ -266,7 +276,11 @@ Caught SmsFailed: Vonage refused SMS to 12345: Invalid to number</code></pre></d
 <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SmsSender</span> <span class="v">$sms</span>) {}
 <span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$user</span>-&gt;<span class="p">phone</span>, <span class="s">'Your report is ready.'</span>);</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Storage::put() works on S3, local disk or FTP because of adapters. Laravel's FilesystemAdapter translates Laravel's put() / exists() into the Flysystem library's write() / fileExists(), and each Flysystem adapter translates those into one storage SDK.</p></div>
-  
+  <div class="vsbox"><h2>Don't confuse it with <a href="../adapter/" data-umami-event="Open pattern" data-umami-event-pattern="adapter" data-umami-event-from="compare">Adapter</a></h2>
+    <div class="vstable" role="table" aria-label="Adapter compared with Adapter">
+      <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Adapter</span><span role="columnheader">Adapter</span></div>
+      <div class="vsrow" role="row"><span role="rowheader">The object inside</span><span role="cell">Already has the SAME interface as the wrapper</span><span role="cell">Has the WRONG interface (a vendor SDK you can’t edit)</span></div><div class="vsrow" role="row"><span role="rowheader">Why you wrap it</span><span role="cell">To add behaviour: cache, logs, retries</span><span role="cell">To make it fit: your code can’t use it as it is</span></div><div class="vsrow" role="row"><span role="rowheader">Method names</span><span role="cell">Stay the same: forSchool() in, forSchool() out</span><span role="cell">Change: their createMessage() / sendText() become your send()</span></div><div class="vsrow" role="row"><span role="rowheader">Adds features?</span><span role="cell">Yes, that is its whole job</span><span role="cell">No, it only translates</span></div><div class="vsrow" role="row"><span role="rowheader">Stacking</span><span role="cell">Layers stack: log → cache → real</span><span role="cell">One adapter per SDK</span></div>
+    </div></div>
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Storage over Flysystem adapters (S3, local, FTP)</span><span>Mail transports</span><span>Your own payment / SMS gateways</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../null-object/" data-umami-event="Open pattern" data-umami-event-pattern="null-object" data-umami-event-from="previous"><small>← Previous</small>Null Object</a>
@@ -276,6 +290,6 @@ Caught SmsFailed: Vonage refused SMS to 12345: Invalid to number</code></pre></d
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

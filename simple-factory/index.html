@@ -103,7 +103,7 @@
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">summary</span>(): <span class="k">string</span>
     {
-        <span class="k">return</span> <span class="s">&quot;Payment {$this-&gt;paymentId} succeeded: &quot;</span> . (<span class="k">$this</span>-&gt;<span class="p">amountInPiastres</span> / <span class="n">100</span>) . <span class="s">' EGP'</span>;
+        <span class="k">return</span> <span class="s">&quot;Payment {$this-&gt;paymentId} succeeded: &quot;</span> . <span class="f">number_format</span>(<span class="k">$this</span>-&gt;<span class="p">amountInPiastres</span> / <span class="n">100</span>, <span class="n">2</span>) . <span class="s">' EGP'</span>;
     }
 }
 
@@ -119,6 +119,10 @@
     }
 }
 
+<span class="k">final</span> <span class="k">class</span> <span class="t">InvalidWebhook</span> <span class="k">extends</span> <span class="t">InvalidArgumentException</span>
+{
+}
+
 <span class="c">// ── Step 3: the Factory. The ONE place that reads the input and builds the right object. ──</span>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">WebhookEventFactory</span>  <span class="c">// Factory</span></span>
 {
@@ -129,14 +133,40 @@
         <span class="v">$data</span> = <span class="v">$payload</span>[<span class="s">'data'</span>] ?? [];
 
 <span class="h">        <span class="k">if</span> (<span class="v">$type</span> === <span class="s">'payment.succeeded'</span>) {  <span class="c">// decide which class...</span></span>
-<span class="h">            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentSucceeded</span>(<span class="v">$data</span>[<span class="s">'id'</span>], (<span class="k">int</span>) <span class="v">$data</span>[<span class="s">'amount'</span>]);  <span class="c">// ...and build it</span></span>
+<span class="h">            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentSucceeded</span>(  <span class="c">// ...and build it</span></span>
+                <span class="k">self</span>::<span class="f">requireString</span>(<span class="v">$data</span>, <span class="s">'id'</span>),
+                <span class="k">self</span>::<span class="f">requireInt</span>(<span class="v">$data</span>, <span class="s">'amount'</span>),
+            );
         }
 
         <span class="k">if</span> (<span class="v">$type</span> === <span class="s">'payment.failed'</span>) {
-            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentFailed</span>(<span class="v">$data</span>[<span class="s">'id'</span>], <span class="v">$data</span>[<span class="s">'failure_message'</span>] ?? <span class="s">'unknown'</span>);
+            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentFailed</span>(
+                <span class="k">self</span>::<span class="f">requireString</span>(<span class="v">$data</span>, <span class="s">'id'</span>),
+                <span class="f">is_string</span>(<span class="v">$data</span>[<span class="s">'failure_message'</span>] ?? <span class="k">null</span>) ? <span class="v">$data</span>[<span class="s">'failure_message'</span>] : <span class="s">'unknown'</span>,
+            );
         }
 
-<span class="h">        <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Unknown webhook type [{$type}].&quot;</span>);  <span class="c">// never silently ignored</span></span>
+<span class="h">        <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidWebhook</span>(<span class="s">&quot;Unknown webhook type [{$type}].&quot;</span>);  <span class="c">// never silently ignored</span></span>
+    }
+
+    <span class="c">/** @param array&lt;string, mixed&gt; $data */</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="k">function</span> <span class="f">requireString</span>(<span class="k">array</span> <span class="v">$data</span>, <span class="k">string</span> <span class="v">$field</span>): <span class="k">string</span>
+    {
+        <span class="k">if</span> (!<span class="f">isset</span>(<span class="v">$data</span>[<span class="v">$field</span>]) || !<span class="f">is_string</span>(<span class="v">$data</span>[<span class="v">$field</span>])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidWebhook</span>(<span class="s">&quot;Field [{$field}] is missing or not text.&quot;</span>);
+        }
+
+        <span class="k">return</span> <span class="v">$data</span>[<span class="v">$field</span>];
+    }
+
+    <span class="c">/** @param array&lt;string, mixed&gt; $data */</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="k">function</span> <span class="f">requireInt</span>(<span class="k">array</span> <span class="v">$data</span>, <span class="k">string</span> <span class="v">$field</span>): <span class="k">int</span>
+    {
+        <span class="k">if</span> (!<span class="f">isset</span>(<span class="v">$data</span>[<span class="v">$field</span>]) || !<span class="f">is_int</span>(<span class="v">$data</span>[<span class="v">$field</span>])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidWebhook</span>(<span class="s">&quot;Field [{$field}] is missing or not a whole number.&quot;</span>);
+        }
+
+        <span class="k">return</span> <span class="v">$data</span>[<span class="v">$field</span>];
     }
 }
 
@@ -145,20 +175,22 @@
     [<span class="s">'type'</span> =&gt; <span class="s">'payment.succeeded'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_1'</span>, <span class="s">'amount'</span> =&gt; <span class="n">15750</span>]],
     [<span class="s">'type'</span> =&gt; <span class="s">'payment.failed'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_2'</span>, <span class="s">'failure_message'</span> =&gt; <span class="s">'card declined'</span>]],
     [<span class="s">'type'</span> =&gt; <span class="s">'payment.teleported'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_3'</span>]],
+    [<span class="s">'type'</span> =&gt; <span class="s">'payment.succeeded'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'amount'</span> =&gt; <span class="n">900</span>]],   <span class="c">// no id</span>
 ];
 
 <span class="k">foreach</span> (<span class="v">$incoming</span> <span class="k">as</span> <span class="v">$payload</span>) {
     <span class="k">try</span> {
         <span class="v">$event</span> = <span class="t">WebhookEventFactory</span>::<span class="f">fromPayload</span>(<span class="v">$payload</span>);
         <span class="k">echo</span> <span class="v">$event</span>-&gt;<span class="f">summary</span>() . <span class="s">&quot;\n&quot;</span>;
-    } <span class="k">catch</span> (<span class="t">InvalidArgumentException</span> <span class="v">$e</span>) {
+    } <span class="k">catch</span> (<span class="t">InvalidWebhook</span> <span class="v">$e</span>) {
         <span class="k">echo</span> <span class="s">'Rejected: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;       <span class="c">// a real app logs it and answers 422</span>
     }
 }</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/simple-factory.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/simple-factory.php" data-umami-event="View example" data-umami-event-pattern="simple-factory">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Payment pay_1 succeeded: 157.5 EGP
+    <div class="output"><span>Output</span><pre><code>Payment pay_1 succeeded: 157.50 EGP
 Payment pay_2 failed: card declined
-Rejected: Unknown webhook type [payment.teleported].</code></pre></div>
+Rejected: Unknown webhook type [payment.teleported].
+Rejected: Field [id] is missing or not text.</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -212,6 +244,6 @@ Rejected: Unknown webhook type [payment.teleported].</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>

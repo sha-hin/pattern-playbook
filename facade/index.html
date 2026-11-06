@@ -63,7 +63,7 @@
   <p class="rule"><span>The rule to remember</span>A multi-step job that touches many services, needed from many places → one class with one method that runs it all.</p>
   <div class="panels">
     <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Facade: Web, API and CSV import each repeat the same 4 steps. The import forgot step 3."><rect class="bn" x="6" y="14" width="64" height="26" rx="7"/><text x="38" y="31" text-anchor="middle" class="">Web</text><rect class="bn" x="6" y="72" width="64" height="26" rx="7"/><text x="38" y="89" text-anchor="middle" class="">API</text><rect class="bn" x="6" y="130" width="64" height="26" rx="7"/><text x="38" y="147" text-anchor="middle" class="">Import</text><line class="lx" x1="70" y1="27" x2="218" y2="22" marker-end="url(#arx)"/><line class="lx" x1="70" y1="27" x2="218" y2="62" marker-end="url(#arx)"/><line class="lx" x1="70" y1="85" x2="218" y2="62" marker-end="url(#arx)"/><line class="lx" x1="70" y1="85" x2="218" y2="102" marker-end="url(#arx)"/><line class="lx" x1="70" y1="143" x2="218" y2="102" marker-end="url(#arx)"/><line class="lx" x1="70" y1="143" x2="218" y2="142" marker-end="url(#arx)"/><rect class="bn" x="220" y="10" width="74" height="24" rx="7"/><text x="257" y="26" text-anchor="middle" class="">Users</text><rect class="bn" x="220" y="50" width="74" height="24" rx="7"/><text x="257" y="66" text-anchor="middle" class="">Classes</text><rect class="bn" x="220" y="90" width="74" height="24" rx="7"/><text x="257" y="106" text-anchor="middle" class="">Billing</text><rect class="bn" x="220" y="130" width="74" height="24" rx="7"/><text x="257" y="146" text-anchor="middle" class="">Mail</text></svg><p>Web, API and CSV import each repeat the same 4 steps. The import forgot step 3.</p></div>
-    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Facade: One EnrollStudent class owns the steps. Every caller is one line, and can’t forget a step."><rect class="bn" x="4" y="14" width="56" height="24" rx="7"/><text x="32" y="30" text-anchor="middle" class="">Web</text><rect class="bn" x="4" y="72" width="56" height="24" rx="7"/><text x="32" y="88" text-anchor="middle" class="">API</text><rect class="bn" x="4" y="130" width="56" height="24" rx="7"/><text x="32" y="146" text-anchor="middle" class="">Import</text><line class="ln" x1="60" y1="26" x2="104" y2="74" marker-end="url(#ar)"/><line class="ln" x1="60" y1="84" x2="104" y2="84" marker-end="url(#ar)"/><line class="ln" x1="60" y1="142" x2="104" y2="94" marker-end="url(#ar)"/><rect class="bv" x="106" y="62" width="90" height="44" rx="7"/><text x="151" y="88" text-anchor="middle" class="kv">EnrollStudent</text><line class="lk" x1="196" y1="72" x2="220" y2="22" marker-end="url(#ar)"/><line class="lk" x1="196" y1="80" x2="220" y2="62" marker-end="url(#ar)"/><line class="lk" x1="196" y1="88" x2="220" y2="102" marker-end="url(#ar)"/><line class="lk" x1="196" y1="96" x2="220" y2="142" marker-end="url(#ar)"/><rect class="bn" x="222" y="10" width="72" height="24" rx="7"/><text x="258" y="26" text-anchor="middle" class="">1 Users</text><rect class="bn" x="222" y="50" width="72" height="24" rx="7"/><text x="258" y="66" text-anchor="middle" class="">2 Classes</text><rect class="bn" x="222" y="90" width="72" height="24" rx="7"/><text x="258" y="106" text-anchor="middle" class="">3 Billing</text><rect class="bn" x="222" y="130" width="72" height="24" rx="7"/><text x="258" y="146" text-anchor="middle" class="">4 Mail</text></svg><p>One EnrollStudent class owns the steps. Every caller is one line, and can’t forget a step.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Facade: One front-door class owns the steps. Every caller is one line, and can’t forget a step."><rect class="bn" x="4" y="14" width="56" height="24" rx="7"/><text x="32" y="30" text-anchor="middle" class="">Web</text><rect class="bn" x="4" y="72" width="56" height="24" rx="7"/><text x="32" y="88" text-anchor="middle" class="">API</text><rect class="bn" x="4" y="130" width="56" height="24" rx="7"/><text x="32" y="146" text-anchor="middle" class="">Import</text><line class="ln" x1="60" y1="26" x2="104" y2="74" marker-end="url(#ar)"/><line class="ln" x1="60" y1="84" x2="104" y2="84" marker-end="url(#ar)"/><line class="ln" x1="60" y1="142" x2="104" y2="94" marker-end="url(#ar)"/><rect class="bv" x="106" y="62" width="90" height="44" rx="7"/><text x="151" y="88" text-anchor="middle" class="kv">EnrollStudent</text><line class="lk" x1="196" y1="72" x2="220" y2="22" marker-end="url(#ar)"/><line class="lk" x1="196" y1="80" x2="220" y2="62" marker-end="url(#ar)"/><line class="lk" x1="196" y1="88" x2="220" y2="102" marker-end="url(#ar)"/><line class="lk" x1="196" y1="96" x2="220" y2="142" marker-end="url(#ar)"/><rect class="bn" x="222" y="10" width="72" height="24" rx="7"/><text x="258" y="26" text-anchor="middle" class="">1 Users</text><rect class="bn" x="222" y="50" width="72" height="24" rx="7"/><text x="258" y="66" text-anchor="middle" class="">2 Classes</text><rect class="bn" x="222" y="90" width="72" height="24" rx="7"/><text x="258" y="106" text-anchor="middle" class="">3 Billing</text><rect class="bn" x="222" y="130" width="72" height="24" rx="7"/><text x="258" y="146" text-anchor="middle" class="">4 Mail</text></svg><p>One front-door class owns the steps. Every caller is one line, and can’t forget a step.</p></div>
   </div>
   <div class="when">
     <div class="box"><h2>Reach for it when you see</h2><ul><li>The same 3–5 service calls are copied in several controllers/jobs</li><li>A bug where one copy forgot a step</li><li>New developers ask &quot;what do I call to do X?&quot;</li></ul></div>
@@ -78,7 +78,7 @@
     <h2 class="g" id="build-facade">Build it yourself: the full Facade pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Facade">
-      <div class="role" role="row"><span role="rowheader">Facade</span><span role="cell"><code>EnrollStudent</code> <small>one simple method that runs the whole job</small></span></div><div class="role" role="row"><span role="rowheader">Subsystems</span><span role="cell"><code>Users, Classes, Billing, Mailer</code> <small>still usable on their own</small></span></div><div class="role" role="row"><span role="rowheader">Clients</span><span role="cell"><code>the web form, the API and the CSV import</code> <small>all call the facade</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Facade</span><span role="cell"><code>StudentEnrollment</code> <small>a few simple methods; each one runs a whole job across the subsystems</small></span></div><div class="role" role="row"><span role="rowheader">Subsystems</span><span role="cell"><code>Users, Classes, Billing, Mailer</code> <small>still usable on their own</small></span></div><div class="role" role="row"><span role="rowheader">Clients</span><span role="cell"><code>the web form, the API and the CSV import</code> <small>all call the facade</small></span></div>
     </div>
     
     <pre><code>&lt;?php
@@ -91,9 +91,11 @@
     <span class="c">/** @var array&lt;int, string&gt; id =&gt; name */</span>
     <span class="k">public</span> <span class="k">array</span> <span class="v">$all</span> = [];
 
+    <span class="k">private</span> <span class="k">int</span> <span class="v">$lastId</span> = <span class="n">0</span>;
+
     <span class="k">public</span> <span class="k">function</span> <span class="f">create</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">int</span>
     {
-        <span class="v">$id</span> = <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">all</span>) + <span class="n">1</span>;
+        <span class="v">$id</span> = ++<span class="k">$this</span>-&gt;<span class="p">lastId</span>;                              <span class="c">// ids are never reused, even after a delete</span>
         <span class="k">$this</span>-&gt;<span class="p">all</span>[<span class="v">$id</span>] = <span class="v">$name</span>;
 
         <span class="k">return</span> <span class="v">$id</span>;
@@ -129,6 +131,11 @@
             <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Unknown plan [{$plan}].&quot;</span>);
         }
     }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">closeAccount</span>(<span class="k">int</span> <span class="v">$studentId</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;Billing closed for student {$studentId}\n&quot;</span>;
+    }
 }
 
 <span class="k">final</span> <span class="k">class</span> <span class="t">Mailer</span>
@@ -140,7 +147,7 @@
 }
 
 <span class="c">// ── The Facade. One simple door that runs every step in the right order. ──</span>
-<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">EnrollStudent</span>  <span class="c">// Facade</span></span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">StudentEnrollment</span>  <span class="c">// Facade</span></span>
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
         <span class="k">private</span> <span class="k">readonly</span> <span class="t">Users</span> <span class="v">$users</span>,
@@ -150,14 +157,14 @@
     ) {
     }
 
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="k">string</span> <span class="v">$name</span>, <span class="k">string</span> <span class="v">$class</span>, <span class="k">string</span> <span class="v">$plan</span>): <span class="k">int</span>  <span class="c">// the one method callers use</span></span>
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">enroll</span>(<span class="k">string</span> <span class="v">$name</span>, <span class="k">string</span> <span class="v">$class</span>, <span class="k">string</span> <span class="v">$plan</span>): <span class="k">int</span>  <span class="c">// one simple call for a whole job</span></span>
     {
 <span class="h">        <span class="v">$studentId</span> = <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">create</span>(<span class="v">$name</span>);  <span class="c">// step 1</span></span>
 
         <span class="k">try</span> {
 <span class="h">            <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">assign</span>(<span class="v">$studentId</span>, <span class="v">$class</span>);  <span class="c">// step 2</span></span>
 <span class="h">            <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">openAccount</span>(<span class="v">$studentId</span>, <span class="v">$plan</span>);  <span class="c">// step 3</span></span>
-        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+        } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
             <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">unassign</span>(<span class="v">$studentId</span>);           <span class="c">// something failed: undo the earlier steps</span>
             <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">delete</span>(<span class="v">$studentId</span>);
             <span class="k">throw</span> <span class="v">$e</span>;
@@ -167,26 +174,38 @@
 
         <span class="k">return</span> <span class="v">$studentId</span>;
     }
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">withdraw</span>(<span class="k">int</span> <span class="v">$studentId</span>): <span class="k">void</span>  <span class="c">// another whole job, in the right order</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">closeAccount</span>(<span class="v">$studentId</span>);
+        <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">unassign</span>(<span class="v">$studentId</span>);
+        <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">delete</span>(<span class="v">$studentId</span>);
+    }
 }
 
 <span class="c">// ── Using it: every caller is one line, and none of them can forget a step ──</span>
 <span class="v">$users</span> = <span class="k">new</span> <span class="f">Users</span>();
 <span class="v">$classes</span> = <span class="k">new</span> <span class="f">Classes</span>();
-<span class="v">$enroll</span> = <span class="k">new</span> <span class="f">EnrollStudent</span>(<span class="v">$users</span>, <span class="v">$classes</span>, <span class="k">new</span> <span class="f">Billing</span>(), <span class="k">new</span> <span class="f">Mailer</span>());
+<span class="v">$enrollment</span> = <span class="k">new</span> <span class="f">StudentEnrollment</span>(<span class="v">$users</span>, <span class="v">$classes</span>, <span class="k">new</span> <span class="f">Billing</span>(), <span class="k">new</span> <span class="f">Mailer</span>());
 
-<span class="v">$enroll</span>-&gt;<span class="f">handle</span>(<span class="s">'Mona'</span>, <span class="s">'3-B'</span>, <span class="s">'monthly'</span>);                  <span class="c">// from the web form</span>
+<span class="v">$monaId</span> = <span class="v">$enrollment</span>-&gt;<span class="f">enroll</span>(<span class="s">'Mona'</span>, <span class="s">'3-B'</span>, <span class="s">'monthly'</span>);    <span class="c">// from the web form</span>
+<span class="v">$enrollment</span>-&gt;<span class="f">enroll</span>(<span class="s">'Sara'</span>, <span class="s">'3-B'</span>, <span class="s">'yearly'</span>);               <span class="c">// from the API</span>
 
 <span class="k">try</span> {
-    <span class="v">$enroll</span>-&gt;<span class="f">handle</span>(<span class="s">'Omar'</span>, <span class="s">'3-B'</span>, <span class="s">'weekly'</span>);               <span class="c">// from the CSV import, with a bad plan</span>
+    <span class="v">$enrollment</span>-&gt;<span class="f">enroll</span>(<span class="s">'Omar'</span>, <span class="s">'3-B'</span>, <span class="s">'weekly'</span>);           <span class="c">// from the CSV import, with a bad plan</span>
 } <span class="k">catch</span> (<span class="t">InvalidArgumentException</span> <span class="v">$e</span>) {
     <span class="k">echo</span> <span class="s">'Import row rejected: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
 }
 
+<span class="v">$enrollment</span>-&gt;<span class="f">withdraw</span>(<span class="v">$monaId</span>);                             <span class="c">// from the admin panel</span>
+
 <span class="k">echo</span> <span class="s">'Students: '</span> . <span class="f">implode</span>(<span class="s">', '</span>, <span class="v">$users</span>-&gt;<span class="p">all</span>) . <span class="s">' | assigned to a class: '</span> . <span class="f">count</span>(<span class="v">$classes</span>-&gt;<span class="p">assigned</span>) . <span class="s">&quot;\n&quot;</span>;</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/facade.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php" data-umami-event="View example" data-umami-event-pattern="facade">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Welcome email sent to Mona
+Welcome email sent to Sara
 Import row rejected: Unknown plan [weekly].
-Students: Mona | assigned to a class: 1</code></pre></div>
+Billing closed for student 1
+Students: Sara | assigned to a class: 1</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -215,7 +234,7 @@ Students: Mona | assigned to a class: 1</code></pre></div>
 
 <span class="c">// WebController, ApiController, ImportStudentsJob — all the same single line:</span>
 <span class="h"><span class="v">$student</span> = <span class="v">$enrollStudent</span>-&gt;<span class="f">handle</span>(<span class="v">$data</span>);  <span class="c">// can't forget a step</span></span></code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> The HTTP Kernel is a Facade over the framework itself: one call, handle($request), sets up config and service providers, runs the middleware, calls the router and reports errors. In your own app, &quot;action&quot; classes like EnrollStudent are the same idea. (Laravel's Cache:: style &quot;facades&quot; are something else: see the Laravel Facade card.)</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The HTTP Kernel is a Facade over the framework itself: one call, handle($request), sets up config and service providers, runs the middleware, calls the router and reports errors. In your own app, a service like StudentEnrollment in front of several classes is the same idea. (Laravel's Cache:: style &quot;facades&quot; are something else: see the Laravel Facade card.)</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel &quot;action&quot; / service classes</span><span>Application::handle() in frameworks</span><span>Not Laravel’s Cache:: (that’s a Proxy)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -226,6 +245,6 @@ Students: Mona | assigned to a class: 1</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=8ca1a6650e" defer></script>
+<script src="../assets/app.js?v=677452369b" defer></script>
 </body>
 </html>
