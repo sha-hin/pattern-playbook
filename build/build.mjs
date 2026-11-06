@@ -1,5 +1,5 @@
-// Generates the static site from content/course.mjs and content/lessons/<slug>.mjs:
-//   index.html (course overview), one folder per ready lesson, sitemap.xml, robots.txt, 404.html.
+// Generates the static site from content/course.mjs, content/scenes/<slug>.mjs and the foundation:
+//   index.html (course overview), one folder per ready scene, sitemap.xml, robots.txt, 404.html.
 //
 //   node build/build.mjs
 
@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { esc, inline, paras, codeHtml, svg, markers } from './render.mjs';
-import { PLAN, GOF, lessonTitle } from '../content/course.mjs';
+import { DAYS, SCENES, FOUNDATION, GOF, dayOf } from '../content/course.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = 'https://sha-hin.github.io/pattern-playbook/';
@@ -24,22 +24,26 @@ const UMAMI_ID = '37b7903a-c779-475f-b20f-18fe98cd4d70';
 const version = file => createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 10);
 const V = { css: version('assets/style.css'), js: version('assets/site.js'), icon: version('assets/favicon.svg') };
 
-const LAST = PLAN.length - 1;
-const ready = PLAN.filter(l => l.ready);
+const TOTAL = SCENES.length;
+const ready = SCENES.filter(s => s.ready);
+const load = async file => (await import(pathToFileURL(join(ROOT, 'content', file)).href)).default;
 
-const LESSONS = {};
-for (const l of ready) {
-  LESSONS[l.slug] = (await import(pathToFileURL(join(ROOT, 'content', 'lessons', `${l.slug}.mjs`)).href)).default;
+const BODY = {};
+for (const s of ready) BODY[s.slug] = await load(`scenes/${s.slug}.mjs`);
+const foundation = await load('foundation/index.mjs');
+
+// Pattern → the scene where it is named (for the index and the search). A pattern is listed once.
+const PATTERNS = [];
+for (const s of SCENES) for (const name of s.patterns) {
+  if (!PATTERNS.some(p => p.name === name)) PATTERNS.push({ name, scene: s.n, sceneTitle: s.incident, slug: s.slug, ready: !!s.ready, gof: GOF.has(name) });
 }
 
-// Pattern → the lesson that teaches it (for the index and the search).
-const PATTERNS = PLAN.flatMap(l => l.patterns.map(name => ({
-  name, lesson: l.n, lessonTitle: l.problem, slug: l.slug, ready: !!l.ready, gof: GOF.has(name),
-})));
-
 const courseData = JSON.stringify({
-  chapters: PLAN.map(l => ({ n: l.n, title: lessonTitle(l), patterns: l.patterns.length ? [l.problem] : [l.problem], slug: l.slug, ready: !!l.ready })),
-  patterns: PATTERNS.map(p => ({ name: p.name, chapter: p.lesson, chapterTitle: p.lessonTitle, slug: p.slug, ready: p.ready, gof: p.gof })),
+  chapters: [
+    { n: 0, title: FOUNDATION.title, patterns: [FOUNDATION.learn], slug: FOUNDATION.slug, ready: true, label: 'Foundation' },
+    ...SCENES.map(s => ({ n: s.n, title: s.incident, patterns: [s.learn], slug: s.slug, ready: !!s.ready, label: `Day ${s.day} · Scene ${s.n}` })),
+  ],
+  patterns: PATTERNS.map(p => ({ name: p.name, chapter: p.scene, chapterTitle: p.sceneTitle, slug: p.slug, ready: p.ready, gof: p.gof })),
 }).replace(/</g, '\\u003c');
 
 const tagHtml = name => `<span class="ptag${GOF.has(name) ? ' gof' : ''}" title="${GOF.has(name) ? 'In the Gang of Four book' : 'Not in the Gang of Four book'}">${esc(name)}</span>`;
@@ -71,7 +75,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, main }) {
 <meta property="og:image" content="${SITE}assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${BRAND}: design patterns in Laravel, taught through a real vacation-rental PMS">
+<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 43 production incidents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
@@ -108,11 +112,12 @@ const website = { '@type': 'WebSite', '@id': `${SITE}#website`, name: BRAND, url
 const person = { '@type': 'Person', name: AUTHOR.name, url: AUTHOR.url };
 
 // ── Building blocks ────────────────────────────────────────────────────
-function codeBlock({ path, code, lang }) {
+// broken: the code that caused the incident, shown struck through in red so nobody copies it.
+function codeBlock({ path, code, lang, broken }) {
   const html = codeHtml(code.replace(/\n$/, ''), lang);
-  return `<div class="codebox">
-<div class="filehead"><span class="path">${esc(path || 'code')}</span></div>
-<pre class="code"><code>${html}</code></pre>
+  return `<div class="codebox${broken ? ' broken' : ''}">
+<div class="filehead"><span class="path">${esc(path || 'code')}</span>${broken ? '<span class="badge">the bug</span>' : ''}</div>
+<pre class="code${broken ? ' rejected' : ''}"><code>${html}</code></pre>
 </div>`;
 }
 
@@ -137,114 +142,123 @@ function tableHtml(rows) {
 <tbody>${body.map(r => `<tr>${r.map((cell, i) => i === 0 ? `<th scope="row">${inline(cell)}</th>` : `<td>${inline(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
-function lessonHtml(l, body, prev, next) {
-  const s = [];
-  s.push(`<header class="chead">
-<p class="crumbs"><a href="../">All lessons</a> › Lesson ${l.n} of ${LAST}</p>
-<h1>${inline(lessonTitle(l))}</h1>
-<p class="subtitle">${inline(l.problem)}</p>
-${l.patterns.length ? `<p class="tags">${l.patterns.map(tagHtml).join('')}</p>` : ''}
-</header>`);
 
-  if (body.intro) s.push(`<section class="lead">${paras(body.intro)}</section>`);
+const sectionHtml = sec => `<section${sec.id ? ` id="${sec.id}"` : ''}${sec.kind ? ` class="${sec.kind}"` : ''}><h2>${inline(sec.title)}</h2>${paras(sec.text)}<div class="blocks">${blocksHtml(sec.blocks)}</div>${paras(sec.after)}</section>`;
 
-  if (body.toc) {
-    s.push(`<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol>${(body.sections || []).filter(sec => sec.id).map(sec =>
-      `<li><a href="#${sec.id}">${inline(sec.title)}</a>${sec.blocks.some(b => b.id) ? `<ul>${sec.blocks.filter(b => b.id).map(b => `<li><a href="#${b.id}">${inline(b.title)}</a></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></nav>`);
-  }
+const tocHtml = sections => `<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol>${sections.filter(sec => sec.id).map(sec =>
+  `<li><a href="#${sec.id}">${inline(sec.title)}</a>${(sec.blocks || []).some(b => b.id) ? `<ul>${sec.blocks.filter(b => b.id).map(b => `<li><a href="#${b.id}">${inline(b.title)}</a></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></nav>`;
 
-  if (body.ticket) {
-    s.push(`<section class="ticket" aria-label="The ticket"><p class="tk-label">The ticket</p>
-<h2>${inline(body.ticket.title)}</h2><p class="tk-from">From ${esc(body.ticket.from)}</p><p>${inline(body.ticket.body)}</p></section>`);
-  }
+// The incident that opens a scene: a chat message, a ticket or an alert, as the team received it.
+function incidentHtml(inc) {
+  return `<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>${esc(inc.channel)}<span class="inc-when">${esc(inc.when)}</span></p>
+${inc.messages.map(([who, text]) => `<p class="inc-msg"><span class="inc-who">${esc(who)}</span>${inline(text)}</p>`).join('')}
+</section>`;
+}
 
-  if (body.pain) {
-    s.push(`<section><h2>The quick fix, and why it hurts</h2>${paras(body.pain.text)}
-${body.pain.code ? codeBlock({ path: body.pain.path || 'the quick fix (we won’t keep this)', code: body.pain.code }).replace('<pre class="code">', '<pre class="code rejected">') : ''}
-${paras(body.pain.after)}</section>`);
-  }
+// "You just wrote the X pattern": the name comes after the reader has seen why the code needed it.
+function revealHtml(r) {
+  const names = r.names;
+  const heading = names.length === 1 ? `You just wrote the ${esc(names[0])} pattern` : `You just met ${names.map(esc).join(', ').replace(/, ([^,]*)$/, ' and $1')}`;
+  return `<section class="reveal"><h2>${heading}</h2>
+${(r.rules || []).map(([name, rule]) => `<p class="rule"><span>${esc(name)}</span>${inline(rule)}</p>`).join('')}
+${paras(r.text)}
+${r.drawing ? drawingHtml(names[0], r.drawing) : ''}
+${r.table ? tableHtml(r.table) : ''}
+${r.points ? `<ul class="points">${r.points.map(p => `<li>${inline(p)}</li>`).join('')}</ul>` : ''}
+${r.whenNot ? `<p class="whennot-label">When not to use it</p><ul class="whennot">${r.whenNot.map(w => `<li>${inline(w)}</li>`).join('')}</ul>` : ''}
+</section>`;
+}
 
-  for (const p of body.patterns || []) {
-    s.push(`<section class="pattern"><h2>The pattern: ${esc(p.name)}</h2>
-<p class="rule"><span>Remember it</span>${inline(p.rule)}</p>
-${paras(p.explain)}
-${p.drawing ? drawingHtml(p.name, p.drawing) : ''}
-${p.table ? tableHtml(p.table) : ''}</section>`);
-  }
+const sceneLabel = s => `Scene ${s.n}`;
 
-  for (const sec of body.sections || []) {
-    s.push(`<section${sec.id ? ` id="${sec.id}"` : ''}><h2>${inline(sec.title)}</h2>${paras(sec.text)}<div class="blocks${sec.numbered === false ? '' : ' numbered'}">${blocksHtml(sec.blocks, sec.numbered !== false)}</div></section>`);
-  }
+function pagerHtml(prev, next, upcoming) {
+  const link = (s, rel, label) => `<a rel="${rel}" href="../${s.slug}/"><small>${label}</small>${inline(s.incident || s.title)}</a>`;
+  return `<nav class="pager" aria-label="Scenes">
+${prev ? link(prev, 'prev', prev.n ? `← ${sceneLabel(prev)}` : '← Start here') : '<span></span>'}
+${next ? link(next, 'next', `${sceneLabel(next)} →`)
+    : upcoming ? `<span class="soon"><small>${sceneLabel(upcoming)}, coming soon</small>${inline(upcoming.incident)}</span>` : '<span></span>'}
+</nav>`;
+}
 
-  if (body.laravel) {
-    s.push(`<section class="laravel"><h2>How Laravel does it inside</h2>${paras(body.laravel.text)}<div class="blocks">${blocksHtml(body.laravel.blocks)}</div></section>`);
-  }
-
-  if (body.topics) {
-    s.push(`<section class="topics"><h2>PMS topics in this lesson</h2>${paras(body.topics.text)}<div class="blocks">${blocksHtml(body.topics.blocks)}</div></section>`);
-  }
-
-  if (body.whenNot) {
-    s.push(`<section class="whennot"><h2>When not to use it</h2><ul>${body.whenNot.map(w => `<li>${inline(w)}</li>`).join('')}</ul></section>`);
-  }
-
+function sceneHtml(scene, body, prev, next) {
+  const day = dayOf(scene);
+  const s = [`<header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day ${day.n} · ${esc(day.title)} › ${sceneLabel(scene)} of ${TOTAL}</p>
+<h1>${inline(scene.incident)}</h1>
+<p class="subtitle">${inline(scene.learn)}</p>
+${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join('')}</p>` : ''}
+</header>`];
+  s.push(incidentHtml(body.incident));
+  for (const sec of body.sections) s.push(sectionHtml(sec));
+  if (body.reveal) s.push(revealHtml(body.reveal));
+  if (body.laravel) s.push(sectionHtml({ kind: 'laravel', title: body.laravel.title || 'Laravel does the same', ...body.laravel }));
   if (body.tests) {
-    s.push(`<section class="tests"><details><summary><span>Pest tests for this lesson</span><small>${esc(body.tests.summary || 'open to see the tests')}</small></summary>
+    s.push(`<section class="tests"><details><summary><span>Tests</span><small>${esc(body.tests.summary)}</small></summary>
 <div class="testbody">${paras(body.tests.text)}<div class="blocks">${blocksHtml(body.tests.blocks)}</div></div></details></section>`);
   }
-
-  const upcoming = PLAN[l.n + 1];
-  s.push(`<section class="nextup">${body.next ? `<p>${inline(body.next)}</p>` : ''}
-<nav class="pager" aria-label="Lessons">
-${prev ? `<a rel="prev" href="../${prev.slug}/"><small>← Lesson ${prev.n}</small>${inline(lessonTitle(prev))}</a>` : '<span></span>'}
-${next ? `<a rel="next" href="../${next.slug}/"><small>Lesson ${next.n} →</small>${inline(lessonTitle(next))}</a>`
-    : upcoming ? `<span class="soon"><small>Lesson ${upcoming.n}, coming soon</small>${inline(lessonTitle(upcoming))}</span>` : '<span></span>'}
-</nav></section>`);
-
+  s.push(`<section class="nextup">${body.next ? `<p>${inline(body.next)}</p>` : ''}${pagerHtml(prev, next, SCENES[scene.n])}</section>`);
   return `<article class="chapter">${s.join('\n')}</article>`;
 }
 
+function foundationHtml(body) {
+  const first = SCENES[0];
+  return `<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Before Day 1</p>
+<h1>${esc(FOUNDATION.title)}</h1>
+<p class="subtitle">${inline(FOUNDATION.learn)}</p>
+</header>
+<section class="lead">${paras(body.intro)}</section>
+${tocHtml(body.sections)}
+${body.sections.map(sectionHtml).join('\n')}
+<section class="nextup">${pagerHtml(null, first.ready ? first : null, first)}</section></article>`;
+}
+
 function hubHtml() {
-  const rows = PLAN.map(l => {
-    const tags = l.patterns.length ? `<span class="tags">${l.patterns.map(tagHtml).join('')}</span>` : '';
-    const inner = `<span class="cn">${l.n}</span><span class="ct">${inline(lessonTitle(l))}<small>${inline(l.problem)}</small>${tags}</span>`;
-    return l.ready
-      ? `<li><a class="crow" href="${l.slug}/" data-umami-event="Open lesson" data-umami-event-lesson="${l.n}">${inner}<span class="cs go">Read</span></a></li>`
-      : `<li><div class="crow off">${inner}<span class="cs">Soon</span></div></li>`;
+  const days = DAYS.map(d => {
+    const rows = SCENES.filter(s => s.day === d.n).map(s => {
+      const tags = s.patterns.length ? `<span class="tags">${s.patterns.map(tagHtml).join('')}</span>` : '';
+      const inner = `<span class="cn">${s.n}</span><span class="ct">${inline(s.incident)}<small>${inline(s.learn)}</small>${tags}</span>`;
+      return s.ready
+        ? `<li><a class="crow" href="${s.slug}/" data-umami-event="Open scene" data-umami-event-scene="${s.n}">${inner}<span class="cs go">Read</span></a></li>`
+        : `<li><div class="crow off">${inner}<span class="cs">Soon</span></div></li>`;
+    }).join('');
+    return `<section class="day" id="day-${d.n}"><h3><span>Day ${d.n}</span>${esc(d.title)}</h3><p class="hint">${esc(d.blurb)}</p><ol class="clist">${rows}</ol></section>`;
   }).join('');
 
   const patternRows = [...PATTERNS].sort((a, b) => a.name.localeCompare(b.name)).map(p =>
-    `<tr><th scope="row">${p.ready ? `<a href="${p.slug}/">${esc(p.name)}</a>` : esc(p.name)}</th><td>${p.gof ? '<span class="ptag gof">Gang of Four</span>' : '<span class="ptag">Not in the book</span>'}</td><td>${p.ready ? `<a href="${p.slug}/">Lesson ${p.lesson}</a>` : `Lesson ${p.lesson} <small>(soon)</small>`}</td></tr>`).join('');
+    `<tr><th scope="row">${p.ready ? `<a href="${p.slug}/">${esc(p.name)}</a>` : esc(p.name)}</th><td>${p.gof ? '<span class="ptag gof">Gang of Four</span>' : '<span class="ptag">Not in the book</span>'}</td><td>${p.ready ? `<a href="${p.slug}/">Scene ${p.scene}</a>` : `Scene ${p.scene} <small>(soon)</small>`}</td></tr>`).join('');
 
   const gof = PATTERNS.filter(p => p.gof).length;
   return `<section class="hero">
-<p class="eyebrow">For Laravel developers</p>
-<h1>Design patterns in Laravel, inside a real PMS</h1>
-<p class="intro">All ${gof} Gang of Four patterns and ${PATTERNS.length - gof} modern ones, each applied to the business logic of a vacation-rental property management system: bookings, pricing, payments, channel sync, guest messaging. When Laravel already ships a pattern, you see how Laravel builds it inside.</p>
-<p class="cta"><a class="btn" href="${PLAN[0].slug}/" data-umami-event="Start course">Start with lesson 0</a><a class="btn ghost" href="#patterns">Find a pattern</a></p>
+<p class="eyebrow">Advanced Laravel, in 7 days</p>
+<h1>One rental platform, 43 production incidents</h1>
+<p class="intro">Follow Nordic Stays, a vacation-rental property management system, from its first booking to its busiest day. Every scene starts with something breaking in production. You read the broken code, fix it, and only then learn the name of the pattern you just used: all ${gof} Gang of Four patterns, ${PATTERNS.length - gof} modern ones, and the Laravel engineering around them.</p>
+<p class="cta"><a class="btn" href="${FOUNDATION.slug}/" data-umami-event="Start course">Start here</a><a class="btn ghost" href="#patterns">Find a pattern</a></p>
 </section>
-<section class="how" aria-label="How each lesson works">
-<div><b>1. A PMS ticket</b>A real problem from a host, finance or the channel team.</div>
-<div><b>2. The pattern</b>One sentence to remember, and a drawing of before and after.</div>
-<div><b>3. Laravel inside</b>How the framework itself uses the same pattern.</div>
-<div><b>4. When not to</b>The limits, then the Pest tests, folded at the end.</div>
+<section class="how" aria-label="How each scene works">
+<div><b>1. The incident</b>The message the team got: a guest, finance, a partner, an alert.</div>
+<div><b>2. The broken code</b>The few lines that caused it, and why.</div>
+<div><b>3. The fix</b>Production code, a short “why” on every important line.</div>
+<div><b>4. The name</b>The pattern you just wrote, how Laravel uses it, then the tests, folded.</div>
 </section>
-<section id="chapters" class="course"><h2>The lessons</h2>
-<p class="hint">${ready.length} of ${PLAN.length} lessons are published. You should already know Laravel; the course is about business logic and patterns.</p>
-<ol class="clist">${rows}</ol></section>
-<section id="patterns" class="pindex"><h2>Every pattern, and where it is taught</h2>
-<div class="tablewrap"><table><thead><tr><th scope="col">Pattern</th><th scope="col">Source</th><th scope="col">Lesson</th></tr></thead><tbody>${patternRows}</tbody></table></div></section>`;
+<section id="chapters" class="course"><h2>The story</h2>
+<p class="hint">About 2–3 hours a day. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
+<a class="crow found" href="${FOUNDATION.slug}/"><span class="cn">0</span><span class="ct">${esc(FOUNDATION.title)}<small>${inline(FOUNDATION.learn)}</small></span><span class="cs go">Read</span></a>
+${days}</section>
+<section id="patterns" class="pindex"><h2>Every pattern, and where it appears</h2>
+<div class="tablewrap"><table><thead><tr><th scope="col">Pattern</th><th scope="col">Source</th><th scope="col">Scene</th></tr></thead><tbody>${patternRows}</tbody></table></div></section>`;
 }
 
 // ── Write the pages ────────────────────────────────────────────────────
-// Remove every old lesson/chapter folder first, so renamed or removed pages don't linger.
+// Remove every old page folder first, so renamed or removed pages don't linger.
 for (const entry of readdirSync(ROOT)) {
   if (/^\d\d-/.test(entry) && existsSync(join(ROOT, entry, 'index.html'))) rmSync(join(ROOT, entry), { recursive: true, force: true });
 }
 
-const hubDescription = `A free course for Laravel developers: all ${PATTERNS.filter(p => p.gof).length} Gang of Four design patterns plus ${PATTERNS.filter(p => !p.gof).length} modern ones, applied to a real vacation-rental PMS, with Laravel's own implementation of each pattern.`;
+const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 43 production incidents. All ${PATTERNS.filter(p => p.gof).length} Gang of Four design patterns, ${PATTERNS.filter(p => !p.gof).length} modern ones, and the engineering around them, in 7 days.`;
 writeFileSync(join(ROOT, 'index.html'), page({
-  title: 'Design Patterns in Laravel, Inside a Real PMS | Pattern Playbook',
+  title: 'Advanced Laravel in 7 Days: One PMS, 43 Production Incidents | Pattern Playbook',
   description: hubDescription,
   url: SITE, prefix: '', pageId: 'hub', type: 'website',
   jsonld: {
@@ -252,53 +266,63 @@ writeFileSync(join(ROOT, 'index.html'), page({
     '@graph': [
       { ...website, description: hubDescription, author: person },
       {
-        '@type': 'Course', name: 'Design patterns in Laravel, inside a real PMS', description: hubDescription, url: SITE,
-        inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Intermediate to advanced',
+        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 43 production incidents', description: hubDescription, url: SITE,
+        inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Advanced',
         teaches: PATTERNS.map(p => p.name),
-        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT20H' },
+        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT18H' },
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD', category: 'Free' },
       },
       {
-        '@type': 'ItemList', name: 'Lessons', numberOfItems: ready.length,
-        itemListElement: ready.map((l, i) => ({ '@type': 'ListItem', position: i + 1, name: `Lesson ${l.n}: ${lessonTitle(l)}`, url: `${SITE}${l.slug}/` })),
+        '@type': 'ItemList', name: 'Scenes', numberOfItems: ready.length,
+        itemListElement: ready.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: `Scene ${s.n}: ${s.incident}`, url: `${SITE}${s.slug}/` })),
       },
     ],
   },
   main: hubHtml(),
 }));
 
-for (const l of ready) {
-  const body = LESSONS[l.slug];
-  const prev = l.n > 0 ? PLAN[l.n - 1] : null;
-  const next = PLAN[l.n + 1] && PLAN[l.n + 1].ready ? PLAN[l.n + 1] : null;
-  const url = `${SITE}${l.slug}/`;
-  const title = `${l.patterns.length ? `${l.patterns.join(', ')} in Laravel` : lessonTitle(l)}: ${l.problem.replace(/[“”]/g, '')} | ${BRAND}`;
-  mkdirSync(join(ROOT, l.slug), { recursive: true });
-  writeFileSync(join(ROOT, l.slug, 'index.html'), page({
-    title, description: body.description, url, prefix: '../', pageId: l.slug, type: 'article',
-    jsonld: {
-      '@context': 'https://schema.org',
-      '@graph': [
-        {
-          '@type': 'TechArticle', headline: `Lesson ${l.n}: ${lessonTitle(l)}`, description: body.description, url,
-          mainEntityOfPage: url, image: `${SITE}assets/og.png`, inLanguage: 'en', datePublished: PUBLISHED, dateModified: TODAY,
-          author: person, publisher: person, isPartOf: { '@id': `${SITE}#website` },
-          about: [...l.patterns.map(p => `${p} pattern`), 'Laravel', 'PHP'], proficiencyLevel: 'Expert',
-        },
-        {
-          '@type': 'BreadcrumbList',
-          itemListElement: [
-            { '@type': 'ListItem', position: 1, name: BRAND, item: SITE },
-            { '@type': 'ListItem', position: 2, name: `Lesson ${l.n}`, item: url },
-          ],
-        },
-      ],
+const articleLd = (headline, description, url, about) => ({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'TechArticle', headline, description, url, mainEntityOfPage: url, image: `${SITE}assets/og.png`, inLanguage: 'en',
+      datePublished: PUBLISHED, dateModified: TODAY, author: person, publisher: person, isPartOf: { '@id': `${SITE}#website` },
+      about: [...about, 'Laravel', 'PHP'], proficiencyLevel: 'Expert',
     },
-    main: lessonHtml(l, body, prev, next),
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [{ '@type': 'ListItem', position: 1, name: BRAND, item: SITE }, { '@type': 'ListItem', position: 2, name: headline, item: url }],
+    },
+  ],
+});
+
+const write = (slug, html) => { mkdirSync(join(ROOT, slug), { recursive: true }); writeFileSync(join(ROOT, slug, 'index.html'), html); };
+
+{
+  const url = `${SITE}${FOUNDATION.slug}/`;
+  write(FOUNDATION.slug, page({
+    title: `Foundation: the Laravel PMS every scene starts from | ${BRAND}`, description: foundation.description, url,
+    prefix: '../', pageId: FOUNDATION.slug, type: 'article',
+    jsonld: articleLd('Foundation', foundation.description, url, ['Laravel migrations', 'Eloquent models', 'Pest']),
+    main: foundationHtml(foundation),
   }));
 }
 
-const urls = [SITE, ...ready.map(l => `${SITE}${l.slug}/`)];
+for (const scene of ready) {
+  const body = BODY[scene.slug];
+  const prev = scene.n === 1 ? { ...FOUNDATION, n: 0 } : SCENES[scene.n - 2];
+  const next = SCENES[scene.n] && SCENES[scene.n].ready ? SCENES[scene.n] : null;
+  const url = `${SITE}${scene.slug}/`;
+  const what = scene.patterns.length ? `${scene.patterns.join(', ')} in Laravel` : `Laravel: ${scene.learn.split(',')[0]}`;
+  write(scene.slug, page({
+    title: `${scene.incident.replace(/[“”]/g, '')} · ${what} | ${BRAND}`, description: body.description, url,
+    prefix: '../', pageId: scene.slug, type: 'article',
+    jsonld: articleLd(`Scene ${scene.n}: ${scene.incident}`, body.description, url, scene.patterns.map(p => `${p} pattern`)),
+    main: sceneHtml(scene, body, prev, next),
+  }));
+}
+
+const urls = [SITE, `${SITE}${FOUNDATION.slug}/`, ...ready.map(s => `${SITE}${s.slug}/`)];
 writeFileSync(join(ROOT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(u => `  <url><loc>${u}</loc><lastmod>${TODAY}</lastmod></url>`).join('\n')}
@@ -310,7 +334,7 @@ writeFileSync(join(ROOT, '404.html'), `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Page not found · ${BRAND}</title><meta name="robots" content="noindex">
 <link rel="stylesheet" href="/pattern-playbook/assets/style.css?v=${V.css}"></head>
-<body><div class="wrap"><h1>Page not found</h1><p class="intro">That page doesn't exist. <a href="/pattern-playbook/">See all lessons</a>.</p></div></body></html>
+<body><div class="wrap"><h1>Page not found</h1><p class="intro">That page doesn't exist. <a href="/pattern-playbook/">See the course</a>.</p></div></body></html>
 `);
 
-console.log(`Built the overview + ${ready.length} lesson pages, sitemap with ${urls.length} URLs.`);
+console.log(`Built the overview, the foundation and ${ready.length} scene pages; sitemap with ${urls.length} URLs.`);

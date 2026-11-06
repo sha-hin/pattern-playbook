@@ -1,4 +1,4 @@
-// Syntax-checks every PHP code block in the lessons with `php -l`.
+// Syntax-checks every PHP code block in the scenes and the foundation with `php -l`.
 // Method-only snippets are wrapped in a class; snippets with no opening tag get one.
 //   node build/check-php.mjs
 import { readdirSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -7,21 +7,21 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'content', 'lessons');
+const CONTENT = join(dirname(fileURLToPath(import.meta.url)), '..', 'content');
+const FILES = [join(CONTENT, 'foundation', 'index.mjs'), ...readdirSync(join(CONTENT, 'scenes')).sort().map(f => join(CONTENT, 'scenes', f))];
 const dir = mkdtempSync(join(tmpdir(), 'php-'));
 let checked = 0, failed = 0;
 
 const collect = (lesson) => {
   const out = [];
   const add = (b, where) => { if (b && b.code && (b.lang || 'php') === 'php' && !b.fragment) out.push({ ...b, where }); };
-  if (lesson.pain) add({ code: lesson.pain.code, path: 'quick fix', fragment: lesson.pain.fragment }, 'pain');
   for (const s of lesson.sections || []) for (const b of s.blocks || []) add(b, s.title);
-  for (const k of ['laravel', 'topics', 'tests']) for (const b of lesson[k]?.blocks || []) add(b, k);
+  for (const k of ['laravel', 'reveal', 'tests']) for (const b of lesson[k]?.blocks || []) add(b, k);
   return out;
 };
 
-for (const file of readdirSync(ROOT).sort()) {
-  const lesson = (await import(pathToFileURL(join(ROOT, file)).href)).default;
+for (const file of FILES) {
+  const lesson = (await import(pathToFileURL(file).href)).default;
   for (const b of collect(lesson)) {
     let code = b.code.trim();
     const starts = /^(public|protected|private|#\[|\/\*\*|\/\/)/.test(code) && !/^\s*(final |abstract )?(readonly )?(class|interface|enum|trait) /m.test(code);
@@ -37,4 +37,30 @@ for (const file of readdirSync(ROOT).sort()) {
     }
   }
 }
-console.log(`${checked} PHP blocks checked, ${failed} failed.`);
+// Imports: in a namespaced file, every class it extends, implements, creates or calls statically must be
+// imported, declared in the same namespace (in any block), or written fully qualified.
+const blocks = [];
+for (const file of FILES) for (const b of collect((await import(pathToFileURL(file).href)).default)) blocks.push({ ...b, file });
+const declared = new Set(['App\\Http\\Controllers\\Controller', 'Tests\\TestCase']);   // ship with every Laravel app
+for (const b of blocks) {
+  const ns = b.code.match(/^namespace ([^;]+);/m)?.[1];
+  for (const m of b.code.matchAll(/^(?:final |abstract |readonly )*(?:class|interface|enum|trait) (\w+)/gm)) declared.add(`${ns}\\${m[1]}`);
+}
+let missing = 0;
+const PHP_GLOBALS = new Set(['Exception', 'LogicException', 'InvalidArgumentException', 'RuntimeException', 'Throwable', 'Closure', 'DateTimeImmutable']);
+for (const b of blocks) {
+  const ns = b.code.match(/^namespace ([^;]+);/m)?.[1] ?? '';   // '' = a test file in the global namespace
+  const imported = new Set([...b.code.matchAll(/^use ([^;]+);$/gm)].map(m => m[1].split(/\s+as\s+/).pop().split('\\').pop()));
+  const local = new Set([...b.code.matchAll(/(?:class|interface|enum|trait) (\w+)/g)].map(m => m[1]));
+  const used = new Set();
+  for (const re of [/\b(?:extends|implements|new|instanceof|catch \() *([A-Z]\w*)/g, /(?<![\\\w$])([A-Z]\w*)::/g, /^\s+use ([A-Z]\w*(?:, [A-Z]\w*)*);/gm]) {
+    for (const m of b.code.matchAll(re)) m[1].split(', ').forEach(n => used.add(n));
+  }
+  for (const name of used) {
+    if (['self', 'static', 'parent'].includes(name) || (!ns && PHP_GLOBALS.has(name)) || imported.has(name) || local.has(name) || declared.has(`${ns}\\${name}`)) continue;
+    missing++;
+    console.log(`✗ ${b.file.split('/content/')[1]} · ${b.path}: ${name} is not imported`);
+  }
+}
+console.log(`${checked} PHP blocks checked, ${failed} failed; ${missing} missing imports.`);
+if (failed || missing) process.exitCode = 1;

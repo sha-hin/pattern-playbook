@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Two guests, same night, same second · Laravel: Transactions | Pattern Playbook</title>
+<meta name="description" content="Two guests booked the same nights 4 ms apart and both got through, because &quot;check, then insert&quot; is not atomic. Fix it in Laravel with a transaction and lockForUpdate(), see Cache::lock() as the alternative, and prove it with a real two-process test on MySQL.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/04-race/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Two guests, same night, same second · Laravel: Transactions | Pattern Playbook">
+<meta property="og:description" content="Two guests booked the same nights 4 ms apart and both got through, because &quot;check, then insert&quot; is not atomic. Fix it in Laravel with a transaction and lockForUpdate(), see Cache::lock() as the alternative, and prove it with a real two-process test on MySQL.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/04-race/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 43 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Two guests, same night, same second · Laravel: Transactions | Pattern Playbook">
+<meta name="twitter:description" content="Two guests booked the same nights 4 ms apart and both got through, because &quot;check, then insert&quot; is not atomic. Fix it in Laravel with a transaction and lockForUpdate(), see Cache::lock() as the alternative, and prove it with a real two-process test on MySQL.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=c329a916da">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 4: Two guests, same night, same second","description":"Two guests booked the same nights 4 ms apart and both got through, because \"check, then insert\" is not atomic. Fix it in Laravel with a transaction and lockForUpdate(), see Cache::lock() as the alternative, and prove it with a real two-process test on MySQL.","url":"https://sha-hin.github.io/pattern-playbook/04-race/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/04-race/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 4: Two guests, same night, same second","item":"https://sha-hin.github.io/pattern-playbook/04-race/"}]}]}</script>
+</head>
+<body data-page="04-race" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 1 · Launch week › Scene 4 of 43</p>
+<h1>Two guests, same night, same second</h1>
+<p class="subtitle">Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test</p>
+
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Thursday 19:47</span></p>
+<p class="inc-msg"><span class="inc-who">Alert · bookings</span><b>Two confirmed bookings</b> for Nyhavn flat, 10–13 July. Created at 19:46:58.112 and 19:46:58.116.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>The overlap check from yesterday is in place and every test is green. So how did both get through?</p>
+</section>
+<section><h2>The broken code</h2><p>Nothing in yesterday’s code is wrong on its own. The problem is the gap between two lines:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php (from scene 3)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {   <span class="c">// 1. check</span>
+    <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);
+}
+<span class="c">// ... a few milliseconds ...</span>
+<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);                        <span class="c">// 2. insert</span></code></pre>
+</div></div><div class="block"><p>Two requests run this at the same time, each in its own PHP worker:</p><div class="tablewrap"><table><thead><tr><th scope="col">Time</th><th scope="col">Request A (Mona)</th><th scope="col">Request B (Omar)</th></tr></thead>
+<tbody><tr><th scope="row">.112</th><td>checks: no overlap ✓</td><td></td></tr><tr><th scope="row">.113</th><td></td><td>checks: no overlap ✓ (A hasn’t saved yet)</td></tr><tr><th scope="row">.114</th><td>inserts its booking</td><td></td></tr><tr><th scope="row">.116</th><td></td><td>inserts its booking</td></tr></tbody></table></div><p>Each request saw a free calendar, because each one checked before the other saved. This is a <b>race condition</b>: the result depends on timing, so it never shows up when you click through the app alone, and only appears under real traffic.</p></div></div></section>
+<section><h2>Why not a unique index?</h2><p>For &quot;one row per X&quot;, a unique index is the best backstop there is: the database refuses the second insert no matter what the code does. But overlap isn’t equality. 10–13 July and 11–14 July are different rows that share two nights, and <b>MySQL has no index that can say &quot;these ranges must not overlap&quot;</b>. (PostgreSQL can, with an exclusion constraint. MySQL can’t.)</p><p>So the fix is to make the check and the insert happen <b>one request at a time per property</b>.</p><div class="blocks"></div></section>
+<section><h2>The fix: lock the property row</h2><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php (after)</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span>
+{
+    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;
+
+    <span class="c">/** @param array{guest_name: string, guest_email: string, guests: int} $guest */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span>
+    {
+        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {
+            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span>
+
+            <span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {
+                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);
+            }
+
+            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);
+            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;
+            <span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());
+            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
+            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);
+            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);
+
+            <span class="k">return</span> <span class="v">$booking</span>;
+        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span>
+    }
+}</code></pre>
+</div><p><code>lockForUpdate()</code> sends <code>SELECT … FOR UPDATE</code>. MySQL gives this transaction an exclusive lock on the property’s row. A second request for <b>the same property</b> reaches the same line and waits until the first transaction commits. When it continues, the first booking is there, the check sees it, and the guest gets a 409. Requests for other properties don’t wait at all.</p><p>Why lock the <b>property</b> and not the bookings? The rows that would clash don’t exist yet, and you can’t lock a row that isn’t there. The property row is the one thing both requests share.</p></div><div class="block"><h3>Run it again</h3><div class="tablewrap"><table><thead><tr><th scope="col">Time</th><th scope="col">Request A (Mona)</th><th scope="col">Request B (Omar)</th></tr></thead>
+<tbody><tr><th scope="row">.112</th><td>locks the flat, checks: free ✓</td><td></td></tr><tr><th scope="row">.113</th><td></td><td>tries to lock the flat… <b>waits</b></td></tr><tr><th scope="row">.114</th><td>inserts, commits, lock released</td><td></td></tr><tr><th scope="row">.115</th><td></td><td>gets the lock, checks: <b>taken</b> → 409</td></tr></tbody></table></div></div></div></section>
+<section><h2>The alternative: a Redis lock</h2><p>When there is no shared row to lock (the work spans two databases, or calls an API in the middle), an <b>atomic lock in Redis</b> does the same job. <code>block(5)</code> waits up to 5 seconds for the lock; the <code>10</code> is a safety expiry, so a crashed worker can’t hold it forever.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">an alternative to the row lock (not used here)</span></div>
+<pre class="code"><code><span class="k">return</span> <span class="t">Cache</span>::<span class="f">lock</span>(<span class="s">&quot;property:{$property-&gt;id}:booking&quot;</span>, <span class="n">10</span>)-&gt;<span class="f">block</span>(<span class="n">5</span>, <span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {
+    <span class="c">// the same check and insert, inside DB::transaction()</span>
+});</code></pre>
+</div><p>The row lock is the better fit here: it lives and dies with the transaction, needs nothing extra running, and can’t expire halfway through. A Redis lock that expires while the work is still running lets the next request in, and Redis has to be up for anyone to book.</p></div></div></section>
+<section><h2>Why every test stayed green</h2><p>A normal test sends one request at a time, so the race can’t happen in it. And on <b>SQLite</b> it can’t happen at all: SQLite lets only one writer touch the whole database at a time, and it ignores <code>FOR UPDATE</code>. A test suite on SQLite would pass with the lock and without it. That’s why the <a href="../00-foundation/#phpunit">foundation</a> runs tests on MySQL, and why the test below starts <b>two real processes</b>.</p><div class="blocks"></div></section>
+<section class="laravel"><h2>Laravel inside</h2><div class="blocks"><div class="block"><h3>lockForUpdate() is one line of SQL</h3><p>The query builder only records that you want a lock; the grammar of each database turns it into SQL. The SQLite grammar returns an empty string, which is the silent no-op from above.</p><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Database/Query/Grammars/MySqlGrammar.php</span></div>
+<pre class="code"><code><span class="k">protected</span> <span class="k">function</span> <span class="f">compileLock</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="v">$value</span>)
+{
+    <span class="k">if</span> (! <span class="f">is_string</span>(<span class="v">$value</span>)) {
+        <span class="k">return</span> <span class="v">$value</span> ? <span class="s">'for update'</span> : <span class="s">'lock in share mode'</span>;   <span class="c">// lockForUpdate() / sharedLock()</span>
+    }
+
+    <span class="k">return</span> <span class="v">$value</span>;
+}</code></pre>
+</div></div><div class="block"><h3>DB::transaction() retries deadlocks</h3><p>With <code>attempts: 3</code>, a transaction that fails because of a deadlock or a lost connection is rolled back and run again from the start. Any other exception is rolled back and rethrown at once.</p><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Database/Concerns/ManagesTransactions.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">transaction</span>(<span class="t">Closure</span> <span class="v">$callback</span>, <span class="v">$attempts</span> = <span class="n">1</span>)
+{
+    <span class="k">for</span> (<span class="v">$currentAttempt</span> = <span class="n">1</span>; <span class="v">$currentAttempt</span> &lt;= <span class="v">$attempts</span>; <span class="v">$currentAttempt</span>++) {
+        <span class="k">$this</span>-&gt;<span class="f">beginTransaction</span>();
+
+        <span class="k">try</span> {
+            <span class="v">$result</span> = <span class="v">$callback</span>(<span class="k">$this</span>);
+        } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {
+            <span class="k">$this</span>-&gt;<span class="f">handleTransactionException</span>(<span class="v">$e</span>, <span class="v">$currentAttempt</span>, <span class="v">$attempts</span>);   <span class="c">// retries only concurrency errors</span>
+            <span class="k">continue</span>;
+        }
+
+        <span class="k">$this</span>-&gt;<span class="f">commit</span>();
+
+        <span class="k">return</span> <span class="v">$result</span>;
+    }
+}</code></pre>
+</div></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>Two real processes book the same nights at the same moment</small></summary>
+<div class="testbody"><p>This test forks two child processes that start at the same instant and both try to book 10–13 July. With the lock, exactly one booking exists afterwards. Remove <code>lockForUpdate()</code> and it goes red on most runs; <code>-&gt;repeat(20)</code> runs it twenty times so a lucky timing can’t hide the bug.</p><p>It can’t use <code>RefreshDatabase</code>: that wraps each test in a transaction the child processes can’t see. It uses <code>DatabaseTruncation</code>, which empties the tables between tests instead, so it lives in its own folder.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Concurrency/CreateBookingRaceTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">BookingConflict</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CreateBooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Testing</span>\<span class="t">DatabaseTruncation</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="f">uses</span>(<span class="t">Tests</span>\<span class="t">TestCase</span>::class, <span class="t">DatabaseTruncation</span>::class);
+
+<span class="f">it</span>(<span class="s">'lets only one of two simultaneous requests book the same nights'</span>, <span class="k">function</span> () {
+    <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="v">$startAt</span> = <span class="f">microtime</span>(<span class="k">true</span>) + <span class="n">0.5</span>;                       <span class="c">// both children start at this instant</span>
+    <span class="v">$children</span> = [];
+
+    <span class="t">DB</span>::<span class="f">disconnect</span>();                                       <span class="c">// no open connection to share: each process opens its own</span>
+
+    <span class="k">foreach</span> ([<span class="s">'Mona'</span>, <span class="s">'Omar'</span>] <span class="k">as</span> <span class="v">$guest</span>) {
+        <span class="v">$pid</span> = <span class="f">pcntl_fork</span>();
+        <span class="k">if</span> (<span class="v">$pid</span> === <span class="n">0</span>) {                                   <span class="c">// in the child process</span>
+            <span class="f">time_sleep_until</span>(<span class="v">$startAt</span>);
+            <span class="k">try</span> {
+                <span class="f">app</span>(<span class="t">CreateBooking</span>::class)-&gt;<span class="f">handle</span>(<span class="v">$property</span>, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-13'</span>), [
+                    <span class="s">'guest_name'</span> =&gt; <span class="v">$guest</span>, <span class="s">'guest_email'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$guest</span>) . <span class="s">'@example.com'</span>, <span class="s">'guests'</span> =&gt; <span class="n">2</span>,
+                ]);
+            } <span class="k">catch</span> (<span class="t">BookingConflict</span>) {
+                <span class="c">// the expected outcome for the slower child</span>
+            }
+            <span class="f">posix_kill</span>(<span class="f">getmypid</span>(), <span class="t">SIGKILL</span>);                <span class="c">// exit without running the test runner's shutdown</span>
+        }
+        <span class="v">$children</span>[] = <span class="v">$pid</span>;
+    }
+
+    <span class="k">foreach</span> (<span class="v">$children</span> <span class="k">as</span> <span class="v">$pid</span>) {
+        <span class="f">pcntl_waitpid</span>(<span class="v">$pid</span>, <span class="v">$status</span>);
+    }
+
+    <span class="f">expect</span>(<span class="t">Booking</span>::<span class="f">where</span>(<span class="s">'property_id'</span>, <span class="v">$property</span>-&gt;id)-&gt;<span class="f">count</span>())-&gt;<span class="f">toBe</span>(<span class="n">1</span>);
+})-&gt;<span class="f">repeat</span>(<span class="n">20</span>);</code></pre>
+</div></div><div class="block"><h3>Include the folder in the full suite</h3><p><code>tests/Pest.php</code> applies <code>RefreshDatabase</code> to <code>Feature</code> and <code>Unit</code> only, so this folder sets up its own traits. Add it to <code>phpunit.xml</code> so <code>./vendor/bin/pest</code> runs it with everything else. It needs the <code>pcntl</code> and <code>posix</code> extensions from the <a href="../00-foundation/#dockerfile">PHP image</a>.</p><div class="codebox">
+<div class="filehead"><span class="path">phpunit.xml (testsuites)</span></div>
+<pre class="code"><code><span class="k">&lt;testsuites</span><span class="k">&gt;</span>
+    <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span><span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span><span class="k">&lt;/testsuite</span><span class="k">&gt;</span>
+    <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span><span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span><span class="k">&lt;/testsuite</span><span class="k">&gt;</span>
+    <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Concurrency&quot;</span><span class="k">&gt;</span><span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Concurrency<span class="k">&lt;/directory</span><span class="k">&gt;</span><span class="k">&lt;/testsuite</span><span class="k">&gt;</span>
+<span class="k">&lt;/testsuites</span><span class="k">&gt;</span></code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>Bookings are safe. Friday morning, finance finds a real charge on a real card, made by our own test suite.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../03-booking-endpoint/"><small>← Scene 3</small>500 error, and a stranger booked our cabin</a>
+<a rel="next" href="../05-container/"><small>Scene 5 →</small>Our test suite charged a real card</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"Guest charged €450.29 for a €450.30 stay","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"She booked 4 nights, we billed 3","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €612, the invoice €598","patterns":["A price quote built step by step: nights, fees, discounts, tax, the folio"],"slug":"07-quote","ready":false,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; typed events"],"slug":"08-webhooks","ready":false,"label":"Day 2 · Scene 8"},{"n":9,"title":"A booking went from expired back to confirmed","patterns":["The booking lifecycle; PaymentIntents, Idempotency-Key, deposits and balances, holds that expire"],"slug":"09-booking-states","ready":false,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict policy","patterns":["Cancellation policies, partial refunds, properties with no cleaning fee"],"slug":"10-refunds","ready":false,"label":"Day 2 · Scene 10"},{"n":11,"title":"The accountant wants a tax report by Friday","patterns":["One folio, many reports: owner statement, tax, payouts; ISO 4217 currencies"],"slug":"11-reports","ready":false,"label":"Day 2 · Scene 11"},{"n":12,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: chunkById, lazy(), LazyCollection, memory"],"slug":"12-reconciliation","ready":false,"label":"Day 2 · Scene 12"},{"n":13,"title":"Dates blocked on Airbnb never reached us","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"13-ical","ready":false,"label":"Day 3 · Scene 13"},{"n":14,"title":"We need the real Airbnb API now","patterns":["One interface for every channel, listings mapping, OAuth token refresh"],"slug":"14-channel-api","ready":false,"label":"Day 3 · Scene 14"},{"n":15,"title":"Booking.com’s client was paired with Airbnb’s mapper","patterns":["Families of objects that must match: client, mapper, signature verifier"],"slug":"15-channel-kits","ready":false,"label":"Day 3 · Scene 15"},{"n":16,"title":"A cancellation arrived before the booking","patterns":["Upsert by (channel, external_id), versions, polling fallback, recorded payloads with Http::fake()"],"slug":"16-out-of-order","ready":false,"label":"Day 3 · Scene 16"},{"n":17,"title":"Airbnb blocked us for an hour","patterns":["Timeouts, retries, 429 and Retry-After, the RateLimited job middleware"],"slug":"17-rate-limits","ready":false,"label":"Day 3 · Scene 17"},{"n":18,"title":"200 pushes for one calendar edit","patterns":["Jobs, tries, backoff, failed(), ShouldBeUnique, WithoutOverlapping, Redis, Horizon, the worker loop"],"slug":"18-queues","ready":false,"label":"Day 3 · Scene 18"},{"n":19,"title":"Same night sold on Airbnb and Booking.com","patterns":["Resolving cross-channel double bookings in one place"],"slug":"19-overbooking","ready":false,"label":"Day 3 · Scene 19"},{"n":20,"title":"A host saw another host’s bookings","patterns":["Scoping every query and exists rule to the account, IDOR, mass assignment"],"slug":"20-tenancy","ready":false,"label":"Day 4 · Scene 20"},{"n":21,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"21-roles","ready":false,"label":"Day 4 · Scene 21"},{"n":22,"title":"Arrival message sent at 3 a.m.","patterns":["send_at from the property timezone, DST with frozen time, the scheduler, withoutOverlapping()"],"slug":"22-send-times","ready":false,"label":"Day 4 · Scene 22"},{"n":23,"title":"Guest got the door code twice","patterns":["Unique index + atomic pending → sent; one event, many reactions"],"slug":"23-never-twice","ready":false,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["Template variables, escaping, sensitive values only close to check-in"],"slug":"24-template-variables","ready":false,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Message type × channel; Notifications, via(), queued notifications, Notification::fake()"],"slug":"25-channels","ready":false,"label":"Day 4 · Scene 25"},{"n":26,"title":"Dates changed, messages went out for the old ones","patterns":["Snapshot, reschedule, or roll back"],"slug":"26-date-change","ready":false,"label":"Day 4 · Scene 26"},{"n":27,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks between stays, checklist copies, review requests after check-out"],"slug":"27-turnovers","ready":false,"label":"Day 5 · Scene 27"},{"n":28,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans as a tree of rules"],"slug":"28-rate-plans","ready":false,"label":"Day 5 · Scene 28"},{"n":29,"title":"The calendar page uses 2 GB of RAM","patterns":["A year of days for thousands of properties, chunking"],"slug":"29-calendar","ready":false,"label":"Day 5 · Scene 29"},{"n":30,"title":"Accepted 1 night with a 3-night minimum","patterns":["Booking rules and price stages; Laravel’s middleware pipeline inside"],"slug":"30-acceptance-rules","ready":false,"label":"Day 5 · Scene 30"},{"n":31,"title":"Free 12–15 July, 3 bedrooms, pets OK?","patterns":["Availability search; plain SQL vs Scout + Meilisearch, queued indexing"],"slug":"31-search","ready":false,"label":"Day 5 · Scene 31"},{"n":32,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"32-real-time","ready":false,"label":"Day 5 · Scene 32"},{"n":33,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN, Telescope, the slow query log"],"slug":"33-slow-page","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Cached price, guest charged the old one","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"34-caching","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"35-outbox","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"36-public-api","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"37-load","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"38-big-tables","ready":false,"label":"Day 6 · Scene 38"},{"n":39,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"39-deploys","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"40-incident","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"41-how-it-fits","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"42-interview","ready":false,"label":"Day 7 · Scene 42"},{"n":43,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"43-code-review","ready":false,"label":"Day 7 · Scene 43"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Guest charged €450.29 for a €450.30 stay","slug":"01-money","ready":true,"gof":false},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true,"gof":false},{"name":"Data Mapper","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true,"gof":false},{"name":"Repository","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true,"gof":false},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true,"gof":false},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true,"gof":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €612, the invoice €598","slug":"07-quote","ready":false,"gof":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":false,"gof":false},{"name":"State","chapter":9,"chapterTitle":"A booking went from expired back to confirmed","slug":"09-booking-states","ready":false,"gof":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":false,"gof":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict policy","slug":"10-refunds","ready":false,"gof":false},{"name":"Visitor","chapter":11,"chapterTitle":"The accountant wants a tax report by Friday","slug":"11-reports","ready":false,"gof":true},{"name":"Iterator","chapter":12,"chapterTitle":"Stripe and our books disagree by €40","slug":"12-reconciliation","ready":false,"gof":true},{"name":"Generators","chapter":12,"chapterTitle":"Stripe and our books disagree by €40","slug":"12-reconciliation","ready":false,"gof":false},{"name":"Template Method","chapter":13,"chapterTitle":"Dates blocked on Airbnb never reached us","slug":"13-ical","ready":false,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Dates blocked on Airbnb never reached us","slug":"13-ical","ready":false,"gof":true},{"name":"Adapter","chapter":14,"chapterTitle":"We need the real Airbnb API now","slug":"14-channel-api","ready":false,"gof":true},{"name":"Manager / Driver","chapter":14,"chapterTitle":"We need the real Airbnb API now","slug":"14-channel-api","ready":false,"gof":false},{"name":"Abstract Factory","chapter":15,"chapterTitle":"Booking.com’s client was paired with Airbnb’s mapper","slug":"15-channel-kits","ready":false,"gof":true},{"name":"Decorator","chapter":17,"chapterTitle":"Airbnb blocked us for an hour","slug":"17-rate-limits","ready":false,"gof":true},{"name":"Command","chapter":18,"chapterTitle":"200 pushes for one calendar edit","slug":"18-queues","ready":false,"gof":true},{"name":"Command Bus","chapter":18,"chapterTitle":"200 pushes for one calendar edit","slug":"18-queues","ready":false,"gof":false},{"name":"Mediator","chapter":19,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"19-overbooking","ready":false,"gof":true},{"name":"Proxy","chapter":21,"chapterTitle":"The cleaner can see payouts","slug":"21-roles","ready":false,"gof":true},{"name":"Observer","chapter":23,"chapterTitle":"Guest got the door code twice","slug":"23-never-twice","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":23,"chapterTitle":"Guest got the door code twice","slug":"23-never-twice","ready":false,"gof":false},{"name":"Interpreter","chapter":24,"chapterTitle":"{guest_name} showed up literally in the email","slug":"24-template-variables","ready":false,"gof":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":false,"gof":true},{"name":"Memento","chapter":26,"chapterTitle":"Dates changed, messages went out for the old ones","slug":"26-date-change","ready":false,"gof":true},{"name":"Prototype","chapter":27,"chapterTitle":"The cleaner arrived while guests were still inside","slug":"27-turnovers","ready":false,"gof":true},{"name":"Composite","chapter":28,"chapterTitle":"Summer prices ignored the weekend rule","slug":"28-rate-plans","ready":false,"gof":true},{"name":"Flyweight","chapter":29,"chapterTitle":"The calendar page uses 2 GB of RAM","slug":"29-calendar","ready":false,"gof":true},{"name":"Pipeline","chapter":30,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"30-acceptance-rules","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":30,"chapterTitle":"Accepted 1 night with a 3-night minimum","slug":"30-acceptance-rules","ready":false,"gof":true},{"name":"Specification","chapter":31,"chapterTitle":"Free 12–15 July, 3 bedrooms, pets OK?","slug":"31-search","ready":false,"gof":false},{"name":"Unit of Work","chapter":35,"chapterTitle":"Booking saved, the partner never heard about it","slug":"35-outbox","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":35,"chapterTitle":"Booking saved, the partner never heard about it","slug":"35-outbox","ready":false,"gof":false}]}</script>
+<script src="../assets/site.js?v=44b4e916cb" defer></script>
+</body>
+</html>

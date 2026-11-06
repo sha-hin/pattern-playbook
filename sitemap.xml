@@ -2,8 +2,10 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://sha-hin.github.io/pattern-playbook/</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://sha-hin.github.io/pattern-playbook/00-foundation/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/01-value-object/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/02-active-record/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/03-container/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/04-facade/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/01-money/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/02-stay/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/03-booking-endpoint/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/04-race/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/05-container/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/06-confirm/</loc><lastmod>2026-11-06</lastmod></url>
 </urlset>

@@ -271,3 +271,24 @@ pre.diff .ln.fold{color:var(--muted);font-style:italic;background:var(--well);ma
 .toc ul{margin:4px 0 2px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px}
 .toc a{color:var(--fg)} .toc ul a{color:var(--muted)}
 [id]{scroll-margin-top:76px}
+
+/* ── Scenes: the incident card, the reveal, the days on the overview ── */
+.incident{background:var(--bad-bg);border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);border-left:4px solid var(--bad);border-radius:12px;padding:14px 18px;margin:8px 0 28px}
+.inc-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:500 13px var(--mono);color:var(--bad)}
+.inc-dot{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+.inc-when{margin-left:auto;color:var(--muted);font-weight:400}
+.inc-msg{margin:6px 0 0;line-height:1.6}
+.inc-who{display:block;font-weight:500;font-size:13.5px}
+.reveal{background:var(--acc-bg);border-radius:14px;padding:18px 20px;margin:32px 0}
+.reveal h2{margin-top:0;color:var(--acc)}
+.reveal .rule{margin:10px 0;background:var(--card)}
+.reveal ul{margin:10px 0 0;padding-left:20px}
+.reveal li{margin:4px 0}
+.whennot-label{margin:16px 0 0;font-weight:500}
+.day{margin:26px 0 0}
+.day h3{display:flex;align-items:baseline;gap:10px;margin:0 0 4px;font:700 20px var(--display)}
+.day h3 span{font:500 12px var(--mono);color:var(--acc);text-transform:uppercase;letter-spacing:.06em}
+.day .hint{margin:0 0 10px}
+a.crow.found{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:12px 0 0}
+.codebox.broken{border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.codebox.broken .badge{color:var(--bad);border-color:var(--bad)}
