@@ -38,13 +38,13 @@ export const SCENES = [
   { n: 18, day: 3, slug: '18-overbooking', incident: 'Same night sold on Airbnb and Booking.com', patterns: ['Mediator'], learn: 'One coordinator for every calendar change: overbookings recorded and reported once, every channel updated', ready: true },
 
   // Day 4 · Hosts and guests
-  { n: 19, day: 4, slug: '19-tenancy', incident: 'A host saw another host’s bookings', patterns: [], learn: 'Scoping every query and exists rule to the account, IDOR, mass assignment' },
-  { n: 20, day: 4, slug: '20-roles', incident: 'The cleaner can see payouts', patterns: [], learn: 'Roles and policies, Gate::before, invitations with signed URLs, removing a member' },
-  { n: 21, day: 4, slug: '21-send-times', incident: 'Arrival message sent at 3 a.m.', patterns: [], learn: 'send_at from the property timezone, DST with frozen time, the scheduler, withoutOverlapping()' },
-  { n: 22, day: 4, slug: '22-never-twice', incident: 'Guest got the door code twice', patterns: ['Observer', 'Event Dispatcher'], learn: 'Unique index + atomic pending → sent; one event, many reactions' },
-  { n: 23, day: 4, slug: '23-date-change', incident: 'Dates changed, the payment failed, the booking is half-changed', patterns: ['Memento'], learn: 'Snapshot and restore; rescheduling guest messages' },
-  { n: 24, day: 4, slug: '24-template-variables', incident: '{guest_name} showed up literally in the email', patterns: [], learn: 'Template variables, escaping, sensitive values only close to check-in' },
-  { n: 25, day: 4, slug: '25-channels', incident: 'SMS guests got an email instead', patterns: ['Bridge'], learn: 'Notifications inside; via() per guest; a WhatsApp channel; Notification::fake()' },
+  { n: 19, day: 4, slug: '19-tenancy', incident: 'A host saw another host’s bookings', patterns: [], learn: 'IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment', ready: true },
+  { n: 20, day: 4, slug: '20-roles', incident: 'The cleaner can see payouts', patterns: [], learn: 'Roles and policies, Gate::before, invitations with signed URLs, removing a member', ready: true },
+  { n: 21, day: 4, slug: '21-send-times', incident: 'Arrival message sent at 3 a.m.', patterns: [], learn: 'Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()', ready: true },
+  { n: 22, day: 4, slug: '22-never-twice', incident: 'Guest got the door code twice', patterns: ['Observer', 'Event Dispatcher'], learn: 'An atomic pending → sent claim; a BookingCancelled event with independent listeners', ready: true },
+  { n: 23, day: 4, slug: '23-date-change', incident: 'Dates changed, the payment failed, the booking is half-changed', patterns: ['Memento'], learn: 'Snapshot before the change, restore exactly when the payment fails, messages rescheduled', ready: true },
+  { n: 24, day: 4, slug: '24-template-variables', incident: '{guest_name} showed up literally in the email', patterns: [], learn: 'A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival', ready: true },
+  { n: 25, day: 4, slug: '25-channels', incident: 'SMS guests got an email instead', patterns: ['Bridge'], learn: 'Laravel Notifications as a bridge, channels per guest and host, Vonage SMS, a custom WhatsApp channel', ready: true },
 
   // Day 5 · Operations and pricing
   { n: 26, day: 5, slug: '26-turnovers', incident: 'The cleaner arrived while guests were still inside', patterns: [], learn: 'Cleaning tasks between stays, due times in the property timezone, review requests' },
