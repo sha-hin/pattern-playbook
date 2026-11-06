@@ -358,15 +358,15 @@
 <section class="topics"><h2>PMS topics in this lesson</h2><div class="blocks"><div class="block"><h3>Actions vs services vs repositories</h3><div class="tablewrap"><table><thead><tr><th scope="col"></th><th scope="col">What it is</th><th scope="col">Use it for</th></tr></thead>
 <tbody><tr><th scope="row">Action</th><td>One class, one business operation, one public method (<code>CreateBooking::handle()</code>)</td><td>Every write with rules. Callable from controllers, jobs, commands and other actions.</td></tr><tr><th scope="row">Service</th><td>A class grouping operations around one external system (<code>StripeClient</code>, <code>ChannelClient</code>)</td><td>Talking to APIs and infrastructure.</td></tr><tr><th scope="row">Repository</th><td>A collection-like interface over storage</td><td>Only when storage must be swappable, or with a Data Mapper.</td></tr></tbody></table></div></div><div class="block"><h3>SOLID in Laravel terms</h3><p><b>S</b>ingle responsibility: the request validates, the policy authorizes, the action decides, the resource formats. <b>O</b>pen/closed: new channels or pricing rules are new classes, not edits to the action (lessons 9 and 16). <b>L</b>iskov: any implementation of an interface can replace another without surprising the caller (every channel adapter returns the same types). <b>I</b>nterface segregation: small interfaces (<code>refundCents()</code> only, not a &quot;PaymentEverything&quot;). <b>D</b>ependency inversion: the action depends on interfaces once a second implementation exists (lesson 3).</p><p>SOLID never justifies an abstraction nobody needs yet. That is why there is no repository above.</p></div><div class="block"><h3>A modular monolith by domain</h3><p>One Laravel app, organised by business area instead of by technical layer. Each folder owns its rules; other areas use it through its actions and events.</p><div class="codebox">
 <div class="filehead"><span class="path">app/</span></div>
-<pre class="code"><code>app/
-├── Bookings/      CreateBooking, Stay, BookingConflict
-├── Pricing/       PriceCalculator, rate plans              (lessons 12, 16)
-├── Payments/      Stripe, refunds, cancellation policies   (lessons 15, 20)
-├── Channels/      adapters, sync, webhooks                 (lessons 6, 9, 17)
-├── Messaging/     templates, scheduled messages            (lessons 13, 24)
-├── Money/         Money, Currency
-├── Models/        Eloquent models
-└── Http/          controllers, requests, resources</code></pre>
+<pre class="code"><code><span class="t">app/</span>
+<span class="c">├──</span> <span class="t">Bookings/</span>      CreateBooking, Stay, BookingConflict
+<span class="c">├──</span> <span class="t">Pricing/</span>       PriceCalculator, rate plans              <span class="c">(lessons 12, 16)</span>
+<span class="c">├──</span> <span class="t">Payments/</span>      Stripe, refunds, cancellation policies   <span class="c">(lessons 15, 20)</span>
+<span class="c">├──</span> <span class="t">Channels/</span>      adapters, sync, webhooks                 <span class="c">(lessons 6, 9, 17)</span>
+<span class="c">├──</span> <span class="t">Messaging/</span>     templates, scheduled messages            <span class="c">(lessons 13, 24)</span>
+<span class="c">├──</span> <span class="t">Money/</span>         Money, Currency
+<span class="c">├──</span> <span class="t">Models/</span>        Eloquent models
+<span class="c">└──</span> <span class="t">Http/</span>          controllers, requests, resources</code></pre>
 </div></div><div class="block"><h3>Architecture tests, static analysis and formatting</h3><p>Rules about the code itself are tested too. Pest arch tests fail the build when someone puts SQL in a controller or makes Bookings depend on Channels. <b>Larastan</b> (PHPStan for Laravel) at level 8+ catches wrong types and null access before runtime; <b>Pint</b> formats every file the same way; <b>Rector</b> applies automated refactors and upgrade rules.</p><div class="codebox">
 <div class="filehead"><span class="path">tests/Arch/ArchitectureTest.php · phpstan.neon</span></div>
 <pre class="code"><code>&lt;?php

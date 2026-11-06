@@ -13,7 +13,7 @@ let checked = 0, failed = 0;
 
 const collect = (lesson) => {
   const out = [];
-  const add = (b, where) => { if (b && b.code && b.lang !== 'text' && !b.fragment) out.push({ ...b, where }); };
+  const add = (b, where) => { if (b && b.code && (b.lang || 'php') === 'php' && !b.fragment) out.push({ ...b, where }); };
   if (lesson.pain) add({ code: lesson.pain.code, path: 'quick fix', fragment: lesson.pain.fragment }, 'pain');
   for (const s of lesson.sections || []) for (const b of s.blocks || []) add(b, s.title);
   for (const k of ['laravel', 'topics', 'tests']) for (const b of lesson[k]?.blocks || []) add(b, k);

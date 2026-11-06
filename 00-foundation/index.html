@@ -54,99 +54,99 @@
 
 </header>
 <section class="lead"><p>This course teaches design patterns inside the business logic of a <b>vacation-rental PMS</b> (property management system): the software hosts use to run their rentals. Hosts list properties, guests book stays directly or through Airbnb and Booking.com, payments go through Stripe, guests get automatic messages, and cleaners get a task between every two stays.</p><p>This page holds <b>everything the lessons stand on</b>: the setup, every table, enum, model, factory and test helper. Nothing in it is created later. Lessons only add the pattern code, and link back here when they use a column or a factory state, with a line on why the decision was made.</p><p>Three rules apply everywhere: <b>money is an integer in the smallest unit</b> with its currency next to it; <b>dates are dates</b> (<code>check_in</code> is a <code>DATE</code>), read in the property’s timezone, and instants are stored in UTC; and <b>every rule the database can enforce is enforced there too</b> (unique indexes, foreign keys).</p></section>
-<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#setup">Setup</a><ul><li><a href="#stack">The stack</a></li><li><a href="#docker">Docker for local work</a></li><li><a href="#dockerfile">The PHP image and the test database</a></li><li><a href="#install">Install</a></li><li><a href="#env">Environment</a></li><li><a href="#redis-config">Redis: one connection per job</a></li><li><a href="#services-config">Third-party services</a></li><li><a href="#app-provider">App-wide defaults</a></li></ul></li><li><a href="#migrations">Migrations: every table of the course</a><ul><li><a href="#table-accounts"><code>accounts</code></a></li><li><a href="#table-users"><code>users</code></a></li><li><a href="#table-memberships"><code>memberships</code></a></li><li><a href="#table-account-invitations"><code>account_invitations</code></a></li><li><a href="#table-properties"><code>properties</code></a></li><li><a href="#table-calendar-days"><code>calendar_days</code></a></li><li><a href="#table-rate-rules"><code>rate_rules</code></a></li><li><a href="#table-checklist-templates"><code>checklist_templates</code></a></li><li><a href="#table-bookings"><code>bookings</code></a></li><li><a href="#table-booking-line-items"><code>booking_line_items</code></a></li><li><a href="#table-payments"><code>payments</code></a></li><li><a href="#table-channel-connections"><code>channel_connections</code></a></li><li><a href="#table-channel-listings"><code>channel_listings</code></a></li><li><a href="#table-ical-feeds"><code>ical_feeds</code></a></li><li><a href="#table-webhook-events"><code>webhook_events</code></a></li><li><a href="#table-reconciliation-issues"><code>reconciliation_issues</code></a></li><li><a href="#table-message-templates"><code>message_templates</code></a></li><li><a href="#table-scheduled-messages"><code>scheduled_messages</code></a></li><li><a href="#table-conversations"><code>conversations</code></a></li><li><a href="#table-chat-messages"><code>chat_messages</code></a></li><li><a href="#table-review-requests"><code>review_requests</code></a></li><li><a href="#table-cleaning-tasks"><code>cleaning_tasks</code></a></li><li><a href="#table-outbox-messages"><code>outbox_messages</code></a></li><li><a href="#table-idempotency-keys"><code>idempotency_keys</code></a></li></ul></li><li><a href="#enums">Enums</a><ul><li><a href="#enum-booking-status">BookingStatus</a></li><li><a href="#enum-channel">Channel</a></li><li><a href="#enum-booking-source">BookingSource</a></li><li><a href="#enum-cancellation-policy">CancellationPolicy</a></li><li><a href="#enum-payment-kind">PaymentKind</a></li><li><a href="#enum-payment-status">PaymentStatus</a></li><li><a href="#enum-line-item-type">LineItemType</a></li><li><a href="#enum-membership-role">MembershipRole</a></li><li><a href="#enum-rate-rule-type">RateRuleType</a></li><li><a href="#enum-message-trigger">MessageTrigger</a></li><li><a href="#enum-guest-channel">GuestChannel</a></li><li><a href="#enum-scheduled-message-status">ScheduledMessageStatus</a></li><li><a href="#enum-chat-sender">ChatSender</a></li><li><a href="#enum-cleaning-task-status">CleaningTaskStatus</a></li><li><a href="#enum-review-request-status">ReviewRequestStatus</a></li><li><a href="#enum-webhook-status">WebhookStatus</a></li><li><a href="#enum-reconciliation-kind">ReconciliationKind</a></li></ul></li><li><a href="#models">Models</a><ul><li><a href="#model-user">User</a></li><li><a href="#model-account">Account</a></li><li><a href="#model-membership">Membership</a></li><li><a href="#model-account-invitation">AccountInvitation</a></li><li><a href="#model-property">Property</a></li><li><a href="#model-calendar-day">CalendarDay</a></li><li><a href="#model-rate-rule">RateRule</a></li><li><a href="#model-checklist-template">ChecklistTemplate</a></li><li><a href="#model-booking">Booking</a></li><li><a href="#model-booking-line-item">BookingLineItem</a></li><li><a href="#model-payment">Payment</a></li><li><a href="#model-channel-connection">ChannelConnection</a></li><li><a href="#model-channel-listing">ChannelListing</a></li><li><a href="#model-ical-feed">IcalFeed</a></li><li><a href="#model-webhook-event">WebhookEvent</a></li><li><a href="#model-reconciliation-issue">ReconciliationIssue</a></li><li><a href="#model-message-template">MessageTemplate</a></li><li><a href="#model-scheduled-message">ScheduledMessage</a></li><li><a href="#model-conversation">Conversation</a></li><li><a href="#model-chat-message">ChatMessage</a></li><li><a href="#model-review-request">ReviewRequest</a></li><li><a href="#model-cleaning-task">CleaningTask</a></li><li><a href="#model-outbox-message">OutboxMessage</a></li><li><a href="#model-idempotency-key">IdempotencyKey</a></li></ul></li><li><a href="#factories">Factories</a><ul><li><a href="#factory-user">UserFactory</a></li><li><a href="#factory-account">AccountFactory</a></li><li><a href="#factory-account-invitation">AccountInvitationFactory</a></li><li><a href="#factory-property">PropertyFactory</a></li><li><a href="#factory-calendar-day">CalendarDayFactory</a></li><li><a href="#factory-rate-rule">RateRuleFactory</a></li><li><a href="#factory-checklist-template">ChecklistTemplateFactory</a></li><li><a href="#factory-booking">BookingFactory</a></li><li><a href="#factory-booking-line-item">BookingLineItemFactory</a></li><li><a href="#factory-payment">PaymentFactory</a></li><li><a href="#factory-channel-connection">ChannelConnectionFactory</a></li><li><a href="#factory-channel-listing">ChannelListingFactory</a></li><li><a href="#factory-ical-feed">IcalFeedFactory</a></li><li><a href="#factory-webhook-event">WebhookEventFactory</a></li><li><a href="#factory-reconciliation-issue">ReconciliationIssueFactory</a></li><li><a href="#factory-message-template">MessageTemplateFactory</a></li><li><a href="#factory-scheduled-message">ScheduledMessageFactory</a></li><li><a href="#factory-conversation">ConversationFactory</a></li><li><a href="#factory-chat-message">ChatMessageFactory</a></li><li><a href="#factory-review-request">ReviewRequestFactory</a></li><li><a href="#factory-cleaning-task">CleaningTaskFactory</a></li><li><a href="#factory-outbox-message">OutboxMessageFactory</a></li></ul></li><li><a href="#seed">Seed data</a><ul><li><a href="#seeder">DatabaseSeeder</a></li></ul></li><li><a href="#testing">Test setup</a><ul><li><a href="#phpunit">The test environment</a></li><li><a href="#pest-config">Pest configuration</a></li><li><a href="#test-helpers">Test helpers</a></li></ul></li><li><a href="#map">Where each piece is used</a></li></ol></nav>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#setup">Setup</a><ul><li><a href="#stack">The stack</a></li><li><a href="#docker">Docker for local work</a></li><li><a href="#dockerfile">The PHP image</a></li><li><a href="#test-db">The test database</a></li><li><a href="#install">Install</a></li><li><a href="#env">Environment</a></li><li><a href="#redis-config">Redis: one connection per job</a></li><li><a href="#services-config">Third-party services</a></li><li><a href="#app-provider">App-wide defaults</a></li></ul></li><li><a href="#migrations">Migrations: every table of the course</a><ul><li><a href="#table-accounts"><code>accounts</code></a></li><li><a href="#table-users"><code>users</code></a></li><li><a href="#table-memberships"><code>memberships</code></a></li><li><a href="#table-account-invitations"><code>account_invitations</code></a></li><li><a href="#table-properties"><code>properties</code></a></li><li><a href="#table-calendar-days"><code>calendar_days</code></a></li><li><a href="#table-rate-rules"><code>rate_rules</code></a></li><li><a href="#table-checklist-templates"><code>checklist_templates</code></a></li><li><a href="#table-bookings"><code>bookings</code></a></li><li><a href="#table-booking-line-items"><code>booking_line_items</code></a></li><li><a href="#table-payments"><code>payments</code></a></li><li><a href="#table-channel-connections"><code>channel_connections</code></a></li><li><a href="#table-channel-listings"><code>channel_listings</code></a></li><li><a href="#table-ical-feeds"><code>ical_feeds</code></a></li><li><a href="#table-webhook-events"><code>webhook_events</code></a></li><li><a href="#table-reconciliation-issues"><code>reconciliation_issues</code></a></li><li><a href="#table-message-templates"><code>message_templates</code></a></li><li><a href="#table-scheduled-messages"><code>scheduled_messages</code></a></li><li><a href="#table-conversations"><code>conversations</code></a></li><li><a href="#table-chat-messages"><code>chat_messages</code></a></li><li><a href="#table-review-requests"><code>review_requests</code></a></li><li><a href="#table-cleaning-tasks"><code>cleaning_tasks</code></a></li><li><a href="#table-outbox-messages"><code>outbox_messages</code></a></li><li><a href="#table-idempotency-keys"><code>idempotency_keys</code></a></li></ul></li><li><a href="#enums">Enums</a><ul><li><a href="#enum-booking-status">BookingStatus</a></li><li><a href="#enum-channel">Channel</a></li><li><a href="#enum-booking-source">BookingSource</a></li><li><a href="#enum-cancellation-policy">CancellationPolicy</a></li><li><a href="#enum-payment-kind">PaymentKind</a></li><li><a href="#enum-payment-status">PaymentStatus</a></li><li><a href="#enum-line-item-type">LineItemType</a></li><li><a href="#enum-membership-role">MembershipRole</a></li><li><a href="#enum-rate-rule-type">RateRuleType</a></li><li><a href="#enum-message-trigger">MessageTrigger</a></li><li><a href="#enum-guest-channel">GuestChannel</a></li><li><a href="#enum-scheduled-message-status">ScheduledMessageStatus</a></li><li><a href="#enum-chat-sender">ChatSender</a></li><li><a href="#enum-cleaning-task-status">CleaningTaskStatus</a></li><li><a href="#enum-review-request-status">ReviewRequestStatus</a></li><li><a href="#enum-webhook-status">WebhookStatus</a></li><li><a href="#enum-reconciliation-kind">ReconciliationKind</a></li></ul></li><li><a href="#models">Models</a><ul><li><a href="#model-user">User</a></li><li><a href="#model-account">Account</a></li><li><a href="#model-membership">Membership</a></li><li><a href="#model-account-invitation">AccountInvitation</a></li><li><a href="#model-property">Property</a></li><li><a href="#model-calendar-day">CalendarDay</a></li><li><a href="#model-rate-rule">RateRule</a></li><li><a href="#model-checklist-template">ChecklistTemplate</a></li><li><a href="#model-booking">Booking</a></li><li><a href="#model-booking-line-item">BookingLineItem</a></li><li><a href="#model-payment">Payment</a></li><li><a href="#model-channel-connection">ChannelConnection</a></li><li><a href="#model-channel-listing">ChannelListing</a></li><li><a href="#model-ical-feed">IcalFeed</a></li><li><a href="#model-webhook-event">WebhookEvent</a></li><li><a href="#model-reconciliation-issue">ReconciliationIssue</a></li><li><a href="#model-message-template">MessageTemplate</a></li><li><a href="#model-scheduled-message">ScheduledMessage</a></li><li><a href="#model-conversation">Conversation</a></li><li><a href="#model-chat-message">ChatMessage</a></li><li><a href="#model-review-request">ReviewRequest</a></li><li><a href="#model-cleaning-task">CleaningTask</a></li><li><a href="#model-outbox-message">OutboxMessage</a></li><li><a href="#model-idempotency-key">IdempotencyKey</a></li></ul></li><li><a href="#factories">Factories</a><ul><li><a href="#factory-user">UserFactory</a></li><li><a href="#factory-account">AccountFactory</a></li><li><a href="#factory-account-invitation">AccountInvitationFactory</a></li><li><a href="#factory-property">PropertyFactory</a></li><li><a href="#factory-calendar-day">CalendarDayFactory</a></li><li><a href="#factory-rate-rule">RateRuleFactory</a></li><li><a href="#factory-checklist-template">ChecklistTemplateFactory</a></li><li><a href="#factory-booking">BookingFactory</a></li><li><a href="#factory-booking-line-item">BookingLineItemFactory</a></li><li><a href="#factory-payment">PaymentFactory</a></li><li><a href="#factory-channel-connection">ChannelConnectionFactory</a></li><li><a href="#factory-channel-listing">ChannelListingFactory</a></li><li><a href="#factory-ical-feed">IcalFeedFactory</a></li><li><a href="#factory-webhook-event">WebhookEventFactory</a></li><li><a href="#factory-reconciliation-issue">ReconciliationIssueFactory</a></li><li><a href="#factory-message-template">MessageTemplateFactory</a></li><li><a href="#factory-scheduled-message">ScheduledMessageFactory</a></li><li><a href="#factory-conversation">ConversationFactory</a></li><li><a href="#factory-chat-message">ChatMessageFactory</a></li><li><a href="#factory-review-request">ReviewRequestFactory</a></li><li><a href="#factory-cleaning-task">CleaningTaskFactory</a></li><li><a href="#factory-outbox-message">OutboxMessageFactory</a></li></ul></li><li><a href="#seed">Seed data</a><ul><li><a href="#seeder">DatabaseSeeder</a></li></ul></li><li><a href="#testing">Test setup</a><ul><li><a href="#phpunit">The test environment</a></li><li><a href="#pest-config">Pest configuration</a></li><li><a href="#test-helpers">Test helpers</a></li></ul></li><li><a href="#map">Where each piece is used</a></li></ol></nav>
 <section id="setup"><h2>Setup</h2><p>Everything the course runs on. Nothing here changes in later lessons.</p><div class="blocks"><div class="block" id="stack"><h3>The stack</h3><div class="tablewrap"><table><thead><tr><th scope="col">Service</th><th scope="col">Why</th></tr></thead>
 <tbody><tr><th scope="row">PHP 8.4 + Laravel 13</th><td>Backed enums, readonly classes and <code>match</code> are used throughout.</td></tr><tr><th scope="row">MySQL 8.4</th><td>Row locks (<code>lockForUpdate()</code>), gap locks and isolation levels matter for bookings. SQLite ignores <code>lockForUpdate()</code>, so tests run on MySQL too.</td></tr><tr><th scope="row">Redis 7</th><td>Queue, cache, atomic locks and sessions, each on its own Redis connection.</td></tr><tr><th scope="row">Laravel Sanctum</th><td>API tokens with abilities.</td></tr><tr><th scope="row">Laravel Horizon</th><td>Runs and monitors the Redis queue workers.</td></tr><tr><th scope="row">Pest</th><td>Tests. Every lesson ends with its own, folded.</td></tr><tr><th scope="row">Stripe PHP SDK</th><td>PaymentIntents and refunds.</td></tr></tbody></table></div></div><div class="block" id="docker"><h3>Docker for local work</h3><p>The app, a queue worker, the scheduler, MySQL (with a second database for tests) and Redis. The project folder is mounted, so code changes are live; restart the worker after changing a job, because it loads the code once.</p><div class="codebox">
 <div class="filehead"><span class="path">compose.yaml</span></div>
-<pre class="code"><code>services:
-  app:
-    build: docker/app
-    volumes: ['.:/var/www/html']
-    ports: ['8000:8000']
-    command: php artisan serve --host=0.0.0.0 --port=8000
-    depends_on:
-      mysql: { condition: service_healthy }
-      redis: { condition: service_healthy }
+<pre class="code"><code><span class="t">services</span>:
+<span class="t">  app</span>:
+<span class="t">    build</span>: docker/app
+<span class="t">    volumes</span>: [<span class="s">'.:/var/www/html'</span>]
+<span class="t">    ports</span>: [<span class="s">'8000:8000'</span>]
+<span class="t">    command</span>: php artisan serve --host=<span class="n">0.0</span>.<span class="n">0.0</span> --port=<span class="n">8000</span>
+<span class="t">    depends_on</span>:
+<span class="t">      mysql</span>: { condition: service_healthy }
+<span class="t">      redis</span>: { condition: service_healthy }
 
-  horizon:
-    build: docker/app
-    volumes: ['.:/var/www/html']
-    command: php artisan horizon
-    depends_on: [app]
+<span class="t">  horizon</span>:
+<span class="t">    build</span>: docker/app
+<span class="t">    volumes</span>: [<span class="s">'.:/var/www/html'</span>]
+<span class="t">    command</span>: php artisan horizon
+<span class="t">    depends_on</span>: [app]
 
-  scheduler:
-    build: docker/app
-    volumes: ['.:/var/www/html']
-    command: php artisan schedule:work
-    depends_on: [app]
+<span class="t">  scheduler</span>:
+<span class="t">    build</span>: docker/app
+<span class="t">    volumes</span>: [<span class="s">'.:/var/www/html'</span>]
+<span class="t">    command</span>: php artisan schedule:work
+<span class="t">    depends_on</span>: [app]
 
-  mysql:
-    image: mysql:8.4
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: pms
-    ports: ['3306:3306']
-    volumes:
+<span class="t">  mysql</span>:
+<span class="t">    image</span>: mysql:<span class="n">8.4</span>
+<span class="t">    environment</span>:
+<span class="t">      MYSQL_ROOT_PASSWORD</span>: secret
+<span class="t">      MYSQL_DATABASE</span>: pms
+<span class="t">    ports</span>: [<span class="s">'3306:3306'</span>]
+<span class="t">    volumes</span>:
       - mysql-data:/var/lib/mysql
-      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/01-test-db.sql
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-psecret']
-      interval: 5s
+      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/<span class="n">01</span>-test-db.sql
+<span class="t">    healthcheck</span>:
+<span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'mysqladmin'</span>, <span class="s">'ping'</span>, <span class="s">'-psecret'</span>]
+<span class="t">      interval</span>: 5s
 
-  redis:
-    image: redis:7.4
-    command: redis-server --appendonly yes --maxmemory-policy noeviction
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
+<span class="t">  redis</span>:
+<span class="t">    image</span>: redis:<span class="n">7.4</span>
+<span class="t">    command</span>: redis-server --appendonly yes --maxmemory-policy noeviction
+<span class="t">    healthcheck</span>:
+<span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'redis-cli'</span>, <span class="s">'ping'</span>]
+<span class="t">      interval</span>: 5s
 
-volumes:
-  mysql-data:</code></pre>
-</div><p><code>--appendonly yes</code> writes every change to disk, so a Redis restart does not lose queued jobs. <code>noeviction</code> makes Redis refuse writes when memory is full instead of silently deleting keys: right for a queue, wrong for a pure cache (the caching lesson splits the two).</p></div><div class="block" id="dockerfile"><h3>The PHP image and the test database</h3><div class="codebox">
-<div class="filehead"><span class="path">docker/app/Dockerfile · docker/mysql/create-test-db.sql</span></div>
-<pre class="code"><code>FROM php:8.4-cli
-RUN apt-get update &amp;&amp; apt-get install -y git unzip libzip-dev libicu-dev \
- &amp;&amp; docker-php-ext-install pdo_mysql pcntl zip intl bcmath \
- &amp;&amp; pecl install redis &amp;&amp; docker-php-ext-enable redis
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-WORKDIR /var/www/html
-
--- create-test-db.sql
-CREATE DATABASE IF NOT EXISTS pms_test;</code></pre>
-</div><p><code>pcntl</code> lets workers stop cleanly between jobs; <code>intl</code> powers <code>Number::currency()</code>; the <code>redis</code> extension (phpredis) is faster than the pure-PHP client.</p></div><div class="block" id="install"><h3>Install</h3><div class="codebox">
+<span class="t">volumes</span>:
+<span class="t">  mysql-data</span>:</code></pre>
+</div><p><code>--appendonly yes</code> writes every change to disk, so a Redis restart does not lose queued jobs. <code>noeviction</code> makes Redis refuse writes when memory is full instead of silently deleting keys: right for a queue, wrong for a pure cache (the caching lesson splits the two).</p></div><div class="block" id="dockerfile"><h3>The PHP image</h3><div class="codebox">
+<div class="filehead"><span class="path">docker/app/Dockerfile</span></div>
+<pre class="code"><code><span class="k">FROM</span> php:8.4-cli
+<span class="k">RUN</span> <span class="f">apt-get</span> update &amp;&amp; <span class="f">apt-get</span> install <span class="v">-y</span> git unzip libzip-dev libicu-dev \
+ &amp;&amp; <span class="f">docker-php-ext-install</span> pdo_mysql pcntl zip intl bcmath \
+ &amp;&amp; <span class="f">pecl</span> install redis &amp;&amp; <span class="f">docker-php-ext-enable</span> redis
+<span class="k">COPY</span> <span class="v">--from=composer:2</span> /usr/bin/composer /usr/bin/composer
+<span class="k">WORKDIR</span> /var/www/html</code></pre>
+</div><p><code>pcntl</code> lets workers stop cleanly between jobs; <code>intl</code> powers <code>Number::currency()</code>; the <code>redis</code> extension (phpredis) is faster than the pure-PHP client.</p></div><div class="block" id="test-db"><h3>The test database</h3><p>MySQL runs this once, on first start, so tests get their own database next to the dev one.</p><div class="codebox">
+<div class="filehead"><span class="path">docker/mysql/create-test-db.sql</span></div>
+<pre class="code"><code><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="k">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> pms_test;</code></pre>
+</div></div><div class="block" id="install"><h3>Install</h3><div class="codebox">
 <div class="filehead"><span class="path">terminal</span></div>
-<pre class="code"><code>composer create-project laravel/laravel pms
-cd pms
-php artisan install:api                         # Sanctum + routes/api.php + personal_access_tokens
-composer require laravel/horizon stripe/stripe-php
-php artisan horizon:install
-php artisan make:notifications-table            # the &quot;database&quot; notification channel
-composer require pestphp/pest pestphp/pest-plugin-laravel --dev --with-all-dependencies
-composer require larastan/larastan rector/rector --dev
-./vendor/bin/pest --init</code></pre>
+<pre class="code"><code><span class="f">composer</span> create-project laravel/laravel pms
+<span class="f">cd</span> pms
+<span class="f">php</span> artisan install:api                         <span class="c"># Sanctum + routes/api.php + personal_access_tokens</span>
+<span class="f">composer</span> require laravel/horizon stripe/stripe-php
+<span class="f">php</span> artisan horizon:install
+<span class="f">php</span> artisan make:notifications-table            <span class="c"># the &quot;database&quot; notification channel</span>
+<span class="f">composer</span> require pestphp/pest pestphp/pest-plugin-laravel <span class="v">--dev</span> <span class="v">--with-all-dependencies</span>
+<span class="f">composer</span> require larastan/larastan rector/rector <span class="v">--dev</span>
+<span class="f">./vendor/bin/pest</span> <span class="v">--init</span></code></pre>
 </div></div><div class="block" id="env"><h3>Environment</h3><p>Secrets live only in <code>.env</code> (never committed) and in the deploy platform’s secret store. In code, read them through <code>config()</code>, never <code>env()</code>, so <code>config:cache</code> works.</p><div class="codebox">
 <div class="filehead"><span class="path">.env</span></div>
-<pre class="code"><code>APP_TIMEZONE=UTC                     # always UTC; each property has its own timezone
+<pre class="code"><code><span class="t">APP_TIMEZONE</span>=<span class="s">UTC</span>                     <span class="c"># always UTC; each property has its own timezone</span>
 
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_DATABASE=pms
-DB_USERNAME=root
-DB_PASSWORD=secret
+<span class="t">DB_CONNECTION</span>=<span class="s">mysql</span>
+<span class="t">DB_HOST</span>=<span class="s">mysql</span>
+<span class="t">DB_DATABASE</span>=<span class="s">pms</span>
+<span class="t">DB_USERNAME</span>=<span class="s">root</span>
+<span class="t">DB_PASSWORD</span>=<span class="s">secret</span>
 
-REDIS_CLIENT=phpredis
-REDIS_HOST=redis
-QUEUE_CONNECTION=redis
-CACHE_STORE=redis
-SESSION_DRIVER=redis
+<span class="t">REDIS_CLIENT</span>=<span class="s">phpredis</span>
+<span class="t">REDIS_HOST</span>=<span class="s">redis</span>
+<span class="t">QUEUE_CONNECTION</span>=<span class="s">redis</span>
+<span class="t">CACHE_STORE</span>=<span class="s">redis</span>
+<span class="t">SESSION_DRIVER</span>=<span class="s">redis</span>
 
-STRIPE_SECRET=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_API_VERSION=...                # the version your Stripe account is pinned to
-AIRBNB_CLIENT_ID=...
-AIRBNB_CLIENT_SECRET=...
-BOOKING_COM_USERNAME=...
-BOOKING_COM_PASSWORD=...</code></pre>
+<span class="t">STRIPE_SECRET</span>=<span class="s">sk_test_...</span>
+<span class="t">STRIPE_WEBHOOK_SECRET</span>=<span class="s">whsec_...</span>
+<span class="t">STRIPE_API_VERSION</span>=<span class="s">...</span>                <span class="c"># the version your Stripe account is pinned to</span>
+<span class="t">AIRBNB_CLIENT_ID</span>=<span class="s">...</span>
+<span class="t">AIRBNB_CLIENT_SECRET</span>=<span class="s">...</span>
+<span class="t">BOOKING_COM_USERNAME</span>=<span class="s">...</span>
+<span class="t">BOOKING_COM_PASSWORD</span>=<span class="s">...</span></code></pre>
 </div><p><code>phpunit.xml</code> sets <code>DB_DATABASE=pms_test</code>, <code>QUEUE_CONNECTION=sync</code> and <code>CACHE_STORE=array</code>, so tests never touch dev data or a real queue.</p></div><div class="block" id="redis-config"><h3>Redis: one connection per job</h3><p>Four logical databases on the same server. The queue never shares a connection with the cache, so flushing the cache can’t delete jobs, and each one can later move to its own server.</p><div class="codebox">
 <div class="filehead"><span class="path">config/database.php (redis section)</span></div>
 <pre class="code"><code>&lt;?php
@@ -2748,18 +2748,18 @@ BOOKING_COM_PASSWORD=...</code></pre>
 </div></div></div></section>
 <section id="testing"><h2>Test setup</h2><p>Every lesson ends with Pest tests that assume this setup: a MySQL test database refreshed per test, <b>time frozen</b> at a known moment, <b>no real HTTP</b>, and two helpers for the question almost every test asks first: &quot;who is acting, with which role?&quot;</p><div class="blocks"><div class="block" id="phpunit"><h3>The test environment</h3><p>Tests run on MySQL, not SQLite: SQLite ignores <code>lockForUpdate()</code> and has no gap locks, so concurrency bugs would pass. <code>sync</code> runs queued jobs inline unless a test fakes the queue.</p><div class="codebox">
 <div class="filehead"><span class="path">phpunit.xml (php section)</span></div>
-<pre class="code"><code>&lt;php&gt;
-    &lt;env name=&quot;APP_ENV&quot; value=&quot;testing&quot;/&gt;
-    &lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot;/&gt;
-    &lt;env name=&quot;DB_DATABASE&quot; value=&quot;pms_test&quot;/&gt;
-    &lt;env name=&quot;QUEUE_CONNECTION&quot; value=&quot;sync&quot;/&gt;
-    &lt;env name=&quot;CACHE_STORE&quot; value=&quot;array&quot;/&gt;
-    &lt;env name=&quot;SESSION_DRIVER&quot; value=&quot;array&quot;/&gt;
-    &lt;env name=&quot;MAIL_MAILER&quot; value=&quot;array&quot;/&gt;
-    &lt;env name=&quot;BCRYPT_ROUNDS&quot; value=&quot;4&quot;/&gt;
-    &lt;env name=&quot;STRIPE_SECRET&quot; value=&quot;sk_test_fake&quot;/&gt;
-    &lt;env name=&quot;STRIPE_WEBHOOK_SECRET&quot; value=&quot;whsec_test&quot;/&gt;
-&lt;/php&gt;</code></pre>
+<pre class="code"><code><span class="k">&lt;php</span><span class="k">&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;sk_test_fake&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_WEBHOOK_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;whsec_test&quot;</span><span class="k">/&gt;</span>
+<span class="k">&lt;/php</span><span class="k">&gt;</span></code></pre>
 </div></div><div class="block" id="pest-config"><h3>Pest configuration</h3><p>The clock is frozen at <b>1 June 2027, 10:00 UTC</b> before every test, so factory defaults (&quot;four weeks from now&quot;) and rules like <code>after_or_equal:today</code> give the same answer on every run. A test that needs another moment (a DST night, an expired hold) calls <code>$this-&gt;travelTo()</code> itself.</p><p><code>Http::preventStrayRequests()</code> makes any HTTP call without a matching <code>Http::fake()</code> throw, so a test can never reach Stripe or Airbnb by accident.</p><div class="codebox">
 <div class="filehead"><span class="path">tests/Pest.php</span></div>
 <pre class="code"><code>&lt;?php

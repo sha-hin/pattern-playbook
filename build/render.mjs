@@ -53,7 +53,75 @@ export function highlightLines(src) {
   return lines;
 }
 
-export const codeHtml = src => highlightLines(src).join('\n');
+// ── Other languages: one combined regex per language. Each rule is [pattern, class];
+// patterns use only non-capturing groups, so the matching rule is the group that matched.
+const LANGS = {
+  yaml: [
+    [String.raw`(?:^|(?<=\s))#[^\n]*`, 'c'],
+    [String.raw`'[^'\n]*'|"[^"\n]*"`, 's'],
+    [String.raw`^[ \t]*(?:- )?[\w.-]+(?=:(?:\s|$))`, 't'],
+    [String.raw`(?<=:\s*|[\[,]\s*|- )(?:true|false|null|yes|no)\b`, 'k'],
+    [String.raw`\b\d+(?:\.\d+)?\b`, 'n'],
+  ],
+  dockerfile: [
+    [String.raw`^\s*#[^\n]*`, 'c'],
+    [String.raw`^(?:FROM|RUN|COPY|ADD|WORKDIR|ENV|ARG|EXPOSE|CMD|ENTRYPOINT|USER|LABEL|VOLUME|HEALTHCHECK)\b`, 'k'],
+    [String.raw`'[^'\n]*'|"[^"\n]*"`, 's'],
+    [String.raw`(?<=\s)--?[\w-]+(?:=[^\s]+)?`, 'v'],
+    [String.raw`(?<=^|&&\s|RUN\s|\|\s)\s*(?:apt-get|docker-php-ext-install|docker-php-ext-enable|pecl|composer|php)\b`, 'f'],
+  ],
+  shell: [
+    [String.raw`(?:^|(?<=\s))#[^\n]*`, 'c'],
+    [String.raw`'[^'\n]*'|"[^"\n]*"`, 's'],
+    [String.raw`^\s*(?:\S+)`, 'f'],
+    [String.raw`(?<=\s)--?[\w-]+(?:=[^\s]+)?`, 'v'],
+  ],
+  env: [
+    [String.raw`(?:^|(?<=\s))#[^\n]*`, 'c'],
+    [String.raw`^[A-Z0-9_]+(?==)`, 't'],
+    [String.raw`(?<==)\d+(?=\s|$)`, 'n'],
+    [String.raw`(?<==)[^\s#]+`, 's'],
+  ],
+  xml: [
+    [String.raw`<!--[\s\S]*?-->`, 'c'],
+    [String.raw`</?[\w:-]+|/?>`, 'k'],
+    [String.raw`"[^"]*"`, 's'],
+    [String.raw`(?<=\s)[\w:-]+(?==)`, 'v'],
+  ],
+  sql: [
+    [String.raw`--[^\n]*`, 'c'],
+    [String.raw`'[^'\n]*'`, 's'],
+    [String.raw`\b(?:CREATE|DATABASE|TABLE|IF|NOT|EXISTS|SELECT|FROM|WHERE|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GRANT|ON|TO|EXPLAIN|INDEX|ORDER|BY|LIMIT)\b`, 'k'],
+    [String.raw`\b\d+\b`, 'n'],
+  ],
+  // A directory tree: the drawing characters muted, folder names as types, (notes) as comments.
+  tree: [
+    [String.raw`[│├└─]+`, 'c'],
+    [String.raw`[\w.-]+/`, 't'],
+    [String.raw`\([^)\n]*\)`, 'c'],
+  ],
+};
+const LANG_RE = Object.fromEntries(Object.entries(LANGS).map(([k, rules]) => [k, new RegExp(rules.map(([p]) => `(${p})`).join('|'), 'gm')]));
+
+function highlightOther(src, lang) {
+  const re = LANG_RE[lang], rules = LANGS[lang];
+  let html = '', last = 0, m;
+  re.lastIndex = 0;
+  while ((m = re.exec(src))) {
+    if (!m[0]) { re.lastIndex++; continue; }
+    const i = m.slice(1).findIndex(g => g !== undefined);
+    html += esc(src.slice(last, m.index)) + `<span class="${rules[i][1]}">${esc(m[0])}</span>`;
+    last = re.lastIndex;
+  }
+  return html + esc(src.slice(last));
+}
+
+// lang: 'php' (default) or one of LANGS. An unknown lang is a build error, never silent plain text.
+export const codeHtml = (src, lang = 'php') => {
+  if (lang === 'php') return highlightLines(src).join('\n');
+  if (!LANGS[lang]) throw new Error(`No highlighter for lang "${lang}"`);
+  return highlightOther(src, lang);
+};
 
 // ── Line diff (longest common subsequence; files here are small) ──
 function diffLines(a, b) {

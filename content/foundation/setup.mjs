@@ -25,7 +25,7 @@ export const setup = {
       title: 'Docker for local work',
       text: ['The app, a queue worker, the scheduler, MySQL (with a second database for tests) and Redis. The project folder is mounted, so code changes are live; restart the worker after changing a job, because it loads the code once.'],
       path: 'compose.yaml',
-      lang: 'text',
+      lang: 'yaml',
       code: String.raw`services:
   app:
     build: docker/app
@@ -74,25 +74,30 @@ volumes:
     },
     {
       id: 'dockerfile',
-      title: 'The PHP image and the test database',
-      path: 'docker/app/Dockerfile · docker/mysql/create-test-db.sql',
-      lang: 'text',
+      title: 'The PHP image',
+      path: 'docker/app/Dockerfile',
+      lang: 'dockerfile',
       code: String.raw`FROM php:8.4-cli
 RUN apt-get update && apt-get install -y git unzip libzip-dev libicu-dev \
  && docker-php-ext-install pdo_mysql pcntl zip intl bcmath \
  && pecl install redis && docker-php-ext-enable redis
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-WORKDIR /var/www/html
-
--- create-test-db.sql
-CREATE DATABASE IF NOT EXISTS pms_test;`,
+WORKDIR /var/www/html`,
       after: ['`pcntl` lets workers stop cleanly between jobs; `intl` powers `Number::currency()`; the `redis` extension (phpredis) is faster than the pure-PHP client.'],
+    },
+    {
+      id: 'test-db',
+      title: 'The test database',
+      text: ['MySQL runs this once, on first start, so tests get their own database next to the dev one.'],
+      path: 'docker/mysql/create-test-db.sql',
+      lang: 'sql',
+      code: String.raw`CREATE DATABASE IF NOT EXISTS pms_test;`,
     },
     {
       id: 'install',
       title: 'Install',
       path: 'terminal',
-      lang: 'text',
+      lang: 'shell',
       code: String.raw`composer create-project laravel/laravel pms
 cd pms
 php artisan install:api                         # Sanctum + routes/api.php + personal_access_tokens
@@ -108,7 +113,7 @@ composer require larastan/larastan rector/rector --dev
       title: 'Environment',
       text: ['Secrets live only in `.env` (never committed) and in the deploy platform’s secret store. In code, read them through `config()`, never `env()`, so `config:cache` works.'],
       path: '.env',
-      lang: 'text',
+      lang: 'env',
       code: String.raw`APP_TIMEZONE=UTC                     # always UTC; each property has its own timezone
 
 DB_CONNECTION=mysql

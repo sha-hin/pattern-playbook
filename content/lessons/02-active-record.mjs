@@ -409,7 +409,7 @@ protected function performInsert(Builder $query)
         title: 'A modular monolith by domain',
         text: ['One Laravel app, organised by business area instead of by technical layer. Each folder owns its rules; other areas use it through its actions and events.'],
         path: 'app/',
-        lang: 'text',
+        lang: 'tree',
         code: String.raw`app/
 ├── Bookings/      CreateBooking, Stay, BookingConflict
 ├── Pricing/       PriceCalculator, rate plans              (lessons 12, 16)

@@ -109,7 +109,7 @@ const person = { '@type': 'Person', name: AUTHOR.name, url: AUTHOR.url };
 
 // ── Building blocks ────────────────────────────────────────────────────
 function codeBlock({ path, code, lang }) {
-  const html = lang === 'text' ? esc(code.replace(/\n$/, '')) : codeHtml(code.replace(/\n$/, ''));
+  const html = codeHtml(code.replace(/\n$/, ''), lang);
   return `<div class="codebox">
 <div class="filehead"><span class="path">${esc(path || 'code')}</span></div>
 <pre class="code"><code>${html}</code></pre>

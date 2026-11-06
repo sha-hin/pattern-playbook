@@ -13,7 +13,7 @@ export const testing = {
       title: 'The test environment',
       text: ['Tests run on MySQL, not SQLite: SQLite ignores `lockForUpdate()` and has no gap locks, so concurrency bugs would pass. `sync` runs queued jobs inline unless a test fakes the queue.'],
       path: 'phpunit.xml (php section)',
-      lang: 'text',
+      lang: 'xml',
       code: String.raw`<php>
     <env name="APP_ENV" value="testing"/>
     <env name="DB_CONNECTION" value="mysql"/>
