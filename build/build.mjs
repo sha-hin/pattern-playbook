@@ -47,9 +47,13 @@ const markers = `<svg width="0" height="0" style="position:absolute" aria-hidden
 <marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
 </defs></svg>`;
 
-const modes = `<div class="modes" role="group" aria-label="Mode">
+const modes = `<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+<div class="modes" role="group" aria-label="Mode">
 <button id="m-learn" aria-pressed="true">Learn</button>
 <button id="m-test" aria-pressed="false">Test me</button>
+</div>
 </div>`;
 
 function page({ title, description, url, prefix, pageId, type, jsonld, header, main, current }) {
@@ -58,6 +62,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, header, m
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${url}">

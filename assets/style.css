@@ -123,3 +123,39 @@ pre.before{border-color:var(--bad)}
 .why b{display:block;font-family:var(--display);font-size:16px}
 .credit{margin:36px 0 0;font-size:13px;color:var(--muted);text-align:center}
 .credit a{color:var(--fg)}
+
+/* ===== Toolbar: search + theme toggle (same behaviour as sha-hin.github.io) ===== */
+.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.iconbtn,.searchbtn{height:40px;display:inline-flex;align-items:center;gap:8px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;transition:border-color .2s,color .2s}
+.iconbtn{width:40px;justify-content:center;padding:0}
+.searchbtn{padding:0 8px 0 12px;font:500 14px var(--body);color:var(--muted)}
+.iconbtn:hover,.searchbtn:hover{border-color:var(--fg);color:var(--fg)}
+.iconbtn:focus-visible,.searchbtn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.iconbtn svg,.searchbtn svg,.cmdk-in svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.theme-toggle .i-sun{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .theme-toggle .i-sun{display:block}:root:not([data-theme="light"]) .theme-toggle .i-moon{display:none}}
+:root[data-theme="dark"] .theme-toggle .i-sun{display:block}
+:root[data-theme="dark"] .theme-toggle .i-moon{display:none}
+.searchbtn kbd{min-width:22px;height:22px;display:inline-grid;place-items:center;padding:0 6px;border-radius:6px;border:1px solid var(--line);border-bottom-width:2px;background:var(--bg);color:var(--fg);font:600 12px/1 var(--body)}
+.searchbtn .keys{display:inline-flex;gap:3px}
+@media (hover:none),(max-width:600px){.searchbtn .keys{display:none}}
+
+/* ===== Command menu ===== */
+.cmdk[hidden]{display:none}
+.cmdk{position:fixed;inset:0;z-index:100}
+.cmdk-back{position:absolute;inset:0;background:color-mix(in srgb,var(--fg) 28%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.cmdk-panel{position:relative;margin:12vh auto 0;width:min(600px,calc(100vw - 32px));border-radius:16px;border:1px solid var(--line);background:var(--card);box-shadow:0 30px 80px -20px rgba(0,0,0,.45);overflow:hidden}
+.cmdk-in{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--muted)}
+.cmdk-in input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--fg);font:16px var(--body)}
+.cmdk-in kbd{font:11px var(--mono);padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+.cmdk-list{list-style:none;margin:0;padding:8px;max-height:min(440px,62vh);overflow:auto}
+.cmdk-grp{padding:10px 10px 4px;font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cmdk-item{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;cursor:pointer;color:var(--fg);font-size:15px}
+.cmdk-item .ci{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--fam-bg,var(--well));color:var(--fam,var(--fg));flex:none;font:12px var(--mono)}
+.cmdk-item .ct{min-width:0;display:flex;flex-direction:column}
+.cmdk-item .ct small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdk-item .cs{margin-left:auto;font:12px var(--mono);color:var(--muted);flex:none}
+.cmdk-item[aria-selected="true"]{background:var(--well)}
+.cmdk-item[aria-selected="true"] .ci{background:var(--fam,var(--fg));color:var(--card)}
+.cmdk-empty{padding:18px 12px;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:no-preference){.cmdk:not([hidden]) .cmdk-panel{animation:cmdkin .16s ease-out}@keyframes cmdkin{from{opacity:0;transform:translateY(-6px) scale(.985)}}}
