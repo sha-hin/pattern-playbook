@@ -1,7 +1,0 @@
-Exporting 100,000 answers
-
-Load everything into an array, then write: 27.7 MB
-Stream with a generator:                   0.9 MB
-
-Looped twice over TermResponses: 100000 and 100000 answers
-Looping twice over a bare generator: Cannot rewind a generator that was already run

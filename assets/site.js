@@ -34,9 +34,9 @@
   wrap.className = 'cmdk';
   wrap.hidden = true;
   wrap.innerHTML = `<div class="cmdk-back" data-close></div>
-    <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Find a chapter or pattern">
+    <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Find a lesson or pattern">
       <div class="cmdk-in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
-      <input type="text" placeholder="A pattern or a problem: scoring, SQL, import, undo…" aria-label="Find a chapter or pattern" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
+      <input type="text" placeholder="A pattern or a PMS problem: pricing, webhooks, cache, undo…" aria-label="Find a lesson or pattern" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
       <ul class="cmdk-list" role="listbox"></ul>
     </div>`;
   document.body.appendChild(wrap);
@@ -45,13 +45,13 @@
 
   const items = [
     ...data.chapters.map(c => ({
-      g: 'Chapters', t: c.title, sub: c.patterns.length ? c.patterns.join(' · ') : 'Start here', i: String(c.n), id: c.slug,
+      g: 'Lessons', t: c.title, sub: c.patterns.join(' · '), i: String(c.n), id: c.slug,
       s: c.ready ? '' : 'coming soon', off: !c.ready,
       kw: c.patterns.join(' '),
       run: () => go(c.ready ? prefix + c.slug + '/' : prefix + '#chapters', 'search'),
     })),
     ...data.patterns.map(p => ({
-      g: 'Patterns', t: p.name, sub: `Chapter ${p.chapter}: ${p.chapterTitle}`, i: p.gof ? 'G' : '·', s: p.gof ? 'Gang of Four' : 'not in the book', off: !p.ready,
+      g: 'Patterns', t: p.name, sub: `Lesson ${p.chapter}: ${p.chapterTitle}`, i: p.gof ? 'G' : '·', s: p.gof ? 'Gang of Four' : 'not in the book', off: !p.ready,
       kw: p.chapterTitle,
       run: () => go(p.ready ? prefix + p.slug + '/' : prefix + '#patterns', 'search'),
     })),
@@ -91,7 +91,7 @@
       shown.push({ it, el: li });
       list.appendChild(li);
     });
-    if (!shown.length) { const e = document.createElement('li'); e.className = 'cmdk-empty'; e.textContent = 'Nothing matches. Try a problem word like "scoring" or "SQL".'; list.appendChild(e); }
+    if (!shown.length) { const e = document.createElement('li'); e.className = 'cmdk-empty'; e.textContent = 'Nothing matches. Try a problem word like "pricing" or "webhook".'; list.appendChild(e); }
     sel = Math.min(sel, Math.max(shown.length - 1, 0));
     mark();
   }

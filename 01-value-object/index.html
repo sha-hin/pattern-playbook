@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-<title>Chapter 1: Scores of 140 got into the database (Value Object in PHP) | Pattern Playbook</title>
-<meta name="description" content="A score of 140 on a 1–5 scale reached the Ministry report. Fix it with Value Objects in PHP: Score, EmailAddress and an enum, each checking itself once, on creation.">
+<title>Value Object in Laravel: Money and stays are passed around as bare numbers | Pattern Playbook</title>
+<meta name="description" content="Money and stays passed around as bare integers and strings cause lost cents, wrong currencies and wrong night counts. Fix it with the Value Object pattern in Laravel: Money, Currency and Stay, with Eloquent casts.">
 <link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/01-value-object/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="author" content="Mohammed Shahin">
@@ -13,25 +13,25 @@
 <meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
 <meta property="og:site_name" content="Pattern Playbook">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Chapter 1: Scores of 140 got into the database (Value Object in PHP) | Pattern Playbook">
-<meta property="og:description" content="A score of 140 on a 1–5 scale reached the Ministry report. Fix it with Value Objects in PHP: Score, EmailAddress and an enum, each checking itself once, on creation.">
+<meta property="og:title" content="Value Object in Laravel: Money and stays are passed around as bare numbers | Pattern Playbook">
+<meta property="og:description" content="Money and stays passed around as bare integers and strings cause lost cents, wrong currencies and wrong night counts. Fix it with the Value Object pattern in Laravel: Money, Currency and Stay, with Eloquent casts.">
 <meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/01-value-object/">
 <meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Pattern Playbook: design patterns in PHP, learned by fixing one real app">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in Laravel, taught through a real vacation-rental PMS">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Chapter 1: Scores of 140 got into the database (Value Object in PHP) | Pattern Playbook">
-<meta name="twitter:description" content="A score of 140 on a 1–5 scale reached the Ministry report. Fix it with Value Objects in PHP: Score, EmailAddress and an enum, each checking itself once, on creation.">
+<meta name="twitter:title" content="Value Object in Laravel: Money and stays are passed around as bare numbers | Pattern Playbook">
+<meta name="twitter:description" content="Money and stays passed around as bare integers and strings cause lost cents, wrong currencies and wrong night counts. Fix it with the Value Object pattern in Laravel: Money, Currency and Stay, with Eloquent casts.">
 <meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
 <link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=b80b390ca4">
+<link rel="stylesheet" href="../assets/style.css?v=fe83a6f334">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Chapter 1: Scores of 140 got into the database","description":"A score of 140 on a 1–5 scale reached the Ministry report. Fix it with Value Objects in PHP: Score, EmailAddress and an enum, each checking itself once, on creation.","url":"https://sha-hin.github.io/pattern-playbook/01-value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/01-value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object pattern","PHP"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Evalu8, chapter 1","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/tree/main/chapters/01-value-object","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Chapter 1","item":"https://sha-hin.github.io/pattern-playbook/01-value-object/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Lesson 1: Value Object","description":"Money and stays passed around as bare integers and strings cause lost cents, wrong currencies and wrong night counts. Fix it with the Value Object pattern in Laravel: Money, Currency and Stay, with Eloquent casts.","url":"https://sha-hin.github.io/pattern-playbook/01-value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/01-value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Lesson 1","item":"https://sha-hin.github.io/pattern-playbook/01-value-object/"}]}]}</script>
 </head>
 <body data-page="01-value-object" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -48,347 +48,440 @@
 </div>
 <main>
 <article class="chapter"><header class="chead">
-<p class="crumbs"><a href="../">Evalu8 course</a> › Part 1 · Foundations</p>
-<p class="eyebrow">Chapter 1 of 30</p>
-<h1>Scores of 140 got into the database</h1>
+<p class="crumbs"><a href="../">All lessons</a> › Lesson 1 of 28</p>
+<h1>Value Object</h1>
+<p class="subtitle">Money and stays are passed around as bare numbers</p>
 <p class="tags"><span class="ptag" title="Not in the Gang of Four book">Value Object</span></p>
 </header>
-<section class="ticket" aria-label="The ticket">
-<p class="tk-label">New ticket</p>
-<h2>Hany’s average is 49.67 and the Ministry already has the CSV</h2>
-<p class="tk-from">From Mona Saleh, Head of Quality, Smouha Language School</p>
-<p>Our scale is 1 to 5. Hany shows 49.67, and Nadia shows 1.50 although her students rated her 3. We also found an evaluation from a &quot;studnet&quot;. Please make sure this can never happen again, whichever screen the answers come from.</p>
-</section>
-<section><h2>Why the quick fix is a trap</h2><p>The quick fix is an <code>if</code> before the INSERT:</p>
+<section class="ticket" aria-label="The ticket"><p class="tk-label">The ticket</p>
+<h2>A deposit lost a cent, and a Japanese guest was charged ¥150.00</h2><p class="tk-from">From Finance</p><p>Three problems this month. A €100.00 booking paid in three instalments was charged 3 × €33.33 = €99.99. The Tokyo apartment shows &quot;¥150.00&quot; and sends 15000 to Stripe, which for yen means ¥15,000. And a Copenhagen guest was charged for 2 nights instead of 3, because someone counted nights between two datetimes in UTC.</p></section>
+<section><h2>The quick fix, and why it hurts</h2><p>Every screen does its own arithmetic on bare numbers:</p>
 <div class="codebox">
-<div class="filehead"><span class="path">the quick fix (we won’t do this)</span></div>
-<pre class="code rejected"><code><span class="k">if</span> (<span class="v">$answer</span>[<span class="s">'score'</span>] &lt; <span class="n">1</span> || <span class="v">$answer</span>[<span class="s">'score'</span>] &gt; <span class="n">5</span>) {
-    <span class="k">continue</span>;   <span class="c">// skip it</span>
-}</code></pre>
-</div>
-<p>This has three problems. Answers will soon arrive from more places (a CSV import, an API, an admin screen), and each one needs the same <code>if</code>; the first place that forgets it lets 140 in again. <code>continue</code> drops the answer silently, so nobody knows it was lost. And the rest of the code still receives a plain string or int, so it can never be sure the value was checked.</p><p>We need the check to live in <b>one place</b> that every answer must pass through, and we need the result of that check to travel with the value.</p></section>
-<section class="pattern"><h2>The pattern: Value Object</h2>
-<p class="rule"><span>Remember it</span>A small object that wraps one value, checks it once when it is created, and can never change afterwards. If you hold one, it is valid.</p>
-<p>Instead of passing the integer <code>4</code> around, we pass a <code>Score</code> object that contains 4. The only way to create a <code>Score</code> is its constructor, and the constructor refuses anything outside 1–5. So any function that receives a <code>Score</code> knows it is valid, without checking again.</p><p>Three rules make it work: <b>it checks itself</b> in the constructor, <b>it can’t change</b> (all properties are <code>readonly</code>), and <b>two value objects with the same value are equal</b> (we compare them with <code>equals()</code>, not by identity).</p><p>Value Object is not in the Gang of Four book. It comes from Domain-Driven Design (Eric Evans, 2003) and is one of the most used patterns in modern PHP.</p>
-<div class="panels">
-<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Value Object: the problem"><rect class="bn" x="6" y="62" width="56" height="40" rx="7"/><text x="34" y="86" text-anchor="middle" class="">Form</text><line class="lx" x1="62" y1="82" x2="230" y2="82" marker-end="url(#arx)"/><rect class="bx" x="232" y="62" width="62" height="40" rx="7"/><text x="263" y="86" text-anchor="middle" class="kx">Database</text><text x="150" y="70" class="kx" text-anchor="middle">&quot;140&quot;  &quot;five&quot;  &quot;studnet&quot;</text><text x="150" y="112" class="kx" text-anchor="middle">stored exactly as typed</text><text x="150" y="134" class="kx" text-anchor="middle">report: 49.67 on a 1–5 scale</text></svg><p>Every value is stored as typed. Nothing stands between the form and the database.</p></figure>
-<figure class="panel good"><figcaption><h3>With Value Object</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Value Object: the fix"><rect class="bn" x="4" y="62" width="56" height="40" rx="7"/><text x="32" y="86" text-anchor="middle" class="">Form</text><line class="ln" x1="60" y1="82" x2="94" y2="82" marker-end="url(#ar)"/><rect class="bv" x="96" y="56" width="108" height="52" rx="7"/><text x="150" y="86" text-anchor="middle" class="kv">Score · Role</text><line class="lk" x1="204" y1="82" x2="238" y2="82" marker-end="url(#ar)"/><rect class="bn" x="240" y="62" width="56" height="40" rx="7"/><text x="268" y="86" text-anchor="middle" class="">Database</text><line class="lx" x1="150" y1="108" x2="150" y2="134" marker-end="url(#arx)"/><text x="150" y="152" class="kx" text-anchor="middle">rejected, with a reason</text><text x="221" y="74" class="s" text-anchor="middle">valid</text></svg><p>Every value must become a Score or a RespondentRole first. Bad ones are rejected loudly.</p></figure>
-</div>
+<div class="filehead"><span class="path">the quick fix (we won’t keep this)</span></div>
+<pre class="code rejected"><code><span class="v">$deposit</span> = <span class="f">intdiv</span>(<span class="v">$booking</span>-&gt;total_cents, <span class="n">3</span>);                      <span class="c">// the remainder disappears</span>
+<span class="v">$balance</span> = <span class="f">intdiv</span>(<span class="v">$booking</span>-&gt;total_cents * <span class="n">2</span>, <span class="n">3</span>);
 
+<span class="v">$display</span> = <span class="f">number_format</span>(<span class="v">$property</span>-&gt;nightly_rate_cents / <span class="n">100</span>, <span class="n">2</span>);   <span class="c">// assumes 2 decimals: wrong for JPY</span>
+
+<span class="v">$nights</span> = <span class="v">$checkIn</span>-&gt;<span class="f">diffInDays</span>(<span class="v">$checkOut</span>);                          <span class="c">// datetimes in UTC: DST shifts the result</span></code></pre>
+</div>
+<p>An integer has no currency, so nothing stops adding euros to pounds. Every place that divides or formats has to remember that JPY has no minor unit and KWD has three. A pair of date strings has no rule that check-out comes after check-in, and every place that needs the number of nights calculates it again, slightly differently.</p><p>The rules belong to the <b>values themselves</b>: a money amount always knows its currency and its minor unit; a stay always has a valid range and knows its nights.</p></section>
+<section class="pattern"><h2>The pattern: Value Object</h2>
+<p class="rule"><span>Remember it</span>A small immutable object defined by its value, not its identity. It checks itself when created, so if you hold one it is valid, and every operation returns a new one.</p>
+<p>Instead of passing <code>45000</code> and <code>'EUR'</code> separately, the code passes one <code>Money</code> object. Its constructor is the only way in, so an invalid amount or an unknown currency can never exist. It is <code>readonly</code>: nothing can change it after it was checked. Two <code>Money</code> objects with the same amount and currency are equal, even if they are different instances.</p><p>Operations like <code>add()</code> or <code>allocate()</code> never change the object; they return new ones. That makes them safe to pass around: no code can change a price that another part of the system is still using.</p><p>Value Object comes from Domain-Driven Design (Eric Evans, 2003). It is not in the Gang of Four book.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Value Object: the problem"><rect class="bx" x="4" y="14" width="96" height="30" rx="7"/><text x="52" y="33" text-anchor="middle" class="kx">Checkout ÷ 100</text><rect class="bx" x="4" y="68" width="96" height="30" rx="7"/><text x="52" y="87" text-anchor="middle" class="kx">Deposit ÷ 3</text><rect class="bx" x="4" y="122" width="96" height="30" rx="7"/><text x="52" y="141" text-anchor="middle" class="kx">Nights in UTC</text><line class="lx" x1="100" y1="29" x2="196" y2="76" marker-end="url(#arx)"/><line class="lx" x1="100" y1="83" x2="196" y2="83" marker-end="url(#arx)"/><line class="lx" x1="100" y1="137" x2="196" y2="90" marker-end="url(#arx)"/><rect class="bn" x="198" y="60" width="98" height="46" rx="7"/><text x="247" y="87" text-anchor="middle" class="">45000, &quot;EUR&quot;</text><text x="247" y="128" class="kx" text-anchor="middle">bare values</text></svg><p>Every screen does its own arithmetic on bare numbers, and each one can get it wrong.</p></figure>
+<figure class="panel good"><figcaption><h3>With Value Object</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Value Object: the fix"><rect class="bn" x="4" y="14" width="84" height="30" rx="7"/><text x="46" y="33" text-anchor="middle" class="">Checkout</text><rect class="bn" x="4" y="68" width="84" height="30" rx="7"/><text x="46" y="87" text-anchor="middle" class="">Payments</text><rect class="bn" x="4" y="122" width="84" height="30" rx="7"/><text x="46" y="141" text-anchor="middle" class="">Calendar</text><line class="lk" x1="88" y1="29" x2="160" y2="70" marker-end="url(#ar)"/><line class="lk" x1="88" y1="83" x2="160" y2="83" marker-end="url(#ar)"/><line class="lk" x1="88" y1="137" x2="160" y2="96" marker-end="url(#ar)"/><rect class="bv" x="162" y="52" width="134" height="62" rx="7"/><text x="229" y="87" text-anchor="middle" class="kv">Money · Stay</text><text x="229" y="132" class="s" text-anchor="middle">rules live in the value</text></svg><p>Every screen uses the same objects, which carry their own rules.</p></figure>
+</div>
 </section>
-<section><h2>Build it, step by step</h2>
-<p class="hint">Changed files show only what changed since chapter 0: <b class="plus">green</b> lines are new, <b class="minus">red</b> lines are removed. <b>Copy</b> always copies the complete file.</p>
-<ol class="steps"><li class="step"><h3><span class="num">1</span>Set up the project</h3><p>From this chapter on, Evalu8 is a Composer project: classes live in <code>src/</code> under the <code>Evalu8\</code> namespace (PSR-4), and the script moves to <code>bin/</code>. There are no packages to download; Composer only generates the autoloader.</p><div class="codebox">
-<div class="filehead"><span class="path">composer.json</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/composer.json" data-umami-event="Open file on GitHub">GitHub</a></div>
-<pre class="code"><code>{
-    <span class="s">&quot;name&quot;</span>: <span class="s">&quot;sha-hin/evalu8&quot;</span>,
-    <span class="s">&quot;description&quot;</span>: <span class="s">&quot;Evalu8: a school evaluation platform, refactored one design pattern at a time.&quot;</span>,
-    <span class="s">&quot;type&quot;</span>: <span class="s">&quot;project&quot;</span>,
-    <span class="s">&quot;license&quot;</span>: <span class="s">&quot;MIT&quot;</span>,
-    <span class="s">&quot;require&quot;</span>: {
-        <span class="s">&quot;php&quot;</span>: <span class="s">&quot;^8.2&quot;</span>,
-        <span class="s">&quot;ext-pdo_sqlite&quot;</span>: <span class="s">&quot;*&quot;</span>
-    },
-    <span class="s">&quot;autoload&quot;</span>: {
-        <span class="s">&quot;psr-4&quot;</span>: {
-            <span class="s">&quot;Evalu8\\&quot;</span>: <span class="s">&quot;src/&quot;</span>
-        }
-    }
-}</code></pre>
-</div></li><li class="step"><h3><span class="num">2</span>One exception for &quot;this value is not allowed&quot;</h3><p>Every value object throws the same exception type, so the code that reads user input can catch validation problems, and only those.</p><div class="codebox">
-<div class="filehead"><span class="path">src/Domain/InvalidValue.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/src/Domain/InvalidValue.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<section><h2>Build it</h2><div class="blocks numbered"><div class="block"><h3><span class="num">1</span>The currency knows its minor unit</h3><p>ISO 4217 defines how many decimals each currency has: two for EUR and USD, zero for JPY, three for KWD. A backed enum lists the currencies the PMS accepts, and <code>match</code> gives each its exponent. An unknown currency code fails when it is read, not when Stripe rejects it.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Money/Currency.php</span></div>
 <pre class="code"><code>&lt;?php
 
-<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Money</span>;
 
-<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>;
+<span class="k">enum</span> <span class="t">Currency</span>: <span class="k">string</span>
+{
+    <span class="k">case</span> <span class="t">EUR</span> = <span class="s">'EUR'</span>;
+    <span class="k">case</span> <span class="t">USD</span> = <span class="s">'USD'</span>;
+    <span class="k">case</span> <span class="t">GBP</span> = <span class="s">'GBP'</span>;
+    <span class="k">case</span> <span class="t">EGP</span> = <span class="s">'EGP'</span>;
+    <span class="k">case</span> <span class="t">JPY</span> = <span class="s">'JPY'</span>;
+    <span class="k">case</span> <span class="t">KWD</span> = <span class="s">'KWD'</span>;
+
+    <span class="c">/** Digits after the decimal point (ISO 4217). Stripe expects amounts in this unit. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">minorUnits</span>(): <span class="k">int</span>
+    {
+        <span class="k">return</span> <span class="k">match</span> (<span class="k">$this</span>) {
+            <span class="k">self</span>::<span class="t">JPY</span> =&gt; <span class="n">0</span>,
+            <span class="k">self</span>::<span class="t">KWD</span> =&gt; <span class="n">3</span>,
+            <span class="k">default</span> =&gt; <span class="n">2</span>,
+        };
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">2</span>Money</h3><p><code>final readonly class</code>: nobody can extend it, and no property can change after construction. The amount is always an integer in the minor unit, so there is no floating-point arithmetic anywhere.</p><p><code>allocate()</code> splits an amount by ratios without losing anything: each part gets its share rounded down, and the leftover units go one by one to the first parts. 100.00 split 1:1:1 becomes 33.34 + 33.33 + 33.33, which adds back to exactly 100.00.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Money/Money.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Money</span>;
 
 <span class="k">use</span> <span class="t">InvalidArgumentException</span>;
 
-<span class="c">/**</span>
-<span class="c"> * Thrown when a value object is given something it refuses to hold.</span>
-<span class="c"> */</span>
-<span class="k">final</span> <span class="k">class</span> <span class="t">InvalidValue</span> <span class="k">extends</span> <span class="t">InvalidArgumentException</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Money</span>
 {
-}</code></pre>
-</div></li><li class="step"><h3><span class="num">3</span>The Score value object</h3><p>The constructor is the gate: it accepts an <code>int</code> and refuses anything outside 1–5. <code>final readonly class</code> means nobody can extend it and nothing can change <code>$value</code> after creation.</p><p>Form input is always a string, so <code>fromInput()</code> is a second, named way to build a Score: it accepts <code>&quot;4&quot;</code> and rejects <code>&quot;five&quot;</code> or <code>&quot;4.5&quot;</code> with a clear message, then hands over to the constructor.</p><div class="codebox">
-<div class="filehead"><span class="path">src/Domain/Score.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/src/Domain/Score.php" data-umami-event="Open file on GitHub">GitHub</a></div>
-<pre class="code"><code>&lt;?php
+    <span class="c">/** @param int $amount in the currency's minor unit: cents for EUR, yen for JPY */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$amount</span>,
+        <span class="k">public</span> <span class="t">Currency</span> <span class="v">$currency</span>,
+    ) {
+    }
 
-<span class="k">declare</span>(strict_types=<span class="n">1</span>);
-
-<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>;
-
-<span class="c">/**</span>
-<span class="c"> * One answer on the 1–5 scale.</span>
-<span class="c"> *</span>
-<span class="c"> * If you hold a Score, it is valid: the constructor is the only way in,</span>
-<span class="c"> * and it refuses anything outside 1–5.</span>
-<span class="c"> */</span>
-<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Score</span>
-{
-    <span class="k">public</span> <span class="k">const</span> <span class="t">MIN</span> = <span class="n">1</span>;
-    <span class="k">public</span> <span class="k">const</span> <span class="t">MAX</span> = <span class="n">5</span>;
-
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">int</span> <span class="v">$value</span>)
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">of</span>(<span class="k">int</span> <span class="v">$amount</span>, <span class="t">Currency</span>|<span class="k">string</span> <span class="v">$currency</span>): <span class="k">self</span>
     {
-        <span class="k">if</span> (<span class="v">$value</span> &lt; <span class="k">self</span>::<span class="t">MIN</span> || <span class="v">$value</span> &gt; <span class="k">self</span>::<span class="t">MAX</span>) {
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidValue</span>(<span class="s">&quot;A score must be between 1 and 5, got {$value}.&quot;</span>);
-        }
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$amount</span>, <span class="v">$currency</span> <span class="k">instanceof</span> <span class="t">Currency</span> ? <span class="v">$currency</span> : <span class="t">Currency</span>::<span class="f">from</span>(<span class="v">$currency</span>));
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">zero</span>(<span class="t">Currency</span> <span class="v">$currency</span>): <span class="k">self</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="n">0</span>, <span class="v">$currency</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">self</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">assertSameCurrency</span>(<span class="v">$other</span>);
+
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="k">$this</span>-&gt;amount + <span class="v">$other</span>-&gt;amount, <span class="k">$this</span>-&gt;currency);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">subtract</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">self</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">assertSameCurrency</span>(<span class="v">$other</span>);
+
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="k">$this</span>-&gt;amount - <span class="v">$other</span>-&gt;amount, <span class="k">$this</span>-&gt;currency);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">times</span>(<span class="k">int</span> <span class="v">$quantity</span>): <span class="k">self</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="k">$this</span>-&gt;amount * <span class="v">$quantity</span>, <span class="k">$this</span>-&gt;currency);
+    }
+
+    <span class="c">/** A percentage of this amount, rounded half up to the minor unit (e.g. a 50% refund). */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">percent</span>(<span class="k">int</span> <span class="v">$percent</span>): <span class="k">self</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="f">intdiv</span>(<span class="k">$this</span>-&gt;amount * <span class="v">$percent</span> + <span class="n">50</span>, <span class="n">100</span>), <span class="k">$this</span>-&gt;currency);
     }
 
     <span class="c">/**</span>
-<span class="c">     * Builds a Score from raw form input such as &quot;4&quot;.</span>
+<span class="c">     * Splits the amount by ratios without losing a single minor unit.</span>
+<span class="c">     *</span>
+<span class="c">     * @param int ...$ratios e.g. 30, 70 for a deposit and a balance</span>
+<span class="c">     * @return list&lt;self&gt;</span>
 <span class="c">     */</span>
-    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromInput</span>(<span class="k">string</span> <span class="v">$raw</span>): <span class="k">self</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">allocate</span>(<span class="k">int</span> ...<span class="v">$ratios</span>): <span class="k">array</span>
     {
-        <span class="v">$value</span> = <span class="f">filter_var</span>(<span class="f">trim</span>(<span class="v">$raw</span>), <span class="t">FILTER_VALIDATE_INT</span>);
-
-        <span class="k">if</span> (<span class="v">$value</span> === <span class="k">false</span>) {
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidValue</span>(<span class="s">&quot;A score must be a whole number, got \&quot;{$raw}\&quot;.&quot;</span>);
+        <span class="v">$total</span> = <span class="f">array_sum</span>(<span class="v">$ratios</span>);
+        <span class="k">if</span> (<span class="v">$total</span> &lt;= <span class="n">0</span> || <span class="f">min</span>(<span class="v">$ratios</span>) &lt; <span class="n">0</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'Ratios must be zero or positive, with a positive total.'</span>);
+        }
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;amount &lt; <span class="n">0</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'Only a positive amount can be allocated.'</span>);
         }
 
-        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$value</span>);
+        <span class="v">$parts</span> = [];
+        <span class="v">$remainder</span> = <span class="k">$this</span>-&gt;amount;
+        <span class="k">foreach</span> (<span class="v">$ratios</span> <span class="k">as</span> <span class="v">$ratio</span>) {
+            <span class="v">$share</span> = <span class="f">intdiv</span>(<span class="k">$this</span>-&gt;amount * <span class="v">$ratio</span>, <span class="v">$total</span>);          <span class="c">// rounded down</span>
+            <span class="v">$parts</span>[] = <span class="v">$share</span>;
+            <span class="v">$remainder</span> -= <span class="v">$share</span>;
+        }
+        <span class="k">for</span> (<span class="v">$i</span> = <span class="n">0</span>; <span class="v">$remainder</span> &gt; <span class="n">0</span>; <span class="v">$i</span>++, <span class="v">$remainder</span>--) {
+            <span class="v">$parts</span>[<span class="v">$i</span> % <span class="f">count</span>(<span class="v">$parts</span>)]++;                               <span class="c">// leftover units, one each, from the first part</span>
+        }
+
+        <span class="k">return</span> <span class="f">array_map</span>(<span class="k">fn</span> (<span class="k">int</span> <span class="v">$amount</span>): <span class="k">self</span> =&gt; <span class="k">new</span> <span class="k">self</span>(<span class="v">$amount</span>, <span class="k">$this</span>-&gt;currency), <span class="v">$parts</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">isZero</span>(): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;amount === <span class="n">0</span>;
     }
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">equals</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span>
     {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;value === <span class="v">$other</span>-&gt;value;
+        <span class="k">return</span> <span class="k">$this</span>-&gt;amount === <span class="v">$other</span>-&gt;amount &amp;&amp; <span class="k">$this</span>-&gt;currency === <span class="v">$other</span>-&gt;currency;
+    }
+
+    <span class="c">/** The amount as a decimal string in major units: &quot;150.00&quot; for EUR, &quot;15000&quot; for JPY. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toDecimal</span>(): <span class="k">string</span>
+    {
+        <span class="v">$units</span> = <span class="k">$this</span>-&gt;currency-&gt;<span class="f">minorUnits</span>();
+
+        <span class="k">return</span> <span class="v">$units</span> === <span class="n">0</span> ? (<span class="k">string</span>) <span class="k">$this</span>-&gt;amount : <span class="f">number_format</span>(<span class="k">$this</span>-&gt;amount / <span class="n">10</span> ** <span class="v">$units</span>, <span class="v">$units</span>, <span class="s">'.'</span>, <span class="s">''</span>);
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">assertSameCurrency</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;currency !== <span class="v">$other</span>-&gt;currency) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Cannot combine {$this-&gt;currency-&gt;value} with {$other-&gt;currency-&gt;value}.&quot;</span>);
+        }
     }
 }</code></pre>
-</div></li><li class="step"><h3><span class="num">4</span>The role: an enum</h3><p>A role is one of a fixed list. PHP’s backed enum is exactly that: <code>RespondentRole::from('student')</code> works, and there is no way to create a <code>studnet</code>. Enums are value objects built into the language.</p><div class="codebox">
-<div class="filehead"><span class="path">src/Domain/RespondentRole.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/src/Domain/RespondentRole.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+</div></div><div class="block"><h3><span class="num">3</span>Stay: a valid date range that knows its nights</h3><p>A stay is two dates, check-in included and check-out excluded. It refuses an empty or reversed range, so <code>nights()</code> is always at least 1. Dates are kept at midnight UTC on purpose: they are calendar dates, not moments, so no daylight-saving change can move them.</p><p>When a moment is needed (&quot;check-in is at 15:00 in Copenhagen&quot;), <code>checkInMoment()</code> builds it in the <b>property’s</b> timezone and returns it in UTC, which is how the database stores times.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Bookings/Stay.php</span></div>
 <pre class="code"><code>&lt;?php
 
-<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
 
-<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">InvalidArgumentException</span>;
 
-<span class="c">/**</span>
-<span class="c"> * Who answered the survey. A backed enum is PHP's built-in value object for</span>
-<span class="c"> * &quot;one of a fixed list&quot;: there is no way to create RespondentRole::Studnet.</span>
-<span class="c"> */</span>
-<span class="k">enum</span> <span class="t">RespondentRole</span>: <span class="k">string</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Stay</span>
 {
-    <span class="k">case</span> <span class="t">Student</span> = <span class="s">'student'</span>;
-    <span class="k">case</span> <span class="t">Peer</span> = <span class="s">'peer'</span>;
-    <span class="k">case</span> <span class="t">Principal</span> = <span class="s">'principal'</span>;
+    <span class="k">public</span> <span class="t">CarbonImmutable</span> <span class="v">$checkIn</span>;
+    <span class="k">public</span> <span class="t">CarbonImmutable</span> <span class="v">$checkOut</span>;
 
-    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromInput</span>(<span class="k">string</span> <span class="v">$raw</span>): <span class="k">self</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="t">CarbonImmutable</span> <span class="v">$checkIn</span>, <span class="t">CarbonImmutable</span> <span class="v">$checkOut</span>)
     {
-        <span class="v">$role</span> = <span class="k">self</span>::<span class="f">tryFrom</span>(<span class="f">strtolower</span>(<span class="f">trim</span>(<span class="v">$raw</span>)));
+        <span class="k">$this</span>-&gt;checkIn = <span class="v">$checkIn</span>-&gt;<span class="f">utc</span>()-&gt;<span class="f">startOfDay</span>();                 <span class="c">// a calendar date, not a moment</span>
+        <span class="k">$this</span>-&gt;checkOut = <span class="v">$checkOut</span>-&gt;<span class="f">utc</span>()-&gt;<span class="f">startOfDay</span>();
 
-        <span class="k">if</span> (<span class="v">$role</span> === <span class="k">null</span>) {
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidValue</span>(<span class="s">&quot;Unknown respondent role \&quot;{$raw}\&quot;.&quot;</span>);
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">lessThanOrEqualTo</span>(<span class="k">$this</span>-&gt;checkIn)) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'Check-out must be after check-in.'</span>);
         }
-
-        <span class="k">return</span> <span class="v">$role</span>;
     }
-}</code></pre>
-</div></li><li class="step"><h3><span class="num">5</span>The EmailAddress value object</h3><p>Same idea for emails. It also stores the address in lower case, so <code>Hany@Smouha.edu.eg</code> and <code>hany@smouha.edu.eg</code> are equal.</p><div class="codebox">
-<div class="filehead"><span class="path">src/Domain/EmailAddress.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/src/Domain/EmailAddress.php" data-umami-event="Open file on GitHub">GitHub</a></div>
-<pre class="code"><code>&lt;?php
 
-<span class="k">declare</span>(strict_types=<span class="n">1</span>);
-
-<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>;
-
-<span class="c">/**</span>
-<span class="c"> * A valid email address, stored in lower case so that two spellings of the</span>
-<span class="c"> * same address are equal.</span>
-<span class="c"> */</span>
-<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">EmailAddress</span>
-{
-    <span class="k">public</span> <span class="k">string</span> <span class="v">$value</span>;
-
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">string</span> <span class="v">$value</span>)
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromDates</span>(<span class="k">string</span> <span class="v">$checkIn</span>, <span class="k">string</span> <span class="v">$checkOut</span>): <span class="k">self</span>
     {
-        <span class="v">$normalized</span> = <span class="f">strtolower</span>(<span class="f">trim</span>(<span class="v">$value</span>));
+        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="v">$checkIn</span>, <span class="s">'UTC'</span>), <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="v">$checkOut</span>, <span class="s">'UTC'</span>));
+    }
 
-        <span class="k">if</span> (<span class="f">filter_var</span>(<span class="v">$normalized</span>, <span class="t">FILTER_VALIDATE_EMAIL</span>) === <span class="k">false</span>) {
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidValue</span>(<span class="s">&quot;\&quot;{$value}\&quot; is not a valid email address.&quot;</span>);
-        }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">nights</span>(): <span class="k">int</span>
+    {
+        <span class="k">return</span> (<span class="k">int</span>) <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">diffInDays</span>(<span class="k">$this</span>-&gt;checkOut);       <span class="c">// exact: both are UTC midnights</span>
+    }
 
-        <span class="k">$this</span>-&gt;value = <span class="v">$normalized</span>;
+    <span class="c">/** True when the two stays share at least one night. Back-to-back stays don't overlap. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">overlaps</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">lessThan</span>(<span class="v">$other</span>-&gt;checkOut) &amp;&amp; <span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">greaterThan</span>(<span class="v">$other</span>-&gt;checkIn);
+    }
+
+    <span class="c">/** The real moment of check-in, e.g. 15:00 in Europe/Copenhagen, returned in UTC. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">checkInMoment</span>(<span class="k">string</span> <span class="v">$timezone</span>, <span class="k">string</span> <span class="v">$time</span>): <span class="t">CarbonImmutable</span>
+    {
+        <span class="k">return</span> <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$this-&gt;checkIn-&gt;toDateString()} {$time}&quot;</span>, <span class="v">$timezone</span>)-&gt;<span class="f">utc</span>();
     }
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">equals</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span>
     {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;value === <span class="v">$other</span>-&gt;value;
-    }
-
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__toString</span>(): <span class="k">string</span>
-    {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;value;
+        <span class="k">return</span> <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkIn) &amp;&amp; <span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkOut);
     }
 }</code></pre>
-</div></li><li class="step"><h3><span class="num">6</span>Use them where data enters the app</h3><p>Each answer is turned into value objects <b>before</b> it is stored. A bad answer is reported with its row number and the reason, and is not saved. Before an email is sent, the address must become an <code>EmailAddress</code>.</p><p>While touching the INSERT, we also switch it to a prepared statement, so a comment containing <code>'</code> can no longer break the SQL, and the <code>score</code> column becomes <code>INTEGER</code>, so the copied loops read it with <code>(int)</code>. The three copied SELECTs are still there; they are the next chapter’s problem.</p><div class="codebox">
-<div class="filehead"><span class="path">bin/evaluations.php</span><span class="badge chg" title="Lines added and removed since chapter 0"><b class="plus">+35</b> <b class="minus">−15</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/01-value-object/bin/evaluations.php" data-umami-event="Open file on GitHub">GitHub</a></div>
-<pre class="code diff" data-copy="&lt;?php
+</div></div><div class="block"><h3><span class="num">4</span>Eloquent casts: the model hands out value objects</h3><p>A cast class turns columns into a value object when you read the attribute, and back into columns when you set it. One <code>Money</code> attribute uses <b>two</b> columns (<code>total_cents</code> and <code>currency</code>), so <code>set()</code> returns an array of both.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Casts/MoneyCast.php</span></div>
+<pre class="code"><code>&lt;?php
 
-declare(strict_types=1);
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Casts</span>;
 
-/*
- * Evalu8, chapter 1: bad values can no longer get in.
- *
- *     composer dump-autoload
- *     php bin/evaluations.php
- */
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">CastsAttributes</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">InvalidArgumentException</span>;
 
-require __DIR__ . '/../vendor/autoload.php';
-
-use Evalu8\Domain\EmailAddress;
-use Evalu8\Domain\InvalidValue;
-use Evalu8\Domain\RespondentRole;
-use Evalu8\Domain\Score;
-
-$db = new PDO('sqlite::memory:');
-$db-&gt;setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$db-&gt;setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-
-$db-&gt;exec('CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, email TEXT, school TEXT)');
-$db-&gt;exec('CREATE TABLE responses (id INTEGER PRIMARY KEY, teacher_id INTEGER, role TEXT, score INTEGER, comment TEXT)');
-
-$db-&gt;exec(&quot;INSERT INTO teachers (id, name, email, school) VALUES
-    (1, 'Hany Mostafa', 'hany@smouha.edu.eg', 'Smouha'),
-    (2, 'Nadia Fawzy', '', 'Smouha'),
-    (3, 'Karim Adel', 'karim@miami.edu.eg', 'Miami')&quot;);
-
-// ── Answers coming in from the survey form (scores are 1 to 5) ──
-$submitted = [
-    ['teacher_id' =&gt; 1, 'role' =&gt; 'student', 'score' =&gt; '5', 'comment' =&gt; 'Explains clearly'],
-    ['teacher_id' =&gt; 1, 'role' =&gt; 'student', 'score' =&gt; '4', 'comment' =&gt; ''],
-    ['teacher_id' =&gt; 1, 'role' =&gt; 'principal', 'score' =&gt; '140', 'comment' =&gt; 'typo: meant 4'],
-    ['teacher_id' =&gt; 2, 'role' =&gt; 'student', 'score' =&gt; '3', 'comment' =&gt; 'Starts late'],
-    ['teacher_id' =&gt; 2, 'role' =&gt; 'peer', 'score' =&gt; 'five', 'comment' =&gt; ''],
-    ['teacher_id' =&gt; 3, 'role' =&gt; 'studnet', 'score' =&gt; '2', 'comment' =&gt; 'Too fast'],
-    ['teacher_id' =&gt; 3, 'role' =&gt; 'peer', 'score' =&gt; '4', 'comment' =&gt; ''],
-];
-
-$insert = $db-&gt;prepare('INSERT INTO responses (teacher_id, role, score, comment) VALUES (?, ?, ?, ?)');
-
-echo &quot;REJECTED ANSWERS\n&quot;;
-foreach ($submitted as $number =&gt; $answer) {
-    try {
-        $role = RespondentRole::fromInput($answer['role']);  // invalid input stops here...
-        $score = Score::fromInput($answer['score']);  // ...or here
-    } catch (InvalidValue $e) {
-        echo &quot;Row {$number}: {$e-&gt;getMessage()}\n&quot;;  // rejected loudly, never stored
-        continue;
-    }
-
-    $insert-&gt;execute([$answer['teacher_id'], $role-&gt;value, $score-&gt;value, $answer['comment']]);
-}
-
-// ── The term report ──
-echo &quot;\nTERM REPORT\n&quot;;
-$teachers = $db-&gt;query('SELECT * FROM teachers')-&gt;fetchAll();
-foreach ($teachers as $teacher) {
-    $rows = $db-&gt;query('SELECT * FROM responses WHERE teacher_id = ' . $teacher['id'])-&gt;fetchAll();
-    $total = 0;
-    foreach ($rows as $row) {
-        $total += (int) $row['score'];
-    }
-    $average = count($rows) &gt; 0 ? $total / count($rows) : 0;
-    echo str_pad($teacher['name'], 14) . ' average ' . number_format($average, 2) . &quot;\n&quot;;
-}
-
-// ── Email each teacher a summary ──
-echo &quot;\nEMAILS\n&quot;;
-foreach ($teachers as $teacher) {
-    try {
-        $email = new EmailAddress($teacher['email']);  // no more emails to &lt;&gt;
-    } catch (InvalidValue $e) {
-        echo &quot;Not sent to {$teacher['name']}: {$e-&gt;getMessage()}\n&quot;;
-        continue;
-    }
-
-    $rows = $db-&gt;query('SELECT * FROM responses WHERE teacher_id = ' . $teacher['id'])-&gt;fetchAll();
-    $total = 0;
-    foreach ($rows as $row) {
-        $total += (int) $row['score'];
-    }
-    $average = count($rows) &gt; 0 ? $total / count($rows) : 0;
-    echo &quot;To: &lt;{$email}&gt; Your average this term is &quot; . number_format($average, 2) . &quot;\n&quot;;
-}
-
-// ── CSV export for the Ministry ──
-echo &quot;\nMINISTRY CSV\n&quot;;
-echo &quot;teacher,school,responses,average\n&quot;;
-foreach ($teachers as $teacher) {
-    $rows = $db-&gt;query('SELECT score FROM responses WHERE teacher_id = ' . $teacher['id'])-&gt;fetchAll();
-    $sum = 0;
-    foreach ($rows as $row) {
-        $sum += (int) $row['score'];
-    }
-    $average = count($rows) &gt; 0 ? round($sum / count($rows), 2) : 0;
-    echo &quot;{$teacher['name']},{$teacher['school']},&quot; . count($rows) . &quot;,{$average}\n&quot;;
-}
-"><code><span class="ln fold">⋯ 2 unchanged lines</span><span class="ln"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="ln"> </span><span class="ln"><span class="c">/*</span></span><span class="ln del"><span class="c"> * Evalu8: the code as we found it.</span></span><span class="ln del"><span class="c"> *</span></span><span class="ln del"><span class="c"> * One script does everything: it saves answers, prints the term report,</span></span><span class="ln del"><span class="c"> * emails each teacher a summary and exports a CSV for the Ministry.</span></span><span class="ln del"><span class="c"> * It &quot;works&quot;. Run it and read the output carefully.</span></span><span class="ln add"><span class="c"> * Evalu8, chapter 1: bad values can no longer get in.</span></span><span class="ln"><span class="c"> *</span></span><span class="ln del"><span class="c"> *     php evaluations.php</span></span><span class="ln add"><span class="c"> *     composer dump-autoload</span></span><span class="ln add"><span class="c"> *     php bin/evaluations.php</span></span><span class="ln"><span class="c"> */</span></span><span class="ln"> </span><span class="ln add"><span class="k">require</span> __DIR__ . <span class="s">'/../vendor/autoload.php'</span>;</span><span class="ln add"> </span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">EmailAddress</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">InvalidValue</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">RespondentRole</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Score</span>;</span><span class="ln add"> </span><span class="ln"><span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite::memory:'</span>);</span><span class="ln"><span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);</span><span class="ln"><span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_DEFAULT_FETCH_MODE</span>, <span class="t">PDO</span>::<span class="t">FETCH_ASSOC</span>);</span><span class="ln"> </span><span class="ln"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, email TEXT, school TEXT)'</span>);</span><span class="ln del"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE responses (id INTEGER PRIMARY KEY, teacher_id INTEGER, role TEXT, score, comment TEXT)'</span>);</span><span class="ln add"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE responses (id INTEGER PRIMARY KEY, teacher_id INTEGER, role TEXT, score INTEGER, comment TEXT)'</span>);</span><span class="ln"> </span><span class="ln"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO teachers (id, name, email, school) VALUES</span></span><span class="ln"><span class="s">    (1, 'Hany Mostafa', 'hany@smouha.edu.eg', 'Smouha'),</span></span><span class="ln fold">⋯ 11 unchanged lines</span><span class="ln">    [<span class="s">'teacher_id'</span> =&gt; <span class="n">3</span>, <span class="s">'role'</span> =&gt; <span class="s">'peer'</span>, <span class="s">'score'</span> =&gt; <span class="s">'4'</span>, <span class="s">'comment'</span> =&gt; <span class="s">''</span>],</span><span class="ln">];</span><span class="ln"> </span><span class="ln del"><span class="k">foreach</span> (<span class="v">$submitted</span> <span class="k">as</span> <span class="v">$answer</span>) {</span><span class="ln del">    <span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO responses (teacher_id, role, score, comment) VALUES (&quot;</span></span><span class="ln del">        . <span class="v">$answer</span>[<span class="s">'teacher_id'</span>] . <span class="s">&quot;, '&quot;</span> . <span class="v">$answer</span>[<span class="s">'role'</span>] . <span class="s">&quot;', '&quot;</span> . <span class="v">$answer</span>[<span class="s">'score'</span>] . <span class="s">&quot;', '&quot;</span></span><span class="ln del">        . <span class="v">$answer</span>[<span class="s">'comment'</span>] . <span class="s">&quot;')&quot;</span>);</span><span class="ln add"><span class="v">$insert</span> = <span class="v">$db</span>-&gt;<span class="f">prepare</span>(<span class="s">'INSERT INTO responses (teacher_id, role, score, comment) VALUES (?, ?, ?, ?)'</span>);</span><span class="ln add"> </span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;REJECTED ANSWERS\n&quot;</span>;</span><span class="ln add"><span class="k">foreach</span> (<span class="v">$submitted</span> <span class="k">as</span> <span class="v">$number</span> =&gt; <span class="v">$answer</span>) {</span><span class="ln add">    <span class="k">try</span> {</span><span class="ln add">        <span class="v">$role</span> = <span class="t">RespondentRole</span>::<span class="f">fromInput</span>(<span class="v">$answer</span>[<span class="s">'role'</span>]);  <span class="c">// invalid input stops here...</span></span><span class="ln add">        <span class="v">$score</span> = <span class="t">Score</span>::<span class="f">fromInput</span>(<span class="v">$answer</span>[<span class="s">'score'</span>]);  <span class="c">// ...or here</span></span><span class="ln add">    } <span class="k">catch</span> (<span class="t">InvalidValue</span> <span class="v">$e</span>) {</span><span class="ln add">        <span class="k">echo</span> <span class="s">&quot;Row {$number}: {$e-&gt;getMessage()}\n&quot;</span>;  <span class="c">// rejected loudly, never stored</span></span><span class="ln add">        <span class="k">continue</span>;</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="v">$insert</span>-&gt;<span class="f">execute</span>([<span class="v">$answer</span>[<span class="s">'teacher_id'</span>], <span class="v">$role</span>-&gt;value, <span class="v">$score</span>-&gt;value, <span class="v">$answer</span>[<span class="s">'comment'</span>]]);</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="c">// ── The term report ──</span></span><span class="ln del"><span class="k">echo</span> <span class="s">&quot;TERM REPORT\n&quot;</span>;</span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;\nTERM REPORT\n&quot;</span>;</span><span class="ln"><span class="v">$teachers</span> = <span class="v">$db</span>-&gt;<span class="f">query</span>(<span class="s">'SELECT * FROM teachers'</span>)-&gt;<span class="f">fetchAll</span>();</span><span class="ln"><span class="k">foreach</span> (<span class="v">$teachers</span> <span class="k">as</span> <span class="v">$teacher</span>) {</span><span class="ln">    <span class="v">$rows</span> = <span class="v">$db</span>-&gt;<span class="f">query</span>(<span class="s">'SELECT * FROM responses WHERE teacher_id = '</span> . <span class="v">$teacher</span>[<span class="s">'id'</span>])-&gt;<span class="f">fetchAll</span>();</span><span class="ln">    <span class="v">$total</span> = <span class="n">0</span>;</span><span class="ln">    <span class="k">foreach</span> (<span class="v">$rows</span> <span class="k">as</span> <span class="v">$row</span>) {</span><span class="ln del">        <span class="v">$total</span> += (<span class="k">float</span>) <span class="v">$row</span>[<span class="s">'score'</span>];</span><span class="ln add">        <span class="v">$total</span> += (<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'score'</span>];</span><span class="ln">    }</span><span class="ln">    <span class="v">$average</span> = <span class="f">count</span>(<span class="v">$rows</span>) &gt; <span class="n">0</span> ? <span class="v">$total</span> / <span class="f">count</span>(<span class="v">$rows</span>) : <span class="n">0</span>;</span><span class="ln">    <span class="k">echo</span> <span class="f">str_pad</span>(<span class="v">$teacher</span>[<span class="s">'name'</span>], <span class="n">14</span>) . <span class="s">' average '</span> . <span class="f">number_format</span>(<span class="v">$average</span>, <span class="n">2</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="ln fold">⋯ 2 unchanged lines</span><span class="ln"><span class="c">// ── Email each teacher a summary ──</span></span><span class="ln"><span class="k">echo</span> <span class="s">&quot;\nEMAILS\n&quot;</span>;</span><span class="ln"><span class="k">foreach</span> (<span class="v">$teachers</span> <span class="k">as</span> <span class="v">$teacher</span>) {</span><span class="ln add">    <span class="k">try</span> {</span><span class="ln add">        <span class="v">$email</span> = <span class="k">new</span> <span class="f">EmailAddress</span>(<span class="v">$teacher</span>[<span class="s">'email'</span>]);  <span class="c">// no more emails to &lt;&gt;</span></span><span class="ln add">    } <span class="k">catch</span> (<span class="t">InvalidValue</span> <span class="v">$e</span>) {</span><span class="ln add">        <span class="k">echo</span> <span class="s">&quot;Not sent to {$teacher['name']}: {$e-&gt;getMessage()}\n&quot;</span>;</span><span class="ln add">        <span class="k">continue</span>;</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="v">$rows</span> = <span class="v">$db</span>-&gt;<span class="f">query</span>(<span class="s">'SELECT * FROM responses WHERE teacher_id = '</span> . <span class="v">$teacher</span>[<span class="s">'id'</span>])-&gt;<span class="f">fetchAll</span>();</span><span class="ln">    <span class="v">$total</span> = <span class="n">0</span>;</span><span class="ln">    <span class="k">foreach</span> (<span class="v">$rows</span> <span class="k">as</span> <span class="v">$row</span>) {</span><span class="ln del">        <span class="v">$total</span> += (<span class="k">float</span>) <span class="v">$row</span>[<span class="s">'score'</span>];</span><span class="ln add">        <span class="v">$total</span> += (<span class="k">int</span>) <span class="v">$row</span>[<span class="s">'score'</span>];</span><span class="ln">    }</span><span class="ln">    <span class="v">$average</span> = <span class="f">count</span>(<span class="v">$rows</span>) &gt; <span class="n">0</span> ? <span class="v">$total</span> / <span class="f">count</span>(<span class="v">$rows</span>) : <span class="n">0</span>;</span><span class="ln del">    <span class="k">echo</span> <span class="s">&quot;To: &lt;{$teacher['email']}&gt; Your average this term is &quot;</span> . <span class="f">number_format</span>(<span class="v">$average</span>, <span class="n">2</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="ln add">    <span class="k">echo</span> <span class="s">&quot;To: &lt;{$email}&gt; Your average this term is &quot;</span> . <span class="f">number_format</span>(<span class="v">$average</span>, <span class="n">2</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="c">// ── CSV export for the Ministry ──</span></span><span class="ln fold">⋯ 11 unchanged lines</span></code></pre>
-</div></li></ol></section>
-<section class="run"><h2>Run it</h2><p>The three bad answers are rejected with a reason, the averages are back on the 1–5 scale, and Nadia is not emailed. The script says so instead of pretending.</p>
-<div class="codebox">
-<div class="filehead"><span class="path">terminal, inside chapters/01-value-object</span></div>
-<pre class="code"><code>composer dump-autoload
-php bin/evaluations.php</code></pre>
-</div>
-<div class="output"><span>Output</span><pre>REJECTED ANSWERS
-Row 2: A score must be between 1 and 5, got 140.
-Row 4: A score must be a whole number, got &quot;five&quot;.
-Row 5: Unknown respondent role &quot;studnet&quot;.
-
-TERM REPORT
-Hany Mostafa   average 4.50
-Nadia Fawzy    average 3.00
-Karim Adel     average 4.00
-
-EMAILS
-To: &lt;hany@smouha.edu.eg&gt; Your average this term is 4.50
-Not sent to Nadia Fawzy: &quot;&quot; is not a valid email address.
-To: &lt;karim@miami.edu.eg&gt; Your average this term is 4.00
-
-MINISTRY CSV
-teacher,school,responses,average
-Hany Mostafa,Smouha,2,4.5
-Nadia Fawzy,Smouha,1,3
-Karim Adel,Miami,1,4</pre></div></section>
-<section class="laravel"><h2>How Laravel does it</h2><p>Laravel validates the request first (<code>'score' =&gt; ['required', 'integer', 'between:1,5']</code>), which gives the user a friendly error. A value object is the second line of defence inside the app: it protects every path, including imports, jobs and tinker.</p><p>Eloquent can turn a column into a value object automatically. Enums need nothing but a cast; for your own classes you write a small cast class:</p>
-<div class="codebox">
-<div class="filehead"><span class="path">Laravel</span></div>
-<pre class="code"><code><span class="k">final</span> <span class="k">class</span> <span class="t">ScoreCast</span> <span class="k">implements</span> <span class="t">CastsAttributes</span>
+<span class="c">/** @implements CastsAttributes&lt;Money, Money&gt; */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">MoneyCast</span> <span class="k">implements</span> <span class="t">CastsAttributes</span>
 {
-    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): <span class="t">Score</span>
+    <span class="c">/** @param string $amountColumn e.g. &quot;total_cents&quot;; the currency is always in &quot;currency&quot; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$amountColumn</span>)
     {
-        <span class="k">return</span> <span class="k">new</span> <span class="f">Score</span>((<span class="k">int</span>) <span class="v">$value</span>);
     }
 
-    <span class="c">/** @param Score $value */</span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">set</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): <span class="k">int</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): ?<span class="t">Money</span>
     {
-        <span class="k">return</span> <span class="v">$value</span>-&gt;value;
-    }
-}
+        <span class="k">if</span> ((<span class="v">$attributes</span>[<span class="k">$this</span>-&gt;amountColumn] ?? <span class="k">null</span>) === <span class="k">null</span>) {
+            <span class="k">return</span> <span class="k">null</span>;
+        }
 
-<span class="c">// In the Response model:</span>
-<span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+        <span class="k">return</span> <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="v">$attributes</span>[<span class="k">$this</span>-&gt;amountColumn], <span class="v">$attributes</span>[<span class="s">'currency'</span>]);
+    }
+
+    <span class="c">/** @return array&lt;string, int|string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">set</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): <span class="k">array</span>
+    {
+        <span class="k">if</span> (! <span class="v">$value</span> <span class="k">instanceof</span> <span class="t">Money</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;{$key} must be set with a Money object.&quot;</span>);
+        }
+
+        <span class="k">return</span> [<span class="k">$this</span>-&gt;amountColumn =&gt; <span class="v">$value</span>-&gt;amount, <span class="s">'currency'</span> =&gt; <span class="v">$value</span>-&gt;currency-&gt;value];
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">5</span>The Stay cast</h3><p>Same idea for the stay: two date columns in, one <code>Stay</code> out.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Casts/StayCast.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Casts</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">CastsAttributes</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">InvalidArgumentException</span>;
+
+<span class="c">/** @implements CastsAttributes&lt;Stay, Stay&gt; */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">StayCast</span> <span class="k">implements</span> <span class="t">CastsAttributes</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): ?<span class="t">Stay</span>
+    {
+        <span class="k">if</span> (! <span class="f">isset</span>(<span class="v">$attributes</span>[<span class="s">'check_in'</span>], <span class="v">$attributes</span>[<span class="s">'check_out'</span>])) {
+            <span class="k">return</span> <span class="k">null</span>;
+        }
+
+        <span class="k">return</span> <span class="t">Stay</span>::<span class="f">fromDates</span>((<span class="k">string</span>) <span class="v">$attributes</span>[<span class="s">'check_in'</span>], (<span class="k">string</span>) <span class="v">$attributes</span>[<span class="s">'check_out'</span>]);
+    }
+
+    <span class="c">/** @return array&lt;string, string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">set</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): <span class="k">array</span>
+    {
+        <span class="k">if</span> (! <span class="v">$value</span> <span class="k">instanceof</span> <span class="t">Stay</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;{$key} must be set with a Stay object.&quot;</span>);
+        }
+
+        <span class="k">return</span> [<span class="s">'check_in'</span> =&gt; <span class="v">$value</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(), <span class="s">'check_out'</span> =&gt; <span class="v">$value</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>()];
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">6</span>Using the casts on the models</h3><p>The cast arguments come after a colon. <code>total</code> is not a column: it is a virtual attribute built from <code>total_cents</code> and <code>currency</code>. The <code>Stay</code> cast follows the same idea with <code>check_in</code> and <code>check_out</code>.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Models/Booking.php (casts)</span></div>
+<pre class="code"><code><span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
 {
     <span class="k">return</span> [
-        <span class="s">'score'</span> =&gt; <span class="t">ScoreCast</span>::class,
-        <span class="s">'role'</span> =&gt; <span class="t">RespondentRole</span>::class,
+        <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,
+        <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,
+        <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,
+        <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,
+        <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,
+        <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,
+        <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,
     ];
+}
+
+<span class="c">// Anywhere in the app:</span>
+<span class="v">$booking</span>-&gt;total;                                 <span class="c">// Money(45000, EUR)</span>
+<span class="v">$booking</span>-&gt;stay-&gt;<span class="f">nights</span>();                        <span class="c">// 3</span>
+[<span class="v">$deposit</span>, <span class="v">$balance</span>] = <span class="v">$booking</span>-&gt;total-&gt;<span class="f">allocate</span>(<span class="n">30</span>, <span class="n">70</span>);</code></pre>
+</div></div></div></section>
+<section class="laravel"><h2>How Laravel does it inside</h2><p>Laravel builds value objects from casts inside <code>HasAttributes</code>. When you read <code>$booking-&gt;total</code>, the model sees that <code>total</code> has a class cast, calls the cast’s <code>get()</code> with <b>all</b> raw attributes, and caches the object so the same instance is returned until the underlying columns change. Setting it does the reverse and merges the returned columns into the attributes.</p><div class="blocks"><div class="block"><h3>Reading a class-cast attribute</h3><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Database/Eloquent/Concerns/HasAttributes.php (simplified)</span></div>
+<pre class="code"><code><span class="k">protected</span> <span class="k">function</span> <span class="f">getClassCastableAttributeValue</span>(<span class="v">$key</span>, <span class="v">$value</span>)
+{
+    <span class="v">$caster</span> = <span class="k">$this</span>-&gt;<span class="f">resolveCasterClass</span>(<span class="v">$key</span>);               <span class="c">// new MoneyCast('total_cents')</span>
+
+    <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;classCastCache[<span class="v">$key</span>])) {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;classCastCache[<span class="v">$key</span>];                  <span class="c">// the same object until the columns change</span>
+    }
+
+    <span class="v">$value</span> = <span class="v">$caster</span>-&gt;<span class="f">get</span>(<span class="k">$this</span>, <span class="v">$key</span>, <span class="v">$value</span>, <span class="k">$this</span>-&gt;attributes);
+
+    <span class="k">if</span> (<span class="f">is_object</span>(<span class="v">$value</span>)) {
+        <span class="k">$this</span>-&gt;classCastCache[<span class="v">$key</span>] = <span class="v">$value</span>;
+    }
+
+    <span class="k">return</span> <span class="v">$value</span>;
 }</code></pre>
-</div></section>
-<section class="check"><h2>Check yourself</h2><p class="hint">Answer in your head, then open the answer.</p>
-<details><summary>Why does <code>Score</code> check the range in the constructor and not in the code that saves answers?</summary><p>Because the constructor is the only way to create a Score. Every path that creates one, now and in the future, goes through the check, and code that receives a Score never has to check again.</p></details><details><summary>What does <code>readonly</code> protect against?</summary><p>Changing the value after it was checked. Without it, <code>$score-&gt;value = 140</code> would make a valid object invalid.</p></details><details><summary>Why is the result printed as &quot;Row 2: …&quot; instead of skipping the row?</summary><p>A skipped row is lost data that nobody knows about. Rejecting loudly lets someone fix the source.</p></details></section>
-<section class="nextup"><p>The report, the emails and the CSV still run the same SQL three times. The next ticket adds a rule to that SQL.</p>
-<nav class="pager" aria-label="Chapters">
-<a rel="prev" href="../00-the-mess/"><small>← Chapter 0</small>The code we inherited</a>
-<a rel="next" href="../02-repository/"><small>Chapter 2 →</small>Only this term’s answers must count</a>
+</div></div><div class="block"><h3>Setting it: one value, several columns</h3><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Database/Eloquent/Concerns/HasAttributes.php (simplified)</span></div>
+<pre class="code"><code><span class="k">protected</span> <span class="k">function</span> <span class="f">setClassCastableAttribute</span>(<span class="v">$key</span>, <span class="v">$value</span>)
+{
+    <span class="v">$caster</span> = <span class="k">$this</span>-&gt;<span class="f">resolveCasterClass</span>(<span class="v">$key</span>);
+
+    <span class="k">$this</span>-&gt;attributes = <span class="f">array_replace</span>(
+        <span class="k">$this</span>-&gt;attributes,
+        <span class="k">$this</span>-&gt;<span class="f">normalizeCastClassResponse</span>(<span class="v">$key</span>, <span class="v">$caster</span>-&gt;<span class="f">set</span>(<span class="k">$this</span>, <span class="v">$key</span>, <span class="v">$value</span>, <span class="k">$this</span>-&gt;attributes)),
+    );                                                       <span class="c">// ['total_cents' =&gt; 45000, 'currency' =&gt; 'EUR']</span>
+
+    <span class="f">unset</span>(<span class="k">$this</span>-&gt;classCastCache[<span class="v">$key</span>]);
+}</code></pre>
+</div></div><div class="block"><h3>Immutable dates everywhere</h3><p>Laravel’s own date value objects are Carbon instances. By default they are mutable: <code>$date-&gt;addDay()</code> changes the object, and every model or variable holding it. One line makes every date Laravel creates immutable.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span></div>
+<pre class="code"><code><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;
+
+<span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span>
+{
+    <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);       <span class="c">// now(), casts and Carbon::parse() return immutable dates</span>
+}</code></pre>
+</div></div></div></section>
+<section class="topics"><h2>PMS topics in this lesson</h2><div class="blocks"><div class="block"><h3>Money as integers, and currencies</h3><p>Floats can’t represent most decimal fractions exactly (<code>0.1 + 0.2 !== 0.3</code>), so money is stored and calculated as integers in the minor unit. The minor unit differs per currency (ISO 4217), and Stripe expects amounts in exactly that unit: <code>15000</code> means €150.00 but ¥15,000. That is why <code>Money</code> carries its <code>Currency</code>, and why no code divides by 100.</p><p>For display, Laravel’s <code>Number::currency()</code> formats a major-unit amount in the user’s locale: <code>Number::currency((float) $money-&gt;toDecimal(), in: $money-&gt;currency-&gt;value, locale: 'da')</code> gives &quot;150,00 €&quot;.</p></div><div class="block"><h3>Deposits and balances</h3><p>A booking is often paid in two parts: a deposit now and the balance some days before arrival. <code>allocate(30, 70)</code> splits the total so the two parts always add back to it exactly. Lesson 20 charges them through Stripe.</p></div><div class="block"><h3>Dates and timezones with Carbon</h3><p>Three rules: store <b>calendar dates</b> (<code>check_in</code>) as <code>DATE</code> and treat them as UTC midnights; store <b>moments</b> (<code>send_at</code>, <code>due_at</code>) as UTC datetimes; convert to the <b>property’s</b> timezone only when you build a moment from a local time (&quot;15:00 in Copenhagen&quot;). Daylight-saving changes then can’t shift a stay, and the guest’s 15:00 is right in both summer and winter.</p></div><div class="block"><h3>PHP 8: readonly classes and enums</h3><p><code>readonly</code> properties can be set once, in the constructor, and never again; <code>final readonly class</code> makes every property readonly. Backed enums give a fixed list of values with methods (<code>minorUnits()</code>), and <code>match</code> returns a value per case without a forgotten <code>break</code>.</p></div></div></section>
+<section class="whennot"><h2>When not to use it</h2><ul><li>Not every scalar needs a class. A guest name has no rules beyond &quot;not empty&quot;, which validation already covers. Create a value object when the value has <b>rules or behaviour</b>: money, date ranges, coordinates, percentages.</li><li>Keep value objects free of database queries and services. A <code>Money</code> that looks up exchange rates is no longer a value; that belongs in a service that takes and returns <code>Money</code>.</li><li>Don’t replace the integer columns with JSON to &quot;store the object&quot;. Keep plain columns so the database can index, sum and constrain them; the cast is the bridge.</li></ul></section>
+<section class="tests"><details><summary><span>Pest tests for this lesson</span><small>Unit tests for Money and Stay, and the cast round trip</small></summary>
+<div class="testbody"><p>Value objects are pure PHP, so most of these are unit tests: no database, very fast. Each one was red before the code existed; the comments name the mutation that would make it fail.</p><div class="blocks"><div class="block"><h3>Money</h3><div class="codebox">
+<div class="filehead"><span class="path">tests/Unit/MoneyTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Currency</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+
+<span class="f">it</span>(<span class="s">'splits an amount without losing a cent'</span>, <span class="k">function</span> (<span class="k">int</span> <span class="v">$amount</span>, <span class="k">array</span> <span class="v">$ratios</span>, <span class="k">array</span> <span class="v">$expected</span>) {
+    <span class="v">$parts</span> = <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$amount</span>, <span class="s">'EUR'</span>)-&gt;<span class="f">allocate</span>(...<span class="v">$ratios</span>);
+
+    <span class="f">expect</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">Money</span> <span class="v">$m</span>): <span class="k">int</span> =&gt; <span class="v">$m</span>-&gt;amount, <span class="v">$parts</span>))-&gt;<span class="f">toBe</span>(<span class="v">$expected</span>)
+        -&gt;<span class="f">and</span>(<span class="f">array_sum</span>(<span class="v">$expected</span>))-&gt;<span class="f">toBe</span>(<span class="v">$amount</span>);           <span class="c">// mutation: drop the remainder loop → fails</span>
+})-&gt;<span class="f">with</span>([
+    <span class="s">'thirds'</span> =&gt; [<span class="n">10_000</span>, [<span class="n">1</span>, <span class="n">1</span>, <span class="n">1</span>], [<span class="n">3_334</span>, <span class="n">3_333</span>, <span class="n">3_333</span>]],
+    <span class="s">'deposit and balance'</span> =&gt; [<span class="n">45_001</span>, [<span class="n">30</span>, <span class="n">70</span>], [<span class="n">13_501</span>, <span class="n">31_500</span>]],
+    <span class="s">'a zero ratio'</span> =&gt; [<span class="n">1_000</span>, [<span class="n">0</span>, <span class="n">1</span>], [<span class="n">0</span>, <span class="n">1_000</span>]],
+]);
+
+<span class="f">it</span>(<span class="s">'refuses to mix currencies'</span>, <span class="k">function</span> () {
+    <span class="t">Money</span>::<span class="f">of</span>(<span class="n">100</span>, <span class="s">'EUR'</span>)-&gt;<span class="f">add</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="n">100</span>, <span class="s">'GBP'</span>));
+})-&gt;<span class="f">throws</span>(<span class="t">InvalidArgumentException</span>::class, <span class="s">'Cannot combine EUR with GBP'</span>);
+
+<span class="f">it</span>(<span class="s">'rounds a percentage half up'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="n">1_005</span>, <span class="s">'EUR'</span>)-&gt;<span class="f">percent</span>(<span class="n">50</span>)-&gt;amount)-&gt;<span class="f">toBe</span>(<span class="n">503</span>);   <span class="c">// 502.5 → 503</span>
+});
+
+<span class="f">it</span>(<span class="s">&quot;prints amounts in the currency's own decimals&quot;</span>, <span class="k">function</span> (<span class="t">Currency</span> <span class="v">$currency</span>, <span class="k">int</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$decimal</span>) {
+    <span class="f">expect</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$amount</span>, <span class="v">$currency</span>)-&gt;<span class="f">toDecimal</span>())-&gt;<span class="f">toBe</span>(<span class="v">$decimal</span>);
+})-&gt;<span class="f">with</span>([
+    [<span class="t">Currency</span>::<span class="t">EUR</span>, <span class="n">15_000</span>, <span class="s">'150.00'</span>],
+    [<span class="t">Currency</span>::<span class="t">JPY</span>, <span class="n">15_000</span>, <span class="s">'15000'</span>],
+    [<span class="t">Currency</span>::<span class="t">KWD</span>, <span class="n">15_000</span>, <span class="s">'15.000'</span>],
+]);</code></pre>
+</div></div><div class="block"><h3>Stay</h3><div class="codebox">
+<div class="filehead"><span class="path">tests/Unit/StayTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+
+<span class="f">it</span>(<span class="s">'counts nights across a daylight-saving change'</span>, <span class="k">function</span> () {
+    <span class="c">// Europe moves clocks forward on 28 March 2027; the stay still has 3 nights.</span>
+    <span class="f">expect</span>(<span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-03-27'</span>, <span class="s">'2027-03-30'</span>)-&gt;<span class="f">nights</span>())-&gt;<span class="f">toBe</span>(<span class="n">3</span>);
+});
+
+<span class="f">it</span>(<span class="s">'refuses an empty or reversed stay'</span>, <span class="k">function</span> (<span class="k">string</span> <span class="v">$in</span>, <span class="k">string</span> <span class="v">$out</span>) {
+    <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$in</span>, <span class="v">$out</span>);
+})-&gt;<span class="f">with</span>([[<span class="s">'2027-07-04'</span>, <span class="s">'2027-07-04'</span>], [<span class="s">'2027-07-04'</span>, <span class="s">'2027-07-01'</span>]])
+  -&gt;<span class="f">throws</span>(<span class="t">InvalidArgumentException</span>::class);
+
+<span class="f">it</span>(<span class="s">'lets back-to-back stays share the changeover day'</span>, <span class="k">function</span> () {
+    <span class="v">$first</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-01'</span>, <span class="s">'2027-07-04'</span>);
+
+    <span class="f">expect</span>(<span class="v">$first</span>-&gt;<span class="f">overlaps</span>(<span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-04'</span>, <span class="s">'2027-07-06'</span>)))-&gt;<span class="f">toBeFalse</span>()   <span class="c">// mutation: &lt; → &lt;= fails here</span>
+        -&gt;<span class="f">and</span>(<span class="v">$first</span>-&gt;<span class="f">overlaps</span>(<span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-03'</span>, <span class="s">'2027-07-05'</span>)))-&gt;<span class="f">toBeTrue</span>();
+});
+
+<span class="f">it</span>(<span class="s">'builds check-in time in the property timezone'</span>, <span class="k">function</span> () {
+    <span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-01'</span>, <span class="s">'2027-07-04'</span>);
+
+    <span class="f">expect</span>(<span class="v">$stay</span>-&gt;<span class="f">checkInMoment</span>(<span class="s">'Europe/Copenhagen'</span>, <span class="s">'15:00'</span>)-&gt;<span class="f">toIso8601String</span>())
+        -&gt;<span class="f">toBe</span>(<span class="s">'2027-07-01T13:00:00+00:00'</span>);                  <span class="c">// summer time: UTC+2</span>
+});</code></pre>
+</div></div><div class="block"><h3>The cast round trip</h3><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/MoneyCastTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+
+<span class="f">it</span>(<span class="s">'stores Money in two columns and reads it back'</span>, <span class="k">function</span> () {
+    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="v">$booking</span>-&gt;total = <span class="t">Money</span>::<span class="f">of</span>(<span class="n">98_765</span>, <span class="s">'JPY'</span>);
+    <span class="v">$booking</span>-&gt;<span class="f">save</span>();
+
+    <span class="v">$fresh</span> = <span class="v">$booking</span>-&gt;<span class="f">fresh</span>();
+
+    <span class="f">expect</span>(<span class="v">$fresh</span>-&gt;total_cents)-&gt;<span class="f">toBe</span>(<span class="n">98_765</span>)
+        -&gt;<span class="f">and</span>(<span class="v">$fresh</span>-&gt;currency)-&gt;<span class="f">toBe</span>(<span class="s">'JPY'</span>)
+        -&gt;<span class="f">and</span>(<span class="v">$fresh</span>-&gt;total-&gt;<span class="f">equals</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="n">98_765</span>, <span class="s">'JPY'</span>)))-&gt;<span class="f">toBeTrue</span>();
+});</code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>With values in place, lesson 2 decides where the booking logic and its SQL live: in the model, in a mapper, or in a repository.</p>
+<nav class="pager" aria-label="Lessons">
+<a rel="prev" href="../00-foundation/"><small>← Lesson 0</small>Foundation: setup and the data model</a>
+<a rel="next" href="../02-active-record/"><small>Lesson 2 →</small>Active Record, Data Mapper, Repository</a>
 </nav></section></article>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"The code we inherited","patterns":[],"slug":"00-the-mess","ready":true},{"n":1,"title":"Scores of 140 got into the database","patterns":["Value Object"],"slug":"01-value-object","ready":true},{"n":2,"title":"Only this term’s answers must count","patterns":["Repository","Data Mapper vs Active Record"],"slug":"02-repository","ready":true},{"n":3,"title":"Each school scores teachers its own way","patterns":["Strategy"],"slug":"03-strategy","ready":true},{"n":4,"title":"The scoring method must come from school settings","patterns":["Simple Factory"],"slug":"04-simple-factory","ready":true},{"n":5,"title":"Schools without AI analysis crash the report","patterns":["Null Object"],"slug":"05-null-object","ready":true},{"n":6,"title":"Classes create their own database and mailer","patterns":["Singleton","Dependency Injection Container"],"slug":"06-container","ready":true},{"n":7,"title":"Move from the OpenAI SDK to a local LLM","patterns":["Adapter"],"slug":"07-adapter","ready":true},{"n":8,"title":"Local model in development, hosted model in production","patterns":["Manager / Driver"],"slug":"08-manager","ready":true},{"n":9,"title":"AI calls are slow and expensive","patterns":["Decorator"],"slug":"09-decorator","ready":true},{"n":10,"title":"Load the 50 MB results only when opened, only for allowed users","patterns":["Proxy"],"slug":"10-proxy","ready":true},{"n":11,"title":"Closing a survey takes six steps, and callers forget some","patterns":["Facade"],"slug":"11-facade","ready":true},{"n":12,"title":"Import answers from Google Forms CSV, Excel and JSON","patterns":["Template Method"],"slug":"12-template-method","ready":true},{"n":13,"title":"Each importer needs its own reader","patterns":["Factory Method"],"slug":"13-factory-method","ready":true},{"n":14,"title":"Exporting 100,000 responses runs out of memory","patterns":["Iterator","Generators"],"slug":"14-iterator","ready":true},{"n":15,"title":"100,000 response objects repeat the same question data","patterns":["Flyweight"],"slug":"15-flyweight","ready":true},{"n":16,"title":"Sections inside sections: score the whole tree","patterns":["Composite"],"slug":"16-composite","ready":true},{"n":17,"title":"Export, validate and count the tree without editing it","patterns":["Visitor"],"slug":"17-visitor","ready":true},{"n":18,"title":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","patterns":["Interpreter"],"slug":"18-interpreter","ready":true},{"n":19,"title":"Start next term from last term’s survey","patterns":["Prototype"],"slug":"19-prototype","ready":true},{"n":20,"title":"Build complex report searches and documents","patterns":["Builder"],"slug":"20-builder","ready":true},{"n":21,"title":"Survey lifecycle: draft, open, closed, archived","patterns":["State"],"slug":"21-state","ready":true},{"n":22,"title":"When a survey closes, five things must happen","patterns":["Observer","Event Dispatcher"],"slug":"22-observer","ready":true},{"n":23,"title":"The 40-second AI analysis times out the request","patterns":["Command","Command Bus"],"slug":"23-command","ready":true},{"n":24,"title":"The Ministry sync was lost when the server died","patterns":["Unit of Work","Transactional Outbox"],"slug":"24-outbox","ready":true},{"n":25,"title":"Submitting an answer needs six checks","patterns":["Chain of Responsibility","Pipeline"],"slug":"25-pipeline","ready":true},{"n":26,"title":"“Teachers with 3+ evaluations this term, not on leave”","patterns":["Specification"],"slug":"26-specification","ready":true},{"n":27,"title":"Local vs cloud: storage and queue must always match","patterns":["Abstract Factory"],"slug":"27-abstract-factory","ready":true},{"n":28,"title":"Three notification types × four channels","patterns":["Bridge"],"slug":"28-bridge","ready":true},{"n":29,"title":"Survey editor parts keep changing each other","patterns":["Mediator"],"slug":"29-mediator","ready":true},{"n":30,"title":"“Undo” in the survey editor","patterns":["Memento"],"slug":"30-memento","ready":true}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Scores of 140 got into the database","slug":"01-value-object","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Strategy","chapter":3,"chapterTitle":"Each school scores teachers its own way","slug":"03-strategy","ready":true,"gof":true},{"name":"Simple Factory","chapter":4,"chapterTitle":"The scoring method must come from school settings","slug":"04-simple-factory","ready":true,"gof":false},{"name":"Null Object","chapter":5,"chapterTitle":"Schools without AI analysis crash the report","slug":"05-null-object","ready":true,"gof":false},{"name":"Singleton","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":false},{"name":"Adapter","chapter":7,"chapterTitle":"Move from the OpenAI SDK to a local LLM","slug":"07-adapter","ready":true,"gof":true},{"name":"Manager / Driver","chapter":8,"chapterTitle":"Local model in development, hosted model in production","slug":"08-manager","ready":true,"gof":false},{"name":"Decorator","chapter":9,"chapterTitle":"AI calls are slow and expensive","slug":"09-decorator","ready":true,"gof":true},{"name":"Proxy","chapter":10,"chapterTitle":"Load the 50 MB results only when opened, only for allowed users","slug":"10-proxy","ready":true,"gof":true},{"name":"Facade","chapter":11,"chapterTitle":"Closing a survey takes six steps, and callers forget some","slug":"11-facade","ready":true,"gof":true},{"name":"Template Method","chapter":12,"chapterTitle":"Import answers from Google Forms CSV, Excel and JSON","slug":"12-template-method","ready":true,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Each importer needs its own reader","slug":"13-factory-method","ready":true,"gof":true},{"name":"Iterator","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":true},{"name":"Generators","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":false},{"name":"Flyweight","chapter":15,"chapterTitle":"100,000 response objects repeat the same question data","slug":"15-flyweight","ready":true,"gof":true},{"name":"Composite","chapter":16,"chapterTitle":"Sections inside sections: score the whole tree","slug":"16-composite","ready":true,"gof":true},{"name":"Visitor","chapter":17,"chapterTitle":"Export, validate and count the tree without editing it","slug":"17-visitor","ready":true,"gof":true},{"name":"Interpreter","chapter":18,"chapterTitle":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","slug":"18-interpreter","ready":true,"gof":true},{"name":"Prototype","chapter":19,"chapterTitle":"Start next term from last term’s survey","slug":"19-prototype","ready":true,"gof":true},{"name":"Builder","chapter":20,"chapterTitle":"Build complex report searches and documents","slug":"20-builder","ready":true,"gof":true},{"name":"State","chapter":21,"chapterTitle":"Survey lifecycle: draft, open, closed, archived","slug":"21-state","ready":true,"gof":true},{"name":"Observer","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"22-observer","ready":true,"gof":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"22-observer","ready":true,"gof":false},{"name":"Command","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"23-command","ready":true,"gof":true},{"name":"Command Bus","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"23-command","ready":true,"gof":false},{"name":"Unit of Work","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"24-outbox","ready":true,"gof":false},{"name":"Transactional Outbox","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"24-outbox","ready":true,"gof":false},{"name":"Chain of Responsibility","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"25-pipeline","ready":true,"gof":true},{"name":"Pipeline","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"25-pipeline","ready":true,"gof":false},{"name":"Specification","chapter":26,"chapterTitle":"“Teachers with 3+ evaluations this term, not on leave”","slug":"26-specification","ready":true,"gof":false},{"name":"Abstract Factory","chapter":27,"chapterTitle":"Local vs cloud: storage and queue must always match","slug":"27-abstract-factory","ready":true,"gof":true},{"name":"Bridge","chapter":28,"chapterTitle":"Three notification types × four channels","slug":"28-bridge","ready":true,"gof":true},{"name":"Mediator","chapter":29,"chapterTitle":"Survey editor parts keep changing each other","slug":"29-mediator","ready":true,"gof":true},{"name":"Memento","chapter":30,"chapterTitle":"“Undo” in the survey editor","slug":"30-memento","ready":true,"gof":true}]}</script>
-<script src="../assets/site.js?v=d61b3d9de7" defer></script>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation: setup and the data model","patterns":["Set up the PMS and design every table the course uses"],"slug":"00-foundation","ready":true},{"n":1,"title":"Value Object","patterns":["Money and stays are passed around as bare numbers"],"slug":"01-value-object","ready":true},{"n":2,"title":"Active Record, Data Mapper, Repository","patterns":["Where booking logic and SQL belong"],"slug":"02-active-record","ready":true},{"n":3,"title":"Singleton, Dependency Injection Container","patterns":["The Stripe client is created everywhere"],"slug":"03-container","ready":true},{"n":4,"title":"Facade","patterns":["“Confirm a booking” is many steps"],"slug":"04-facade","ready":true},{"n":5,"title":"Builder","patterns":["Quotes with many optional parts"],"slug":"05-builder","ready":false},{"n":6,"title":"Simple Factory, Factory Method","patterns":["Webhook payloads into typed events; one feed parser per source"],"slug":"06-factory","ready":false},{"n":7,"title":"Abstract Factory","patterns":["Each channel needs a matching client, mapper and verifier"],"slug":"07-abstract-factory","ready":false},{"n":8,"title":"Prototype","patterns":["Every turnover gets a copy of the cleaning checklist"],"slug":"08-prototype","ready":false},{"n":9,"title":"Adapter, Manager / Driver","patterns":["Airbnb and Booking.com behind one interface, picked by name"],"slug":"09-adapter","ready":false},{"n":10,"title":"Decorator","patterns":["Retries, rate limits and caching around services"],"slug":"10-decorator","ready":false},{"n":11,"title":"Proxy","patterns":["Cleaners must not see payouts; heavy data loads only when needed"],"slug":"11-proxy","ready":false},{"n":12,"title":"Composite","patterns":["Seasonal rate rules grouped into rate plans"],"slug":"12-composite","ready":false},{"n":13,"title":"Bridge","patterns":["Message types × channels (mail, SMS, WhatsApp)"],"slug":"13-bridge","ready":false},{"n":14,"title":"Flyweight","patterns":["A year of calendar days for thousands of properties"],"slug":"14-flyweight","ready":false},{"n":15,"title":"Strategy, Null Object","patterns":["Cancellation policies; properties without fees"],"slug":"15-strategy","ready":false},{"n":16,"title":"Pipeline, Chain of Responsibility","patterns":["Price stages; booking acceptance rules"],"slug":"16-pipeline","ready":false},{"n":17,"title":"Template Method","patterns":["iCal sync: same steps, different sources"],"slug":"17-template-method","ready":false},{"n":18,"title":"Command, Command Bus","patterns":["Channel pushes and emails in the background"],"slug":"18-command","ready":false},{"n":19,"title":"Iterator, Generators","patterns":["Nights, due messages, nightly reconciliation"],"slug":"19-iterator","ready":false},{"n":20,"title":"State","patterns":["Booking pending → confirmed → cancelled / expired"],"slug":"20-state","ready":false},{"n":21,"title":"Observer, Event Dispatcher","patterns":["A cancellation must trigger five reactions"],"slug":"21-observer","ready":false},{"n":22,"title":"Mediator","patterns":["Cross-channel double bookings; the guest–host chat"],"slug":"22-mediator","ready":false},{"n":23,"title":"Memento","patterns":["Dates changed: reschedule, or roll back"],"slug":"23-memento","ready":false},{"n":24,"title":"Interpreter","patterns":["Variables like {guest_name} and {door_code} in templates"],"slug":"24-interpreter","ready":false},{"n":25,"title":"Visitor","patterns":["Owner statement, tax report and payouts from one folio"],"slug":"25-visitor","ready":false},{"n":26,"title":"Specification","patterns":["“Free from X to Y, sleeps 6, pets allowed”"],"slug":"26-specification","ready":false},{"n":27,"title":"Unit of Work, Transactional Outbox","patterns":["A booking is saved, but its event is lost"],"slug":"27-unit-of-work","ready":false},{"n":28,"title":"All patterns, together","patterns":["Design systems on a whiteboard; review AI-written code"],"slug":"28-all-patterns","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Money and stays are passed around as bare numbers","slug":"01-value-object","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Singleton","chapter":3,"chapterTitle":"The Stripe client is created everywhere","slug":"03-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":3,"chapterTitle":"The Stripe client is created everywhere","slug":"03-container","ready":true,"gof":false},{"name":"Facade","chapter":4,"chapterTitle":"“Confirm a booking” is many steps","slug":"04-facade","ready":true,"gof":true},{"name":"Builder","chapter":5,"chapterTitle":"Quotes with many optional parts","slug":"05-builder","ready":false,"gof":true},{"name":"Simple Factory","chapter":6,"chapterTitle":"Webhook payloads into typed events; one feed parser per source","slug":"06-factory","ready":false,"gof":false},{"name":"Factory Method","chapter":6,"chapterTitle":"Webhook payloads into typed events; one feed parser per source","slug":"06-factory","ready":false,"gof":true},{"name":"Abstract Factory","chapter":7,"chapterTitle":"Each channel needs a matching client, mapper and verifier","slug":"07-abstract-factory","ready":false,"gof":true},{"name":"Prototype","chapter":8,"chapterTitle":"Every turnover gets a copy of the cleaning checklist","slug":"08-prototype","ready":false,"gof":true},{"name":"Adapter","chapter":9,"chapterTitle":"Airbnb and Booking.com behind one interface, picked by name","slug":"09-adapter","ready":false,"gof":true},{"name":"Manager / Driver","chapter":9,"chapterTitle":"Airbnb and Booking.com behind one interface, picked by name","slug":"09-adapter","ready":false,"gof":false},{"name":"Decorator","chapter":10,"chapterTitle":"Retries, rate limits and caching around services","slug":"10-decorator","ready":false,"gof":true},{"name":"Proxy","chapter":11,"chapterTitle":"Cleaners must not see payouts; heavy data loads only when needed","slug":"11-proxy","ready":false,"gof":true},{"name":"Composite","chapter":12,"chapterTitle":"Seasonal rate rules grouped into rate plans","slug":"12-composite","ready":false,"gof":true},{"name":"Bridge","chapter":13,"chapterTitle":"Message types × channels (mail, SMS, WhatsApp)","slug":"13-bridge","ready":false,"gof":true},{"name":"Flyweight","chapter":14,"chapterTitle":"A year of calendar days for thousands of properties","slug":"14-flyweight","ready":false,"gof":true},{"name":"Strategy","chapter":15,"chapterTitle":"Cancellation policies; properties without fees","slug":"15-strategy","ready":false,"gof":true},{"name":"Null Object","chapter":15,"chapterTitle":"Cancellation policies; properties without fees","slug":"15-strategy","ready":false,"gof":false},{"name":"Pipeline","chapter":16,"chapterTitle":"Price stages; booking acceptance rules","slug":"16-pipeline","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":16,"chapterTitle":"Price stages; booking acceptance rules","slug":"16-pipeline","ready":false,"gof":true},{"name":"Template Method","chapter":17,"chapterTitle":"iCal sync: same steps, different sources","slug":"17-template-method","ready":false,"gof":true},{"name":"Command","chapter":18,"chapterTitle":"Channel pushes and emails in the background","slug":"18-command","ready":false,"gof":true},{"name":"Command Bus","chapter":18,"chapterTitle":"Channel pushes and emails in the background","slug":"18-command","ready":false,"gof":false},{"name":"Iterator","chapter":19,"chapterTitle":"Nights, due messages, nightly reconciliation","slug":"19-iterator","ready":false,"gof":true},{"name":"Generators","chapter":19,"chapterTitle":"Nights, due messages, nightly reconciliation","slug":"19-iterator","ready":false,"gof":false},{"name":"State","chapter":20,"chapterTitle":"Booking pending → confirmed → cancelled / expired","slug":"20-state","ready":false,"gof":true},{"name":"Observer","chapter":21,"chapterTitle":"A cancellation must trigger five reactions","slug":"21-observer","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":21,"chapterTitle":"A cancellation must trigger five reactions","slug":"21-observer","ready":false,"gof":false},{"name":"Mediator","chapter":22,"chapterTitle":"Cross-channel double bookings; the guest–host chat","slug":"22-mediator","ready":false,"gof":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed: reschedule, or roll back","slug":"23-memento","ready":false,"gof":true},{"name":"Interpreter","chapter":24,"chapterTitle":"Variables like {guest_name} and {door_code} in templates","slug":"24-interpreter","ready":false,"gof":true},{"name":"Visitor","chapter":25,"chapterTitle":"Owner statement, tax report and payouts from one folio","slug":"25-visitor","ready":false,"gof":true},{"name":"Specification","chapter":26,"chapterTitle":"“Free from X to Y, sleeps 6, pets allowed”","slug":"26-specification","ready":false,"gof":false},{"name":"Unit of Work","chapter":27,"chapterTitle":"A booking is saved, but its event is lost","slug":"27-unit-of-work","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":27,"chapterTitle":"A booking is saved, but its event is lost","slug":"27-unit-of-work","ready":false,"gof":false}]}</script>
+<script src="../assets/site.js?v=437bc381d0" defer></script>
 </body>
 </html>

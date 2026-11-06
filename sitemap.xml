@@ -1,35 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://sha-hin.github.io/pattern-playbook/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/00-the-mess/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/00-foundation/</loc><lastmod>2026-11-06</lastmod></url>
   <url><loc>https://sha-hin.github.io/pattern-playbook/01-value-object/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/02-repository/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/03-strategy/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/04-simple-factory/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/05-null-object/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/06-container/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/07-adapter/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/08-manager/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/09-decorator/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/10-proxy/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/11-facade/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/12-template-method/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/13-factory-method/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/14-iterator/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/15-flyweight/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/16-composite/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/17-visitor/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/18-interpreter/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/19-prototype/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/20-builder/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/21-state/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/22-observer/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/23-command/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/24-outbox/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/25-pipeline/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/26-specification/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/27-abstract-factory/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/28-bridge/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/29-mediator/</loc><lastmod>2026-11-06</lastmod></url>
-  <url><loc>https://sha-hin.github.io/pattern-playbook/30-memento/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/02-active-record/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/03-container/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/04-facade/</loc><lastmod>2026-11-06</lastmod></url>
 </urlset>

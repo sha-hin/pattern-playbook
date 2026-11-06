@@ -1,40 +1,24 @@
-# Pattern Playbook: design patterns in PHP, learned by fixing one real app
+# Pattern Playbook: design patterns in Laravel, inside a real PMS
 
 **Live course:** https://sha-hin.github.io/pattern-playbook/
 
-**Evalu8** is a school evaluation platform: students, peers and principals score teachers from 1 to 5,
-and the app produces term reports, emails and a CSV for the Ministry. It starts as one messy PHP script.
-Every chapter brings a real ticket (a bug, a new rule, a scaling problem) and fixes it with the design
-pattern made for it, until the codebase uses all 23 Gang of Four patterns plus the modern ones every PHP
-framework relies on (Value Object, Repository, DI Container, Outbox, Pipeline, Specification and more).
+All 23 Gang of Four design patterns and 15 modern ones (Value Object, Repository, Data Mapper,
+Active Record, Simple Factory, Null Object, DI Container, Manager/Driver, Generators, Event Dispatcher,
+Command Bus, Unit of Work, Transactional Outbox, Pipeline, Specification), each applied to the business
+logic of a vacation-rental property management system: bookings, pricing, payments, channel sync,
+guest messaging, operations. When Laravel already ships a pattern, the lesson shows how Laravel builds it
+inside. Every lesson ends with "When not to use it" and its Pest tests, folded.
 
-Each chapter page has: the ticket, the quick fix that would hurt later, the pattern in one sentence with a
-before/after drawing, the refactor step by step as exact diffs of the real code, the output, and how
-Laravel does the same thing.
+For Laravel developers: the course is about business logic and patterns, not about learning Laravel.
 
 By [Mohammed Shahin](https://sha-hin.github.io).
 
-## Run any chapter
-
-Every chapter is a complete, runnable snapshot in [`chapters/`](chapters). You need PHP 8.2+ with the
-SQLite extension, and Composer (it only generates the autoloader; nothing is downloaded).
-
-```bash
-cd chapters/03-strategy
-composer dump-autoload
-php bin/evaluations.php
-```
-
-Chapter 0 is the original single script: `php chapters/00-the-mess/evaluations.php`.
-
 ## Editing the course
 
-- Chapter text, tickets and drawings: [`content/course.mjs`](content/course.mjs)
-- Code shown on the pages is read from `chapters/<slug>/` at build time, so it is always the code that runs.
-
-After changing chapter code or text:
+- The plan (29 lessons, which ones are published): [`content/course.mjs`](content/course.mjs)
+- Each lesson's text, code and tests: [`content/lessons/<slug>.mjs`](content/lessons)
 
 ```bash
-node build/run-chapters.mjs   # re-runs every chapter and saves chapters/<slug>/output.txt
-node build/build.mjs    # regenerates the pages, sitemap and 404
+node build/check-php.mjs   # php -l on every PHP block in the lessons
+node build/build.mjs       # regenerates the pages, sitemap and 404
 ```

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Singleton, Dependency Injection Container in Laravel: The Stripe client is created everywhere | Pattern Playbook</title>
+<meta name="description" content="The Stripe client is created with new in five places, and a static singleton leaks state between tests. Learn the Singleton pattern, why it hurts, and how Laravel’s service container gives one shared instance without global state.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/03-container/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Singleton, Dependency Injection Container in Laravel: The Stripe client is created everywhere | Pattern Playbook">
+<meta property="og:description" content="The Stripe client is created with new in five places, and a static singleton leaks state between tests. Learn the Singleton pattern, why it hurts, and how Laravel’s service container gives one shared instance without global state.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/03-container/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in Laravel, taught through a real vacation-rental PMS">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Singleton, Dependency Injection Container in Laravel: The Stripe client is created everywhere | Pattern Playbook">
+<meta name="twitter:description" content="The Stripe client is created with new in five places, and a static singleton leaks state between tests. Learn the Singleton pattern, why it hurts, and how Laravel’s service container gives one shared instance without global state.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=fe83a6f334">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Lesson 3: Singleton, Dependency Injection Container","description":"The Stripe client is created with new in five places, and a static singleton leaks state between tests. Learn the Singleton pattern, why it hurts, and how Laravel’s service container gives one shared instance without global state.","url":"https://sha-hin.github.io/pattern-playbook/03-container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/03-container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Singleton pattern","Dependency Injection Container pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Lesson 3","item":"https://sha-hin.github.io/pattern-playbook/03-container/"}]}]}</script>
+</head>
+<body data-page="03-container" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">All lessons</a> › Lesson 3 of 28</p>
+<h1>Singleton, Dependency Injection Container</h1>
+<p class="subtitle">The Stripe client is created everywhere</p>
+<p class="tags"><span class="ptag gof" title="In the Gang of Four book">Singleton</span><span class="ptag" title="Not in the Gang of Four book">Dependency Injection Container</span></p>
+</header>
+<section class="ticket" aria-label="The ticket"><p class="tk-label">The ticket</p>
+<h2>Tests hit the real Stripe API, and a refund used last week’s key</h2><p class="tk-from">From Engineering lead</p><p>The Stripe client is built with <code>new StripeClient(...)</code> in five classes. The test suite calls Stripe’s test API for real because nothing can be swapped. Someone &quot;fixed&quot; it with a static <code>StripeGateway::instance()</code>, and now one test’s fake leaks into the next. A worker that was not restarted after the key rotation kept using the old key.</p></section>
+<section><h2>The quick fix, and why it hurts</h2><p>First every class built its own client; then a static singleton tried to fix it:</p>
+<div class="codebox">
+<div class="filehead"><span class="path">the quick fix (we won’t keep this)</span></div>
+<pre class="code rejected"><code><span class="k">final</span> <span class="k">class</span> <span class="t">StartBookingPayment</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span>
+    {
+        <span class="v">$stripe</span> = <span class="k">new</span> <span class="f">StripeClient</span>(<span class="f">config</span>(<span class="s">'services.stripe.secret'</span>));     <span class="c">// copy 1 of 5</span>
+        <span class="c">// ...</span>
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">StripeGateway</span>
+{
+    <span class="k">private</span> <span class="k">static</span> ?<span class="k">self</span> <span class="v">$instance</span> = <span class="k">null</span>;
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">instance</span>(): <span class="k">self</span>
+    {
+        <span class="k">return</span> <span class="k">self</span>::<span class="v">$instance</span> ??= <span class="k">new</span> <span class="k">self</span>(<span class="k">new</span> <span class="f">StripeClient</span>(<span class="f">config</span>(<span class="s">'services.stripe.secret'</span>)));
+    }
+}
+
+<span class="t">StripeGateway</span>::<span class="f">instance</span>()-&gt;<span class="f">refund</span>(<span class="v">$payment</span>);                           <span class="c">// hidden dependency, global state</span></code></pre>
+</div>
+<p>With <code>new</code> everywhere, the configuration is repeated and nothing can be replaced in a test. With a static singleton, there is one instance, but every class reaches for it in secret: you can’t see from a constructor that <code>CancelBooking</code> talks to Stripe, and the instance lives for the whole process, so state from one test or one request survives into the next.</p></section>
+<section class="pattern"><h2>The pattern: Singleton</h2>
+<p class="rule"><span>Remember it</span>A class that guarantees it has only one instance, and gives global access to it.</p>
+<p>The Gang of Four version: a private constructor, a static method that creates the instance on first use and returns the same one after, and no cloning. It solves a real need (one shared, expensive object) but adds <b>global state</b>: any code can reach it, dependencies are invisible, and replacing it in a test means resetting a static property.</p><p>In long-running PHP (queue workers, Octane) the problem grows: the &quot;one instance&quot; lives for hours, across thousands of jobs or requests.</p>
+
+</section>
+<section class="pattern"><h2>The pattern: Dependency Injection Container</h2>
+<p class="rule"><span>Remember it</span>Classes ask for what they need in their constructor; one container knows how to build everything and decides what is shared.</p>
+<p>With dependency injection, <code>StartBookingPayment</code> declares <code>public function __construct(private StripeGateway $stripe)</code>. It never builds the client and never reaches for a global. The <b>container</b> builds it: it reads the constructor, builds each dependency the same way, and passes them in.</p><p><code>singleton()</code> on the container keeps the useful part of the Singleton pattern (one shared instance) and drops the harmful part (global access). Dependencies are visible in every constructor, and a test can replace the instance with one line.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Dependency Injection Container: the problem"><rect class="bn" x="4" y="14" width="96" height="30" rx="7"/><text x="52" y="33" text-anchor="middle" class="">Payments</text><rect class="bn" x="4" y="68" width="96" height="30" rx="7"/><text x="52" y="87" text-anchor="middle" class="">Refunds</text><rect class="bn" x="4" y="122" width="96" height="30" rx="7"/><text x="52" y="141" text-anchor="middle" class="">Reconcile</text><line class="lx" x1="100" y1="29" x2="188" y2="72" marker-end="url(#arx)"/><line class="lx" x1="100" y1="83" x2="188" y2="83" marker-end="url(#arx)"/><line class="lx" x1="100" y1="137" x2="188" y2="94" marker-end="url(#arx)"/><rect class="bx" x="190" y="58" width="106" height="50" rx="7"/><text x="243" y="87" text-anchor="middle" class="kx">::instance()</text><text x="243" y="128" class="kx" text-anchor="middle">global, hidden</text></svg><p>Every class reaches for a global instance; nobody can see or replace the dependency.</p></figure>
+<figure class="panel good"><figcaption><h3>With Dependency Injection Container</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Dependency Injection Container: the fix"><rect class="bv" x="4" y="60" width="92" height="46" rx="7"/><text x="50" y="87" text-anchor="middle" class="kv">Container</text><line class="lk" x1="96" y1="70" x2="180" y2="29" marker-end="url(#ar)"/><line class="lk" x1="96" y1="83" x2="180" y2="83" marker-end="url(#ar)"/><line class="lk" x1="96" y1="96" x2="180" y2="137" marker-end="url(#ar)"/><rect class="bn" x="182" y="14" width="114" height="30" rx="7"/><text x="239" y="33" text-anchor="middle" class="">Payments(gw)</text><rect class="bn" x="182" y="68" width="114" height="30" rx="7"/><text x="239" y="87" text-anchor="middle" class="">Refunds(gw)</text><rect class="bn" x="182" y="122" width="114" height="30" rx="7"/><text x="239" y="141" text-anchor="middle" class="">Reconcile(gw)</text><text x="50" y="128" class="s" text-anchor="middle">one shared gw</text></svg><p>The container passes one shared gateway into every constructor.</p></figure>
+</div>
+</section>
+<section><h2>Build it</h2><div class="blocks numbered"><div class="block"><h3><span class="num">1</span>The GoF Singleton, written correctly (so you can recognise it)</h3><p>This is the classic form. It is shown here to understand the pattern; the PMS does not use it.</p><div class="codebox">
+<div class="filehead"><span class="path">Singleton (reference, not used in the app)</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">Config</span>
+{
+    <span class="k">private</span> <span class="k">static</span> ?<span class="k">self</span> <span class="v">$instance</span> = <span class="k">null</span>;
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">__construct</span>()                 <span class="c">// nobody else can call &quot;new Config()&quot;</span>
+    {
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">instance</span>(): <span class="k">self</span>
+    {
+        <span class="k">return</span> <span class="k">self</span>::<span class="v">$instance</span> ??= <span class="k">new</span> <span class="k">self</span>();     <span class="c">// created on first use, then always the same</span>
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">__clone</span>()                     <span class="c">// no copies</span>
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__wakeup</span>(): <span class="k">void</span>
+    {
+        <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'A singleton cannot be unserialized.'</span>);
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">2</span>A gateway class that receives its client</h3><p>Our own class around the Stripe SDK. It asks for a <code>StripeClient</code> instead of building one, so the configuration lives in exactly one place. The <b>amount always comes from the server</b> (the booking’s own <code>Money</code>), and the idempotency key makes a retried request safe (lesson 20).</p><div class="codebox">
+<div class="filehead"><span class="path">app/Payments/StripeGateway.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">StripeGateway</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">StripeClient</span> <span class="v">$stripe</span>)
+    {
+    }
+
+    <span class="c">/** @return array{id: string, client_secret: string} */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">createPaymentIntent</span>(<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>, <span class="k">array</span> <span class="v">$metadata</span> = []): <span class="k">array</span>
+    {
+        <span class="v">$intent</span> = <span class="k">$this</span>-&gt;stripe-&gt;paymentIntents-&gt;<span class="f">create</span>([
+            <span class="s">'amount'</span> =&gt; <span class="v">$amount</span>-&gt;amount,                       <span class="c">// already in the currency's minor unit (lesson 1)</span>
+            <span class="s">'currency'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$amount</span>-&gt;currency-&gt;value),
+            <span class="s">'automatic_payment_methods'</span> =&gt; [<span class="s">'enabled'</span> =&gt; <span class="k">true</span>],
+            <span class="s">'metadata'</span> =&gt; <span class="v">$metadata</span>,
+        ], [<span class="s">'idempotency_key'</span> =&gt; <span class="v">$idempotencyKey</span>]);
+
+        <span class="k">return</span> [<span class="s">'id'</span> =&gt; <span class="v">$intent</span>-&gt;id, <span class="s">'client_secret'</span> =&gt; <span class="v">$intent</span>-&gt;client_secret];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">refund</span>(<span class="k">string</span> <span class="v">$paymentIntentId</span>, <span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;stripe-&gt;refunds-&gt;<span class="f">create</span>([
+            <span class="s">'payment_intent'</span> =&gt; <span class="v">$paymentIntentId</span>,
+            <span class="s">'amount'</span> =&gt; <span class="v">$amount</span>-&gt;amount,
+        ], [<span class="s">'idempotency_key'</span> =&gt; <span class="v">$idempotencyKey</span>]);
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">3</span>One binding, in one place</h3><p><code>singleton()</code> builds the client the first time something needs it and reuses it after. <code>StripeGateway</code> needs no binding at all: the container sees its constructor, builds the <code>StripeClient</code> from the binding, and passes it in (autowiring).</p><p>Bindings go in <code>register()</code>. Nothing is resolved there, because other providers may not be registered yet.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;
+<span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;
+
+<span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([
+            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),
+            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),
+            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,
+        ]));
+    }
+}</code></pre>
+</div></div><div class="block"><h3><span class="num">4</span>Consumers declare what they need</h3><p>The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Payments/StartBookingPayment.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">StartBookingPayment</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">StripeGateway</span> <span class="v">$stripe</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span>
+    {
+        [<span class="v">$deposit</span>] = <span class="v">$booking</span>-&gt;total-&gt;<span class="f">allocate</span>(<span class="n">30</span>, <span class="n">70</span>);              <span class="c">// lesson 1</span>
+
+        <span class="v">$intent</span> = <span class="k">$this</span>-&gt;stripe-&gt;<span class="f">createPaymentIntent</span>(
+            <span class="v">$deposit</span>,
+            idempotencyKey: <span class="s">&quot;booking-{$booking-&gt;id}-deposit&quot;</span>,          <span class="c">// the same booking never creates two intents</span>
+            metadata: [<span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id],
+        );
+
+        <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([
+            <span class="s">'kind'</span> =&gt; <span class="s">'deposit'</span>,
+            <span class="s">'amount_cents'</span> =&gt; <span class="v">$deposit</span>-&gt;amount,
+            <span class="s">'currency'</span> =&gt; <span class="v">$deposit</span>-&gt;currency-&gt;value,
+            <span class="s">'status'</span> =&gt; <span class="s">'pending'</span>,
+            <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>[<span class="s">'id'</span>],
+        ]);
+
+        <span class="k">return</span> <span class="v">$intent</span>[<span class="s">'client_secret'</span>];                              <span class="c">// the browser confirms with Stripe Elements</span>
+    }
+}</code></pre>
+</div></div></div></section>
+<section class="laravel"><h2>How Laravel does it inside</h2><p>The container’s core is two methods. <code>resolve()</code> decides <b>whether</b> to build (a shared instance may already exist), and <code>build()</code> decides <b>how</b>: it reflects on the class, reads the constructor, and resolves every parameter the same way, recursively.</p><div class="blocks"><div class="block"><h3>resolve(): shared instances first</h3><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Container/Container.php (simplified)</span></div>
+<pre class="code"><code><span class="k">protected</span> <span class="k">function</span> <span class="f">resolve</span>(<span class="v">$abstract</span>, <span class="v">$parameters</span> = [])
+{
+    <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;instances[<span class="v">$abstract</span>]) &amp;&amp; <span class="f">empty</span>(<span class="v">$parameters</span>)) {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;instances[<span class="v">$abstract</span>];                  <span class="c">// a singleton built earlier</span>
+    }
+
+    <span class="v">$concrete</span> = <span class="k">$this</span>-&gt;<span class="f">getConcrete</span>(<span class="v">$abstract</span>);               <span class="c">// the closure from singleton(), or the class itself</span>
+
+    <span class="v">$object</span> = <span class="k">$this</span>-&gt;<span class="f">isBuildable</span>(<span class="v">$concrete</span>, <span class="v">$abstract</span>)
+        ? <span class="k">$this</span>-&gt;<span class="f">build</span>(<span class="v">$concrete</span>)
+        : <span class="k">$this</span>-&gt;<span class="f">make</span>(<span class="v">$concrete</span>);
+
+    <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="f">isShared</span>(<span class="v">$abstract</span>) &amp;&amp; <span class="f">empty</span>(<span class="v">$parameters</span>)) {
+        <span class="k">$this</span>-&gt;instances[<span class="v">$abstract</span>] = <span class="v">$object</span>;               <span class="c">// singleton(): keep it for next time</span>
+    }
+
+    <span class="k">$this</span>-&gt;<span class="f">fireResolvingCallbacks</span>(<span class="v">$abstract</span>, <span class="v">$object</span>);
+
+    <span class="k">return</span> <span class="v">$object</span>;
+}</code></pre>
+</div></div><div class="block"><h3>build(): autowiring with reflection</h3><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Container/Container.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">build</span>(<span class="v">$concrete</span>)
+{
+    <span class="k">if</span> (<span class="v">$concrete</span> <span class="k">instanceof</span> <span class="t">Closure</span>) {
+        <span class="k">return</span> <span class="v">$concrete</span>(<span class="k">$this</span>, <span class="k">$this</span>-&gt;<span class="f">getLastParameterOverride</span>());   <span class="c">// the factory you registered</span>
+    }
+
+    <span class="v">$reflector</span> = <span class="k">new</span> <span class="f">ReflectionClass</span>(<span class="v">$concrete</span>);
+
+    <span class="k">if</span> (! <span class="v">$reflector</span>-&gt;<span class="f">isInstantiable</span>()) {
+        <span class="k">throw</span> <span class="k">new</span> <span class="f">BindingResolutionException</span>(<span class="s">&quot;Target [$concrete] is not instantiable.&quot;</span>);   <span class="c">// an unbound interface</span>
+    }
+
+    <span class="v">$constructor</span> = <span class="v">$reflector</span>-&gt;<span class="f">getConstructor</span>();
+    <span class="k">if</span> (<span class="v">$constructor</span> === <span class="k">null</span>) {
+        <span class="k">return</span> <span class="k">new</span> <span class="v">$concrete</span>;
+    }
+
+    <span class="v">$instances</span> = <span class="k">$this</span>-&gt;<span class="f">resolveDependencies</span>(<span class="v">$constructor</span>-&gt;<span class="f">getParameters</span>());   <span class="c">// make() for each class-typed parameter</span>
+
+    <span class="k">return</span> <span class="v">$reflector</span>-&gt;<span class="f">newInstanceArgs</span>(<span class="v">$instances</span>);
+}</code></pre>
+</div></div></div></section>
+<section class="topics"><h2>PMS topics in this lesson</h2><div class="blocks"><div class="block"><h3>Binding resolution: the five ways to register</h3><div class="tablewrap"><table><thead><tr><th scope="col">Method</th><th scope="col">Meaning</th><th scope="col">PMS example</th></tr></thead>
+<tbody><tr><th scope="row">nothing (autowiring)</th><td>Concrete classes are built automatically</td><td><code>CreateBooking</code>, <code>StripeGateway</code></td></tr><tr><th scope="row"><code>bind()</code></th><td>A new instance every time</td><td>Rarely needed</td></tr><tr><th scope="row"><code>singleton()</code></th><td>One instance for the whole process</td><td><code>StripeClient</code> (stateless, expensive)</td></tr><tr><th scope="row"><code>scoped()</code></th><td>One instance per request or job, reset after</td><td>The current account (below)</td></tr><tr><th scope="row"><code>instance()</code></th><td>This exact object</td><td>A fake in a test</td></tr><tr><th scope="row"><code>when()-&gt;needs()-&gt;give()</code></th><td>A different dependency for one class</td><td>A separate Stripe account for payouts</td></tr></tbody></table></div></div><div class="block"><h3>Service provider order: register, then boot</h3><p>Laravel calls <code>register()</code> on <b>every</b> provider first, then <code>boot()</code> on every provider. So <code>register()</code> only binds; anything that uses other services (routes, event listeners, <code>Date::use()</code>, gates) goes in <code>boot()</code>, when all bindings exist. Deferred providers register only when one of their services is first requested.</p></div><div class="block"><h3>Octane: state that leaks between requests</h3><p>Under PHP-FPM every request starts with a fresh app. Under <b>Octane</b> the app boots once and serves thousands of requests, so a <code>singleton()</code> that holds request data (the current user, the current account) leaks into the next request: account A’s data shown to account B. Stateless services stay <code>singleton()</code>; anything per-request becomes <code>scoped()</code>, which Octane and the queue worker reset after each request or job.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Accounts/CurrentAccount.php · AppServiceProvider.php</span></div>
+<pre class="code"><code><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">CurrentAccount</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> ?<span class="k">int</span> <span class="v">$id</span>)
+    {
+    }
+}
+
+<span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span>
+{
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">scoped</span>(<span class="t">CurrentAccount</span>::class, <span class="k">fn</span> (<span class="v">$app</span>): <span class="t">CurrentAccount</span> =&gt; <span class="k">new</span> <span class="f">CurrentAccount</span>(
+        <span class="v">$app</span>[<span class="s">'request'</span>]-&gt;<span class="f">user</span>()?-&gt;current_account_id,
+    ));                                                   <span class="c">// rebuilt for every request and every queued job</span>
+}</code></pre>
+</div></div><div class="block"><h3>PHP-FPM and OPcache</h3><p>PHP-FPM keeps a pool of worker processes; each handles one request at a time and frees everything afterwards (shared-nothing), so memory per request matters more than memory over time. <b>OPcache</b> keeps the compiled bytecode of every PHP file in shared memory so files are not parsed on each request. In production <code>opcache.validate_timestamps=0</code> (never check files for changes), which is fast but means a deploy must reset OPcache (reload PHP-FPM, or <code>opcache_reset()</code>) or the servers keep running the old code.</p></div></div></section>
+<section class="whennot"><h2>When not to use it</h2><ul><li>Don’t write GoF singletons in a Laravel app. <code>singleton()</code> on the container gives one shared instance without the global state.</li><li>Don’t bind every class. Autowiring builds concrete classes on its own; bind only interfaces, configured objects and shared instances.</li><li>Don’t call <code>app(SomeService::class)</code> inside business code. That is a service locator: the same hidden dependency as a static singleton. Ask for it in the constructor.</li><li>Never <code>singleton()</code> something that holds per-request or per-user data. Use <code>scoped()</code>.</li></ul></section>
+<section class="tests"><details><summary><span>Pest tests for this lesson</span><small>Replacing the gateway in tests, and the shared-instance guarantees</small></summary>
+<div class="testbody"><p>Because the gateway is injected, tests never reach Stripe. <code>$this-&gt;mock()</code> builds a Mockery double and registers it with <code>instance()</code>.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/StartBookingPaymentTest.php</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StartBookingPayment</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;
+<span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;
+
+<span class="f">it</span>(<span class="s">'charges a 30% deposit with an idempotency key per booking'</span>, <span class="k">function</span> () {
+    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'total_cents'</span> =&gt; <span class="n">45_001</span>, <span class="s">'currency'</span> =&gt; <span class="s">'EUR'</span>]);
+
+    <span class="k">$this</span>-&gt;<span class="f">mock</span>(<span class="t">StripeGateway</span>::class)
+        -&gt;<span class="f">shouldReceive</span>(<span class="s">'createPaymentIntent'</span>)
+        -&gt;<span class="f">once</span>()
+        -&gt;<span class="f">withArgs</span>(<span class="k">fn</span> (<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$key</span>) =&gt; <span class="v">$amount</span>-&gt;amount === <span class="n">13_501</span> &amp;&amp; <span class="v">$key</span> === <span class="s">&quot;booking-{$booking-&gt;id}-deposit&quot;</span>)
+        -&gt;<span class="f">andReturn</span>([<span class="s">'id'</span> =&gt; <span class="s">'pi_123'</span>, <span class="s">'client_secret'</span> =&gt; <span class="s">'pi_123_secret'</span>]);
+
+    <span class="v">$secret</span> = <span class="f">app</span>(<span class="t">StartBookingPayment</span>::class)-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);
+
+    <span class="f">expect</span>(<span class="v">$secret</span>)-&gt;<span class="f">toBe</span>(<span class="s">'pi_123_secret'</span>)
+        -&gt;<span class="f">and</span>(<span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">where</span>(<span class="s">'provider_payment_id'</span>, <span class="s">'pi_123'</span>)-&gt;<span class="f">exists</span>())-&gt;<span class="f">toBeTrue</span>();
+});
+
+<span class="f">it</span>(<span class="s">'shares one Stripe client across the app'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">app</span>(<span class="t">StripeClient</span>::class))-&gt;<span class="f">toBe</span>(<span class="f">app</span>(<span class="t">StripeClient</span>::class));   <span class="c">// mutation: singleton → bind fails</span>
+});
+
+<span class="f">it</span>(<span class="s">'builds the current account again for every request'</span>, <span class="k">function</span> () {
+    <span class="v">$first</span> = <span class="f">app</span>(<span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">CurrentAccount</span>::class);
+    <span class="f">app</span>()-&gt;<span class="f">forgetScopedInstances</span>();                                     <span class="c">// what Octane does after each request</span>
+
+    <span class="f">expect</span>(<span class="f">app</span>(<span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">CurrentAccount</span>::class))-&gt;not-&gt;<span class="f">toBe</span>(<span class="v">$first</span>);
+});</code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>Confirming a paid booking takes many steps across many classes. Lesson 4 gives callers one simple door: the Facade pattern, and why Laravel’s &quot;facades&quot; are something else.</p>
+<nav class="pager" aria-label="Lessons">
+<a rel="prev" href="../02-active-record/"><small>← Lesson 2</small>Active Record, Data Mapper, Repository</a>
+<a rel="next" href="../04-facade/"><small>Lesson 4 →</small>Facade</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation: setup and the data model","patterns":["Set up the PMS and design every table the course uses"],"slug":"00-foundation","ready":true},{"n":1,"title":"Value Object","patterns":["Money and stays are passed around as bare numbers"],"slug":"01-value-object","ready":true},{"n":2,"title":"Active Record, Data Mapper, Repository","patterns":["Where booking logic and SQL belong"],"slug":"02-active-record","ready":true},{"n":3,"title":"Singleton, Dependency Injection Container","patterns":["The Stripe client is created everywhere"],"slug":"03-container","ready":true},{"n":4,"title":"Facade","patterns":["“Confirm a booking” is many steps"],"slug":"04-facade","ready":true},{"n":5,"title":"Builder","patterns":["Quotes with many optional parts"],"slug":"05-builder","ready":false},{"n":6,"title":"Simple Factory, Factory Method","patterns":["Webhook payloads into typed events; one feed parser per source"],"slug":"06-factory","ready":false},{"n":7,"title":"Abstract Factory","patterns":["Each channel needs a matching client, mapper and verifier"],"slug":"07-abstract-factory","ready":false},{"n":8,"title":"Prototype","patterns":["Every turnover gets a copy of the cleaning checklist"],"slug":"08-prototype","ready":false},{"n":9,"title":"Adapter, Manager / Driver","patterns":["Airbnb and Booking.com behind one interface, picked by name"],"slug":"09-adapter","ready":false},{"n":10,"title":"Decorator","patterns":["Retries, rate limits and caching around services"],"slug":"10-decorator","ready":false},{"n":11,"title":"Proxy","patterns":["Cleaners must not see payouts; heavy data loads only when needed"],"slug":"11-proxy","ready":false},{"n":12,"title":"Composite","patterns":["Seasonal rate rules grouped into rate plans"],"slug":"12-composite","ready":false},{"n":13,"title":"Bridge","patterns":["Message types × channels (mail, SMS, WhatsApp)"],"slug":"13-bridge","ready":false},{"n":14,"title":"Flyweight","patterns":["A year of calendar days for thousands of properties"],"slug":"14-flyweight","ready":false},{"n":15,"title":"Strategy, Null Object","patterns":["Cancellation policies; properties without fees"],"slug":"15-strategy","ready":false},{"n":16,"title":"Pipeline, Chain of Responsibility","patterns":["Price stages; booking acceptance rules"],"slug":"16-pipeline","ready":false},{"n":17,"title":"Template Method","patterns":["iCal sync: same steps, different sources"],"slug":"17-template-method","ready":false},{"n":18,"title":"Command, Command Bus","patterns":["Channel pushes and emails in the background"],"slug":"18-command","ready":false},{"n":19,"title":"Iterator, Generators","patterns":["Nights, due messages, nightly reconciliation"],"slug":"19-iterator","ready":false},{"n":20,"title":"State","patterns":["Booking pending → confirmed → cancelled / expired"],"slug":"20-state","ready":false},{"n":21,"title":"Observer, Event Dispatcher","patterns":["A cancellation must trigger five reactions"],"slug":"21-observer","ready":false},{"n":22,"title":"Mediator","patterns":["Cross-channel double bookings; the guest–host chat"],"slug":"22-mediator","ready":false},{"n":23,"title":"Memento","patterns":["Dates changed: reschedule, or roll back"],"slug":"23-memento","ready":false},{"n":24,"title":"Interpreter","patterns":["Variables like {guest_name} and {door_code} in templates"],"slug":"24-interpreter","ready":false},{"n":25,"title":"Visitor","patterns":["Owner statement, tax report and payouts from one folio"],"slug":"25-visitor","ready":false},{"n":26,"title":"Specification","patterns":["“Free from X to Y, sleeps 6, pets allowed”"],"slug":"26-specification","ready":false},{"n":27,"title":"Unit of Work, Transactional Outbox","patterns":["A booking is saved, but its event is lost"],"slug":"27-unit-of-work","ready":false},{"n":28,"title":"All patterns, together","patterns":["Design systems on a whiteboard; review AI-written code"],"slug":"28-all-patterns","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Money and stays are passed around as bare numbers","slug":"01-value-object","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Where booking logic and SQL belong","slug":"02-active-record","ready":true,"gof":false},{"name":"Singleton","chapter":3,"chapterTitle":"The Stripe client is created everywhere","slug":"03-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":3,"chapterTitle":"The Stripe client is created everywhere","slug":"03-container","ready":true,"gof":false},{"name":"Facade","chapter":4,"chapterTitle":"“Confirm a booking” is many steps","slug":"04-facade","ready":true,"gof":true},{"name":"Builder","chapter":5,"chapterTitle":"Quotes with many optional parts","slug":"05-builder","ready":false,"gof":true},{"name":"Simple Factory","chapter":6,"chapterTitle":"Webhook payloads into typed events; one feed parser per source","slug":"06-factory","ready":false,"gof":false},{"name":"Factory Method","chapter":6,"chapterTitle":"Webhook payloads into typed events; one feed parser per source","slug":"06-factory","ready":false,"gof":true},{"name":"Abstract Factory","chapter":7,"chapterTitle":"Each channel needs a matching client, mapper and verifier","slug":"07-abstract-factory","ready":false,"gof":true},{"name":"Prototype","chapter":8,"chapterTitle":"Every turnover gets a copy of the cleaning checklist","slug":"08-prototype","ready":false,"gof":true},{"name":"Adapter","chapter":9,"chapterTitle":"Airbnb and Booking.com behind one interface, picked by name","slug":"09-adapter","ready":false,"gof":true},{"name":"Manager / Driver","chapter":9,"chapterTitle":"Airbnb and Booking.com behind one interface, picked by name","slug":"09-adapter","ready":false,"gof":false},{"name":"Decorator","chapter":10,"chapterTitle":"Retries, rate limits and caching around services","slug":"10-decorator","ready":false,"gof":true},{"name":"Proxy","chapter":11,"chapterTitle":"Cleaners must not see payouts; heavy data loads only when needed","slug":"11-proxy","ready":false,"gof":true},{"name":"Composite","chapter":12,"chapterTitle":"Seasonal rate rules grouped into rate plans","slug":"12-composite","ready":false,"gof":true},{"name":"Bridge","chapter":13,"chapterTitle":"Message types × channels (mail, SMS, WhatsApp)","slug":"13-bridge","ready":false,"gof":true},{"name":"Flyweight","chapter":14,"chapterTitle":"A year of calendar days for thousands of properties","slug":"14-flyweight","ready":false,"gof":true},{"name":"Strategy","chapter":15,"chapterTitle":"Cancellation policies; properties without fees","slug":"15-strategy","ready":false,"gof":true},{"name":"Null Object","chapter":15,"chapterTitle":"Cancellation policies; properties without fees","slug":"15-strategy","ready":false,"gof":false},{"name":"Pipeline","chapter":16,"chapterTitle":"Price stages; booking acceptance rules","slug":"16-pipeline","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":16,"chapterTitle":"Price stages; booking acceptance rules","slug":"16-pipeline","ready":false,"gof":true},{"name":"Template Method","chapter":17,"chapterTitle":"iCal sync: same steps, different sources","slug":"17-template-method","ready":false,"gof":true},{"name":"Command","chapter":18,"chapterTitle":"Channel pushes and emails in the background","slug":"18-command","ready":false,"gof":true},{"name":"Command Bus","chapter":18,"chapterTitle":"Channel pushes and emails in the background","slug":"18-command","ready":false,"gof":false},{"name":"Iterator","chapter":19,"chapterTitle":"Nights, due messages, nightly reconciliation","slug":"19-iterator","ready":false,"gof":true},{"name":"Generators","chapter":19,"chapterTitle":"Nights, due messages, nightly reconciliation","slug":"19-iterator","ready":false,"gof":false},{"name":"State","chapter":20,"chapterTitle":"Booking pending → confirmed → cancelled / expired","slug":"20-state","ready":false,"gof":true},{"name":"Observer","chapter":21,"chapterTitle":"A cancellation must trigger five reactions","slug":"21-observer","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":21,"chapterTitle":"A cancellation must trigger five reactions","slug":"21-observer","ready":false,"gof":false},{"name":"Mediator","chapter":22,"chapterTitle":"Cross-channel double bookings; the guest–host chat","slug":"22-mediator","ready":false,"gof":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed: reschedule, or roll back","slug":"23-memento","ready":false,"gof":true},{"name":"Interpreter","chapter":24,"chapterTitle":"Variables like {guest_name} and {door_code} in templates","slug":"24-interpreter","ready":false,"gof":true},{"name":"Visitor","chapter":25,"chapterTitle":"Owner statement, tax report and payouts from one folio","slug":"25-visitor","ready":false,"gof":true},{"name":"Specification","chapter":26,"chapterTitle":"“Free from X to Y, sleeps 6, pets allowed”","slug":"26-specification","ready":false,"gof":false},{"name":"Unit of Work","chapter":27,"chapterTitle":"A booking is saved, but its event is lost","slug":"27-unit-of-work","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":27,"chapterTitle":"A booking is saved, but its event is lost","slug":"27-unit-of-work","ready":false,"gof":false}]}</script>
+<script src="../assets/site.js?v=437bc381d0" defer></script>
+</body>
+</html>

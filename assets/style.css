@@ -247,3 +247,20 @@ pre.diff .ln.fold{color:var(--muted);font-style:italic;background:var(--well);ma
   pre.code{padding:10px 12px}
   .ticket{padding:16px}
 }
+
+/* ===== Lesson pages (pattern-first course) ===== */
+.subtitle{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:60ch}
+.blocks{display:flex;flex-direction:column;gap:26px;margin-top:10px}
+.block{min-width:0}
+.block h3{display:flex;align-items:baseline;gap:10px}
+.blocks.numbered .num{flex:none;width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;font:500 13px var(--mono);background:var(--acc);color:var(--card);transform:translateY(-2px)}
+.block .tablewrap{margin:8px 0 12px}
+.topics{border-top:1px solid var(--line);padding-top:22px}
+.whennot ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.tests details{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.tests summary{cursor:pointer;padding:14px 18px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-family:var(--display);font-weight:700;font-size:19px}
+.tests summary small{font:400 13.5px var(--body);color:var(--muted)}
+.tests details[open] summary{border-bottom:1px solid var(--line)}
+.testbody{padding:4px 18px 18px}
+.crow .ct small{font-weight:400;font-size:14px;color:var(--muted)}
+.clist{list-style:none}
