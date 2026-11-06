@@ -1,0 +1,13 @@
+Holding 100,000 answers in memory
+  one Score object per answer: 26.9 MB
+  shared Score objects (now):  15.7 MB
+
+Distinct Score objects: 5
+Score::of(4) === Score::of(4): yes, the same object
+
+DISTRIBUTION
+  1: #################### 20000
+  2: #################### 20000
+  3: #################### 20000
+  4: #################### 20000
+  5: #################### 20000

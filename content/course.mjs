@@ -8,6 +8,7 @@
 
 import { PART1 } from './part1.mjs';
 import { PART2 } from './part2.mjs';
+import { PART3 } from './part3.mjs';
 
 export const PARTS = {
   1: 'Foundations',
@@ -32,10 +33,10 @@ export const PLAN = [
   { n: 9, part: 2, slug: '09-decorator', ready: true, title: 'AI calls are slow and expensive', patterns: ['Decorator'] },
   { n: 10, part: 2, slug: '10-proxy', ready: true, title: 'Load the 50 MB results only when opened, only for allowed users', patterns: ['Proxy'] },
   { n: 11, part: 2, slug: '11-facade', ready: true, title: 'Closing a survey takes six steps, and callers forget some', patterns: ['Facade'] },
-  { n: 12, part: 3, title: 'Import answers from Google Forms CSV, Excel and JSON', patterns: ['Template Method'] },
-  { n: 13, part: 3, title: 'Each importer needs its own reader', patterns: ['Factory Method'] },
-  { n: 14, part: 3, title: 'Exporting 100,000 responses runs out of memory', patterns: ['Iterator', 'Generators'] },
-  { n: 15, part: 3, title: '100,000 response objects repeat the same question data', patterns: ['Flyweight'] },
+  { n: 12, part: 3, slug: '12-template-method', ready: true, title: 'Import answers from Google Forms CSV, Excel and JSON', patterns: ['Template Method'] },
+  { n: 13, part: 3, slug: '13-factory-method', ready: true, title: 'Each importer needs its own reader', patterns: ['Factory Method'] },
+  { n: 14, part: 3, slug: '14-iterator', ready: true, title: 'Exporting 100,000 responses runs out of memory', patterns: ['Iterator', 'Generators'] },
+  { n: 15, part: 3, slug: '15-flyweight', ready: true, title: '100,000 response objects repeat the same question data', patterns: ['Flyweight'] },
   { n: 16, part: 4, title: 'Sections inside sections: score the whole tree', patterns: ['Composite'] },
   { n: 17, part: 4, title: 'Export, validate and count the tree without editing it', patterns: ['Visitor'] },
   { n: 18, part: 4, title: '“Show Q5 only if Q3 ≥ 4 and the role is teacher”', patterns: ['Interpreter'] },
@@ -64,6 +65,7 @@ export const GOF = new Set([
 export const CHAPTERS = {
   ...PART1,
   ...PART2,
+  ...PART3,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {

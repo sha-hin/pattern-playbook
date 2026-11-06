@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Chapter 12: Import answers from Google Forms CSV, Excel and JSON (Template Method in PHP) | Pattern Playbook</title>
+<meta name="description" content="Answers arrive as Google Forms CSV and Microsoft Forms JSON, and each importer is a copy that drifts. Fix it with the Template Method pattern in PHP: one fixed recipe, with the steps that differ left to subclasses.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/12-template-method/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chapter 12: Import answers from Google Forms CSV, Excel and JSON (Template Method in PHP) | Pattern Playbook">
+<meta property="og:description" content="Answers arrive as Google Forms CSV and Microsoft Forms JSON, and each importer is a copy that drifts. Fix it with the Template Method pattern in PHP: one fixed recipe, with the steps that differ left to subclasses.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/12-template-method/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in PHP, learned by fixing one real app">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chapter 12: Import answers from Google Forms CSV, Excel and JSON (Template Method in PHP) | Pattern Playbook">
+<meta name="twitter:description" content="Answers arrive as Google Forms CSV and Microsoft Forms JSON, and each importer is a copy that drifts. Fix it with the Template Method pattern in PHP: one fixed recipe, with the steps that differ left to subclasses.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=c9e8db968e">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Chapter 12: Import answers from Google Forms CSV, Excel and JSON","description":"Answers arrive as Google Forms CSV and Microsoft Forms JSON, and each importer is a copy that drifts. Fix it with the Template Method pattern in PHP: one fixed recipe, with the steps that differ left to subclasses.","url":"https://sha-hin.github.io/pattern-playbook/12-template-method/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/12-template-method/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Template Method pattern","PHP"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Evalu8, chapter 12","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/tree/main/chapters/12-template-method","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Chapter 12","item":"https://sha-hin.github.io/pattern-playbook/12-template-method/"}]}]}</script>
+</head>
+<body data-page="12-template-method" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Evalu8 course</a> › Part 3 · Importing and big data</p>
+<p class="eyebrow">Chapter 12 of 30</p>
+<h1>Import answers from Google Forms CSV, Excel and JSON</h1>
+<p class="tags"><span class="ptag gof" title="In the Gang of Four book">Template Method</span></p>
+</header>
+<section class="ticket" aria-label="The ticket">
+<p class="tk-label">New ticket</p>
+<h2>Answers from Microsoft Forms skipped validation and saved a score of 7</h2>
+<p class="tk-from">From Support desk</p>
+<p>Some schools collect answers with Google Forms (CSV download), others with Microsoft Forms (JSON export). The two imports were written separately. The JSON one never checks that the teacher exists, and it saved a score of 7. Both must follow exactly the same rules.</p>
+</section>
+<section><h2>Why the quick fix is a trap</h2><p>Two importers, written months apart:</p>
+<div class="codebox">
+<div class="filehead"><span class="path">the quick fix (we won’t do this)</span></div>
+<pre class="code rejected"><code><span class="k">final</span> <span class="k">class</span> <span class="t">GoogleFormsCsvImport</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">void</span>
+    {
+        <span class="c">// read CSV → map columns → validate with value objects → check teacher → save</span>
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">MicrosoftFormsJsonImport</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">void</span>
+    {
+        <span class="c">// read JSON → map fields → save            (validation forgotten)</span>
+    }
+}</code></pre>
+</div>
+<p>The two classes share most of their steps (validate, check the teacher, save, report rejected rows) but each has its own copy. A rule added to one is missing from the other, and a third format next term means a third copy.</p><p>Only two steps really differ between formats: <b>how to read the file</b> and <b>where each field is</b>. The order of the steps and the validation must be the same for everyone.</p></section>
+<section class="pattern"><h2>The pattern: Template Method</h2>
+<p class="rule"><span>Remember it</span>Several classes follow the same recipe with a few different steps → write the recipe once in a base class (a final method) and let subclasses fill in only the steps that differ.</p>
+<p><code>AnswerImport::import()</code> is the <b>template method</b>: read → map → validate → save, always in that order. It is <code>final</code>, so no subclass can reorder it or skip validation.</p><p>The steps that differ are <b>abstract methods</b>: <code>readRows()</code> and <code>mapRow()</code>. Each format implements those two and nothing else. A <b>hook</b> is a step with a default that subclasses *may* replace: <code>roleText()</code> tidies the role label, and Microsoft Forms overrides it because it labels roles as &quot;Peer (colleague)&quot;.</p><p>The base class calls the subclass, not the other way round. This is sometimes called the Hollywood principle: &quot;don’t call us, we’ll call you&quot;.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Template Method: the problem"><rect class="bx" x="6" y="14" width="138" height="138" rx="7"/><text x="16" y="36" class="m">CsvImport</text><text x="22" y="62" class="m">read</text><text x="22" y="84" class="m">map</text><text x="22" y="106" class="m">validate</text><text x="22" y="128" class="m">save</text><rect class="bx" x="156" y="14" width="138" height="138" rx="7"/><text x="166" y="36" class="m">JsonImport</text><text x="172" y="62" class="m">read</text><text x="172" y="84" class="m">map</text><text x="172" y="106" class="kx">(no validate)</text><text x="172" y="128" class="m">save</text></svg><p>Each format has its own copy of the whole process, and the copies drift.</p></figure>
+<figure class="panel good"><figcaption><h3>With Template Method</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Template Method: the fix"><rect class="bv2" x="64" y="6" width="172" height="100" rx="7"/><text x="76" y="26" class="kv">import()  final</text><text x="84" y="48" class="m">1 read   ← subclass</text><text x="84" y="68" class="m">2 map    ← subclass</text><text x="84" y="88" class="m">3 validate · 4 save</text><line class="lk" x1="110" y1="106" x2="60" y2="128" marker-end="url(#ar)"/><line class="lk" x1="190" y1="106" x2="240" y2="128" marker-end="url(#ar)"/><rect class="bn" x="4" y="130" width="112" height="30" rx="7"/><text x="60" y="149" text-anchor="middle" class="">GoogleForms</text><rect class="bn" x="184" y="130" width="112" height="30" rx="7"/><text x="240" y="149" text-anchor="middle" class="">MicrosoftForms</text></svg><p>One fixed recipe. Each format fills in only the two steps that differ.</p></figure>
+</div>
+
+</section>
+<section><h2>Build it, step by step</h2>
+<p class="hint">Changed files show only what changed since chapter 11: <b class="plus">green</b> lines are new, <b class="minus">red</b> lines are removed. <b>Copy</b> always copies the complete file.</p>
+<ol class="steps"><li class="step"><h3><span class="num">1</span>The two files we receive</h3><p>A Google Forms CSV download. Line 6 has a score of 7 and line 7 a teacher who doesn’t exist.</p><div class="codebox">
+<div class="filehead"><span class="path">data/google-forms.csv</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/data/google-forms.csv" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code><span class="t">Timestamp</span>,<span class="t">Teacher</span> <span class="t">ID</span>,<span class="t">You</span> are,<span class="f">Score</span> (<span class="n">1</span>-<span class="n">5</span>),<span class="t">Comment</span>
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">09</span>:<span class="n">14</span>:<span class="n">03</span>,<span class="n">1</span>,<span class="t">Student</span>,<span class="n">5</span>,<span class="s">&quot;Explains clearly, even the hard parts&quot;</span>
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">09</span>:<span class="n">15</span>:<span class="n">41</span>,<span class="n">1</span>,<span class="t">Student</span>,<span class="n">4</span>,
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">09</span>:<span class="n">20</span>:<span class="n">12</span>,<span class="n">2</span>,<span class="t">Student</span>,<span class="n">3</span>,<span class="t">Starts</span> late
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">10</span>:<span class="n">02</span>:<span class="n">55</span>,<span class="n">2</span>,<span class="t">Principal</span>,<span class="n">2</span>,<span class="s">&quot;Needs a plan for the &quot;</span><span class="s">&quot;weak&quot;</span><span class="s">&quot; group&quot;</span>
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">10</span>:<span class="n">05</span>:<span class="n">09</span>,<span class="n">3</span>,<span class="t">Student</span>,<span class="n">7</span>,typo
+<span class="n">2026</span>-<span class="n">01</span>-<span class="n">12</span> <span class="n">10</span>:<span class="n">06</span>:<span class="n">30</span>,<span class="n">99</span>,<span class="t">Peer</span>,<span class="n">4</span>,<span class="t">Who</span> is teacher <span class="n">99</span>?</code></pre>
+</div></li><li class="step"><h3><span class="num">2</span>A Microsoft Forms JSON export</h3><p>Different structure, different names, and its own role labels. Submission 3 is from a parent, which this survey doesn’t accept.</p><div class="codebox">
+<div class="filehead"><span class="path">data/microsoft-forms.json</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/data/microsoft-forms.json" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>[
+    {<span class="s">&quot;id&quot;</span>: <span class="n">1</span>, <span class="s">&quot;submitDate&quot;</span>: <span class="s">&quot;2026-01-13T08:01:00Z&quot;</span>, <span class="s">&quot;answers&quot;</span>: {<span class="s">&quot;teacher&quot;</span>: <span class="s">&quot;3&quot;</span>, <span class="s">&quot;role&quot;</span>: <span class="s">&quot;Peer (colleague)&quot;</span>, <span class="s">&quot;rating&quot;</span>: <span class="s">&quot;5&quot;</span>, <span class="s">&quot;feedback&quot;</span>: <span class="s">&quot;Great lab sessions&quot;</span>}},
+    {<span class="s">&quot;id&quot;</span>: <span class="n">2</span>, <span class="s">&quot;submitDate&quot;</span>: <span class="s">&quot;2026-01-13T08:03:00Z&quot;</span>, <span class="s">&quot;answers&quot;</span>: {<span class="s">&quot;teacher&quot;</span>: <span class="s">&quot;4&quot;</span>, <span class="s">&quot;role&quot;</span>: <span class="s">&quot;Student&quot;</span>, <span class="s">&quot;rating&quot;</span>: <span class="s">&quot;4&quot;</span>, <span class="s">&quot;feedback&quot;</span>: <span class="s">&quot;&quot;</span>}},
+    {<span class="s">&quot;id&quot;</span>: <span class="n">3</span>, <span class="s">&quot;submitDate&quot;</span>: <span class="s">&quot;2026-01-13T08:07:00Z&quot;</span>, <span class="s">&quot;answers&quot;</span>: {<span class="s">&quot;teacher&quot;</span>: <span class="s">&quot;4&quot;</span>, <span class="s">&quot;role&quot;</span>: <span class="s">&quot;Parent&quot;</span>, <span class="s">&quot;rating&quot;</span>: <span class="s">&quot;5&quot;</span>, <span class="s">&quot;feedback&quot;</span>: <span class="s">&quot;Parents are not in this survey&quot;</span>}},
+    {<span class="s">&quot;id&quot;</span>: <span class="n">4</span>, <span class="s">&quot;submitDate&quot;</span>: <span class="s">&quot;2026-01-13T08:09:00Z&quot;</span>, <span class="s">&quot;answers&quot;</span>: {<span class="s">&quot;teacher&quot;</span>: <span class="s">&quot;3&quot;</span>, <span class="s">&quot;role&quot;</span>: <span class="s">&quot;Principal / Head&quot;</span>, <span class="s">&quot;rating&quot;</span>: <span class="s">&quot;4&quot;</span>, <span class="s">&quot;feedback&quot;</span>: <span class="s">&quot;Organised and calm&quot;</span>}}
+]</code></pre>
+</div></li><li class="step"><h3><span class="num">3</span>One answer before validation</h3><p>Every format is mapped to the same four text fields first.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Import/RawAnswer.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/src/Import/RawAnswer.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Import</span>;
+
+<span class="c">/**</span>
+<span class="c"> * One answer as read from a file, before any validation: every field is still text.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">RawAnswer</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$teacherId</span>,
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$role</span>,
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$score</span>,
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$comment</span>,
+    ) {
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">4</span>What an import reports</h3><div class="codebox">
+<div class="filehead"><span class="path">src/Import/ImportResult.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/src/Import/ImportResult.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Import</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">ImportResult</span>
+{
+    <span class="c">/** @param list&lt;string&gt; $rejected one line per rejected row, with its row number and reason */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$source</span>,
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$imported</span>,
+        <span class="k">public</span> <span class="k">array</span> <span class="v">$rejected</span>,
+    ) {
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">5</span>The base class and its template method</h3><p><code>import()</code> is <code>final</code> and runs the steps in order. <code>readRows()</code>, <code>mapRow()</code> and <code>sourceName()</code> are abstract: every subclass must write them. <code>roleText()</code> is a hook with a default.</p><p>Validation and the teacher check are <code>private</code>: subclasses can’t see them, so they can’t skip them.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Import/AnswerImport.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/src/Import/AnswerImport.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Import</span>;
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">InvalidValue</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">RespondentRole</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Response</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">ResponseRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Score</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">TeacherRepository</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Template Method: import() is the fixed recipe every file format follows.</span>
+<span class="c"> * Subclasses fill in only the steps that differ: how to read the file and where each field is.</span>
+<span class="c"> */</span>
+<span class="k">abstract</span> <span class="k">class</span> <span class="t">AnswerImport</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">ResponseRepository</span> <span class="v">$responses</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">TeacherRepository</span> <span class="v">$teachers</span>,
+    ) {
+    }
+
+    <span class="c">/**</span>
+<span class="c">     * The template method. `final`: the order of the steps, and the validation, can't be changed or skipped.</span>
+<span class="c">     */</span>
+    <span class="k">final</span> <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="k">string</span> <span class="v">$path</span>, <span class="k">string</span> <span class="v">$term</span>): <span class="t">ImportResult</span>
+    {
+        <span class="v">$knownTeachers</span> = <span class="k">$this</span>-&gt;<span class="f">knownTeacherIds</span>();
+        <span class="v">$imported</span> = <span class="n">0</span>;
+        <span class="v">$rejected</span> = [];
+
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="f">readRows</span>(<span class="v">$path</span>) <span class="k">as</span> <span class="v">$line</span> =&gt; <span class="v">$row</span>) {        <span class="c">// 1. read     (differs per format)</span>
+            <span class="v">$raw</span> = <span class="k">$this</span>-&gt;<span class="f">mapRow</span>(<span class="v">$row</span>);                             <span class="c">// 2. map      (differs per format)</span>
+
+            <span class="k">try</span> {
+                <span class="v">$response</span> = <span class="k">$this</span>-&gt;<span class="f">toResponse</span>(<span class="v">$raw</span>, <span class="v">$term</span>, <span class="v">$knownTeachers</span>);   <span class="c">// 3. validate (the same for all)</span>
+            } <span class="k">catch</span> (<span class="t">InvalidValue</span> <span class="v">$e</span>) {
+                <span class="v">$rejected</span>[] = <span class="s">&quot;row {$line}: {$e-&gt;getMessage()}&quot;</span>;
+                <span class="k">continue</span>;
+            }
+
+            <span class="k">$this</span>-&gt;responses-&gt;<span class="f">add</span>(<span class="v">$response</span>);                       <span class="c">// 4. save     (the same for all)</span>
+            <span class="v">$imported</span>++;
+        }
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">ImportResult</span>(<span class="k">$this</span>-&gt;<span class="f">sourceName</span>(), <span class="v">$imported</span>, <span class="v">$rejected</span>);
+    }
+
+    <span class="c">/**</span>
+<span class="c">     * Step 1: read the file. Keys are row numbers (or ids), so rejections can point at the right row.</span>
+<span class="c">     *</span>
+<span class="c">     * @return iterable&lt;int, array&lt;string, string&gt;&gt;</span>
+<span class="c">     */</span>
+    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">readRows</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span>;
+
+    <span class="c">/**</span>
+<span class="c">     * Step 2: find our four fields in this format's row.</span>
+<span class="c">     *</span>
+<span class="c">     * @param array&lt;string, string&gt; $row</span>
+<span class="c">     */</span>
+    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">mapRow</span>(<span class="k">array</span> <span class="v">$row</span>): <span class="t">RawAnswer</span>;
+
+    <span class="c">/** A name for messages, e.g. &quot;Google Forms CSV&quot;. */</span>
+    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">sourceName</span>(): <span class="k">string</span>;
+
+    <span class="c">/**</span>
+<span class="c">     * A hook: a step with a sensible default that a subclass MAY replace.</span>
+<span class="c">     * Forms tools label roles differently (&quot;Peer (colleague)&quot;); the default just tidies the text.</span>
+<span class="c">     */</span>
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">roleText</span>(<span class="k">string</span> <span class="v">$label</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="f">strtolower</span>(<span class="f">trim</span>(<span class="v">$label</span>));
+    }
+
+    <span class="c">/** @param array&lt;int, true&gt; $knownTeachers */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">toResponse</span>(<span class="t">RawAnswer</span> <span class="v">$raw</span>, <span class="k">string</span> <span class="v">$term</span>, <span class="k">array</span> <span class="v">$knownTeachers</span>): <span class="t">Response</span>
+    {
+        <span class="v">$teacherId</span> = <span class="f">filter_var</span>(<span class="v">$raw</span>-&gt;teacherId, <span class="t">FILTER_VALIDATE_INT</span>);
+        <span class="k">if</span> (<span class="v">$teacherId</span> === <span class="k">false</span> || !<span class="f">isset</span>(<span class="v">$knownTeachers</span>[<span class="v">$teacherId</span>])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidValue</span>(<span class="s">&quot;Unknown teacher \&quot;{$raw-&gt;teacherId}\&quot;.&quot;</span>);
+        }
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">Response</span>(
+            <span class="v">$teacherId</span>,
+            <span class="v">$term</span>,
+            <span class="t">RespondentRole</span>::<span class="f">fromInput</span>(<span class="k">$this</span>-&gt;<span class="f">roleText</span>(<span class="v">$raw</span>-&gt;role)),
+            <span class="t">Score</span>::<span class="f">fromInput</span>(<span class="v">$raw</span>-&gt;score),
+            <span class="f">trim</span>(<span class="v">$raw</span>-&gt;comment),
+        );
+    }
+
+    <span class="c">/** @return array&lt;int, true&gt; */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">knownTeacherIds</span>(): <span class="k">array</span>
+    {
+        <span class="v">$ids</span> = [];
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;teachers-&gt;<span class="f">all</span>() <span class="k">as</span> <span class="v">$teacher</span>) {
+            <span class="v">$ids</span>[<span class="v">$teacher</span>-&gt;id] = <span class="k">true</span>;
+        }
+
+        <span class="k">return</span> <span class="v">$ids</span>;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">6</span>Google Forms: read CSV, map columns</h3><p><code>readRows()</code> is a generator: it yields one row at a time, keyed by its line number in the file.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Import/GoogleFormsCsvImport.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/src/Import/GoogleFormsCsvImport.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Import</span>;
+
+<span class="k">use</span> <span class="t">RuntimeException</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Google Forms → &quot;Download responses (.csv)&quot;. The first line holds the question titles.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">GoogleFormsCsvImport</span> <span class="k">extends</span> <span class="t">AnswerImport</span>
+{
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">readRows</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span>
+    {
+        <span class="v">$file</span> = <span class="f">fopen</span>(<span class="v">$path</span>, <span class="s">'r'</span>);
+        <span class="k">if</span> (<span class="v">$file</span> === <span class="k">false</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;Can't open {$path}.&quot;</span>);
+        }
+
+        <span class="k">try</span> {
+            <span class="v">$header</span> = <span class="f">fgetcsv</span>(<span class="v">$file</span>, escape: <span class="s">''</span>);
+            <span class="k">if</span> (<span class="v">$header</span> === <span class="k">false</span>) {
+                <span class="k">return</span>;
+            }
+
+            <span class="v">$line</span> = <span class="n">1</span>;
+            <span class="k">while</span> ((<span class="v">$values</span> = <span class="f">fgetcsv</span>(<span class="v">$file</span>, escape: <span class="s">''</span>)) !== <span class="k">false</span>) {
+                <span class="v">$line</span>++;
+                <span class="k">if</span> (<span class="v">$values</span> === [<span class="k">null</span>]) {
+                    <span class="k">continue</span>;                               <span class="c">// a blank line</span>
+                }
+
+                <span class="c">/** @var array&lt;string, string&gt; $row */</span>
+                <span class="v">$row</span> = <span class="f">array_combine</span>(<span class="v">$header</span>, <span class="f">array_pad</span>(<span class="f">array_map</span>(<span class="s">'strval'</span>, <span class="v">$values</span>), <span class="f">count</span>(<span class="v">$header</span>), <span class="s">''</span>));
+                <span class="k">yield</span> <span class="v">$line</span> =&gt; <span class="v">$row</span>;
+            }
+        } <span class="k">finally</span> {
+            <span class="f">fclose</span>(<span class="v">$file</span>);
+        }
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">mapRow</span>(<span class="k">array</span> <span class="v">$row</span>): <span class="t">RawAnswer</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">RawAnswer</span>(<span class="v">$row</span>[<span class="s">'Teacher ID'</span>], <span class="v">$row</span>[<span class="s">'You are'</span>], <span class="v">$row</span>[<span class="s">'Score (1-5)'</span>], <span class="v">$row</span>[<span class="s">'Comment'</span>]);
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">sourceName</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">'Google Forms CSV'</span>;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">7</span>Microsoft Forms: read JSON, map fields, replace the hook</h3><p>It overrides <code>roleText()</code> to translate its own labels, and calls <code>parent::roleText()</code> to keep the default tidying.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Import/MicrosoftFormsJsonImport.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/src/Import/MicrosoftFormsJsonImport.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Import</span>;
+
+<span class="k">use</span> <span class="t">RuntimeException</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Microsoft Forms → export as JSON: a list of submissions, each with an &quot;answers&quot; object.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">MicrosoftFormsJsonImport</span> <span class="k">extends</span> <span class="t">AnswerImport</span>
+{
+    <span class="k">private</span> <span class="k">const</span> <span class="t">ROLE_LABELS</span> = [
+        <span class="s">'peer (colleague)'</span> =&gt; <span class="s">'peer'</span>,
+        <span class="s">'principal / head'</span> =&gt; <span class="s">'principal'</span>,
+    ];
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">readRows</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span>
+    {
+        <span class="v">$json</span> = <span class="f">file_get_contents</span>(<span class="v">$path</span>);
+        <span class="k">if</span> (<span class="v">$json</span> === <span class="k">false</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;Can't open {$path}.&quot;</span>);
+        }
+
+        <span class="c">/** @var list&lt;array{id: int, answers: array&lt;string, string&gt;}&gt; $submissions */</span>
+        <span class="v">$submissions</span> = <span class="f">json_decode</span>(<span class="v">$json</span>, <span class="k">true</span>, flags: <span class="t">JSON_THROW_ON_ERROR</span>);
+
+        <span class="k">foreach</span> (<span class="v">$submissions</span> <span class="k">as</span> <span class="v">$submission</span>) {
+            <span class="k">yield</span> <span class="v">$submission</span>[<span class="s">'id'</span>] =&gt; <span class="v">$submission</span>[<span class="s">'answers'</span>];   <span class="c">// the &quot;row number&quot; is the submission id</span>
+        }
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">mapRow</span>(<span class="k">array</span> <span class="v">$row</span>): <span class="t">RawAnswer</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">RawAnswer</span>(<span class="v">$row</span>[<span class="s">'teacher'</span>] ?? <span class="s">''</span>, <span class="v">$row</span>[<span class="s">'role'</span>] ?? <span class="s">''</span>, <span class="v">$row</span>[<span class="s">'rating'</span>] ?? <span class="s">''</span>, <span class="v">$row</span>[<span class="s">'feedback'</span>] ?? <span class="s">''</span>);
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">sourceName</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">'Microsoft Forms JSON'</span>;
+    }
+
+    <span class="c">/** This tool uses its own labels for roles, so this subclass replaces the hook. */</span>
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">roleText</span>(<span class="k">string</span> <span class="v">$label</span>): <span class="k">string</span>
+    {
+        <span class="v">$text</span> = <span class="k">parent</span>::<span class="f">roleText</span>(<span class="v">$label</span>);
+
+        <span class="k">return</span> <span class="k">self</span>::<span class="t">ROLE_LABELS</span>[<span class="v">$text</span>] ?? <span class="v">$text</span>;
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">8</span>Import both files</h3><p>The container builds each importer with its repositories.</p><div class="codebox">
+<div class="filehead"><span class="path">bin/import.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/12-template-method/bin/import.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">/*</span>
+<span class="c"> * Evalu8, chapter 12: every file format is imported by the same recipe.</span>
+<span class="c"> *</span>
+<span class="c"> *     composer dump-autoload</span>
+<span class="c"> *     php bin/import.php</span>
+<span class="c"> */</span>
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Container</span>\<span class="t">Container</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Import</span>\<span class="t">GoogleFormsCsvImport</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Import</span>\<span class="t">ImportResult</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Import</span>\<span class="t">MicrosoftFormsJsonImport</span>;
+
+<span class="k">const</span> <span class="t">CURRENT_TERM</span> = <span class="s">'2026-T1'</span>;
+
+<span class="c">/** @var Container $app */</span>
+<span class="v">$app</span> = <span class="k">require</span> __DIR__ . <span class="s">'/../bootstrap/app.php'</span>;
+
+<span class="k">function</span> <span class="f">report</span>(<span class="t">ImportResult</span> <span class="v">$result</span>): <span class="k">void</span>
+{
+    <span class="k">echo</span> <span class="s">&quot;{$result-&gt;source}: {$result-&gt;imported} imported, &quot;</span> . <span class="f">count</span>(<span class="v">$result</span>-&gt;rejected) . <span class="s">&quot; rejected\n&quot;</span>;
+    <span class="k">foreach</span> (<span class="v">$result</span>-&gt;rejected <span class="k">as</span> <span class="v">$reason</span>) {
+        <span class="k">echo</span> <span class="s">&quot;  {$reason}\n&quot;</span>;
+    }
+}
+
+<span class="f">report</span>(<span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">GoogleFormsCsvImport</span>::class)-&gt;<span class="f">import</span>(__DIR__ . <span class="s">'/../data/google-forms.csv'</span>, <span class="t">CURRENT_TERM</span>));
+<span class="f">report</span>(<span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">MicrosoftFormsJsonImport</span>::class)-&gt;<span class="f">import</span>(__DIR__ . <span class="s">'/../data/microsoft-forms.json'</span>, <span class="t">CURRENT_TERM</span>));</code></pre>
+</div></li></ol></section>
+<section class="run"><h2>Run it</h2><p>Both formats are checked by the same rules: the score of 7, the unknown teacher and the parent are rejected with their row, and everything else is saved.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">terminal, inside chapters/12-template-method</span></div>
+<pre class="code"><code>composer dump-autoload
+php bin/import.php</code></pre>
+</div>
+<div class="output"><span>Output</span><pre>Google Forms CSV: 4 imported, 2 rejected
+  row 6: A score must be between 1 and 5, got 7.
+  row 7: Unknown teacher &quot;99&quot;.
+Microsoft Forms JSON: 3 imported, 1 rejected
+  row 3: Unknown respondent role &quot;parent&quot;.</pre></div></section>
+<section class="laravel"><h2>How Laravel does it</h2><p>Form requests are a template method: Laravel always runs <code>prepareForValidation()</code>, then your <code>authorize()</code>, then validation with your <code>rules()</code>, then <code>passedValidation()</code>. You fill in <code>rules()</code> and <code>authorize()</code> and may override the two hooks.</p><p>Packages like Laravel Excel use the same idea: you implement <code>model()</code> or <code>collection()</code>, and the package owns the reading, chunking and transactions.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">Laravel</span></div>
+<pre class="code"><code><span class="k">final</span> <span class="k">class</span> <span class="t">StoreAnswerRequest</span> <span class="k">extends</span> <span class="t">FormRequest</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">authorize</span>(): <span class="k">bool</span>            <span class="c">// a step you must fill in</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">user</span>()-&gt;<span class="f">can</span>(<span class="s">'answer'</span>, <span class="k">$this</span>-&gt;<span class="f">route</span>(<span class="s">'survey'</span>));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">rules</span>(): <span class="k">array</span>               <span class="c">// another one</span>
+    {
+        <span class="k">return</span> [<span class="s">'score'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'integer'</span>, <span class="s">'between:1,5'</span>]];
+    }
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">prepareForValidation</span>(): <span class="k">void</span>   <span class="c">// a hook you may override</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">merge</span>([<span class="s">'role'</span> =&gt; <span class="f">strtolower</span>(<span class="f">trim</span>(<span class="k">$this</span>-&gt;<span class="f">input</span>(<span class="s">'role'</span>, <span class="s">''</span>)))]);
+    }
+}</code></pre>
+</div></section>
+<section class="check"><h2>Check yourself</h2><p class="hint">Answer in your head, then open the answer.</p>
+<details><summary>Why is <code>import()</code> declared <code>final</code>?</summary><p>So no subclass can change the order of the steps or skip validation. The recipe is the one thing every format must share.</p></details><details><summary>What is the difference between an abstract step and a hook?</summary><p>An abstract step must be written by every subclass. A hook has a default implementation that a subclass may replace if it needs to.</p></details><details><summary>A Typeform export arrives. What do you write?</summary><p>One subclass with <code>readRows()</code>, <code>mapRow()</code> and <code>sourceName()</code>. Validation and saving come for free.</p></details></section>
+<section class="nextup"><p>Admins want to preview the first rows of a file before importing it, and an Excel export with semicolons arrives. The reading code is locked inside each importer.</p>
+<nav class="pager" aria-label="Chapters">
+<a rel="prev" href="../11-facade/"><small>← Chapter 11</small>Closing a survey takes six steps, and callers forget some</a>
+<a rel="next" href="../13-factory-method/"><small>Chapter 13 →</small>Each importer needs its own reader</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"The code we inherited","patterns":[],"slug":"00-the-mess","ready":true},{"n":1,"title":"Scores of 140 got into the database","patterns":["Value Object"],"slug":"01-value-object","ready":true},{"n":2,"title":"Only this term’s answers must count","patterns":["Repository","Data Mapper vs Active Record"],"slug":"02-repository","ready":true},{"n":3,"title":"Each school scores teachers its own way","patterns":["Strategy"],"slug":"03-strategy","ready":true},{"n":4,"title":"The scoring method must come from school settings","patterns":["Simple Factory"],"slug":"04-simple-factory","ready":true},{"n":5,"title":"Schools without AI analysis crash the report","patterns":["Null Object"],"slug":"05-null-object","ready":true},{"n":6,"title":"Classes create their own database and mailer","patterns":["Singleton","Dependency Injection Container"],"slug":"06-container","ready":true},{"n":7,"title":"Move from the OpenAI SDK to a local LLM","patterns":["Adapter"],"slug":"07-adapter","ready":true},{"n":8,"title":"Local model in development, hosted model in production","patterns":["Manager / Driver"],"slug":"08-manager","ready":true},{"n":9,"title":"AI calls are slow and expensive","patterns":["Decorator"],"slug":"09-decorator","ready":true},{"n":10,"title":"Load the 50 MB results only when opened, only for allowed users","patterns":["Proxy"],"slug":"10-proxy","ready":true},{"n":11,"title":"Closing a survey takes six steps, and callers forget some","patterns":["Facade"],"slug":"11-facade","ready":true},{"n":12,"title":"Import answers from Google Forms CSV, Excel and JSON","patterns":["Template Method"],"slug":"12-template-method","ready":true},{"n":13,"title":"Each importer needs its own reader","patterns":["Factory Method"],"slug":"13-factory-method","ready":true},{"n":14,"title":"Exporting 100,000 responses runs out of memory","patterns":["Iterator","Generators"],"slug":"14-iterator","ready":true},{"n":15,"title":"100,000 response objects repeat the same question data","patterns":["Flyweight"],"slug":"15-flyweight","ready":true},{"n":16,"title":"Sections inside sections: score the whole tree","patterns":["Composite"],"slug":"","ready":false},{"n":17,"title":"Export, validate and count the tree without editing it","patterns":["Visitor"],"slug":"","ready":false},{"n":18,"title":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","patterns":["Interpreter"],"slug":"","ready":false},{"n":19,"title":"Start next term from last term’s survey","patterns":["Prototype"],"slug":"","ready":false},{"n":20,"title":"Build complex report searches and documents","patterns":["Builder"],"slug":"","ready":false},{"n":21,"title":"Survey lifecycle: draft, open, closed, archived","patterns":["State"],"slug":"","ready":false},{"n":22,"title":"When a survey closes, five things must happen","patterns":["Observer","Event Dispatcher"],"slug":"","ready":false},{"n":23,"title":"The 40-second AI analysis times out the request","patterns":["Command","Command Bus"],"slug":"","ready":false},{"n":24,"title":"The Ministry sync was lost when the server died","patterns":["Unit of Work","Transactional Outbox"],"slug":"","ready":false},{"n":25,"title":"Submitting an answer needs six checks","patterns":["Chain of Responsibility","Pipeline"],"slug":"","ready":false},{"n":26,"title":"“Teachers with 3+ evaluations this term, not on leave”","patterns":["Specification"],"slug":"","ready":false},{"n":27,"title":"Local vs cloud: storage and queue must always match","patterns":["Abstract Factory"],"slug":"","ready":false},{"n":28,"title":"Three notification types × four channels","patterns":["Bridge"],"slug":"","ready":false},{"n":29,"title":"Survey editor parts keep changing each other","patterns":["Mediator"],"slug":"","ready":false},{"n":30,"title":"“Undo” in the survey editor","patterns":["Memento"],"slug":"","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Scores of 140 got into the database","slug":"01-value-object","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Strategy","chapter":3,"chapterTitle":"Each school scores teachers its own way","slug":"03-strategy","ready":true,"gof":true},{"name":"Simple Factory","chapter":4,"chapterTitle":"The scoring method must come from school settings","slug":"04-simple-factory","ready":true,"gof":false},{"name":"Null Object","chapter":5,"chapterTitle":"Schools without AI analysis crash the report","slug":"05-null-object","ready":true,"gof":false},{"name":"Singleton","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":false},{"name":"Adapter","chapter":7,"chapterTitle":"Move from the OpenAI SDK to a local LLM","slug":"07-adapter","ready":true,"gof":true},{"name":"Manager / Driver","chapter":8,"chapterTitle":"Local model in development, hosted model in production","slug":"08-manager","ready":true,"gof":false},{"name":"Decorator","chapter":9,"chapterTitle":"AI calls are slow and expensive","slug":"09-decorator","ready":true,"gof":true},{"name":"Proxy","chapter":10,"chapterTitle":"Load the 50 MB results only when opened, only for allowed users","slug":"10-proxy","ready":true,"gof":true},{"name":"Facade","chapter":11,"chapterTitle":"Closing a survey takes six steps, and callers forget some","slug":"11-facade","ready":true,"gof":true},{"name":"Template Method","chapter":12,"chapterTitle":"Import answers from Google Forms CSV, Excel and JSON","slug":"12-template-method","ready":true,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Each importer needs its own reader","slug":"13-factory-method","ready":true,"gof":true},{"name":"Iterator","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":true},{"name":"Generators","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"14-iterator","ready":true,"gof":false},{"name":"Flyweight","chapter":15,"chapterTitle":"100,000 response objects repeat the same question data","slug":"15-flyweight","ready":true,"gof":true},{"name":"Composite","chapter":16,"chapterTitle":"Sections inside sections: score the whole tree","slug":"","ready":false,"gof":true},{"name":"Visitor","chapter":17,"chapterTitle":"Export, validate and count the tree without editing it","slug":"","ready":false,"gof":true},{"name":"Interpreter","chapter":18,"chapterTitle":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","slug":"","ready":false,"gof":true},{"name":"Prototype","chapter":19,"chapterTitle":"Start next term from last term’s survey","slug":"","ready":false,"gof":true},{"name":"Builder","chapter":20,"chapterTitle":"Build complex report searches and documents","slug":"","ready":false,"gof":true},{"name":"State","chapter":21,"chapterTitle":"Survey lifecycle: draft, open, closed, archived","slug":"","ready":false,"gof":true},{"name":"Observer","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":false},{"name":"Command","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":true},{"name":"Command Bus","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":false},{"name":"Unit of Work","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":true},{"name":"Pipeline","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":false},{"name":"Specification","chapter":26,"chapterTitle":"“Teachers with 3+ evaluations this term, not on leave”","slug":"","ready":false,"gof":false},{"name":"Abstract Factory","chapter":27,"chapterTitle":"Local vs cloud: storage and queue must always match","slug":"","ready":false,"gof":true},{"name":"Bridge","chapter":28,"chapterTitle":"Three notification types × four channels","slug":"","ready":false,"gof":true},{"name":"Mediator","chapter":29,"chapterTitle":"Survey editor parts keep changing each other","slug":"","ready":false,"gof":true},{"name":"Memento","chapter":30,"chapterTitle":"“Undo” in the survey editor","slug":"","ready":false,"gof":true}]}</script>
+<script src="../assets/site.js?v=d61b3d9de7" defer></script>
+</body>
+</html>

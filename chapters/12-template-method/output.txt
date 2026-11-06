@@ -1,0 +1,5 @@
+Google Forms CSV: 4 imported, 2 rejected
+  row 6: A score must be between 1 and 5, got 7.
+  row 7: Unknown teacher "99".
+Microsoft Forms JSON: 3 imported, 1 rejected
+  row 3: Unknown respondent role "parent".
