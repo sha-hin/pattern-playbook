@@ -75,22 +75,38 @@ export const CHAPTERS = {
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {
-    description: 'Meet Evalu8, a school evaluation app written as one PHP script. Run it, read the output, and list every problem the next chapters will fix with a design pattern.',
+    description: 'Meet Evalu8, a school evaluation app written as one PHP script. See where the 30-chapter course takes it, run the original code, and list the problems the design patterns will fix.',
+    ticket: {
+      from: 'Ahmed Nabil, Product Owner',
+      title: 'Welcome to the team. Please don’t change anything yet',
+      body: 'This is the whole Evalu8 app. It has run every term for two years and schools depend on it, so before you change a line: run it, read the output, and tell me what you find. The schools already have a long list of requests waiting.',
+    },
     intro: [
-      'You just joined the team behind **Evalu8**. Schools use it to evaluate their teachers: students, colleagues (peers) and the principal answer a short survey, each answer is a score from 1 to 5, and at the end of the term the app produces a report, emails every teacher their result and sends a CSV to the Ministry of Education.',
-      'Everything lives in one PHP file. It runs, it has been "working" for two years, and nobody wants to touch it. In this course we will touch it: one real problem per chapter, fixed with the design pattern that fits it. By the last chapter, the same app will use every pattern from the Gang of Four book plus the modern ones every PHP framework relies on.',
-      'Before changing anything, we read the code and run it.',
+      'Evalu8 helps schools evaluate their teachers. Students, colleagues (peers) and the principal answer a short survey; each answer is a score from 1 to 5. At the end of the term the app prints a report, emails every teacher their result and sends a CSV to the Ministry of Education.',
+      'Everything lives in one PHP file. Over the next 30 chapters, that file grows into a real application, one ticket at a time. Each ticket is a bug or a request from the schools, and each one is fixed with the design pattern made for it. By the end, the codebase uses all 23 Gang of Four patterns and 15 modern ones, each in the place where it solves a real problem.',
+    ],
+    journey: [
+      { part: 1, text: 'One script becomes a clean core: valid values, one home for SQL, school-specific scoring chosen from settings, and a container that builds the objects.' },
+      { part: 2, text: 'AI comment analysis arrives: a local or hosted model behind one interface, picked by config, with caching, retries, access rules and one simple “close the term” call.' },
+      { part: 3, text: 'Answers are imported from CSV, Excel and JSON, and 100,000 of them are exported without running out of memory.' },
+      { part: 4, text: 'Surveys get sections inside sections, display rules typed by admins (“show Q5 if Q3 ≥ 4”), copies for the next term and report documents in several formats.' },
+      { part: 5, text: 'Survey lifecycles, events, background jobs, data that can’t be lost when a server dies, answer checks and program rules.' },
+      { part: 6, text: 'Local and cloud infrastructure that always match, notifications over four channels, and a survey editor with undo.' },
+    ],
+    before: [
+      'You need PHP 8.2 or newer with the SQLite extension. From chapter 1 on you also need Composer, which only generates the autoloader: nothing is downloaded and no API keys are needed.',
+      'Every chapter is a complete, runnable copy of the project in `chapters/<number>-<name>/`. When a chapter changes an existing file, the page shows only the difference: **green** lines are new, **red** lines are removed, and Copy always copies the full file.',
     ],
     steps: [
       {
         title: 'The whole app, as we found it',
-        text: ['Read it from top to bottom once. Don’t try to fix anything yet.'],
+        text: ['Read it from top to bottom once, as the ticket asks. Don’t try to fix anything yet.'],
         file: 'evaluations.php',
       },
     ],
     run: {
       cmd: 'php evaluations.php',
-      text: ['PHP 8.2 or newer with the SQLite extension is all you need. The database lives in memory, so every run starts clean.'],
+      text: ['The database lives in memory, so every run starts clean. Read the numbers carefully: most of them look normal.'],
     },
     findings: [
       { title: 'Impossible numbers', text: 'Hany’s average is **49.67** on a 1–5 scale, because a principal typed `140`. Nadia’s is **1.50** although her student gave her 3: the peer’s answer `five` was stored as text and counted as 0. A role spelled `studnet` was stored too. The script accepts whatever arrives.', fix: 1 },
@@ -99,6 +115,17 @@ export const CHAPTERS = {
       { title: 'The scoring rule is copied, and the copies already disagree', text: 'The average is calculated three times. The report and the emails use `(float)`, the CSV uses `(int)` and rounds. Schools are also starting to ask for their own scoring methods, and there is no place to put them.', fix: 3 },
     ],
     takeaway: 'None of these problems needs a framework to fix. Each one needs one idea: a pattern. We start with the most dangerous one: wrong numbers that look real.',
+    notYet: [
+      { text: 'Each school wants its own scoring method, chosen in its settings.', fix: 4 },
+      { text: 'Comments must be summarised by AI, on a local model for Ministry data.', fix: 7 },
+      { text: 'Answers arrive in other files: Google Forms CSV, Excel and JSON.', fix: 12 },
+      { text: 'The Ministry wants every raw answer: 100,000 rows.', fix: 14 },
+      { text: 'Surveys need sections, display rules and a copy for next term.', fix: 16 },
+      { text: 'Surveys need a lifecycle: draft, open, closed, archived.', fix: 21 },
+      { text: 'Slow work must run in the background, and nothing may be lost if a server dies.', fix: 23 },
+      { text: 'Teachers want results by WhatsApp; principals by email and in the app.', fix: 28 },
+      { text: 'The survey editor needs undo.', fix: 30 },
+    ],
   },
 
   // ════════════════════════════════════════════════════════════════════

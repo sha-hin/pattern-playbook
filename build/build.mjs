@@ -167,7 +167,6 @@ function chapterHtml(c, body, prev, next) {
 ${c.patterns.length ? `<p class="tags">${c.patterns.map(tagHtml).join('')}</p>` : ''}
 </header>`);
 
-  if (body.intro) sections.push(`<section class="lead">${paras(body.intro)}</section>`);
 
   if (body.ticket) {
     sections.push(`<section class="ticket" aria-label="The ticket">
@@ -177,6 +176,18 @@ ${c.patterns.length ? `<p class="tags">${c.patterns.map(tagHtml).join('')}</p>` 
 <p>${inline(body.ticket.body)}</p>
 </section>`);
   }
+
+  if (body.intro) sections.push(`<section class="lead">${paras(body.intro)}</section>`);
+
+  if (body.journey) {
+    sections.push(`<section><h2>Where this course takes the app</h2><ol class="journey">${body.journey.map(j => {
+      const chapters = PLAN.filter(x => x.part === j.part);
+      const first = chapters[0], last = chapters[chapters.length - 1];
+      return `<li><a href="../${first.slug}/"><span class="jp">Part ${j.part} · chapters ${first.n}–${last.n}</span><b>${esc(PARTS[j.part])}</b></a><p>${inline(j.text)}</p></li>`;
+    }).join('')}</ol></section>`);
+  }
+
+  if (body.before) sections.push(`<section class="before"><h2>Before you start</h2>${paras(body.before)}</section>`);
 
   if (body.pain) {
     sections.push(`<section><h2>Why the quick fix is a trap</h2>${paras(body.pain.text)}
@@ -208,6 +219,13 @@ ${codeBlock({ path: `terminal, inside chapters/${c.slug}`, html: esc(body.run.cm
       const link = target.ready ? `<a href="../${target.slug}/">Fixed in chapter ${target.n}: ${esc(target.patterns.join(', '))}</a>` : `Fixed in chapter ${target.n}`;
       return `<li><h3>${inline(f.title)}</h3><p>${inline(f.text)}</p><p class="fixlink">${link}</p></li>`;
     }).join('')}</ol>${body.takeaway ? `<p class="takeaway">${inline(body.takeaway)}</p>` : ''}</section>`);
+  }
+
+  if (body.notYet) {
+    sections.push(`<section><h2>What it can’t do yet</h2><p>The schools’ waiting list. Each request becomes a later chapter.</p><ul class="notyet">${body.notYet.map(n => {
+      const target = PLAN[n.fix];
+      return `<li><span>${inline(n.text)}</span><a href="../${target.slug}/">Chapter ${target.n}: ${esc(target.patterns.join(', '))}</a></li>`;
+    }).join('')}</ul></section>`);
   }
 
   if (body.laravel) {
