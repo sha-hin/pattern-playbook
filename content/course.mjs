@@ -85,12 +85,4 @@ export const FOUNDATION = {
   learn: 'The app every scene starts from: setup, the core tables, models, factories and test helpers',
 };
 
-// Patterns from the Gang of Four book (1994). Everything else is marked "not in the book".
-export const GOF = new Set([
-  'Abstract Factory', 'Builder', 'Factory Method', 'Prototype', 'Singleton',
-  'Adapter', 'Bridge', 'Composite', 'Decorator', 'Facade', 'Flyweight', 'Proxy',
-  'Chain of Responsibility', 'Command', 'Interpreter', 'Iterator', 'Mediator', 'Memento',
-  'Observer', 'State', 'Strategy', 'Template Method', 'Visitor',
-]);
-
 export const dayOf = scene => DAYS.find(d => d.n === scene.day);

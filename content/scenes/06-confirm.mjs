@@ -151,7 +151,7 @@ $confirmation->confirm($booking, $payment);`,
   ],
   reveal: {
     names: ['Facade'],
-    rules: [['Facade (Gang of Four)', 'One simple entry point in front of a group of steps or classes, so callers don’t have to know how they fit together.']],
+    rules: [['Facade', 'One simple entry point in front of a group of steps or classes, so callers don’t have to know how they fit together.']],
     points: [
       'Callers know **one** method. The order of the steps, the transaction and the lock are the facade’s business.',
       'Each step stays in its own place: the facade only **coordinates**. The email is in the notification; scene 9 moves the status rules into the booking’s states.',
@@ -165,7 +165,7 @@ $confirmation->confirm($booking, $payment);`,
   laravel: {
     title: 'Laravel facades are something else',
     text: [
-      '`Notification::route()`, `DB::transaction()` and `Cache::get()` are called "facades" in Laravel, but they aren’t the Gang of Four pattern. A Laravel facade has no logic: it forwards every static call to **one object in the container**. That’s also why fakes work: put a different object in the container, and every static call reaches it.',
+      '`Notification::route()`, `DB::transaction()` and `Cache::get()` are called "facades" in Laravel, but they aren’t the Facade pattern from this scene. A Laravel facade has no logic: it forwards every static call to **one object in the container**. That’s also why fakes work: put a different object in the container, and every static call reaches it.',
     ],
     blocks: [
       {
@@ -208,7 +208,7 @@ protected static function resolveFacadeInstance($name)
       },
       {
         table: [
-          ['', 'Gang of Four Facade', 'Laravel facade'],
+          ['', 'The Facade pattern', 'Laravel facade'],
           ['What it is', 'A class that runs many steps behind one method', 'A static shortcut to one object in the container'],
           ['Has logic?', 'Yes: which steps, in which order', 'No: it only forwards calls'],
           ['Here', '`BookingConfirmation::confirm()`', '`Notification::route()`, `DB::transaction()`'],

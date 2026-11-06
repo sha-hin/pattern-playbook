@@ -4,10 +4,8 @@
 
 One story: Nordic Stays, a vacation-rental property management system, from its first booking to its
 busiest day. Every scene starts with something breaking in production. You read the broken code, fix it,
-and only then learn the name of the pattern you just wrote: all 23 Gang of Four patterns, 15 modern ones
-(Value Object, Repository, Data Mapper, Active Record, Simple Factory, Null Object, DI Container,
-Manager/Driver, Generators, Event Dispatcher, Command Bus, Unit of Work, Transactional Outbox, Pipeline,
-Specification), and the Laravel engineering around them. Each scene ends with its Pest tests, folded.
+fix it the way a senior Laravel team would, and see the design pattern and framework internals behind
+the fix. Each scene ends with its Pest tests, folded.
 
 For Laravel developers: about 2–3 hours a day for a week.
 

@@ -228,7 +228,7 @@ final class FakePaymentGateway implements PaymentGateway
   reveal: {
     names: ['Singleton', 'Dependency Injection Container'],
     rules: [
-      ['Singleton (Gang of Four)', 'A class that allows only one instance of itself, and gives global access to it.'],
+      ['Singleton', 'A class that allows only one instance of itself, and gives global access to it.'],
       ['Dependency Injection Container', 'One object that knows how to build everything else, and passes each class the objects it asks for in its constructor.'],
     ],
     text: ['Today’s fix kept the good half of Singleton, **one shared client**, and dropped the bad half, **global access**. The container holds the only instance, and classes receive it instead of reaching for it.'],

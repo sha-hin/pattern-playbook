@@ -216,7 +216,6 @@ $stripe->paymentIntents->create([
     points: [
       'Two `Money(45030, EUR)` objects are **equal** even though they are different objects. That’s why `equals()` compares values, not identity.',
       'It **protects its own rules**: no mixing currencies, no floats, no changing after creation.',
-      'It comes from Domain-Driven Design (Eric Evans, 2003), not from the Gang of Four book.',
     ],
     whenNot: [
       'A value with no rules, like a guest’s name. A `string` is enough.',

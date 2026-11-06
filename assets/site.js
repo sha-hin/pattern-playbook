@@ -51,9 +51,9 @@
       run: () => go(c.ready ? prefix + c.slug + '/' : prefix + '#chapters', 'search'),
     })),
     ...data.patterns.map(p => ({
-      g: 'Patterns', t: p.name, sub: p.chapter === 'end' ? p.chapterTitle : `Scene ${p.chapter}: ${p.chapterTitle}`, i: p.gof ? 'G' : '·', s: p.gof ? 'Gang of Four' : 'not in the book', off: !p.ready,
+      g: 'Patterns', t: p.name, sub: p.chapter === 'end' ? p.chapterTitle : `Scene ${p.chapter}: ${p.chapterTitle}`, i: 'P', s: p.ready ? '' : 'coming soon', off: !p.ready,
       kw: p.chapterTitle,
-      run: () => go(p.ready ? prefix + p.slug + '/' : prefix + '#patterns', 'search'),
+      run: () => go(p.ready ? prefix + p.slug + '/' : prefix + '#chapters', 'search'),
     })),
     { g: 'Actions', t: 'Switch light / dark theme', i: '◐', kw: 'dark light mode theme', run: toggleTheme },
     { g: 'Actions', t: 'Source on GitHub', i: '↗', kw: 'github code repo', run: () => { track('View source'); location.href = 'https://github.com/sha-hin/pattern-playbook'; } },
