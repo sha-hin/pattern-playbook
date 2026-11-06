@@ -279,12 +279,14 @@
     };                                                        <span class="c">// a new status without a state class fails here, loudly</span>
 }</code></pre>
 </div></div></div></section>
-<section><h2>The fix, part 2: callers ask the state</h2><div class="blocks"><div class="block"><h3>The facade from scene 6</h3><p>No status checks left in it: it asks the state, and only runs the other steps when the booking actually changed.</p><div class="codebox">
+<section><h2>The fix, part 2: callers ask the state</h2><div class="blocks"><div class="block"><h3>The facade from scene 6</h3><p>No status checks left in it. <code>confirm()</code> is not a question: it <b>performs</b> the transition, or throws if the move isn’t allowed. Its return value only reports whether anything changed, so the call goes on its own line, and the <code>if</code> only reads the result.</p><div class="codebox">
 <div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php (inside the transaction)</span></div>
 <pre class="code"><code><span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();
 
-<span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {
-    <span class="k">return</span>;                                                   <span class="c">// already confirmed: nothing else to do</span>
+<span class="v">$changed</span> = <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>);           <span class="c">// does the transition (or throws)</span>
+
+<span class="k">if</span> (! <span class="v">$changed</span>) {
+    <span class="k">return</span>;                                                   <span class="c">// it was already confirmed: nothing else to do</span>
 }
 
 <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;

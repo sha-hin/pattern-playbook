@@ -273,13 +273,15 @@ final class DatesNoLongerAvailable extends RuntimeException
       blocks: [
         {
           title: 'The facade from scene 6',
-          text: ['No status checks left in it: it asks the state, and only runs the other steps when the booking actually changed.'],
+          text: ['No status checks left in it. `confirm()` is not a question: it **performs** the transition, or throws if the move isn’t allowed. Its return value only reports whether anything changed, so the call goes on its own line, and the `if` only reads the result.'],
           path: 'app/Bookings/BookingConfirmation.php (inside the transaction)',
           fragment: true,
           code: String.raw`$booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
 
-if (! $booking->state()->confirm($booking)) {
-    return;                                                   // already confirmed: nothing else to do
+$changed = $booking->state()->confirm($booking);           // does the transition (or throws)
+
+if (! $changed) {
+    return;                                                   // it was already confirmed: nothing else to do
 }
 
 $payment->status = PaymentStatus::Succeeded;
