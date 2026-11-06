@@ -41,7 +41,7 @@
     </div>`;
   document.body.appendChild(wrap);
   const input = wrap.querySelector('input'), list = wrap.querySelector('.cmdk-list');
-  const go = (url, from) => { track('Open chapter', { to: url, from }); location.href = url; };
+  const go = (url, from) => { track('Open scene', { to: url, from }); location.href = url; };
 
   const items = [
     ...data.chapters.map(c => ({
