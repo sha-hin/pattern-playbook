@@ -7,6 +7,7 @@
 //   { code }               a short snippet that is not part of the project (e.g. a rejected idea)
 
 import { PART1 } from './part1.mjs';
+import { PART2 } from './part2.mjs';
 
 export const PARTS = {
   1: 'Foundations',
@@ -26,11 +27,11 @@ export const PLAN = [
   { n: 4, part: 1, slug: '04-simple-factory', ready: true, title: 'The scoring method must come from school settings', patterns: ['Simple Factory'] },
   { n: 5, part: 1, slug: '05-null-object', ready: true, title: 'Schools without AI analysis crash the report', patterns: ['Null Object'] },
   { n: 6, part: 1, slug: '06-container', ready: true, title: 'Classes create their own database and mailer', patterns: ['Singleton', 'Dependency Injection Container'] },
-  { n: 7, part: 2, title: 'Move from the OpenAI SDK to a local LLM', patterns: ['Adapter'] },
-  { n: 8, part: 2, title: 'Local model in development, hosted model in production', patterns: ['Manager / Driver'] },
-  { n: 9, part: 2, title: 'AI calls are slow and expensive', patterns: ['Decorator'] },
-  { n: 10, part: 2, title: 'Load the 50 MB results only when opened, only for allowed users', patterns: ['Proxy'] },
-  { n: 11, part: 2, title: 'Closing a survey takes six steps, and callers forget some', patterns: ['Facade'] },
+  { n: 7, part: 2, slug: '07-adapter', ready: true, title: 'Move from the OpenAI SDK to a local LLM', patterns: ['Adapter'] },
+  { n: 8, part: 2, slug: '08-manager', ready: true, title: 'Local model in development, hosted model in production', patterns: ['Manager / Driver'] },
+  { n: 9, part: 2, slug: '09-decorator', ready: true, title: 'AI calls are slow and expensive', patterns: ['Decorator'] },
+  { n: 10, part: 2, slug: '10-proxy', ready: true, title: 'Load the 50 MB results only when opened, only for allowed users', patterns: ['Proxy'] },
+  { n: 11, part: 2, slug: '11-facade', ready: true, title: 'Closing a survey takes six steps, and callers forget some', patterns: ['Facade'] },
   { n: 12, part: 3, title: 'Import answers from Google Forms CSV, Excel and JSON', patterns: ['Template Method'] },
   { n: 13, part: 3, title: 'Each importer needs its own reader', patterns: ['Factory Method'] },
   { n: 14, part: 3, title: 'Exporting 100,000 responses runs out of memory', patterns: ['Iterator', 'Generators'] },
@@ -62,6 +63,7 @@ export const GOF = new Set([
 
 export const CHAPTERS = {
   ...PART1,
+  ...PART2,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {

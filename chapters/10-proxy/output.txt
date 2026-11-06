@@ -1,0 +1,14 @@
+DASHBOARD PAGES BUILT (comments panel collapsed)
+  no archive connection yet
+
+PRINCIPAL opens Hany's comments
+[info] opening the comments archive connection
+  - [student] Explains clearly
+  - [principal] Good planning
+
+HANY opens his own comments (roles hidden, connection reused)
+  - Explains clearly
+  - Good planning
+
+HANY tries to open Nadia's comments
+  AccessDenied: Hany Mostafa may not read the comments about teacher #2.

@@ -1,0 +1,23 @@
+CLOSING 2026-T1
+[info] comment analysis comments=2 ms=0
+[info] comment analysis comments=1 ms=0
+[info] comment analysis comments=2 ms=0
+  mail to <hany@smouha.edu.eg>: Your 2026-T1 evaluation result
+[warning] result not emailed: no address teacher='Nadia Fawzy'
+  mail to <karim@miami.edu.eg>: Your 2026-T1 evaluation result
+  mail to <laila@victoria.edu.eg>: Your 2026-T1 evaluation result
+
+SUMMARY
+  teachers:    4
+  emailed:     3
+  not emailed: Nadia Fawzy
+  export:      ministry-2026-T1.csv
+
+teacher,school,responses,method,score
+"Hany Mostafa",Smouha,5,weighted,4.13
+"Nadia Fawzy",Smouha,4,weighted,2.75
+"Karim Adel",Miami,4,median,4
+"Laila Samir",Victoria,2,average,3.5
+
+THE SCHEDULER TRIES TO CLOSE IT AGAIN
+  refused: Term 2026-T1 is already closed; its results can't change.
