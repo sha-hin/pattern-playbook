@@ -25,9 +25,9 @@ interface AiClient                                          // ★ Driver contra
     public function summarize(string $text): string;
 }
 
-class LocalLlmClient implements AiClient                    // ★ Driver for local development
+final class LocalLlmClient implements AiClient              // ★ Driver for local development
 {
-    public function __construct(private string $url)
+    public function __construct(private readonly string $url)
     {
     }
 
@@ -37,9 +37,9 @@ class LocalLlmClient implements AiClient                    // ★ Driver for lo
     }
 }
 
-class HostedApiClient implements AiClient                   // ★ Driver for production
+final class HostedApiClient implements AiClient             // ★ Driver for production
 {
-    public function __construct(private string $apiKey)
+    public function __construct(private readonly string $apiKey)
     {
     }
 
@@ -52,9 +52,11 @@ class HostedApiClient implements AiClient                   // ★ Driver for pr
 // ── Step 2: the Manager. Pick by name, build once, reuse. ──
 abstract class Manager                                      // ★ Manager
 {
+    /** @var array<string, object> driver name => built driver */
     private array $drivers = [];
 
-    public function __construct(protected array $config)
+    /** @param array<string, string> $config */
+    public function __construct(protected readonly array $config)
     {
     }
 
@@ -81,7 +83,7 @@ abstract class Manager                                      // ★ Manager
 }
 
 // ── Step 3: the concrete manager. One small method per backend. ──
-class AiManager extends Manager                             // ★ Concrete manager
+final class AiManager extends Manager                       // ★ Concrete manager
 {
     protected function defaultDriver(): string
     {

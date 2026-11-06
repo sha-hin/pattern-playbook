@@ -30,6 +30,7 @@ for ($i = 1; $i <= 100000; $i++) {
 $db->commit();
 
 // ── Step 1: a generator function. Notice "yield" instead of "return". ──
+/** @return Generator<int, array<string, mixed>> */
 function evaluations(PDO $db): Generator                   // ★ generator function
 {
     $query = $db->prepare('SELECT * FROM evaluations WHERE id > ? ORDER BY id LIMIT 1000');
@@ -51,6 +52,7 @@ function evaluations(PDO $db): Generator                   // ★ generator func
 }
 
 // ── Step 2: a normal loop that works with arrays AND generators ──
+/** @param iterable<array<string, mixed>> $rows */
 function exportCsv(iterable $rows): int
 {
     $file = fopen('php://memory', 'w');

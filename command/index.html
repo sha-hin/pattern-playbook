@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Pattern in PHP & Laravel, with Real Code","description":"Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/command/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Command pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/command.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command","item":"https://sha-hin.github.io/pattern-playbook/command/"}]}]}</script>
 </head>
@@ -94,7 +94,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Receiver. Does the real work. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AiAnalyzer</span> <span class="al"> </span><span class="c">// Receiver</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AiAnalyzer</span> <span class="al"> </span><span class="c">// Receiver</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$calls</span> = <span class="n">0</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -110,9 +110,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: a concrete command. The action, as an object. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AnalyzeSurvey</span> <span class="k">implements</span> <span class="t">Command</span> <span class="al"> </span><span class="c">// Concrete command</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AnalyzeSurvey</span> <span class="k">implements</span> <span class="t">Command</span> <span class="al"> </span><span class="c">// Concrete command</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">AiAnalyzer</span> <span class="v">$analyzer</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$surveyId</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AiAnalyzer</span> <span class="v">$analyzer</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$surveyId</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -123,8 +123,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 4: the Invoker. Because the action is an object, it can wait in a list. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CommandQueue</span> <span class="al"> </span><span class="c">// Invoker</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CommandQueue</span> <span class="al"> </span><span class="c">// Invoker</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;array{command: Command, attempts: int}&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$waiting</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="t">Command</span> <span class="v">$command</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// keep it now...</span></span><span class="nl">
@@ -169,7 +170,7 @@ Survey 42: teachers rate classroom time highest</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AnalyzeSurveyResponses</span> <span class="k">implements</span> <span class="t">ShouldQueue</span> <span class="al"> </span><span class="c">// the action as an object</span></span><span class="nl">
+    <pre><code><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AnalyzeSurveyResponses</span> <span class="k">implements</span> <span class="t">ShouldQueue</span> <span class="al"> </span><span class="c">// the action as an object</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">use</span> <span class="t">Dispatchable</span>, <span class="t">InteractsWithQueue</span>, <span class="t">Queueable</span>, <span class="t">SerializesModels</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -210,6 +211,6 @@ Survey 42: teachers rate classroom time highest</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

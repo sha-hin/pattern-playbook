@@ -21,11 +21,13 @@ declare(strict_types=1);
 // ── Step 1: the Product and its concrete versions ──
 interface RowReader                                         // ★ Product
 {
+    /** @return list<array{code: string, name: string}> */
     public function rows(string $content): array;
 }
 
-class CsvReader implements RowReader                        // Concrete product
+final class CsvReader implements RowReader                  // Concrete product
 {
+    /** @return list<array{code: string, name: string}> */
     public function rows(string $content): array
     {
         $rows = [];
@@ -38,8 +40,9 @@ class CsvReader implements RowReader                        // Concrete product
     }
 }
 
-class JsonReader implements RowReader                       // Concrete product
+final class JsonReader implements RowReader                 // Concrete product
 {
+    /** @return list<array{code: string, name: string}> */
     public function rows(string $content): array
     {
         $rows = [];
@@ -54,6 +57,7 @@ class JsonReader implements RowReader                       // Concrete product
 // ── Step 2: the Creator. The process is fixed; the reader is left to the children. ──
 abstract class StudentImport                                // ★ Creator
 {
+    /** @var array<string, string> code => name */
     public array $students = [];
 
     public function run(string $content): int               // the process: same for every format
@@ -71,7 +75,7 @@ abstract class StudentImport                                // ★ Creator
 }
 
 // ── Step 3: concrete creators. Each one decides which reader to create. ──
-class CsvStudentImport extends StudentImport                // ★ Concrete creator
+final class CsvStudentImport extends StudentImport          // ★ Concrete creator
 {
     protected function createReader(): RowReader
     {
@@ -79,7 +83,7 @@ class CsvStudentImport extends StudentImport                // ★ Concrete crea
     }
 }
 
-class JsonStudentImport extends StudentImport               // ★ Concrete creator
+final class JsonStudentImport extends StudentImport         // ★ Concrete creator
 {
     protected function createReader(): RowReader
     {

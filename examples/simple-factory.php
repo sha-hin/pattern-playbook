@@ -25,9 +25,9 @@ interface WebhookEvent                                      // ★ Product
 }
 
 // ── Step 2: concrete products. Different classes with different data. ──
-class PaymentSucceeded implements WebhookEvent
+final class PaymentSucceeded implements WebhookEvent
 {
-    public function __construct(public string $paymentId, public int $amountInPiastres)
+    public function __construct(public readonly string $paymentId, public readonly int $amountInPiastres)
     {
     }
 
@@ -37,9 +37,9 @@ class PaymentSucceeded implements WebhookEvent
     }
 }
 
-class PaymentFailed implements WebhookEvent
+final class PaymentFailed implements WebhookEvent
 {
-    public function __construct(public string $paymentId, public string $reason)
+    public function __construct(public readonly string $paymentId, public readonly string $reason)
     {
     }
 
@@ -50,8 +50,9 @@ class PaymentFailed implements WebhookEvent
 }
 
 // ── Step 3: the Factory. The ONE place that reads the input and builds the right object. ──
-class WebhookEventFactory                                   // ★ Factory
+final class WebhookEventFactory                             // ★ Factory
 {
+    /** @param array{type?: string, data?: array<string, mixed>} $payload */
     public static function fromPayload(array $payload): WebhookEvent
     {
         $type = $payload['type'] ?? 'missing';

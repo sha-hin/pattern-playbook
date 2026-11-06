@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Facade Pattern in PHP & Laravel, with Real Code","description":"Facade explained for PHP and Laravel developers. A multi-step job that touches many services, needed from many places - one class with one method that runs…","url":"https://sha-hin.github.io/pattern-playbook/facade/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/facade/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Facade pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Facade","item":"https://sha-hin.github.io/pattern-playbook/facade/"}]}]}</script>
 </head>
@@ -86,8 +86,9 @@
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── The subsystems. Each does one small thing. ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Users</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Users</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;int, string&gt; id =&gt; name */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$all</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">create</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">int</span></span><span class="nl">
@@ -104,8 +105,9 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Classes</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Classes</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;int, string&gt; student id =&gt; class */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$assigned</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">assign</span>(<span class="k">int</span> <span class="v">$studentId</span>, <span class="k">string</span> <span class="v">$class</span>): <span class="k">void</span></span><span class="nl">
@@ -119,7 +121,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Billing</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Billing</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">openAccount</span>(<span class="k">int</span> <span class="v">$studentId</span>, <span class="k">string</span> <span class="v">$plan</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -129,7 +131,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Mailer</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Mailer</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">welcome</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -138,13 +140,13 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── The Facade. One simple door that runs every step in the right order. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// Facade</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// Facade</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Users</span> <span class="v">$users</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Classes</span> <span class="v">$classes</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Billing</span> <span class="v">$billing</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Mailer</span> <span class="v">$mailer</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">readonly</span> <span class="t">Users</span> <span class="v">$users</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">readonly</span> <span class="t">Classes</span> <span class="v">$classes</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">readonly</span> <span class="t">Billing</span> <span class="v">$billing</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">readonly</span> <span class="t">Mailer</span> <span class="v">$mailer</span>,</span><span class="nl">
 </span><span class="ln" style="--i:4">    ) {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -188,7 +190,7 @@ Students: Mona | assigned to a class: 1</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// the one front door</span></span><span class="nl">
+    <pre><code><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// the one front door</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Users</span> <span class="v">$users</span>,</span><span class="nl">
@@ -224,6 +226,6 @@ Students: Mona | assigned to a class: 1</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

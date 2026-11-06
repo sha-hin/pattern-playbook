@@ -27,9 +27,9 @@ interface Discount                                          // ★ Abstract obje
 }
 
 // ── Step 2: the real object ──
-class PercentageCoupon implements Discount                  // Real object
+final class PercentageCoupon implements Discount            // Real object
 {
-    public function __construct(private string $code, private int $percent)
+    public function __construct(private readonly string $code, private readonly int $percent)
     {
     }
 
@@ -45,7 +45,7 @@ class PercentageCoupon implements Discount                  // Real object
 }
 
 // ── Step 3: the null object. Same interface, does nothing, never crashes. ──
-class NoDiscount implements Discount                        // ★ Null object
+final class NoDiscount implements Discount                  // ★ Null object
 {
     public function apply(int $subtotal): int
     {
@@ -59,9 +59,9 @@ class NoDiscount implements Discount                        // ★ Null object
 }
 
 // ── Step 4: the client. No "if ($discount !== null)" anywhere. ──
-class Checkout                                              // ★ Client
+final class Checkout                                        // ★ Client
 {
-    public function __construct(private Discount $discount)
+    public function __construct(private readonly Discount $discount)
     {
     }
 

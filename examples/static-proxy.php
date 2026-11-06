@@ -19,8 +19,9 @@ declare(strict_types=1);
  */
 
 // ── Step 1: the real object ──
-class ArrayCache                                            // ★ Real object
+final class ArrayCache                                      // ★ Real object
 {
+    /** @var array<string, mixed> */
     private array $items = [];
 
     public function put(string $key, mixed $value): void
@@ -35,8 +36,9 @@ class ArrayCache                                            // ★ Real object
 }
 
 // ── Step 2: a tiny container that keeps one object per name ──
-class Services
+final class Services
 {
+    /** @var array<string, object> */
     public static array $objects = [];
 }
 
@@ -45,6 +47,7 @@ abstract class Facade                                       // ★ Proxy base
 {
     abstract protected static function accessor(): string; // which service am I a shortcut for?
 
+    /** @param list<mixed> $arguments */
     public static function __callStatic(string $method, array $arguments): mixed   // ★ PHP calls this for Cache::anything()
     {
         $name = static::accessor();
@@ -60,7 +63,7 @@ abstract class Facade                                       // ★ Proxy base
 }
 
 // ── Step 4: a concrete proxy. It only names its service. ──
-class Cache extends Facade                                  // ★ Concrete proxy
+final class Cache extends Facade                            // ★ Concrete proxy
 {
     protected static function accessor(): string
     {

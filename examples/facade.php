@@ -19,8 +19,9 @@ declare(strict_types=1);
  */
 
 // ── The subsystems. Each does one small thing. ──
-class Users
+final class Users
 {
+    /** @var array<int, string> id => name */
     public array $all = [];
 
     public function create(string $name): int
@@ -37,8 +38,9 @@ class Users
     }
 }
 
-class Classes
+final class Classes
 {
+    /** @var array<int, string> student id => class */
     public array $assigned = [];
 
     public function assign(int $studentId, string $class): void
@@ -52,7 +54,7 @@ class Classes
     }
 }
 
-class Billing
+final class Billing
 {
     public function openAccount(int $studentId, string $plan): void
     {
@@ -62,7 +64,7 @@ class Billing
     }
 }
 
-class Mailer
+final class Mailer
 {
     public function welcome(string $name): void
     {
@@ -71,13 +73,13 @@ class Mailer
 }
 
 // ── The Facade. One simple door that runs every step in the right order. ──
-class EnrollStudent                                         // ★ Facade
+final class EnrollStudent                                   // ★ Facade
 {
     public function __construct(
-        private Users $users,
-        private Classes $classes,
-        private Billing $billing,
-        private Mailer $mailer,
+        private readonly Users $users,
+        private readonly Classes $classes,
+        private readonly Billing $billing,
+        private readonly Mailer $mailer,
     ) {
     }
 

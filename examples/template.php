@@ -22,6 +22,7 @@ declare(strict_types=1);
 // ── Step 1: the abstract class with the locked recipe ──
 abstract class GradeImport                                  // ★ Abstract class
 {
+    /** @var list<array{student: string, score: int}> */
     public array $saved = [];
 
     final public function import(string $source): void      // ★ Template method: final = nobody can change the order
@@ -37,8 +38,13 @@ abstract class GradeImport                                  // ★ Abstract clas
         $this->afterImport(count($rawRows));                // 5. a hook
     }
 
+    /** @return list<array<int|string, string|int>> one raw row per item, as the file gives it */
     abstract protected function read(string $source): array;   // ★ MUST be written by each child
 
+    /**
+     * @param array<int|string, string|int> $raw
+     * @return array{student: string, score: int}
+     */
     abstract protected function map(array $raw): array;         // ★ MUST be written by each child
 
     protected function afterImport(int $count): void        // ★ hook: MAY be replaced
@@ -46,6 +52,7 @@ abstract class GradeImport                                  // ★ Abstract clas
         echo get_class($this) . " imported {$count} rows\n";
     }
 
+    /** @param array{student: string, score: int} $row */
     private function validate(array $row): void            // private: children cannot skip it
     {
         if ($row['score'] < 0 || $row['score'] > 100) {
@@ -55,8 +62,9 @@ abstract class GradeImport                                  // ★ Abstract clas
 }
 
 // ── Step 2: concrete classes. Each writes only the steps that differ. ──
-class CsvGradeImport extends GradeImport                    // ★ Concrete class
+final class CsvGradeImport extends GradeImport              // ★ Concrete class
 {
+    /** @return list<array<int|string, string|int>> */
     protected function read(string $source): array
     {
         $rows = [];
@@ -67,19 +75,28 @@ class CsvGradeImport extends GradeImport                    // ★ Concrete clas
         return $rows;
     }
 
+    /**
+     * @param array<int|string, string|int> $raw
+     * @return array{student: string, score: int}
+     */
     protected function map(array $raw): array
     {
         return ['student' => $raw[0], 'score' => (int) $raw[2]];   // System A: score is the 3rd column
     }
 }
 
-class JsonGradeImport extends GradeImport                   // ★ Concrete class
+final class JsonGradeImport extends GradeImport             // ★ Concrete class
 {
+    /** @return list<array<int|string, string|int>> */
     protected function read(string $source): array
     {
         return json_decode($source, true);
     }
 
+    /**
+     * @param array<int|string, string|int> $raw
+     * @return array{student: string, score: int}
+     */
     protected function map(array $raw): array
     {
         return ['student' => $raw['name'], 'score' => (int) $raw['mark']];   // System B: different names

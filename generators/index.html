@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"PHP Generators (yield) for Large Data, with Real Code","description":"Generators explained for PHP and Laravel developers. Big data you loop over once - yield one item at a time; memory stays flat no matter the size. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/generators/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/generators/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Generators design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Generators pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/generators.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Generators","item":"https://sha-hin.github.io/pattern-playbook/generators/"}]}]}</script>
 </head>
@@ -98,6 +98,7 @@
 </span><span class="ln" style="--i:0"><span class="v">$db</span>-&gt;<span class="f">commit</span>();</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: a generator function. Notice &quot;yield&quot; instead of &quot;return&quot;. ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">/** @return Generator&lt;int, array&lt;string, mixed&gt;&gt; */</span></span><span class="nl">
 </span><span class="ln h" style="--i:0"><span class="k">function</span> <span class="f">evaluations</span>(<span class="t">PDO</span> <span class="v">$db</span>): <span class="t">Generator</span> <span class="al"> </span><span class="c">// generator function</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="v">$query</span> = <span class="v">$db</span>-&gt;<span class="f">prepare</span>(<span class="s">'SELECT * FROM evaluations WHERE id &gt; ? ORDER BY id LIMIT 1000'</span>);</span><span class="nl">
@@ -119,6 +120,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: a normal loop that works with arrays AND generators ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">/** @param iterable&lt;array&lt;string, mixed&gt;&gt; $rows */</span></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="k">function</span> <span class="f">exportCsv</span>(<span class="k">iterable</span> <span class="v">$rows</span>): <span class="k">int</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="v">$file</span> = <span class="f">fopen</span>(<span class="s">'php://memory'</span>, <span class="s">'w'</span>);</span><span class="nl">
@@ -193,6 +195,6 @@ fetchAll:  about 55 MB</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

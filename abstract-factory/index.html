@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Abstract Factory Pattern in PHP & Laravel, with Real Code","description":"Abstract Factory explained for PHP and Laravel developers. Several objects must come from the same family - one factory creates the whole family, so they can…","url":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Abstract Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Abstract Factory pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/abstract-factory.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Abstract Factory","item":"https://sha-hin.github.io/pattern-playbook/abstract-factory/"}]}]}</script>
 </head>
@@ -95,7 +95,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the cloud family ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CloudStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -103,7 +103,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CloudQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -112,7 +112,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the local family ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">DiskStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">DiskStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -120,7 +120,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">MemoryQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">MemoryQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -136,7 +136,7 @@
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CloudKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: cloud family only</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: cloud family only</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -149,7 +149,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: local family only</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: local family only</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -163,9 +163,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 5: the client. It only knows the kit. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">ReportPublisher</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">ReportPublisher</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">InfrastructureKit</span> <span class="v">$kit</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">InfrastructureKit</span> <span class="v">$kit</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -199,7 +199,7 @@ Production:
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">AwsKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AwsKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Aws</span>\<span class="t">Sdk</span> <span class="v">$aws</span>) {}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -208,7 +208,7 @@ Production:
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>       { <span class="k">return</span> <span class="k">new</span> <span class="f">SesMailer</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createSesV2</span>()); }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">DiskStorage</span>(<span class="f">storage_path</span>(<span class="s">'app'</span>)); }</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>  { <span class="k">return</span> <span class="k">new</span> <span class="f">DatabaseQueue</span>(<span class="t">DB</span>::<span class="f">connection</span>()); }</span><span class="nl">
@@ -234,6 +234,6 @@ Production:
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

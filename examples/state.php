@@ -39,7 +39,7 @@ abstract class ReportState                                  // ★ State
 }
 
 // ── Step 2: concrete states. Each one allows only its own moves. ──
-class Draft extends ReportState                             // ★ Concrete state
+final class Draft extends ReportState                       // ★ Concrete state
 {
     public function name(): string
     {
@@ -52,7 +52,7 @@ class Draft extends ReportState                             // ★ Concrete stat
     }
 }
 
-class Submitted extends ReportState                         // ★ Concrete state
+final class Submitted extends ReportState                   // ★ Concrete state
 {
     public function name(): string
     {
@@ -71,7 +71,7 @@ class Submitted extends ReportState                         // ★ Concrete stat
     }
 }
 
-class Approved extends ReportState                          // ★ Concrete state: allows nothing more
+final class Approved extends ReportState                    // ★ Concrete state: allows nothing more
 {
     public function name(): string
     {
@@ -80,10 +80,11 @@ class Approved extends ReportState                          // ★ Concrete stat
 }
 
 // ── Step 3: the Context. It has no if statements at all. ──
-class Report                                                // ★ Context
+final class Report                                          // ★ Context
 {
     private ReportState $state;
     public ?string $rejectionReason = null;
+    /** @var list<string> */
     public array $history = [];
 
     public function __construct()

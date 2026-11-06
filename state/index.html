@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"State Pattern in PHP & Laravel, with Real Code","description":"State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…","url":"https://sha-hin.github.io/pattern-playbook/state/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/state/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["State design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"State pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/state.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"State","item":"https://sha-hin.github.io/pattern-playbook/state/"}]}]}</script>
 </head>
@@ -109,7 +109,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: concrete states. Each one allows only its own moves. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Draft</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Draft</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -122,7 +122,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Submitted</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Submitted</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -141,7 +141,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state: allows nothing more</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span> <span class="al"> </span><span class="c">// Concrete state: allows nothing more</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -150,10 +150,11 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Context. It has no if statements at all. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Report</span> <span class="al"> </span><span class="c">// Context</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Report</span> <span class="al"> </span><span class="c">// Context</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="t">ReportState</span> <span class="v">$state</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;string&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$history</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>()</span><span class="nl">
@@ -219,13 +220,13 @@ Refused: Cannot submit a report that is approved.</code></pre></div>
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Draft</span> <span class="k">extends</span> <span class="t">ReportState</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Draft</span> <span class="k">extends</span> <span class="t">ReportState</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'draft'</span>; }</span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">submit</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span> { <span class="v">$r</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Submitted</span>()); } <span class="al"> </span><span class="c">// allowed here</span></span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Submitted</span> <span class="k">extends</span> <span class="t">ReportState</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Submitted</span> <span class="k">extends</span> <span class="t">ReportState</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'submitted'</span>; }</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">approve</span>(<span class="t">Report</span> <span class="v">$r</span>): <span class="k">void</span> { <span class="v">$r</span>-&gt;<span class="f">moveTo</span>(<span class="k">new</span> <span class="f">Approved</span>()); }</span><span class="nl">
@@ -236,9 +237,9 @@ Refused: Cannot submit a report that is approved.</code></pre></div>
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'approved'</span>; } }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Approved</span> <span class="k">extends</span> <span class="t">ReportState</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">name</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'approved'</span>; } }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Report</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Report</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> ?<span class="k">string</span> <span class="v">$rejectionReason</span> = <span class="k">null</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">ReportState</span> <span class="v">$state</span> = <span class="k">new</span> <span class="f">Draft</span>()) {}</span><span class="nl">
@@ -259,6 +260,6 @@ Refused: Cannot submit a report that is approved.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

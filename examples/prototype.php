@@ -18,14 +18,14 @@ declare(strict_types=1);
  * objects. Owned children like questions must be replicated by hand.
  */
 
-class School
+final class School
 {
-    public function __construct(public string $name)
+    public function __construct(public readonly string $name)
     {
     }
 }
 
-class Question
+final class Question
 {
     public function __construct(public string $text)
     {
@@ -33,16 +33,19 @@ class Question
 }
 
 // ── The Prototype ──
-class Survey                                                // ★ Prototype
+final class Survey                                          // ★ Prototype
 {
+    /**
+     * @param list<Question> $questions
+     */
     public function __construct(
         public string $title,
-        public School $school,
+        public readonly School $school,
         public array $questions,
     ) {
     }
 
-    public function __clone()                               // ★ runs on the NEW copy, right after clone
+    public function __clone(): void                               // ★ runs on the NEW copy, right after clone
     {
         $copies = [];
         foreach ($this->questions as $question) {

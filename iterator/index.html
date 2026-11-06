@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Iterator Pattern in PHP & Laravel, with Real Code","description":"Iterator explained for PHP and Laravel developers. Callers need to loop over data, but how it’s stored or fetched may change - give them items one at a time…","url":"https://sha-hin.github.io/pattern-playbook/iterator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/iterator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Iterator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Iterator pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/iterator.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Iterator","item":"https://sha-hin.github.io/pattern-playbook/iterator/"}]}]}</script>
 </head>
@@ -87,10 +87,11 @@
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── A fake API that returns customers 3 at a time (like a real paginated API) ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">FakeCrmApi</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">FakeCrmApi</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$requests</span> = <span class="n">0</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return list&lt;string&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">page</span>(<span class="k">int</span> <span class="v">$page</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">requests</span>++;</span><span class="nl">
@@ -101,14 +102,16 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the concrete iterator. PHP calls these 5 methods for you in foreach. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CustomerIterator</span> <span class="k">implements</span> <span class="t">Iterator</span> <span class="al"> </span><span class="c">// Concrete iterator</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">/** @implements Iterator&lt;int, string&gt; */</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CustomerIterator</span> <span class="k">implements</span> <span class="t">Iterator</span> <span class="al"> </span><span class="c">// Concrete iterator</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$page</span> = <span class="n">1</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;string&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$current</span> = []; <span class="al">                           </span><span class="c">// the customers of the current page</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$index</span> = <span class="n">0</span>; <span class="al">                                </span><span class="c">// position inside the current page</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$position</span> = <span class="n">0</span>; <span class="al">                             </span><span class="c">// position overall</span></span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -131,12 +134,12 @@
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">index</span> &lt; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>);</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">current</span>(): <span class="k">mixed</span> <span class="al"> </span><span class="c">// 3. give me the customer</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">current</span>(): <span class="k">string</span> <span class="al"> </span><span class="c">// 3. give me the customer</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">current</span>[<span class="k">$this</span>-&gt;<span class="p">index</span>];</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">key</span>(): <span class="k">mixed</span> <span class="al"> </span><span class="c">// 4. give me its position</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">key</span>(): <span class="k">int</span> <span class="al"> </span><span class="c">// 4. give me its position</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">position</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
@@ -149,12 +152,14 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the aggregate. What the caller loops over. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// Concrete aggregate</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">/** @implements IteratorAggregate&lt;int, string&gt; */</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// Concrete aggregate</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return Iterator&lt;int, string&gt; */</span></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">getIterator</span>(): <span class="t">Iterator</span> <span class="al"> </span><span class="c">// a fresh iterator for every foreach</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CustomerIterator</span>(<span class="k">$this</span>-&gt;<span class="p">api</span>);</span><span class="nl">
@@ -190,7 +195,7 @@ Stopped at Mona after 1 request</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// hides HOW they're fetched</span></span><span class="nl">
+    <pre><code><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// hides HOW they're fetched</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">PendingRequest</span> <span class="v">$http</span>) {}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -228,6 +233,6 @@ Stopped at Mona after 1 request</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

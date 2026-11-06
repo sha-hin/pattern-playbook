@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Bridge Pattern in PHP & Laravel, with Real Code","description":"Bridge explained for PHP and Laravel developers. A class varies in two independent ways (what × how) - two hierarchies, one holds the other. A + B classes…","url":"https://sha-hin.github.io/pattern-playbook/bridge/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/bridge/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Bridge design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Bridge pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/bridge.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Bridge","item":"https://sha-hin.github.io/pattern-playbook/bridge/"}]}]}</script>
 </head>
@@ -69,10 +69,10 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>Class names that combine two words from two lists (PdfSalesReport)</li><li>Adding one option means adding N classes</li><li>Two things that change for different reasons</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Many notification types (invoice paid, order shipped…) sent over mail, SMS, database, Slack.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">InvoicePaidMail</span> { <span class="c">/* ... */</span> }</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">InvoicePaidSms</span>  { <span class="c">/* ... */</span> }</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">OrderShippedMail</span> { <span class="c">/* ... */</span> }</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">OrderShippedSms</span>  { <span class="c">/* ... */</span> }</span><span class="nl">
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">InvoicePaidMail</span> { <span class="c">/* ... */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">InvoicePaidSms</span>  { <span class="c">/* ... */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderShippedMail</span> { <span class="c">/* ... */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderShippedSms</span>  { <span class="c">/* ... */</span> }</span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// Slack arrives → InvoicePaidSlack, OrderShippedSlack, ...</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-bridge">
     <h2 class="g" id="build-bridge">Build it yourself: the full Bridge pattern in plain PHP</h2>
@@ -91,7 +91,7 @@
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">deliver</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>, <span class="k">string</span> <span class="v">$body</span>): <span class="k">void</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EmailChannel</span> <span class="k">implements</span> <span class="t">Channel</span> <span class="al"> </span><span class="c">// Concrete implementor</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EmailChannel</span> <span class="k">implements</span> <span class="t">Channel</span> <span class="al"> </span><span class="c">// Concrete implementor</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">deliver</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>, <span class="k">string</span> <span class="v">$body</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -99,7 +99,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">SmsChannel</span> <span class="k">implements</span> <span class="t">Channel</span> <span class="al"> </span><span class="c">// Concrete implementor</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SmsChannel</span> <span class="k">implements</span> <span class="t">Channel</span> <span class="al"> </span><span class="c">// Concrete implementor</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">deliver</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>, <span class="k">string</span> <span class="v">$body</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -110,7 +110,7 @@
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Abstraction. WHAT to say. It HAS a channel. ──</span></span><span class="nl">
 </span><span class="ln h" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">Notification</span> <span class="al"> </span><span class="c">// Abstraction</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">protected</span> <span class="t">Channel</span> <span class="v">$channel</span>) <span class="al"> </span><span class="c">// the bridge between the two sides</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">protected</span> <span class="k">readonly</span> <span class="t">Channel</span> <span class="v">$channel</span>) <span class="al"> </span><span class="c">// the bridge between the two sides</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -125,9 +125,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: refined abstractions. One class per message. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">InvoicePaid</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al"> </span><span class="c">// Refined abstraction</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">InvoicePaid</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al"> </span><span class="c">// Refined abstraction</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="k">private</span> <span class="k">string</span> <span class="v">$invoiceNo</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$invoiceNo</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">parent</span>::<span class="f">__construct</span>(<span class="v">$channel</span>);</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
@@ -143,9 +143,9 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">OrderDelayed</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al"> </span><span class="c">// Refined abstraction</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderDelayed</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al"> </span><span class="c">// Refined abstraction</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$orderId</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$minutes</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$orderId</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$minutes</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">parent</span>::<span class="f">__construct</span>(<span class="v">$channel</span>);</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
@@ -180,7 +180,7 @@ SMS to +201001234567: Sorry, order #42 is about 15 minutes late.</code></pre></d
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">InvoicePaid</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al">             </span><span class="c">// WHAT to say: one class</span></span><span class="nl">
+    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">InvoicePaid</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="al">             </span><span class="c">// WHAT to say: one class</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -221,6 +221,6 @@ SMS to +201001234567: Sorry, order #42 is about 15 minutes late.</code></pre></d
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

@@ -27,9 +27,9 @@ interface SurveyNode                                        // ★ Component
 }
 
 // ── Step 2: the Leaf. A single question. ──
-class Question implements SurveyNode                        // ★ Leaf
+final class Question implements SurveyNode                  // ★ Leaf
 {
-    public function __construct(private string $text, private int $points)
+    public function __construct(private readonly string $text, private readonly int $points)
     {
     }
 
@@ -45,11 +45,12 @@ class Question implements SurveyNode                        // ★ Leaf
 }
 
 // ── Step 3: the Composite. A section that holds questions OR other sections. ──
-class Section implements SurveyNode                         // ★ Composite
+final class Section implements SurveyNode                   // ★ Composite
 {
+    /** @var list<SurveyNode> */
     private array $children = [];
 
-    public function __construct(private string $title)
+    public function __construct(private readonly string $title)
     {
     }
 

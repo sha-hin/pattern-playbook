@@ -25,7 +25,7 @@ interface Command                                           // ★ Command
 }
 
 // ── Step 2: the Receiver. Does the real work. ──
-class AiAnalyzer                                            // ★ Receiver
+final class AiAnalyzer                                      // ★ Receiver
 {
     private int $calls = 0;
 
@@ -41,9 +41,9 @@ class AiAnalyzer                                            // ★ Receiver
 }
 
 // ── Step 3: a concrete command. The action, as an object. ──
-class AnalyzeSurvey implements Command                      // ★ Concrete command
+final class AnalyzeSurvey implements Command                // ★ Concrete command
 {
-    public function __construct(private AiAnalyzer $analyzer, private int $surveyId)
+    public function __construct(private readonly AiAnalyzer $analyzer, private readonly int $surveyId)
     {
     }
 
@@ -54,8 +54,9 @@ class AnalyzeSurvey implements Command                      // ★ Concrete comm
 }
 
 // ── Step 4: the Invoker. Because the action is an object, it can wait in a list. ──
-class CommandQueue                                          // ★ Invoker
+final class CommandQueue                                    // ★ Invoker
 {
+    /** @var list<array{command: Command, attempts: int}> */
     private array $waiting = [];
 
     public function push(Command $command): void            // ★ keep it now...

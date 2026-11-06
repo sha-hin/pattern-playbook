@@ -19,8 +19,12 @@ declare(strict_types=1);
  */
 
 // ── The third-party class (pretend it came from Composer). You can't change it. ──
-class AcmeSmsClient                                         // ★ Adaptee
+final class AcmeSmsClient                                   // ★ Adaptee
 {
+    /**
+     * @param array{msisdn: string, text: string} $payload
+     * @return array{status: string, id?: string, error?: string}
+     */
     public function dispatch(array $payload): array
     {
         if (!str_starts_with($payload['msisdn'], '+')) {
@@ -38,9 +42,9 @@ interface SmsSender                                         // ★ Target
 }
 
 // ── Step 2: the Adapter. Your interface outside, their class inside. ──
-class AcmeSmsAdapter implements SmsSender                   // ★ Adapter
+final class AcmeSmsAdapter implements SmsSender             // ★ Adapter
 {
-    public function __construct(private AcmeSmsClient $client)   // ★ holds the third-party object
+    public function __construct(private readonly AcmeSmsClient $client)  // ★ holds the third-party object
     {
     }
 
@@ -65,9 +69,9 @@ class AcmeSmsAdapter implements SmsSender                   // ★ Adapter
 }
 
 // ── Step 3: the Client. It only knows SmsSender. ──
-class OrderNotifier                                         // ★ Client
+final class OrderNotifier                                   // ★ Client
 {
-    public function __construct(private SmsSender $sms)
+    public function __construct(private readonly SmsSender $sms)
     {
     }
 

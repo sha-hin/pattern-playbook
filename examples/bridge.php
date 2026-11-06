@@ -25,7 +25,7 @@ interface Channel                                           // ★ Implementor
     public function deliver(string $to, string $subject, string $body): void;
 }
 
-class EmailChannel implements Channel                       // ★ Concrete implementor
+final class EmailChannel implements Channel                 // ★ Concrete implementor
 {
     public function deliver(string $to, string $subject, string $body): void
     {
@@ -33,7 +33,7 @@ class EmailChannel implements Channel                       // ★ Concrete impl
     }
 }
 
-class SmsChannel implements Channel                         // ★ Concrete implementor
+final class SmsChannel implements Channel                   // ★ Concrete implementor
 {
     public function deliver(string $to, string $subject, string $body): void
     {
@@ -44,7 +44,7 @@ class SmsChannel implements Channel                         // ★ Concrete impl
 // ── Step 2: the Abstraction. WHAT to say. It HAS a channel. ──
 abstract class Notification                                 // ★ Abstraction
 {
-    public function __construct(protected Channel $channel) // ★ the bridge between the two sides
+    public function __construct(protected readonly Channel $channel) // ★ the bridge between the two sides
     {
     }
 
@@ -59,9 +59,9 @@ abstract class Notification                                 // ★ Abstraction
 }
 
 // ── Step 3: refined abstractions. One class per message. ──
-class InvoicePaid extends Notification                      // ★ Refined abstraction
+final class InvoicePaid extends Notification                // ★ Refined abstraction
 {
-    public function __construct(Channel $channel, private string $invoiceNo)
+    public function __construct(Channel $channel, private readonly string $invoiceNo)
     {
         parent::__construct($channel);
     }
@@ -77,9 +77,9 @@ class InvoicePaid extends Notification                      // ★ Refined abstr
     }
 }
 
-class OrderDelayed extends Notification                     // ★ Refined abstraction
+final class OrderDelayed extends Notification               // ★ Refined abstraction
 {
-    public function __construct(Channel $channel, private int $orderId, private int $minutes)
+    public function __construct(Channel $channel, private readonly int $orderId, private readonly int $minutes)
     {
         parent::__construct($channel);
     }

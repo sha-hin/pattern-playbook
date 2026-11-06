@@ -19,17 +19,17 @@ declare(strict_types=1);
  */
 
 // ── Step 1: the command. Only data. ──
-class RecalculateSchoolStats                                // ★ Command
+final class RecalculateSchoolStats                          // ★ Command
 {
-    public function __construct(public int $schoolId)
+    public function __construct(public readonly int $schoolId)
     {
     }
 }
 
 // ── Step 2: the handler. The logic, with what it needs. ──
-class RecalculateSchoolStatsHandler                         // ★ Handler
+final class RecalculateSchoolStatsHandler                   // ★ Handler
 {
-    public function __construct(private PDO $db)
+    public function __construct(private readonly PDO $db)
     {
     }
 
@@ -47,11 +47,12 @@ class RecalculateSchoolStatsHandler                         // ★ Handler
 }
 
 // ── Step 3: the bus. Finds the handler, and applies the shared rules to EVERY command. ──
-class CommandBus                                            // ★ Bus
+final class CommandBus                                      // ★ Bus
 {
+    /** @var array<class-string, object> command class => its handler */
     private array $handlers = [];
 
-    public function __construct(private PDO $db)
+    public function __construct(private readonly PDO $db)
     {
     }
 

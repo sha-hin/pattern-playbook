@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Template Method Pattern in PHP & Laravel, with Real Code","description":"Template Method explained for PHP and Laravel developers. Several classes run the same steps in the same order, only some steps differ - parent locks the…","url":"https://sha-hin.github.io/pattern-playbook/template/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/template/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Template Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Template Method pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/template.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Template Method","item":"https://sha-hin.github.io/pattern-playbook/template/"}]}]}</script>
 </head>
@@ -69,9 +69,9 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>Several classes with near-identical methods, small differences inside</li><li>A bug fix that had to be copied to 3 classes</li><li>Someone skipped a step (validation, logging) in one copy</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Grades arrive from 3 school systems: different file format and column names, same import process.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SystemAImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save, log */</span> } }</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SystemBImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save, log */</span> } }</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SystemCImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save */</span> } } <span class="al"> </span><span class="c">// forgot log</span></span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SystemAImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save, log */</span> } }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SystemBImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save, log */</span> } }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SystemCImport</span> { <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="v">$file</span>) { <span class="c">/* read, map, validate, save */</span> } } <span class="al"> </span><span class="c">// forgot log</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-template">
     <h2 class="g" id="build-template">Build it yourself: the full Template Method pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -86,6 +86,7 @@
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the abstract class with the locked recipe ──</span></span><span class="nl">
 </span><span class="ln h" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">GradeImport</span> <span class="al"> </span><span class="c">// Abstract class</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;array{student: string, score: int}&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$saved</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">final</span> <span class="k">public</span> <span class="k">function</span> <span class="f">import</span>(<span class="k">string</span> <span class="v">$source</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// Template method: final = nobody can change the order</span></span><span class="nl">
@@ -101,8 +102,13 @@
 </span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="f">afterImport</span>(<span class="f">count</span>(<span class="v">$rawRows</span>)); <span class="al">               </span><span class="c">// 5. a hook</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return list&lt;array&lt;int|string, string|int&gt;&gt; one raw row per item, as the file gives it */</span></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">read</span>(<span class="k">string</span> <span class="v">$source</span>): <span class="k">array</span>; <span class="al"> </span><span class="c">// MUST be written by each child</span></span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @param array&lt;int|string, string|int&gt; $raw</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @return array{student: string, score: int}</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">map</span>(<span class="k">array</span> <span class="v">$raw</span>): <span class="k">array</span>; <span class="al"> </span><span class="c">// MUST be written by each child</span></span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">afterImport</span>(<span class="k">int</span> <span class="v">$count</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// hook: MAY be replaced</span></span><span class="nl">
@@ -110,6 +116,7 @@
 </span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="f">get_class</span>(<span class="k">$this</span>) . <span class="s">&quot; imported {$count} rows\n&quot;</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @param array{student: string, score: int} $row */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">function</span> <span class="f">validate</span>(<span class="k">array</span> <span class="v">$row</span>): <span class="k">void</span> <span class="al">           </span><span class="c">// private: children cannot skip it</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$row</span>[<span class="s">'score'</span>] &lt; <span class="n">0</span> || <span class="v">$row</span>[<span class="s">'score'</span>] &gt; <span class="n">100</span>) {</span><span class="nl">
@@ -119,8 +126,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: concrete classes. Each writes only the steps that differ. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CsvGradeImport</span> <span class="k">extends</span> <span class="t">GradeImport</span> <span class="al"> </span><span class="c">// Concrete class</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CsvGradeImport</span> <span class="k">extends</span> <span class="t">GradeImport</span> <span class="al"> </span><span class="c">// Concrete class</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return list&lt;array&lt;int|string, string|int&gt;&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">read</span>(<span class="k">string</span> <span class="v">$source</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="v">$rows</span> = [];</span><span class="nl">
@@ -131,19 +139,28 @@
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$rows</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @param array&lt;int|string, string|int&gt; $raw</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @return array{student: string, score: int}</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">map</span>(<span class="k">array</span> <span class="v">$raw</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> [<span class="s">'student'</span> =&gt; <span class="v">$raw</span>[<span class="n">0</span>], <span class="s">'score'</span> =&gt; (<span class="k">int</span>) <span class="v">$raw</span>[<span class="n">2</span>]]; <span class="al">  </span><span class="c">// System A: score is the 3rd column</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">JsonGradeImport</span> <span class="k">extends</span> <span class="t">GradeImport</span> <span class="al"> </span><span class="c">// Concrete class</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">JsonGradeImport</span> <span class="k">extends</span> <span class="t">GradeImport</span> <span class="al"> </span><span class="c">// Concrete class</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return list&lt;array&lt;int|string, string|int&gt;&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">read</span>(<span class="k">string</span> <span class="v">$source</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">json_decode</span>(<span class="v">$source</span>, <span class="k">true</span>);</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @param array&lt;int|string, string|int&gt; $raw</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @return array{student: string, score: int}</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">map</span>(<span class="k">array</span> <span class="v">$raw</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> [<span class="s">'student'</span> =&gt; <span class="v">$raw</span>[<span class="s">'name'</span>], <span class="s">'score'</span> =&gt; (<span class="k">int</span>) <span class="v">$raw</span>[<span class="s">'mark'</span>]]; <span class="al">  </span><span class="c">// System B: different names</span></span><span class="nl">
@@ -195,7 +212,7 @@ Rejected: Score must be 0-100, got 140.</code></pre></div>
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SystemAImport</span> <span class="k">extends</span> <span class="t">GradeImport</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SystemAImport</span> <span class="k">extends</span> <span class="t">GradeImport</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">read</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">array</span> { <span class="k">return</span> <span class="f">array_map</span>(<span class="s">'str_getcsv'</span>, <span class="f">file</span>(<span class="v">$path</span>)); }</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">map</span>(<span class="k">array</span> <span class="v">$row</span>): <span class="k">array</span>    { <span class="k">return</span> [<span class="s">'student_id'</span> =&gt; <span class="v">$row</span>[<span class="n">0</span>], <span class="s">'score'</span> =&gt; <span class="v">$row</span>[<span class="n">2</span>]]; }</span><span class="nl">
@@ -211,6 +228,6 @@ Rejected: Score must be 0-100, got 140.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

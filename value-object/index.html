@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Value Objects in PHP & Laravel (Money Example), with Real Code","description":"Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…","url":"https://sha-hin.github.io/pattern-playbook/value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Value Object pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/value-object.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Value Object","item":"https://sha-hin.github.io/pattern-playbook/value-object/"}]}]}</script>
 </head>
@@ -83,7 +83,7 @@
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Money</span> <span class="al"> </span><span class="c">// Value object</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Money</span> <span class="al"> </span><span class="c">// Value object</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
 </span><span class="ln h" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>, <span class="al"> </span><span class="c">// rule 1: readonly. Stored in piastres, never a float</span></span><span class="nl">
@@ -151,7 +151,7 @@ Cannot add USD to EGP.</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Money</span></span><span class="nl">
+    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Money</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
 </span><span class="ln h" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>, <span class="al"> </span><span class="c">// smallest unit (piastres): exact math</span></span><span class="nl">
@@ -181,7 +181,7 @@ Cannot add USD to EGP.</code></pre></div>
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// Eloquent cast: the column stays an integer, your code only ever sees Money</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">MoneyCast</span> <span class="k">implements</span> \<span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">CastsAttributes</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">MoneyCast</span> <span class="k">implements</span> \<span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">CastsAttributes</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>, <span class="k">array</span> <span class="v">$attributes</span>): <span class="t">Money</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -206,6 +206,6 @@ Cannot add USD to EGP.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

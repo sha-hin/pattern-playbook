@@ -18,10 +18,13 @@ declare(strict_types=1);
  */
 
 // ── Step 1: the Product. Built once, cannot change afterwards. ──
-class EvaluationSearch                                      // ★ Product
+final class EvaluationSearch                                // ★ Product
 {
+    /**
+     * @param list<string> $subjects
+     */
     public function __construct(
-        public readonly ?int $schoolId,                     // readonly: can't be changed after creation
+        public readonly ?int $schoolId,            // readonly: can't be changed after creation
         public readonly array $subjects,
         public readonly ?string $from,
         public readonly ?string $to,
@@ -48,9 +51,10 @@ class EvaluationSearch                                      // ★ Product
 }
 
 // ── Step 2: the Builder. One method per part, in any order. ──
-class EvaluationSearchBuilder                               // ★ Builder
+final class EvaluationSearchBuilder                         // ★ Builder
 {
     private ?int $schoolId = null;
+    /** @var list<string> */
     private array $subjects = [];
     private ?string $from = null;
     private ?string $to = null;
@@ -99,7 +103,7 @@ class EvaluationSearchBuilder                               // ★ Builder
 }
 
 // ── Step 3: the Director. A recipe you use often, written once. ──
-class SearchPresets                                         // ★ Director
+final class SearchPresets                                   // ★ Director
 {
     public static function thisTerm(int $schoolId): EvaluationSearch
     {

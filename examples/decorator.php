@@ -19,14 +19,16 @@ declare(strict_types=1);
 // ── Step 1: the Component interface ──
 interface SchoolStats                                       // ★ Component
 {
+    /** @return array{school: int, average: int} */
     public function forSchool(int $schoolId): array;
 }
 
 // ── Step 2: the real work. We never edit this class. ──
-class DbSchoolStats implements SchoolStats                  // ★ Concrete component
+final class DbSchoolStats implements SchoolStats            // ★ Concrete component
 {
     public int $queries = 0;
 
+    /** @return array{school: int, average: int} */
     public function forSchool(int $schoolId): array
     {
         $this->queries++;
@@ -37,14 +39,16 @@ class DbSchoolStats implements SchoolStats                  // ★ Concrete comp
 }
 
 // ── Step 3: a decorator. Same interface, wraps another SchoolStats, adds caching. ──
-class CachedSchoolStats implements SchoolStats              // ★ Decorator #1
+final class CachedSchoolStats implements SchoolStats        // ★ Decorator #1
 {
+    /** @var array<int, array{school: int, average: int}> */
     private array $cache = [];
 
-    public function __construct(private SchoolStats $inner)   // ★ wraps another SchoolStats
+    public function __construct(private readonly SchoolStats $inner)  // ★ wraps another SchoolStats
     {
     }
 
+    /** @return array{school: int, average: int} */
     public function forSchool(int $schoolId): array
     {
         if (isset($this->cache[$schoolId])) {
@@ -59,14 +63,16 @@ class CachedSchoolStats implements SchoolStats              // ★ Decorator #1
 }
 
 // ── Step 4: another decorator. Adds timing logs. ──
-class LoggedSchoolStats implements SchoolStats              // ★ Decorator #2
+final class LoggedSchoolStats implements SchoolStats        // ★ Decorator #2
 {
+    /** @var list<string> */
     public array $log = [];
 
-    public function __construct(private SchoolStats $inner)
+    public function __construct(private readonly SchoolStats $inner)
     {
     }
 
+    /** @return array{school: int, average: int} */
     public function forSchool(int $schoolId): array
     {
         $start = microtime(true);

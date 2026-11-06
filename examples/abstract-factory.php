@@ -31,7 +31,7 @@ interface MessageQueue                                      // ★ Abstract prod
 }
 
 // ── Step 2: the cloud family ──
-class CloudStorage implements FileStorage
+final class CloudStorage implements FileStorage
 {
     public function put(string $name): string
     {
@@ -39,7 +39,7 @@ class CloudStorage implements FileStorage
     }
 }
 
-class CloudQueue implements MessageQueue
+final class CloudQueue implements MessageQueue
 {
     public function push(string $message): void
     {
@@ -48,7 +48,7 @@ class CloudQueue implements MessageQueue
 }
 
 // ── Step 3: the local family ──
-class DiskStorage implements FileStorage
+final class DiskStorage implements FileStorage
 {
     public function put(string $name): string
     {
@@ -56,7 +56,7 @@ class DiskStorage implements FileStorage
     }
 }
 
-class MemoryQueue implements MessageQueue
+final class MemoryQueue implements MessageQueue
 {
     public function push(string $message): void
     {
@@ -72,7 +72,7 @@ interface InfrastructureKit                                 // ★ Abstract fact
     public function queue(): MessageQueue;
 }
 
-class CloudKit implements InfrastructureKit                 // ★ Concrete factory: cloud family only
+final class CloudKit implements InfrastructureKit           // ★ Concrete factory: cloud family only
 {
     public function storage(): FileStorage
     {
@@ -85,7 +85,7 @@ class CloudKit implements InfrastructureKit                 // ★ Concrete fact
     }
 }
 
-class LocalKit implements InfrastructureKit                 // ★ Concrete factory: local family only
+final class LocalKit implements InfrastructureKit           // ★ Concrete factory: local family only
 {
     public function storage(): FileStorage
     {
@@ -99,9 +99,9 @@ class LocalKit implements InfrastructureKit                 // ★ Concrete fact
 }
 
 // ── Step 5: the client. It only knows the kit. ──
-class ReportPublisher                                       // ★ Client
+final class ReportPublisher                                 // ★ Client
 {
-    public function __construct(private InfrastructureKit $kit)
+    public function __construct(private readonly InfrastructureKit $kit)
     {
     }
 

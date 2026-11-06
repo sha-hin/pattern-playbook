@@ -19,25 +19,30 @@ declare(strict_types=1);
  */
 
 // ── Step 1: events. Small classes that only carry data. ──
-class OrderPlaced                                           // ★ Event
+final class OrderPlaced                                     // ★ Event
 {
-    public function __construct(public int $orderId)
+    public function __construct(public readonly int $orderId)
     {
     }
 }
 
-class PaymentReceived                                       // ★ Event
+final class PaymentReceived                                 // ★ Event
 {
-    public function __construct(public int $orderId, public int $amount)
+    public function __construct(public readonly int $orderId, public readonly int $amount)
     {
     }
 }
 
 // ── Step 2: the dispatcher. The one middleman everybody talks to. ──
-class EventDispatcher                                       // ★ Dispatcher
+final class EventDispatcher                                 // ★ Dispatcher
 {
+    /** @var array<class-string, list<callable(object): void>> */
     private array $listeners = [];
 
+    /**
+     * @param class-string $eventClass
+     * @param callable(object): void $listener
+     */
     public function listen(string $eventClass, callable $listener): void   // ★ register by event class
     {
         $this->listeners[$eventClass][] = $listener;
@@ -55,9 +60,9 @@ class EventDispatcher                                       // ★ Dispatcher
 }
 
 // ── Step 3: senders. They only know the dispatcher, never the listeners. ──
-class OrderService                                          // ★ Sender
+final class OrderService                                    // ★ Sender
 {
-    public function __construct(private EventDispatcher $events)
+    public function __construct(private readonly EventDispatcher $events)
     {
     }
 
@@ -68,9 +73,9 @@ class OrderService                                          // ★ Sender
     }
 }
 
-class PaymentService                                        // ★ Sender
+final class PaymentService                                  // ★ Sender
 {
-    public function __construct(private EventDispatcher $events)
+    public function __construct(private readonly EventDispatcher $events)
     {
     }
 
@@ -84,16 +89,16 @@ class PaymentService                                        // ★ Sender
 // ── Using it: listeners are registered in one place ──
 $events = new EventDispatcher();
 
-$events->listen(OrderPlaced::class, function (OrderPlaced $event) {
+$events->listen(OrderPlaced::class, function (OrderPlaced $event): void {
     echo "Kitchen: start order #{$event->orderId}\n";
 });
 
-$events->listen(PaymentReceived::class, function (PaymentReceived $event) {
+$events->listen(PaymentReceived::class, function (PaymentReceived $event): void {
     echo "Billing: mark order #{$event->orderId} as paid\n";
 });
 
 // Analytics listens to BOTH senders without knowing either of them:
-$track = function (object $event) {
+$track = function (object $event): void {
     echo 'Analytics: ' . get_class($event) . "\n";
 };
 $events->listen(OrderPlaced::class, $track);

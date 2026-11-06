@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Decorator Pattern in PHP & Laravel, with Real Code","description":"Decorator explained for PHP and Laravel developers. Add behaviour (cache, log, retry) around a class without editing it - wrap it in a class with the SAME…","url":"https://sha-hin.github.io/pattern-playbook/decorator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/decorator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Decorator pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/decorator.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Decorator","item":"https://sha-hin.github.io/pattern-playbook/decorator/"}]}]}</script>
 </head>
@@ -69,7 +69,7 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>You need caching / logging / retry around something that works</li><li>Constructor flags like $withCache, $withLogging</li><li>Different environments need different extras</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>School statistics take 3 seconds of SQL. You want a 10-minute cache, but not in local dev.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span></span><span class="nl">
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">DbSchoolStats</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -93,14 +93,16 @@
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Component interface ──</span></span><span class="nl">
 </span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Component</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return array{school: int, average: int} */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the real work. We never edit this class. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Concrete component</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Concrete component</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$queries</span> = <span class="n">0</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return array{school: int, average: int} */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">queries</span>++;</span><span class="nl">
@@ -111,14 +113,16 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: a decorator. Same interface, wraps another SchoolStats, adds caching. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #1</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #1</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;int, array{school: int, average: int}&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$cache</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>) <span class="al"> </span><span class="c">// wraps another SchoolStats</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>) <span class="al"> </span><span class="c">// wraps another SchoolStats</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return array{school: int, average: int} */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">cache</span>[<span class="v">$schoolId</span>])) {</span><span class="nl">
@@ -133,14 +137,16 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 4: another decorator. Adds timing logs. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">LoggedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #2</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">LoggedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #2</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;string&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$log</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @return array{school: int, average: int} */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="v">$start</span> = <span class="f">microtime</span>(<span class="k">true</span>);</span><span class="nl">
@@ -169,7 +175,7 @@
     <div class="output"><span>Output</span><pre><code>Database queries: 2 (not 3)
 school 7 answered in 20.1 ms
 school 7 answered in 0 ms
-school 9 answered in 20.2 ms</code></pre></div>
+school 9 answered in 20.1 ms</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -178,9 +184,9 @@ school 9 answered in 20.2 ms</code></pre></div>
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> { <span class="c">/* heavy SQL only, never edited */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> { <span class="c">/* heavy SQL only, never edited */</span> }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// same interface...</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// same interface...</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
 </span><span class="ln h" style="--i:8">        <span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>, <span class="al"> </span><span class="c">// ...holds one inside</span></span><span class="nl">
@@ -215,6 +221,6 @@ school 9 answered in 20.2 ms</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

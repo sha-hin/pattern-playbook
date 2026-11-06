@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Adapter Pattern in PHP & Laravel, with Real Code","description":"Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…","url":"https://sha-hin.github.io/pattern-playbook/adapter/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/adapter/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Adapter pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Adapter","item":"https://sha-hin.github.io/pattern-playbook/adapter/"}]}]}</script>
 </head>
@@ -84,8 +84,12 @@
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── The third-party class (pretend it came from Composer). You can't change it. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AcmeSmsClient</span> <span class="al"> </span><span class="c">// Adaptee</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsClient</span> <span class="al"> </span><span class="c">// Adaptee</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @param array{msisdn: string, text: string} $payload</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @return array{status: string, id?: string, error?: string}</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="k">array</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">str_starts_with</span>(<span class="v">$payload</span>[<span class="s">'msisdn'</span>], <span class="s">'+'</span>)) {</span><span class="nl">
@@ -103,9 +107,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Adapter. Your interface outside, their class inside. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AcmeSmsAdapter</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// Adapter</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsAdapter</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// Adapter</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">AcmeSmsClient</span> <span class="v">$client</span>) <span class="al"> </span><span class="c">// holds the third-party object</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AcmeSmsClient</span> <span class="v">$client</span>) <span class="al"> </span><span class="c">// holds the third-party object</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -130,9 +134,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Client. It only knows SmsSender. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">OrderNotifier</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderNotifier</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SmsSender</span> <span class="v">$sms</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">SmsSender</span> <span class="v">$sms</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -166,7 +170,7 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// the adapter</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// the adapter</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">private</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="t">Client</span> <span class="v">$twilio</span>,</span><span class="nl">
@@ -206,6 +210,6 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

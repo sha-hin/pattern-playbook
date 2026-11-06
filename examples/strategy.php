@@ -20,12 +20,14 @@ declare(strict_types=1);
 // ── Step 1: the Strategy. One interface that every "way" must follow. ──
 interface Exporter                                          // ★ Strategy
 {
+    /** @param list<array<string, string|int>> $rows */
     public function export(array $rows): string;
 }
 
 // ── Step 2: concrete strategies. One class per way of doing the same job. ──
-class CsvExporter implements Exporter                       // ★ Concrete strategy #1
+final class CsvExporter implements Exporter                 // ★ Concrete strategy #1
 {
+    /** @param list<array<string, string|int>> $rows */
     public function export(array $rows): string
     {
         if (count($rows) === 0) {
@@ -42,8 +44,9 @@ class CsvExporter implements Exporter                       // ★ Concrete stra
     }
 }
 
-class JsonExporter implements Exporter                      // ★ Concrete strategy #2
+final class JsonExporter implements Exporter                // ★ Concrete strategy #2
 {
+    /** @param list<array<string, string|int>> $rows */
     public function export(array $rows): string
     {
         return json_encode($rows, JSON_PRETTY_PRINT) . "\n";
@@ -51,9 +54,10 @@ class JsonExporter implements Exporter                      // ★ Concrete stra
 }
 
 // ── Step 3: the Context. It uses a strategy without knowing which one. ──
-class ReportService                                         // ★ Context
+final class ReportService                                   // ★ Context
 {
-    public function __construct(private array $rows)
+    /** @param list<array<string, string|int>> $rows */
+    public function __construct(private readonly array $rows)
     {
     }
 

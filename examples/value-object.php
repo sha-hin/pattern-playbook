@@ -19,10 +19,10 @@ declare(strict_types=1);
  * Eloquent cast turns a database column into your own value object and back.
  */
 
-class Money                                                 // ★ Value object
+final class Money                                           // ★ Value object
 {
     public function __construct(
-        public readonly int $amount,                        // ★ rule 1: readonly. Stored in piastres, never a float
+        public readonly int $amount,               // ★ rule 1: readonly. Stored in piastres, never a float
         public readonly string $currency,
     ) {
         if ($amount < 0) {                                  // ★ rule 2: an invalid Money can never exist

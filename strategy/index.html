@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Strategy Pattern in PHP & Laravel, with Real Code","description":"Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.","url":"https://sha-hin.github.io/pattern-playbook/strategy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/strategy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Strategy design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Strategy pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/strategy.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Strategy","item":"https://sha-hin.github.io/pattern-playbook/strategy/"}]}]}</script>
 </head>
@@ -91,12 +91,14 @@
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Strategy. One interface that every &quot;way&quot; must follow. ──</span></span><span class="nl">
 </span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">Exporter</span> <span class="al"> </span><span class="c">// Strategy</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @param list&lt;array&lt;string, string|int&gt;&gt; $rows */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">export</span>(<span class="k">array</span> <span class="v">$rows</span>): <span class="k">string</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: concrete strategies. One class per way of doing the same job. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CsvExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> <span class="al"> </span><span class="c">// Concrete strategy #1</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CsvExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> <span class="al"> </span><span class="c">// Concrete strategy #1</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @param list&lt;array&lt;string, string|int&gt;&gt; $rows */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">export</span>(<span class="k">array</span> <span class="v">$rows</span>): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">count</span>(<span class="v">$rows</span>) === <span class="n">0</span>) {</span><span class="nl">
@@ -113,8 +115,9 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">JsonExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> <span class="al"> </span><span class="c">// Concrete strategy #2</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">JsonExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> <span class="al"> </span><span class="c">// Concrete strategy #2</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @param list&lt;array&lt;string, string|int&gt;&gt; $rows */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">export</span>(<span class="k">array</span> <span class="v">$rows</span>): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">json_encode</span>(<span class="v">$rows</span>, <span class="t">JSON_PRETTY_PRINT</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
@@ -122,9 +125,10 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Context. It uses a strategy without knowing which one. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">ReportService</span> <span class="al"> </span><span class="c">// Context</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">ReportService</span> <span class="al"> </span><span class="c">// Context</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">array</span> <span class="v">$rows</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @param list&lt;array&lt;string, string|int&gt;&gt; $rows */</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">array</span> <span class="v">$rows</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -167,7 +171,7 @@ Miami,77
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">extension</span>(): <span class="k">string</span>;</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CsvExporter</span> <span class="k">implements</span> <span class="t">Exporter</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CsvExporter</span> <span class="k">implements</span> <span class="t">Exporter</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">export</span>(<span class="k">iterable</span> <span class="v">$rows</span>): <span class="k">string</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -183,9 +187,9 @@ Miami,77
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">extension</span>(): <span class="k">string</span> { <span class="k">return</span> <span class="s">'csv'</span>; }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">PdfExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> { <span class="c">/* same two methods, uses Dompdf */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">PdfExporter</span> <span class="k">implements</span> <span class="t">Exporter</span> { <span class="c">/* same two methods, uses Dompdf */</span> }</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">ReportService</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">ReportService</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">ReportRepository</span> <span class="v">$reports</span>) {}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
@@ -220,6 +224,6 @@ Miami,77
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

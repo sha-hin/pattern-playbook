@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Observer Pattern in PHP & Laravel, with Real Code","description":"Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…","url":"https://sha-hin.github.io/pattern-playbook/observer/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/observer/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Observer design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Observer pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Observer","item":"https://sha-hin.github.io/pattern-playbook/observer/"}]}]}</script>
 </head>
@@ -89,9 +89,9 @@
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">User</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">User</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">int</span> <span class="v">$id</span>, <span class="k">public</span> <span class="k">string</span> <span class="v">$email</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$id</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$email</span>)</span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
@@ -103,8 +103,9 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Subject. Keeps a list of observers and notifies them. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Registration</span> <span class="al"> </span><span class="c">// Subject</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Registration</span> <span class="al"> </span><span class="c">// Subject</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;RegistrationObserver&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">attach</span>(<span class="t">RegistrationObserver</span> <span class="v">$observer</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// subscribe</span></span><span class="nl">
@@ -134,7 +135,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: concrete observers. One class per reaction. ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -142,7 +143,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">StartFreeTrial</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">StartFreeTrial</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -150,7 +151,7 @@
 </span><span class="ln" style="--i:4">    }</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SyncToCrm</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SyncToCrm</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -172,7 +173,7 @@
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">UserRegistered</span> <span class="al">                                </span><span class="c">// the event: just data</span></span><span class="nl">
+    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">UserRegistered</span> <span class="al">                                </span><span class="c">// the event: just data</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$userId</span>) {}</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
@@ -186,7 +187,7 @@
 </span><span class="ln" style="--i:4">    });</span><span class="nl">
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">ShouldQueue</span> <span class="al"> </span><span class="c">// one reaction = one listener</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">ShouldQueue</span> <span class="al"> </span><span class="c">// one reaction = one listener</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">bool</span> <span class="v">$afterCommit</span> = <span class="k">true</span>; <span class="al">                    </span><span class="c">// never email a user that was rolled back</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;</span><span class="nl">
@@ -212,6 +213,6 @@
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

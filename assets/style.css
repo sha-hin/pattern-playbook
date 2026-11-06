@@ -3,6 +3,7 @@
 :root{
   --bg:#f1f3f6; --card:#ffffff; --fg:#131a24; --muted:#5b6574; --line:#d4dae2; --well:#f6f8fa;
   --code:#f3f5f8; --code-c:#6c7685;
+  --out-bg:#ffffff; --out-fg:#18212c; --out-line:#c9d1db;
   --tk-k:#8a3ab9; --tk-s:#1d7a3a; --tk-v:#b4400f; --tk-n:#0b7285; --tk-f:#1a5fb4; --tk-t:#9a5b00;
   --cre:#5847d8; --cre-bg:#ece9ff; --str:#0a8464; --str-bg:#dcf3ea; --beh:#c24f2a; --beh-bg:#fbe7df;
   --bad:#c2352b; --bad-bg:#fdecea; --good:#13804a; --good-bg:#e3f4ea;
@@ -13,12 +14,14 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0d1218; --card:#151c25; --fg:#e6ebf1; --muted:#98a3b1; --line:#2a3441; --well:#1b232e;
   --code:#0f151c; --code-c:#7c8796;
+  --out-bg:#0a0f15; --out-fg:#dfe6ee; --out-line:#2a3441;
   --tk-k:#c792ea; --tk-s:#a3d977; --tk-v:#f78c6c; --tk-n:#5ec4d3; --tk-f:#82aaff; --tk-t:#ffcb6b;
   --cre:#a79eff; --cre-bg:#2b2662; --str:#4fd2a6; --str-bg:#0b3c2f; --beh:#f28a60; --beh-bg:#4a2113;
   --bad:#f27a70; --bad-bg:#3d1715; --good:#5fd394; --good-bg:#103522; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1218; --card:#151c25; --fg:#e6ebf1; --muted:#98a3b1; --line:#2a3441; --well:#1b232e;
   --code:#0f151c; --code-c:#7c8796;
+  --out-bg:#0a0f15; --out-fg:#dfe6ee; --out-line:#2a3441;
   --tk-k:#c792ea; --tk-s:#a3d977; --tk-v:#f78c6c; --tk-n:#5ec4d3; --tk-f:#82aaff; --tk-t:#ffcb6b;
   --cre:#a79eff; --cre-bg:#2b2662; --str:#4fd2a6; --str-bg:#0b3c2f; --beh:#f28a60; --beh-bg:#4a2113;
   --bad:#f27a70; --bad-bg:#3d1715; --good:#5fd394; --good-bg:#103522; color-scheme:dark}
@@ -199,7 +202,7 @@ header{align-items:end}
 .legend code{font-family:var(--mono);font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
 .legend a{color:var(--fg)}
 .output span{display:block;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
-.output pre{background:#0f151c;color:#d7dee6;border-color:#0f151c}
+.scratch .output pre{background:var(--out-bg);color:var(--out-fg);border:1px solid var(--out-line);border-left:3px solid var(--good);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
 .howlaravel{margin:10px 0 0;font-size:14px;background:var(--fam-bg);border-radius:10px;padding:10px 14px}
 @media (max-width:520px){.role{grid-template-columns:1fr;gap:2px}}
 

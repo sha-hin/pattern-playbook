@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
+<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Builder Pattern in PHP & Laravel, with Real Code","description":"Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…","url":"https://sha-hin.github.io/pattern-playbook/builder/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/builder/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Builder pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/builder.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Builder","item":"https://sha-hin.github.io/pattern-playbook/builder/"}]}]}</script>
 </head>
@@ -83,10 +83,13 @@
 </span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Product. Built once, cannot change afterwards. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearch</span> <span class="al"> </span><span class="c">// Product</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EvaluationSearch</span> <span class="al"> </span><span class="c">// Product</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     * @param list&lt;string&gt; $subjects</span></span><span class="nl">
+</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">int</span> <span class="v">$schoolId</span>, <span class="al">                    </span><span class="c">// readonly: can't be changed after creation</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">int</span> <span class="v">$schoolId</span>, <span class="al">           </span><span class="c">// readonly: can't be changed after creation</span></span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> <span class="k">array</span> <span class="v">$subjects</span>,</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">string</span> <span class="v">$from</span>,</span><span class="nl">
 </span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">string</span> <span class="v">$to</span>,</span><span class="nl">
@@ -113,9 +116,10 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Builder. One method per part, in any order. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearchBuilder</span> <span class="al"> </span><span class="c">// Builder</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EvaluationSearchBuilder</span> <span class="al"> </span><span class="c">// Builder</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">int</span> <span class="v">$schoolId</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;string&gt; */</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$subjects</span> = [];</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$from</span> = <span class="k">null</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$to</span> = <span class="k">null</span>;</span><span class="nl">
@@ -164,7 +168,7 @@
 </span><span class="ln" style="--i:0">}</span><span class="nl">
 </span><span class="ln" style="--i:0"></span><span class="nl">
 </span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Director. A recipe you use often, written once. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">SearchPresets</span> <span class="al"> </span><span class="c">// Director</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SearchPresets</span> <span class="al"> </span><span class="c">// Director</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">thisTerm</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="t">EvaluationSearch</span></span><span class="nl">
 </span><span class="ln" style="--i:4">    {</span><span class="nl">
@@ -198,7 +202,7 @@ Refused: &quot;from&quot; must be before &quot;to&quot;.</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearchBuilder</span></span><span class="nl">
+    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EvaluationSearchBuilder</span></span><span class="nl">
 </span><span class="ln" style="--i:0">{</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">int</span> <span class="v">$schoolId</span> = <span class="k">null</span>;</span><span class="nl">
 </span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$subjects</span> = [];</span><span class="nl">
@@ -242,6 +246,6 @@ Refused: &quot;from&quot; must be before &quot;to&quot;.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=3ba2343d6e" defer></script>
+<script src="../assets/app.js?v=9960e3e5f1" defer></script>
 </body>
 </html>

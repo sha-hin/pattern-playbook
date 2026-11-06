@@ -23,9 +23,9 @@ interface Mailer
     public function send(string $to, string $subject): void;
 }
 
-class SmtpMailer implements Mailer
+final class SmtpMailer implements Mailer
 {
-    public function __construct(private string $host)
+    public function __construct(private readonly string $host)
     {
     }
 
@@ -35,8 +35,9 @@ class SmtpMailer implements Mailer
     }
 }
 
-class FakeMailer implements Mailer                          // for tests: remembers instead of sending
+final class FakeMailer implements Mailer                    // for tests: remembers instead of sending
 {
+    /** @var list<string> */
     public array $sent = [];
 
     public function send(string $to, string $subject): void
@@ -46,9 +47,9 @@ class FakeMailer implements Mailer                          // for tests: rememb
 }
 
 // ── Step 1: the service. It ASKS for a Mailer; it never creates one. ──
-class InvoiceSender                                         // ★ Service
+final class InvoiceSender                                   // ★ Service
 {
-    public function __construct(private Mailer $mailer)    // ★ dependency injection
+    public function __construct(private readonly Mailer $mailer)  // ★ dependency injection
     {
     }
 
@@ -59,11 +60,15 @@ class InvoiceSender                                         // ★ Service
 }
 
 // ── Step 2: the container ──
-class Container                                             // ★ Container
+final class Container                                       // ★ Container
 {
+    /** @var array<string, callable(): object> */
     private array $factories = [];
+
+    /** @var array<string, object> */
     private array $shared = [];
 
+    /** @param callable(): object $factory */
     public function singleton(string $name, callable $factory): void   // ★ "build once, share it"
     {
         $this->factories[$name] = $factory;
@@ -84,6 +89,7 @@ class Container                                             // ★ Container
         return $this->autowire($name);
     }
 
+    /** @param class-string $class */
     private function autowire(string $class): object       // ★ read the constructor, build what it needs
     {
         $constructor = (new ReflectionClass($class))->getConstructor();
@@ -103,7 +109,7 @@ class Container                                             // ★ Container
 
 // ── Using it: ONE place decides what "Mailer" means ──
 $app = new Container();
-$app->singleton(Mailer::class, function () {
+$app->singleton(Mailer::class, function (): Mailer {
     return new SmtpMailer('smtp.example.com');
 });
 

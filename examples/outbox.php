@@ -19,8 +19,9 @@ declare(strict_types=1);
  */
 
 // ── The external system. Unreliable, like real APIs. ──
-class MinistryApi
+final class MinistryApi
 {
+    /** @var array<string, true> */
     private array $alreadyReceived = [];
     private int $calls = 0;
 
@@ -43,9 +44,9 @@ class MinistryApi
 }
 
 // ── Step 1: save the data AND the message in one transaction ──
-class ApproveEvaluation
+final class ApproveEvaluation
 {
-    public function __construct(private PDO $db)
+    public function __construct(private readonly PDO $db)
     {
     }
 
@@ -69,9 +70,9 @@ class ApproveEvaluation
 }
 
 // ── Step 2: the relay. A worker that runs every minute. ──
-class OutboxRelay                                           // ★ Relay
+final class OutboxRelay                                     // ★ Relay
 {
-    public function __construct(private PDO $db, private MinistryApi $api)
+    public function __construct(private readonly PDO $db, private readonly MinistryApi $api)
     {
     }
 

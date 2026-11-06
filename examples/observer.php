@@ -18,9 +18,9 @@ declare(strict_types=1);
  * its event dispatcher (see the Event Dispatcher card).
  */
 
-class User
+final class User
 {
-    public function __construct(public int $id, public string $email)
+    public function __construct(public readonly int $id, public readonly string $email)
     {
     }
 }
@@ -32,8 +32,9 @@ interface RegistrationObserver                              // ★ Observer
 }
 
 // ── Step 2: the Subject. Keeps a list of observers and notifies them. ──
-class Registration                                          // ★ Subject
+final class Registration                                    // ★ Subject
 {
+    /** @var list<RegistrationObserver> */
     private array $observers = [];
 
     public function attach(RegistrationObserver $observer): void   // ★ subscribe
@@ -63,7 +64,7 @@ class Registration                                          // ★ Subject
 }
 
 // ── Step 3: concrete observers. One class per reaction. ──
-class SendWelcomeEmail implements RegistrationObserver
+final class SendWelcomeEmail implements RegistrationObserver
 {
     public function userRegistered(User $user): void
     {
@@ -71,7 +72,7 @@ class SendWelcomeEmail implements RegistrationObserver
     }
 }
 
-class StartFreeTrial implements RegistrationObserver
+final class StartFreeTrial implements RegistrationObserver
 {
     public function userRegistered(User $user): void
     {
@@ -79,7 +80,7 @@ class StartFreeTrial implements RegistrationObserver
     }
 }
 
-class SyncToCrm implements RegistrationObserver
+final class SyncToCrm implements RegistrationObserver
 {
     public function userRegistered(User $user): void
     {

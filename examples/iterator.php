@@ -19,10 +19,11 @@ declare(strict_types=1);
  */
 
 // ── A fake API that returns customers 3 at a time (like a real paginated API) ──
-class FakeCrmApi
+final class FakeCrmApi
 {
     public int $requests = 0;
 
+    /** @return list<string> */
     public function page(int $page): array
     {
         $this->requests++;
@@ -33,14 +34,16 @@ class FakeCrmApi
 }
 
 // ── Step 1: the concrete iterator. PHP calls these 5 methods for you in foreach. ──
-class CustomerIterator implements Iterator                  // ★ Concrete iterator
+/** @implements Iterator<int, string> */
+final class CustomerIterator implements Iterator            // ★ Concrete iterator
 {
     private int $page = 1;
+    /** @var list<string> */
     private array $current = [];                            // the customers of the current page
     private int $index = 0;                                 // position inside the current page
     private int $position = 0;                              // position overall
 
-    public function __construct(private FakeCrmApi $api)
+    public function __construct(private readonly FakeCrmApi $api)
     {
     }
 
@@ -63,12 +66,12 @@ class CustomerIterator implements Iterator                  // ★ Concrete iter
         return $this->index < count($this->current);
     }
 
-    public function current(): mixed                        // ★ 3. give me the customer
+    public function current(): string                       // ★ 3. give me the customer
     {
         return $this->current[$this->index];
     }
 
-    public function key(): mixed                            // ★ 4. give me its position
+    public function key(): int                              // ★ 4. give me its position
     {
         return $this->position;
     }
@@ -81,12 +84,14 @@ class CustomerIterator implements Iterator                  // ★ Concrete iter
 }
 
 // ── Step 2: the aggregate. What the caller loops over. ──
-class CrmCustomers implements IteratorAggregate             // ★ Concrete aggregate
+/** @implements IteratorAggregate<int, string> */
+final class CrmCustomers implements IteratorAggregate       // ★ Concrete aggregate
 {
-    public function __construct(private FakeCrmApi $api)
+    public function __construct(private readonly FakeCrmApi $api)
     {
     }
 
+    /** @return Iterator<int, string> */
     public function getIterator(): Iterator                 // ★ a fresh iterator for every foreach
     {
         return new CustomerIterator($this->api);
