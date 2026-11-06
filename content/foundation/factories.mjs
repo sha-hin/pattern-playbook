@@ -1,4 +1,4 @@
-// Foundation, part 4: a factory for every model, with the states the lessons' tests use, and the seeder.
+// Foundation, part 4: a factory for every model, one block per file, and the seeder.
 
 export const factories = {
   id: 'factories',
@@ -10,16 +10,16 @@ export const factories = {
   numbered: false,
   blocks: [
     {
-      id: 'factory-account',
-      title: 'User, Account, AccountInvitation',
-      text: ['Memberships are attached, not factoried: the test helper [`memberOf()`](F#test-helpers) does it with the role.'],
-      path: 'database/factories/UserFactory.php · AccountFactory.php · AccountInvitationFactory.php',
+      id: 'factory-user',
+      title: 'UserFactory',
+      text: [
+        'Memberships are attached, not factoried: the test helper [`memberOf()`](F#test-helpers) does it with the role.',
+      ],
+      path: 'database/factories/UserFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
 
-use App\Enums\MembershipRole;
-use App\Models\Account;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -44,7 +44,18 @@ class UserFactory extends Factory
     {
         return $this->state(fn () => ['notification_channels' => $channels]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-account',
+      title: 'AccountFactory',
+      path: 'database/factories/AccountFactory.php',
+      code: String.raw`<?php
+
+namespace Database\Factories;
+
+use App\Models\Account;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Account> */
 class AccountFactory extends Factory
@@ -53,9 +64,23 @@ class AccountFactory extends Factory
     {
         return ['name' => fake()->company()];
     }
-}
+}`,
+    },
+    {
+      id: 'factory-account-invitation',
+      title: 'AccountInvitationFactory',
+      path: 'database/factories/AccountInvitationFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\AccountInvitation> */
+namespace Database\Factories;
+
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\AccountInvitation;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<AccountInvitation> */
 class AccountInvitationFactory extends Factory
 {
     public function definition(): array
@@ -82,15 +107,16 @@ class AccountInvitationFactory extends Factory
     },
     {
       id: 'factory-property',
-      title: 'Property, CalendarDay, RateRule, ChecklistTemplate',
-      text: ['The default property is a Copenhagen flat priced in EUR, because Copenhagen has DST and a 25% VAT rate: the cases lessons 15 and 16 need. Other timezones and currencies come from states.'],
-      path: 'database/factories/PropertyFactory.php · CalendarDayFactory.php · RateRuleFactory.php · ChecklistTemplateFactory.php',
+      title: 'PropertyFactory',
+      text: [
+        'The default property is a Copenhagen flat priced in EUR, because Copenhagen has DST and a 25% VAT rate: the cases lessons 15 and 16 need. Other timezones and currencies come from states.',
+      ],
+      path: 'database/factories/PropertyFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
 
 use App\Enums\CancellationPolicy;
-use App\Enums\RateRuleType;
 use App\Models\Account;
 use App\Models\Property;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -152,9 +178,21 @@ class PropertyFactory extends Factory
     {
         return $this->state(fn () => ['cancellation_policy' => $policy]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-calendar-day',
+      title: 'CalendarDayFactory',
+      path: 'database/factories/CalendarDayFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\CalendarDay> */
+namespace Database\Factories;
+
+use App\Models\CalendarDay;
+use App\Models\Property;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<CalendarDay> */
 class CalendarDayFactory extends Factory
 {
     public function definition(): array
@@ -166,9 +204,22 @@ class CalendarDayFactory extends Factory
     {
         return $this->state(fn () => ['blocked' => true]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-rate-rule',
+      title: 'RateRuleFactory',
+      path: 'database/factories/RateRuleFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\RateRule> */
+namespace Database\Factories;
+
+use App\Enums\RateRuleType;
+use App\Models\Property;
+use App\Models\RateRule;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<RateRule> */
 class RateRuleFactory extends Factory
 {
     public function definition(): array
@@ -202,9 +253,21 @@ class RateRuleFactory extends Factory
             'settings' => ['nights' => $nights, 'discount_bps' => $discountBps],
         ]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-checklist-template',
+      title: 'ChecklistTemplateFactory',
+      path: 'database/factories/ChecklistTemplateFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ChecklistTemplate> */
+namespace Database\Factories;
+
+use App\Models\ChecklistTemplate;
+use App\Models\Property;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ChecklistTemplate> */
 class ChecklistTemplateFactory extends Factory
 {
     public function definition(): array
@@ -222,11 +285,11 @@ class ChecklistTemplateFactory extends Factory
     },
     {
       id: 'factory-booking',
-      title: 'Booking, BookingLineItem',
+      title: 'BookingFactory',
       text: [
         'The default booking is **confirmed**, three nights, four weeks from the frozen test date. A test that cares about dates calls `forStay()`; one that cares about status calls a status state. Each status state sets the timestamps that go with it, so a cancelled booking always has `cancelled_at`.',
       ],
-      path: 'database/factories/BookingFactory.php · BookingLineItemFactory.php',
+      path: 'database/factories/BookingFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
@@ -235,7 +298,6 @@ use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Enums\CancellationPolicy;
 use App\Enums\GuestChannel;
-use App\Enums\LineItemType;
 use App\Models\Booking;
 use App\Models\Property;
 use Carbon\CarbonImmutable;
@@ -322,9 +384,22 @@ class BookingFactory extends Factory
             'cancellation_policy' => $property->cancellation_policy,
         ]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-booking-line-item',
+      title: 'BookingLineItemFactory',
+      path: 'database/factories/BookingLineItemFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\BookingLineItem> */
+namespace Database\Factories;
+
+use App\Enums\LineItemType;
+use App\Models\Booking;
+use App\Models\BookingLineItem;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<BookingLineItem> */
 class BookingLineItemFactory extends Factory
 {
     public function definition(): array
@@ -352,7 +427,7 @@ class BookingLineItemFactory extends Factory
     },
     {
       id: 'factory-payment',
-      title: 'Payment',
+      title: 'PaymentFactory',
       path: 'database/factories/PaymentFactory.php',
       code: String.raw`<?php
 
@@ -361,9 +436,10 @@ namespace Database\Factories;
 use App\Enums\PaymentKind;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
+use App\Models\Payment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Payment> */
+/** @extends Factory<Payment> */
 class PaymentFactory extends Factory
 {
     public function definition(): array
@@ -404,22 +480,19 @@ class PaymentFactory extends Factory
 }`,
     },
     {
-      id: 'factory-channels',
-      title: 'ChannelConnection, ChannelListing, IcalFeed, WebhookEvent, ReconciliationIssue',
-      text: ['`WebhookEvent::factory()->stripe(...)` builds the event the way it is stored after verification (lesson 6 parses it). Recorded payloads from the real APIs live in `tests/Fixtures/` and are used with `Http::fake()` (lesson 9).'],
-      path: 'database/factories/ChannelConnectionFactory.php · ChannelListingFactory.php · IcalFeedFactory.php · WebhookEventFactory.php · ReconciliationIssueFactory.php',
+      id: 'factory-channel-connection',
+      title: 'ChannelConnectionFactory',
+      path: 'database/factories/ChannelConnectionFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
 
 use App\Enums\Channel;
-use App\Enums\ReconciliationKind;
-use App\Enums\WebhookStatus;
 use App\Models\Account;
-use App\Models\Property;
+use App\Models\ChannelConnection;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\ChannelConnection> */
+/** @extends Factory<ChannelConnection> */
 class ChannelConnectionFactory extends Factory
 {
     public function definition(): array
@@ -437,9 +510,22 @@ class ChannelConnectionFactory extends Factory
     {
         return $this->state(fn () => ['expires_at' => now()->subMinute()]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-channel-listing',
+      title: 'ChannelListingFactory',
+      path: 'database/factories/ChannelListingFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ChannelListing> */
+namespace Database\Factories;
+
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ChannelListing> */
 class ChannelListingFactory extends Factory
 {
     public function definition(): array
@@ -455,9 +541,22 @@ class ChannelListingFactory extends Factory
     {
         return $this->state(fn () => ['channel' => $channel]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-ical-feed',
+      title: 'IcalFeedFactory',
+      path: 'database/factories/IcalFeedFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\IcalFeed> */
+namespace Database\Factories;
+
+use App\Enums\Channel;
+use App\Models\IcalFeed;
+use App\Models\Property;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<IcalFeed> */
 class IcalFeedFactory extends Factory
 {
     public function definition(): array
@@ -473,9 +572,24 @@ class IcalFeedFactory extends Factory
     {
         return $this->state(fn () => ['source' => $source, 'url' => $url]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-webhook-event',
+      title: 'WebhookEventFactory',
+      text: [
+        '`stripe(...)` builds the event the way it is stored after verification (lesson 6 parses it). Recorded payloads from the real APIs live in `tests/Fixtures/` and are used with `Http::fake()` (lesson 9).',
+      ],
+      path: 'database/factories/WebhookEventFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\WebhookEvent> */
+namespace Database\Factories;
+
+use App\Enums\WebhookStatus;
+use App\Models\WebhookEvent;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<WebhookEvent> */
 class WebhookEventFactory extends Factory
 {
     public function definition(): array
@@ -510,9 +624,22 @@ class WebhookEventFactory extends Factory
             'status' => WebhookStatus::Received,
         ];
     }
-}
+}`,
+    },
+    {
+      id: 'factory-reconciliation-issue',
+      title: 'ReconciliationIssueFactory',
+      path: 'database/factories/ReconciliationIssueFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ReconciliationIssue> */
+namespace Database\Factories;
+
+use App\Enums\ReconciliationKind;
+use App\Models\Property;
+use App\Models\ReconciliationIssue;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ReconciliationIssue> */
 class ReconciliationIssueFactory extends Factory
 {
     public function definition(): array
@@ -526,20 +653,16 @@ class ReconciliationIssueFactory extends Factory
 }`,
     },
     {
-      id: 'factory-messaging',
-      title: 'MessageTemplate, ScheduledMessage, Conversation, ChatMessage, ReviewRequest',
-      path: 'database/factories/MessageTemplateFactory.php · ScheduledMessageFactory.php · ConversationFactory.php · ChatMessageFactory.php · ReviewRequestFactory.php',
+      id: 'factory-message-template',
+      title: 'MessageTemplateFactory',
+      path: 'database/factories/MessageTemplateFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
 
-use App\Enums\ChatSender;
 use App\Enums\MessageTrigger;
-use App\Enums\ReviewRequestStatus;
-use App\Enums\ScheduledMessageStatus;
 use App\Models\Account;
 use App\Models\Booking;
-use App\Models\Conversation;
 use App\Models\MessageTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -588,9 +711,23 @@ class MessageTemplateFactory extends Factory
     {
         return $this->state(fn () => ['active' => false]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-scheduled-message',
+      title: 'ScheduledMessageFactory',
+      path: 'database/factories/ScheduledMessageFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ScheduledMessage> */
+namespace Database\Factories;
+
+use App\Enums\ScheduledMessageStatus;
+use App\Models\Booking;
+use App\Models\MessageTemplate;
+use App\Models\ScheduledMessage;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ScheduledMessage> */
 class ScheduledMessageFactory extends Factory
 {
     public function definition(): array
@@ -612,7 +749,19 @@ class ScheduledMessageFactory extends Factory
     {
         return $this->state(fn () => ['status' => ScheduledMessageStatus::Sent, 'sent_at' => now()]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-conversation',
+      title: 'ConversationFactory',
+      path: 'database/factories/ConversationFactory.php',
+      code: String.raw`<?php
+
+namespace Database\Factories;
+
+use App\Models\Booking;
+use App\Models\Conversation;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Conversation> */
 class ConversationFactory extends Factory
@@ -621,9 +770,23 @@ class ConversationFactory extends Factory
     {
         return ['booking_id' => Booking::factory()];
     }
-}
+}`,
+    },
+    {
+      id: 'factory-chat-message',
+      title: 'ChatMessageFactory',
+      path: 'database/factories/ChatMessageFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ChatMessage> */
+namespace Database\Factories;
+
+use App\Enums\ChatSender;
+use App\Models\ChatMessage;
+use App\Models\Conversation;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ChatMessage> */
 class ChatMessageFactory extends Factory
 {
     public function definition(): array
@@ -635,13 +798,26 @@ class ChatMessageFactory extends Factory
         ];
     }
 
-    public function fromHost(\App\Models\User $host): static
+    public function fromHost(User $host): static
     {
         return $this->state(fn () => ['sender' => ChatSender::Host, 'user_id' => $host->id, 'body' => 'Yes, from 13:00.']);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-review-request',
+      title: 'ReviewRequestFactory',
+      path: 'database/factories/ReviewRequestFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\ReviewRequest> */
+namespace Database\Factories;
+
+use App\Enums\ReviewRequestStatus;
+use App\Models\Booking;
+use App\Models\ReviewRequest;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/** @extends Factory<ReviewRequest> */
 class ReviewRequestFactory extends Factory
 {
     public function definition(): array
@@ -655,20 +831,20 @@ class ReviewRequestFactory extends Factory
 }`,
     },
     {
-      id: 'factory-operations',
-      title: 'CleaningTask, OutboxMessage',
-      path: 'database/factories/CleaningTaskFactory.php · OutboxMessageFactory.php',
+      id: 'factory-cleaning-task',
+      title: 'CleaningTaskFactory',
+      path: 'database/factories/CleaningTaskFactory.php',
       code: String.raw`<?php
 
 namespace Database\Factories;
 
 use App\Enums\CleaningTaskStatus;
 use App\Models\Booking;
+use App\Models\CleaningTask;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
-/** @extends Factory<\App\Models\CleaningTask> */
+/** @extends Factory<CleaningTask> */
 class CleaningTaskFactory extends Factory
 {
     public function definition(): array
@@ -686,9 +862,21 @@ class CleaningTaskFactory extends Factory
     {
         return $this->state(fn () => ['cleaner_id' => $cleaner->id, 'status' => CleaningTaskStatus::Assigned]);
     }
-}
+}`,
+    },
+    {
+      id: 'factory-outbox-message',
+      title: 'OutboxMessageFactory',
+      path: 'database/factories/OutboxMessageFactory.php',
+      code: String.raw`<?php
 
-/** @extends Factory<\App\Models\OutboxMessage> */
+namespace Database\Factories;
+
+use App\Models\OutboxMessage;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+/** @extends Factory<OutboxMessage> */
 class OutboxMessageFactory extends Factory
 {
     public function definition(): array

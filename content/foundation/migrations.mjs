@@ -1,19 +1,4 @@
-// Foundation, part 2: every migration of the course.
-
-const head = String.raw`<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-`;
-const tail = String.raw`
-    }
-};`;
+// Foundation, part 2: every migration of the course, one block per file.
 
 export const migrations = {
   id: 'migrations',
@@ -26,21 +11,71 @@ export const migrations = {
   blocks: [
     {
       id: 'table-accounts',
-      title: 'Accounts, memberships, invitations',
-      text: ['One account owns the properties; users work in it through a membership that carries their role. A user can belong to several accounts and has one current account.'],
-      path: 'database/migrations/2026_01_01_000001_create_account_tables.php',
-      code: head + String.raw`        Schema::create('accounts', function (Blueprint $table) {
+      title: '`accounts`',
+      text: [
+        'One account owns the properties. Everything a host sees is scoped to an account.',
+      ],
+      path: 'database/migrations/2026_01_01_000001_create_accounts_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('accounts', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->timestamps();
         });
+    }
+};`,
+    },
+    {
+      id: 'table-users',
+      title: '`users`',
+      text: [
+        'Laravel’s `users` table, extended. A user can belong to several accounts and works in one current account at a time. `notification_channels` holds the channels this user wants (lesson 13).',
+      ],
+      path: 'database/migrations/2026_01_01_000002_add_account_columns_to_users_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('current_account_id')->nullable()->constrained('accounts')->nullOnDelete();
             $table->string('phone')->nullable();                      // E.164, e.g. +4512345678
             $table->json('notification_channels')->nullable();        // e.g. ["mail", "database"]
         });
+    }
+};`,
+    },
+    {
+      id: 'table-memberships',
+      title: '`memberships`',
+      text: [
+        'Users work in an account through a membership that carries their role. The unique index makes "one role per person per account" a database rule.',
+      ],
+      path: 'database/migrations/2026_01_01_000003_create_memberships_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('memberships', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained()->cascadeOnDelete();
@@ -49,7 +84,26 @@ export const migrations = {
             $table->timestamps();
             $table->unique(['account_id', 'user_id']);                // one role per person per account
         });
+    }
+};`,
+    },
+    {
+      id: 'table-account-invitations',
+      title: '`account_invitations`',
+      text: [
+        'An invitation is accepted through a signed URL (lesson 11). One open invitation per email per account.',
+      ],
+      path: 'database/migrations/2026_01_01_000004_create_account_invitations_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('account_invitations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained()->cascadeOnDelete();
@@ -60,17 +114,28 @@ export const migrations = {
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();
             $table->unique(['account_id', 'email']);                  // one open invitation per person
-        });` + tail,
+        });
+    }
+};`,
     },
     {
       id: 'table-properties',
-      title: 'Properties, calendar days, rate rules, checklists',
+      title: '`properties`',
       text: [
-        '`calendar_days` stores only the days that differ from the property’s defaults (blocked, a custom price, a longer minimum stay), so a year of an untouched property is zero rows.',
-        '`rate_rules` is a tree: a rule can be a **group** (a season) holding other rules through `parent_id`. Basis points (`_bps`, 1/100 of a percent) keep percentages as integers: 2500 bps = 25%.',
+        'Timezone and check-in/out times live on the property: "1 day before check-in at 15:00" means nothing without them. Basis points (`_bps`, 1/100 of a percent) keep percentages as integers: 2500 bps = 25%.',
       ],
-      path: 'database/migrations/2026_01_01_000002_create_property_tables.php',
-      code: head + String.raw`        Schema::create('properties', function (Blueprint $table) {
+      path: 'database/migrations/2026_01_01_000005_create_properties_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('properties', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained()->cascadeOnDelete();
             $table->string('name');
@@ -95,7 +160,26 @@ export const migrations = {
             $table->timestamps();
             $table->index(['account_id', 'city']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-calendar-days',
+      title: '`calendar_days`',
+      text: [
+        'Only the days that differ from the property’s defaults (blocked, a custom price, a longer minimum stay). A year of an untouched property is zero rows.',
+      ],
+      path: 'database/migrations/2026_01_01_000006_create_calendar_days_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('calendar_days', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained()->cascadeOnDelete();
@@ -105,7 +189,26 @@ export const migrations = {
             $table->unsignedSmallInteger('min_nights')->nullable();
             $table->unique(['property_id', 'date']);                  // one row per day, and the index for ranges
         });
+    }
+};`,
+    },
+    {
+      id: 'table-rate-rules',
+      title: '`rate_rules`',
+      text: [
+        'A tree: a rule can be a **group** (a season) holding other rules through `parent_id` (lesson 12).',
+      ],
+      path: 'database/migrations/2026_01_01_000007_create_rate_rules_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('rate_rules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained()->cascadeOnDelete();
@@ -119,23 +222,54 @@ export const migrations = {
             $table->timestamps();
             $table->index(['property_id', 'parent_id', 'position']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-checklist-templates',
+      title: '`checklist_templates`',
+      text: [
+        'One cleaning checklist per property. Each cleaning task gets its own copy (lesson 8).',
+      ],
+      path: 'database/migrations/2026_01_01_000008_create_checklist_templates_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('checklist_templates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->unique()->constrained()->cascadeOnDelete();
             $table->json('items');                                    // [{"area": "Kitchen", "task": "Empty dishwasher"}]
             $table->timestamps();
-        });` + tail,
+        });
+    }
+};`,
     },
     {
       id: 'table-bookings',
-      title: 'Bookings, line items, payments',
+      title: '`bookings`',
       text: [
-        'A stay is `[check_in, check_out)`: the guest leaves on the check-out day, so the next guest can arrive the same day. The composite index serves the overlap query every booking runs. Channel bookings keep the channel’s id and version, so the same reservation is never imported twice and an older update can be recognised and ignored. The cancellation policy is **copied** onto the booking: changing the property’s policy later must not change what this guest agreed to.',
-        '`booking_line_items` is the folio: every amount the guest pays or gets back, line by line (nights, cleaning fee, discount, tax, refund).',
+        'A stay is `[check_in, check_out)`: the guest leaves on the check-out day, so the next guest can arrive the same day. The composite index serves the overlap query every booking runs.',
+        'Channel bookings keep the channel’s id and version, so the same reservation is never imported twice and an older update can be recognised and ignored. The cancellation policy is **copied** onto the booking: changing the property’s policy later must not change what this guest agreed to.',
       ],
-      path: 'database/migrations/2026_01_01_000003_create_booking_tables.php',
-      code: head + String.raw`        Schema::create('bookings', function (Blueprint $table) {
+      path: 'database/migrations/2026_01_01_000009_create_bookings_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('bookings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained();
             $table->string('guest_name');
@@ -162,7 +296,26 @@ export const migrations = {
             $table->unique(['source', 'external_id']);                 // NULLs never collide, so direct bookings are fine
             $table->index(['status', 'expires_at']);                   // the "expire unpaid holds" job
         });
+    }
+};`,
+    },
+    {
+      id: 'table-booking-line-items',
+      title: '`booking_line_items`',
+      text: [
+        'The folio: every amount the guest pays or gets back, line by line (nights, cleaning fee, discount, tax, refund). Signed, so refunds and discounts are negative.',
+      ],
+      path: 'database/migrations/2026_01_01_000010_create_booking_line_items_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('booking_line_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
@@ -173,7 +326,26 @@ export const migrations = {
             $table->char('currency', 3);
             $table->timestamps();
         });
+    }
+};`,
+    },
+    {
+      id: 'table-payments',
+      title: '`payments`',
+      text: [
+        'One row per Stripe PaymentIntent or Refund. The unique `provider_payment_id` means the same Stripe object can never be recorded twice.',
+      ],
+      path: 'database/migrations/2026_01_01_000011_create_payments_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->constrained();
@@ -186,16 +358,28 @@ export const migrations = {
             $table->string('failure_reason')->nullable();
             $table->timestamps();
             $table->index(['status', 'due_at']);
-        });` + tail,
+        });
+    }
+};`,
     },
     {
-      id: 'table-channels',
-      title: 'Channels, webhooks, reconciliation',
+      id: 'table-channel-connections',
+      title: '`channel_connections`',
       text: [
-        'A channel connection holds the account’s OAuth tokens for one channel (encrypted by the model). A listing maps one property to its id on one channel. Every incoming webhook is stored before it is processed (the **inbox**), and `unique(provider, event_id)` turns a duplicate delivery into a no-op. The nightly reconciliation writes what it finds into `reconciliation_issues`.',
+        'The account’s OAuth tokens for one channel, encrypted by the model.',
       ],
-      path: 'database/migrations/2026_01_01_000004_create_channel_tables.php',
-      code: head + String.raw`        Schema::create('channel_connections', function (Blueprint $table) {
+      path: 'database/migrations/2026_01_01_000012_create_channel_connections_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('channel_connections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained()->cascadeOnDelete();
             $table->string('channel');                                 // airbnb, booking_com, vrbo
@@ -205,7 +389,26 @@ export const migrations = {
             $table->timestamps();
             $table->unique(['account_id', 'channel']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-channel-listings',
+      title: '`channel_listings`',
+      text: [
+        'Maps one property to its listing id on one channel.',
+      ],
+      path: 'database/migrations/2026_01_01_000013_create_channel_listings_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('channel_listings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained()->cascadeOnDelete();
@@ -216,7 +419,26 @@ export const migrations = {
             $table->unique(['channel', 'external_listing_id']);
             $table->unique(['property_id', 'channel']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-ical-feeds',
+      title: '`ical_feeds`',
+      text: [
+        'One iCal URL per property per source (lesson 17).',
+      ],
+      path: 'database/migrations/2026_01_01_000014_create_ical_feeds_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('ical_feeds', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained()->cascadeOnDelete();
@@ -226,7 +448,26 @@ export const migrations = {
             $table->timestamps();
             $table->unique(['property_id', 'source']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-webhook-events',
+      title: '`webhook_events`',
+      text: [
+        'Every incoming webhook is stored before it is processed (the **inbox**). `unique(provider, event_id)` turns a duplicate delivery into a no-op.',
+      ],
+      path: 'database/migrations/2026_01_01_000015_create_webhook_events_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('webhook_events', function (Blueprint $table) {
             $table->id();
             $table->string('provider');                                // stripe, airbnb, booking_com
@@ -241,7 +482,26 @@ export const migrations = {
             $table->unique(['provider', 'event_id']);
             $table->index(['status', 'created_at']);                   // "requeue events stuck in received"
         });
+    }
+};`,
+    },
+    {
+      id: 'table-reconciliation-issues',
+      title: '`reconciliation_issues`',
+      text: [
+        'What the nightly reconciliation finds: a payment that doesn’t match Stripe, a booking missing on a channel or here.',
+      ],
+      path: 'database/migrations/2026_01_01_000016_create_reconciliation_issues_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('reconciliation_issues', function (Blueprint $table) {
             $table->id();
             $table->string('kind');                                    // payment_mismatch, missing_on_channel, missing_here
@@ -250,16 +510,28 @@ export const migrations = {
             $table->json('details');
             $table->timestamp('resolved_at')->nullable();
             $table->timestamps();
-        });` + tail,
+        });
+    }
+};`,
     },
     {
-      id: 'table-messaging',
-      title: 'Guest messaging, chat, review requests',
+      id: 'table-message-templates',
+      title: '`message_templates`',
       text: [
-        '`send_at` is UTC, calculated from the property timezone. `unique(booking_id, message_template_id)` is the database’s guarantee that a guest never gets the same message twice; the same idea makes `review_requests` one per booking.',
+        'A trigger plus an offset: "1 day before check-in at 15:00" is `before_check_in`, `-1440`, `15:00`.',
       ],
-      path: 'database/migrations/2026_01_01_000005_create_messaging_tables.php',
-      code: head + String.raw`        Schema::create('message_templates', function (Blueprint $table) {
+      path: 'database/migrations/2026_01_01_000017_create_message_templates_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('message_templates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('account_id')->constrained()->cascadeOnDelete();
             $table->string('name');
@@ -271,7 +543,26 @@ export const migrations = {
             $table->boolean('active')->default(true);
             $table->timestamps();
         });
+    }
+};`,
+    },
+    {
+      id: 'table-scheduled-messages',
+      title: '`scheduled_messages`',
+      text: [
+        '`send_at` is UTC, calculated from the property timezone. `unique(booking_id, message_template_id)` is the database’s guarantee that a guest never gets the same message twice.',
+      ],
+      path: 'database/migrations/2026_01_01_000018_create_scheduled_messages_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('scheduled_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
@@ -283,14 +574,52 @@ export const migrations = {
             $table->unique(['booking_id', 'message_template_id']);
             $table->index(['status', 'send_at']);                      // the scheduler's query
         });
+    }
+};`,
+    },
+    {
+      id: 'table-conversations',
+      title: '`conversations`',
+      text: [
+        'One guest–host conversation per booking.',
+      ],
+      path: 'database/migrations/2026_01_01_000019_create_conversations_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('conversations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->unique()->constrained()->cascadeOnDelete();
             $table->timestamp('last_message_at')->nullable();
             $table->timestamps();
         });
+    }
+};`,
+    },
+    {
+      id: 'table-chat-messages',
+      title: '`chat_messages`',
+      text: [
+        'The `(conversation_id, id)` index serves "the latest messages of this conversation" and cursor pagination.',
+      ],
+      path: 'database/migrations/2026_01_01_000020_create_chat_messages_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('chat_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
@@ -301,7 +630,26 @@ export const migrations = {
             $table->timestamps();
             $table->index(['conversation_id', 'id']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-review-requests',
+      title: '`review_requests`',
+      text: [
+        'One per booking, so a guest is never asked twice.',
+      ],
+      path: 'database/migrations/2026_01_01_000021_create_review_requests_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('review_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->unique()->constrained()->cascadeOnDelete();
@@ -309,16 +657,28 @@ export const migrations = {
             $table->string('status')->default('pending');              // pending, sent, skipped
             $table->timestamp('sent_at')->nullable();
             $table->timestamps();
-        });` + tail,
+        });
+    }
+};`,
     },
     {
-      id: 'table-operations',
-      title: 'Cleaning tasks, outbox, idempotency keys',
+      id: 'table-cleaning-tasks',
+      title: '`cleaning_tasks`',
       text: [
-        'A cleaning task gets its own **copy** of the property’s checklist, so editing the template later doesn’t change tasks already planned. `outbox_messages` holds events for other systems until a relay publishes them; `idempotency_keys` stores the response of each POST so a retried request returns the same result instead of acting twice.',
+        'One turnover per stay. The task keeps its own **copy** of the checklist, so editing the template later doesn’t change tasks already planned.',
       ],
-      path: 'database/migrations/2026_01_01_000006_create_operations_tables.php',
-      code: head + String.raw`        Schema::create('cleaning_tasks', function (Blueprint $table) {
+      path: 'database/migrations/2026_01_01_000022_create_cleaning_tasks_table.php',
+      code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('cleaning_tasks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->constrained()->cascadeOnDelete();
             $table->foreignId('booking_id')->nullable()->unique()->constrained()->nullOnDelete();   // one turnover per stay
@@ -330,7 +690,26 @@ export const migrations = {
             $table->timestamps();
             $table->index(['cleaner_id', 'status', 'due_at']);
         });
+    }
+};`,
+    },
+    {
+      id: 'table-outbox-messages',
+      title: '`outbox_messages`',
+      text: [
+        'Events for other systems wait here until a relay publishes them (lesson 27). Consumers deduplicate on `message_id`.',
+      ],
+      path: 'database/migrations/2026_01_01_000023_create_outbox_messages_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('outbox_messages', function (Blueprint $table) {
             $table->id();
             $table->uuid('message_id')->unique();                      // consumers deduplicate on it
@@ -342,7 +721,26 @@ export const migrations = {
             $table->timestamps();
             $table->index(['published_at', 'id']);                     // the relay reads unpublished rows in order
         });
+    }
+};`,
+    },
+    {
+      id: 'table-idempotency-keys',
+      title: '`idempotency_keys`',
+      text: [
+        'The response of each POST, stored per user and key, so a retried request returns the same result instead of acting twice.',
+      ],
+      path: 'database/migrations/2026_01_01_000024_create_idempotency_keys_table.php',
+      code: String.raw`<?php
 
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('idempotency_keys', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -352,7 +750,9 @@ export const migrations = {
             $table->json('response_body')->nullable();
             $table->timestamps();
             $table->unique(['user_id', 'key']);
-        });` + tail,
+        });
+    }
+};`,
     },
   ],
 };

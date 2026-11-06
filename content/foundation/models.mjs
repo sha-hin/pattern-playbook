@@ -1,15 +1,17 @@
-// Foundation, part 3: enums and every Eloquent model.
+// Foundation, part 3: every enum and Eloquent model, one block per file.
 
 export const enums = {
   id: 'enums',
   title: 'Enums',
-  text: ['Every status, role and type is a backed enum, cast on its model, so `$booking->status` is a `BookingStatus` and a typo can’t be stored. Behaviour that belongs to a value (which statuses block the calendar, which channel a source is) lives on the enum.'],
+  text: [
+    'Every status, role and type is a backed enum, cast on its model, so `$booking->status` is a `BookingStatus` and a typo can’t be stored. Behaviour that belongs to a value (which statuses block the calendar, which channel a source is) lives on the enum.',
+  ],
   numbered: false,
   blocks: [
     {
-      id: 'enum-booking',
-      title: 'Bookings and their sources',
-      path: 'app/Enums/BookingStatus.php · BookingSource.php · Channel.php · CancellationPolicy.php',
+      id: 'enum-booking-status',
+      title: 'BookingStatus',
+      path: 'app/Enums/BookingStatus.php',
       code: String.raw`<?php
 
 namespace App\Enums;
@@ -26,14 +28,30 @@ enum BookingStatus: string
     {
         return [self::Pending, self::Confirmed];
     }
-}
+}`,
+    },
+    {
+      id: 'enum-channel',
+      title: 'Channel',
+      path: 'app/Enums/Channel.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum Channel: string
 {
     case Airbnb = 'airbnb';
     case BookingCom = 'booking_com';
     case Vrbo = 'vrbo';
-}
+}`,
+    },
+    {
+      id: 'enum-booking-source',
+      title: 'BookingSource',
+      path: 'app/Enums/BookingSource.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum BookingSource: string
 {
@@ -46,7 +64,15 @@ enum BookingSource: string
     {
         return Channel::tryFrom($this->value);                    // null for direct bookings
     }
-}
+}`,
+    },
+    {
+      id: 'enum-cancellation-policy',
+      title: 'CancellationPolicy',
+      path: 'app/Enums/CancellationPolicy.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 /** Only the names here; the refund rules are built in lesson 15. */
 enum CancellationPolicy: string
@@ -57,9 +83,9 @@ enum CancellationPolicy: string
 }`,
     },
     {
-      id: 'enum-money',
-      title: 'Payments and the folio',
-      path: 'app/Enums/PaymentKind.php · PaymentStatus.php · LineItemType.php',
+      id: 'enum-payment-kind',
+      title: 'PaymentKind',
+      path: 'app/Enums/PaymentKind.php',
       code: String.raw`<?php
 
 namespace App\Enums;
@@ -69,7 +95,15 @@ enum PaymentKind: string
     case Deposit = 'deposit';
     case Balance = 'balance';
     case Refund = 'refund';
-}
+}`,
+    },
+    {
+      id: 'enum-payment-status',
+      title: 'PaymentStatus',
+      path: 'app/Enums/PaymentStatus.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum PaymentStatus: string
 {
@@ -77,7 +111,15 @@ enum PaymentStatus: string
     case Succeeded = 'succeeded';
     case Failed = 'failed';
     case Cancelled = 'cancelled';
-}
+}`,
+    },
+    {
+      id: 'enum-line-item-type',
+      title: 'LineItemType',
+      path: 'app/Enums/LineItemType.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum LineItemType: string
 {
@@ -89,9 +131,9 @@ enum LineItemType: string
 }`,
     },
     {
-      id: 'enum-other',
-      title: 'Accounts, rates, messaging and operations',
-      path: 'app/Enums/*.php',
+      id: 'enum-membership-role',
+      title: 'MembershipRole',
+      path: 'app/Enums/MembershipRole.php',
       code: String.raw`<?php
 
 namespace App\Enums;
@@ -101,7 +143,15 @@ enum MembershipRole: string
     case Owner = 'owner';
     case CoHost = 'co_host';
     case Cleaner = 'cleaner';
-}
+}`,
+    },
+    {
+      id: 'enum-rate-rule-type',
+      title: 'RateRuleType',
+      path: 'app/Enums/RateRuleType.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum RateRuleType: string
 {
@@ -109,34 +159,74 @@ enum RateRuleType: string
     case Weekend = 'weekend';
     case MinStay = 'min_stay';
     case LengthOfStay = 'length_of_stay';
-}
+}`,
+    },
+    {
+      id: 'enum-message-trigger',
+      title: 'MessageTrigger',
+      path: 'app/Enums/MessageTrigger.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum MessageTrigger: string
 {
     case BookingConfirmed = 'booking_confirmed';
     case BeforeCheckIn = 'before_check_in';
     case AfterCheckOut = 'after_check_out';
-}
+}`,
+    },
+    {
+      id: 'enum-guest-channel',
+      title: 'GuestChannel',
+      path: 'app/Enums/GuestChannel.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum GuestChannel: string
 {
     case Mail = 'mail';
     case Sms = 'sms';
     case WhatsApp = 'whatsapp';
-}
+}`,
+    },
+    {
+      id: 'enum-scheduled-message-status',
+      title: 'ScheduledMessageStatus',
+      path: 'app/Enums/ScheduledMessageStatus.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum ScheduledMessageStatus: string
 {
     case Pending = 'pending';
     case Sent = 'sent';
     case Cancelled = 'cancelled';
-}
+}`,
+    },
+    {
+      id: 'enum-chat-sender',
+      title: 'ChatSender',
+      path: 'app/Enums/ChatSender.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum ChatSender: string
 {
     case Guest = 'guest';
     case Host = 'host';
-}
+}`,
+    },
+    {
+      id: 'enum-cleaning-task-status',
+      title: 'CleaningTaskStatus',
+      path: 'app/Enums/CleaningTaskStatus.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum CleaningTaskStatus: string
 {
@@ -144,21 +234,45 @@ enum CleaningTaskStatus: string
     case Assigned = 'assigned';
     case Done = 'done';
     case Cancelled = 'cancelled';
-}
+}`,
+    },
+    {
+      id: 'enum-review-request-status',
+      title: 'ReviewRequestStatus',
+      path: 'app/Enums/ReviewRequestStatus.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum ReviewRequestStatus: string
 {
     case Pending = 'pending';
     case Sent = 'sent';
     case Skipped = 'skipped';
-}
+}`,
+    },
+    {
+      id: 'enum-webhook-status',
+      title: 'WebhookStatus',
+      path: 'app/Enums/WebhookStatus.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum WebhookStatus: string
 {
     case Received = 'received';
     case Processed = 'processed';
     case Failed = 'failed';
-}
+}`,
+    },
+    {
+      id: 'enum-reconciliation-kind',
+      title: 'ReconciliationKind',
+      path: 'app/Enums/ReconciliationKind.php',
+      code: String.raw`<?php
+
+namespace App\Enums;
 
 enum ReconciliationKind: string
 {
@@ -181,21 +295,20 @@ export const models = {
   blocks: [
     {
       id: 'model-user',
-      title: 'User, Account, Membership',
-      text: ['The membership pivot has its own model so the role is cast to `MembershipRole`. `roleIn()` answers the question every policy asks.'],
-      path: 'app/Models/User.php · Account.php · Membership.php',
+      title: 'User',
+      text: [
+        '`roleIn()` answers the question every policy asks.',
+      ],
+      path: 'app/Models/User.php',
       code: String.raw`<?php
 
 namespace App\Models;
 
 use App\Enums\MembershipRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\Pivot;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -241,7 +354,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(CleaningTask::class, 'cleaner_id');
     }
-}
+}`,
+    },
+    {
+      id: 'model-account',
+      title: 'Account',
+      path: 'app/Models/Account.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
@@ -276,7 +402,21 @@ class Account extends Model
     {
         return $this->hasMany(ChannelConnection::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-membership',
+      title: 'Membership',
+      text: [
+        'The pivot has its own model so the role is cast to `MembershipRole`.',
+      ],
+      path: 'app/Models/Membership.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\MembershipRole;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class Membership extends Pivot
 {
@@ -291,7 +431,7 @@ class Membership extends Pivot
 }`,
     },
     {
-      id: 'model-invitation',
+      id: 'model-account-invitation',
       title: 'AccountInvitation',
       path: 'app/Models/AccountInvitation.php',
       code: String.raw`<?php
@@ -410,18 +550,16 @@ class Property extends Model
 }`,
     },
     {
-      id: 'model-calendar',
-      title: 'CalendarDay, RateRule, ChecklistTemplate',
-      path: 'app/Models/CalendarDay.php · RateRule.php · ChecklistTemplate.php',
+      id: 'model-calendar-day',
+      title: 'CalendarDay',
+      path: 'app/Models/CalendarDay.php',
       code: String.raw`<?php
 
 namespace App\Models;
 
-use App\Enums\RateRuleType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CalendarDay extends Model
 {
@@ -440,7 +578,21 @@ class CalendarDay extends Model
     {
         return $this->belongsTo(Property::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-rate-rule',
+      title: 'RateRule',
+      path: 'app/Models/RateRule.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\RateRuleType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RateRule extends Model
 {
@@ -467,7 +619,19 @@ class RateRule extends Model
     {
         return $this->hasMany(self::class, 'parent_id')->orderBy('position');
     }
-}
+}`,
+    },
+    {
+      id: 'model-checklist-template',
+      title: 'ChecklistTemplate',
+      path: 'app/Models/ChecklistTemplate.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChecklistTemplate extends Model
 {
@@ -589,16 +753,14 @@ class Booking extends Model
 }`,
     },
     {
-      id: 'model-payment',
-      title: 'BookingLineItem, Payment',
-      path: 'app/Models/BookingLineItem.php · Payment.php',
+      id: 'model-booking-line-item',
+      title: 'BookingLineItem',
+      path: 'app/Models/BookingLineItem.php',
       code: String.raw`<?php
 
 namespace App\Models;
 
 use App\Enums\LineItemType;
-use App\Enums\PaymentKind;
-use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -618,7 +780,21 @@ class BookingLineItem extends Model
     {
         return $this->belongsTo(Booking::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-payment',
+      title: 'Payment',
+      path: 'app/Models/Payment.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\PaymentKind;
+use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
@@ -643,17 +819,17 @@ class Payment extends Model
 }`,
     },
     {
-      id: 'model-channels',
-      title: 'ChannelConnection, ChannelListing, IcalFeed, WebhookEvent, ReconciliationIssue',
-      text: ['OAuth tokens are encrypted at rest with Laravel’s `encrypted` cast, so a database dump never contains a usable token.'],
-      path: 'app/Models/ChannelConnection.php · ChannelListing.php · IcalFeed.php · WebhookEvent.php · ReconciliationIssue.php',
+      id: 'model-channel-connection',
+      title: 'ChannelConnection',
+      text: [
+        'OAuth tokens use Laravel’s `encrypted` cast, so a database dump never contains a usable token.',
+      ],
+      path: 'app/Models/ChannelConnection.php',
       code: String.raw`<?php
 
 namespace App\Models;
 
 use App\Enums\Channel;
-use App\Enums\ReconciliationKind;
-use App\Enums\WebhookStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -680,7 +856,20 @@ class ChannelConnection extends Model
     {
         return $this->belongsTo(Account::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-channel-listing',
+      title: 'ChannelListing',
+      path: 'app/Models/ChannelListing.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChannelListing extends Model
 {
@@ -697,7 +886,20 @@ class ChannelListing extends Model
     {
         return $this->belongsTo(Property::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-ical-feed',
+      title: 'IcalFeed',
+      path: 'app/Models/IcalFeed.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IcalFeed extends Model
 {
@@ -714,7 +916,19 @@ class IcalFeed extends Model
     {
         return $this->belongsTo(Property::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-webhook-event',
+      title: 'WebhookEvent',
+      path: 'app/Models/WebhookEvent.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\WebhookStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class WebhookEvent extends Model
 {
@@ -731,7 +945,19 @@ class WebhookEvent extends Model
     {
         $this->forceFill(['status' => WebhookStatus::Processed, 'processed_at' => now()])->save();
     }
-}
+}`,
+    },
+    {
+      id: 'model-reconciliation-issue',
+      title: 'ReconciliationIssue',
+      path: 'app/Models/ReconciliationIssue.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\ReconciliationKind;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class ReconciliationIssue extends Model
 {
@@ -746,22 +972,17 @@ class ReconciliationIssue extends Model
 }`,
     },
     {
-      id: 'model-messaging',
-      title: 'MessageTemplate, ScheduledMessage, Conversation, ChatMessage, ReviewRequest',
-      path: 'app/Models/MessageTemplate.php · ScheduledMessage.php · Conversation.php · ChatMessage.php · ReviewRequest.php',
+      id: 'model-message-template',
+      title: 'MessageTemplate',
+      path: 'app/Models/MessageTemplate.php',
       code: String.raw`<?php
 
 namespace App\Models;
 
-use App\Enums\ChatSender;
 use App\Enums\MessageTrigger;
-use App\Enums\ReviewRequestStatus;
-use App\Enums\ScheduledMessageStatus;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MessageTemplate extends Model
 {
@@ -778,7 +999,21 @@ class MessageTemplate extends Model
     {
         return $this->belongsTo(Account::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-scheduled-message',
+      title: 'ScheduledMessage',
+      path: 'app/Models/ScheduledMessage.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\ScheduledMessageStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduledMessage extends Model
 {
@@ -805,7 +1040,20 @@ class ScheduledMessage extends Model
     {
         $query->where('status', ScheduledMessageStatus::Pending)->where('send_at', '<=', now());
     }
-}
+}`,
+    },
+    {
+      id: 'model-conversation',
+      title: 'Conversation',
+      path: 'app/Models/Conversation.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Conversation extends Model
 {
@@ -825,7 +1073,20 @@ class Conversation extends Model
     {
         return $this->hasMany(ChatMessage::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-chat-message',
+      title: 'ChatMessage',
+      path: 'app/Models/ChatMessage.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\ChatSender;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChatMessage extends Model
 {
@@ -842,7 +1103,20 @@ class ChatMessage extends Model
     {
         return $this->belongsTo(Conversation::class);
     }
-}
+}`,
+    },
+    {
+      id: 'model-review-request',
+      title: 'ReviewRequest',
+      path: 'app/Models/ReviewRequest.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\ReviewRequestStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReviewRequest extends Model
 {
@@ -862,9 +1136,9 @@ class ReviewRequest extends Model
 }`,
     },
     {
-      id: 'model-operations',
-      title: 'CleaningTask, OutboxMessage, IdempotencyKey',
-      path: 'app/Models/CleaningTask.php · OutboxMessage.php · IdempotencyKey.php',
+      id: 'model-cleaning-task',
+      title: 'CleaningTask',
+      path: 'app/Models/CleaningTask.php',
       code: String.raw`<?php
 
 namespace App\Models;
@@ -904,7 +1178,18 @@ class CleaningTask extends Model
     {
         return $this->belongsTo(User::class, 'cleaner_id');
     }
-}
+}`,
+    },
+    {
+      id: 'model-outbox-message',
+      title: 'OutboxMessage',
+      path: 'app/Models/OutboxMessage.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class OutboxMessage extends Model
 {
@@ -916,7 +1201,17 @@ class OutboxMessage extends Model
     {
         return ['payload' => 'array', 'published_at' => 'datetime'];
     }
-}
+}`,
+    },
+    {
+      id: 'model-idempotency-key',
+      title: 'IdempotencyKey',
+      path: 'app/Models/IdempotencyKey.php',
+      code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
 
 class IdempotencyKey extends Model
 {

@@ -175,7 +175,7 @@
         ]));
     }
 }</code></pre>
-</div></div><div class="block"><h3><span class="num">4</span>Consumers declare what they need</h3><p>The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds. The row goes into <a href="../00-foundation/#table-bookings">payments</a>, whose unique <code>provider_payment_id</code> means one Stripe intent can never be recorded twice.</p><div class="codebox">
+</div></div><div class="block"><h3><span class="num">4</span>Consumers declare what they need</h3><p>The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds. The row goes into <a href="../00-foundation/#table-payments">payments</a>, whose unique <code>provider_payment_id</code> means one Stripe intent can never be recorded twice.</p><div class="codebox">
 <div class="filehead"><span class="path">app/Payments/StartBookingPayment.php</span></div>
 <pre class="code"><code>&lt;?php
 

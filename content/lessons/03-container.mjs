@@ -157,7 +157,7 @@ class AppServiceProvider extends ServiceProvider
         },
         {
           title: 'Consumers declare what they need',
-          text: ['The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds. The row goes into [payments](F#table-bookings), whose unique `provider_payment_id` means one Stripe intent can never be recorded twice.'],
+          text: ['The dependency is visible in the constructor. In a test, one call replaces the gateway for everything the container builds. The row goes into [payments](F#table-payments), whose unique `provider_payment_id` means one Stripe intent can never be recorded twice.'],
           path: 'app/Payments/StartBookingPayment.php',
           code: String.raw`<?php
 
