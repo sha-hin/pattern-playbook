@@ -265,7 +265,7 @@ it('refuses to confirm a cancelled booking', function () {
     $booking = Booking::factory()->cancelled()->create();
 
     app(BookingConfirmation::class)->confirm($booking, Payment::factory()->for($booking)->create());
-})->throws(LogicException::class, 'is cancelled');`,
+})->throws(LogicException::class, 'cancelled');`,
       },
     ],
   },

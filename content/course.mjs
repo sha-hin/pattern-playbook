@@ -22,11 +22,11 @@ export const SCENES = [
   { n: 6, day: 1, slug: '06-confirm', incident: 'Marked paid by hand, but the guest never heard', patterns: ['Facade'], learn: 'One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object', ready: true },
 
   // Day 2 · Money comes in
-  { n: 7, day: 2, slug: '07-quote', incident: 'The quote said €612, the invoice €598', patterns: ['Builder'], learn: 'A price quote built step by step: nights, fees, discounts, tax; line items' },
-  { n: 8, day: 2, slug: '08-webhooks', incident: 'Stripe said paid, the booking is still pending', patterns: ['Simple Factory'], learn: 'Webhooks: verify the signature, store, answer 200, process in a job; typed events' },
-  { n: 9, day: 2, slug: '09-booking-states', incident: 'A booking went from expired back to confirmed', patterns: ['State'], learn: 'The booking lifecycle; PaymentIntents, Idempotency-Key, deposits and balances, holds that expire' },
-  { n: 10, day: 2, slug: '10-refunds', incident: 'Refunded 100% on a strict policy', patterns: ['Strategy', 'Null Object'], learn: 'Cancellation policies, partial refunds, properties with no cleaning fee' },
-  { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: chunkById, lazy(), LazyCollection; owner payouts, currencies' },
+  { n: 7, day: 2, slug: '07-quote', incident: 'The quote said €1,098.90, the card was charged €1,105.50', patterns: ['Builder'], learn: 'One price built step by step: nights, discount, fee, tax; percentages in basis points; line items', ready: true },
+  { n: 8, day: 2, slug: '08-webhooks', incident: 'Stripe said paid, the booking is still pending', patterns: ['Simple Factory'], learn: 'Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events', ready: true },
+  { n: 9, day: 2, slug: '09-booking-states', incident: 'She paid two minutes after her hold expired', patterns: ['State'], learn: 'The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key', ready: true },
+  { n: 10, day: 2, slug: '10-refunds', incident: 'Refunded 100% on a strict policy', patterns: ['Strategy', 'Null Object'], learn: 'Cancellation policies as classes, partial refunds after commit, bookings with no policy', ready: true },
+  { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
 
   // Day 3 · Channels
   { n: 12, day: 3, slug: '12-ical', incident: 'Dates blocked on Airbnb never reached us', patterns: ['Template Method', 'Factory Method'], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction' },
