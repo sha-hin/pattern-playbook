@@ -12,6 +12,11 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Cache-busting: each asset URL carries a hash of its content, so a deploy can never
+// pair new HTML with an old cached stylesheet or script.
+import { createHash } from 'node:crypto';
+const version = file => createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 10);
+const V = { css: version('assets/style.css'), js: version('assets/app.js'), icon: version('assets/favicon.svg') };
 const TODAY = new Date().toISOString().slice(0, 10);
 const PUBLISHED = '2026-11-06';
 const AUTHOR = { name: 'Mohammed Shahin', url: 'https://sha-hin.github.io' };
@@ -84,11 +89,11 @@ function page({ title, description, url, prefix, pageId, type, jsonld, header, m
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${SITE}assets/og.png">
-<link rel="icon" href="${prefix}assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="${prefix}assets/favicon.svg?v=${V.icon}" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="${prefix}assets/style.css">
+<link rel="stylesheet" href="${prefix}assets/style.css?v=${V.css}">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="${UMAMI_ID}" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">${JSON.stringify(jsonld)}</script>
 </head>
@@ -105,7 +110,7 @@ ${main}
 </main>
 <footer class="credit">By <a href="${AUTHOR.url}" data-umami-event="Visit portfolio">${AUTHOR.name}</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="${prefix}assets/app.js" defer></script>
+<script src="${prefix}assets/app.js?v=${V.js}" defer></script>
 </body>
 </html>
 `;
@@ -217,7 +222,7 @@ writeFileSync(join(ROOT, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${S
 writeFileSync(join(ROOT, '404.html'), `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Page not found · Pattern Playbook</title><meta name="robots" content="noindex">
-<link rel="stylesheet" href="/pattern-playbook/assets/style.css"></head>
+<link rel="stylesheet" href="/pattern-playbook/assets/style.css?v=${V.css}"></head>
 <body><div class="wrap"><h1>Page not found</h1><p class="intro">That page doesn't exist. <a href="/pattern-playbook/">See all 25 patterns</a>.</p></div></body></html>
 `);
 
