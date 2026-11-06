@@ -1,3 +1,2 @@
 CSV imported: 2
-JSONL imported: 1
-Mona Adel, Omar Said, Laila Hassan
+JSON imported: 1

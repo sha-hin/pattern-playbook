@@ -7,109 +7,110 @@ declare(strict_types=1);
  * Run it: php examples/manager.php
  *
  * Roles:
- * - Manager: Manager (abstract: pick a driver by name, build it once, reuse it)
- * - Concrete manager: AiManager (one create{Name}Driver() method per backend)
- * - Driver contract: AiClient; Drivers: LocalLlmClient, HostedApiClient
- * - Config: decides the default driver
+ * - Driver contract: AiClient (what every backend can do)
+ * - Drivers: LocalLlmClient, HostedApiClient (one per backend)
+ * - Manager: Manager (picks a driver by name, builds it once, reuses it)
+ * - Concrete manager: AiManager (one create...Driver() method per backend)
+ * - Config: decides which driver is the default
  *
  * In Laravel:
- * Illuminate\Support\Manager: driver($name) returns $this->drivers[$name] ??= createDriver(),
- * which calls create{Name}Driver() or a creator added with extend(). CacheManager,
- * MailManager, HashManager and FilesystemManager all work this way.
+ * Laravel's Manager class: driver($name) builds the driver the first time (by calling
+ * create{Name}Driver()) and returns the same object after that. Hashing and sessions use it,
+ * and Cache, Mail and Storage use the same idea.
  */
 
-interface AiClient                                              // ★ Driver contract
+// ── Step 1: the driver contract and two drivers ──
+interface AiClient                                          // ★ Driver contract
 {
     public function summarize(string $text): string;
 }
 
-final class LocalLlmClient implements AiClient                  // Driver (local development)
+class LocalLlmClient implements AiClient                    // ★ Driver for local development
 {
-    public function __construct(private readonly string $url) {}
+    public function __construct(private string $url)
+    {
+    }
 
     public function summarize(string $text): string
     {
-        return "[local model at {$this->url}] " . mb_substr($text, 0, 30) . '…';
+        return "[local model at {$this->url}] " . substr($text, 0, 30) . '...';
     }
 }
 
-final class HostedApiClient implements AiClient                 // Driver (production)
+class HostedApiClient implements AiClient                   // ★ Driver for production
 {
-    public function __construct(private readonly string $apiKey) {}
+    public function __construct(private string $apiKey)
+    {
+    }
 
     public function summarize(string $text): string
     {
-        return '[hosted API, key …' . substr($this->apiKey, -4) . '] ' . mb_substr($text, 0, 30) . '…';
+        return '[hosted API] ' . substr($text, 0, 30) . '...';
     }
 }
 
-abstract class Manager                                          // ★ Manager
+// ── Step 2: the Manager. Pick by name, build once, reuse. ──
+abstract class Manager                                      // ★ Manager
 {
-    /** @var array<string, object> */
     private array $drivers = [];
 
-    /** @var array<string, Closure(array): object> */
-    private array $customCreators = [];
-
-    /** @param array<string, mixed> $config */
-    public function __construct(protected readonly array $config) {}
-
-    abstract public function defaultDriver(): string;
-
-    final public function driver(?string $name = null): object  // ★ pick, build once, reuse
+    public function __construct(protected array $config)
     {
-        $name ??= $this->defaultDriver();
-
-        return $this->drivers[$name] ??= $this->create($name);
     }
 
-    final public function extend(string $name, Closure $creator): void   // add a backend without editing the class
-    {
-        $this->customCreators[$name] = $creator;
-        unset($this->drivers[$name]);
-    }
+    abstract protected function defaultDriver(): string;
 
-    private function create(string $name): object
+    public function driver(?string $name = null): object
     {
-        if (isset($this->customCreators[$name])) {
-            return ($this->customCreators[$name])($this->config);
+        if ($name === null) {
+            $name = $this->defaultDriver();                 // no name given: use the config
         }
 
-        $method = 'create' . ucfirst($name) . 'Driver';        // 'local' → createLocalDriver()
-        if (!method_exists($this, $method)) {
-            throw new InvalidArgumentException("AI driver [{$name}] is not supported.");
+        if (!isset($this->drivers[$name])) {
+            $method = 'create' . ucfirst($name) . 'Driver'; // ★ 'local' becomes createLocalDriver()
+
+            if (!method_exists($this, $method)) {
+                throw new InvalidArgumentException("AI driver [{$name}] is not supported.");
+            }
+
+            $this->drivers[$name] = $this->$method();       // ★ build it the first time...
         }
 
-        return $this->{$method}();
+        return $this->drivers[$name];                       // ★ ...then always reuse it
     }
 }
 
-final class AiManager extends Manager                           // ★ Concrete manager
+// ── Step 3: the concrete manager. One small method per backend. ──
+class AiManager extends Manager                             // ★ Concrete manager
 {
-    public function defaultDriver(): string
+    protected function defaultDriver(): string
     {
-        return $this->config['default'] ?? throw new RuntimeException('Set ai.default in config.');
+        return $this->config['default'];
     }
 
-    protected function createLocalDriver(): AiClient            // ★ one method per backend
+    protected function createLocalDriver(): AiClient
     {
-        return new LocalLlmClient($this->config['local']['url']);
+        return new LocalLlmClient($this->config['local_url']);
     }
 
     protected function createHostedDriver(): AiClient
     {
-        return new HostedApiClient($this->config['hosted']['key']);
+        return new HostedApiClient($this->config['hosted_key']);
     }
 }
 
-// ── Config differs per environment; the code does not ──────────────────
+// ── Using it: config changes per environment, the code never does ──
 $config = [
-    'default' => getenv('AI_DRIVER') ?: 'local',
-    'local'   => ['url' => 'http://localhost:11434'],
-    'hosted'  => ['key' => 'sk-test-9f2c'],
+    'default' => 'local',                                   // 'hosted' in production
+    'local_url' => 'http://localhost:11434',
+    'hosted_key' => 'secret-key',
 ];
 
 $ai = new AiManager($config);
-echo $ai->driver()->summarize('Teachers rate classroom time management highest this term.'), PHP_EOL;
-echo $ai->driver('hosted')->summarize('Teachers rate classroom time management highest this term.'), PHP_EOL;
-echo 'Built once? ', var_export($ai->driver() === $ai->driver(), true), PHP_EOL;
+$text = 'Teachers rate classroom time management highest this term.';
+
+echo $ai->driver()->summarize($text) . "\n";               // the default from config
+echo $ai->driver('hosted')->summarize($text) . "\n";       // or a named one
+
+$same = $ai->driver() === $ai->driver();
+echo 'Built only once? ' . ($same ? 'yes' : 'no') . "\n";

@@ -7,93 +7,89 @@ declare(strict_types=1);
  * Run it: php examples/command.php
  *
  * Roles:
- * - Command: Command (interface: one method, execute())
- * - Concrete command: AnalyzeSurvey (the action as an object: only data, so it can be stored)
+ * - Command: Command (an interface with one method: execute())
+ * - Concrete command: AnalyzeSurvey (one action, packed into an object)
  * - Receiver: AiAnalyzer (the object that does the real work)
- * - Invoker: CommandQueue (stores commands now, runs them later, retries failures)
+ * - Invoker: CommandQueue (keeps commands now, runs them later, retries failures)
  *
  * In Laravel:
- * Jobs are commands. dispatch(new AnalyzeSurvey($id)) serializes the job object
- * (SerializesModels keeps only model ids) into the queue; a worker unserializes it, calls
- * handle() with dependencies from the container, and retries using $tries and $backoff.
+ * Queued jobs are commands. dispatch(new AnalyzeSurvey($id)) turns the job object into text
+ * with serialize() and stores it in the queue. A worker process later turns it back into an
+ * object and calls handle(), retrying as many times as $tries allows.
  */
 
-interface Command                                               // ★ Command
+// ── Step 1: the Command interface ──
+interface Command                                           // ★ Command
 {
-    public function execute(Container $services): void;
+    public function execute(): void;
 }
 
-final class Container                                           // gives commands their receivers at run time
-{
-    /** @param array<class-string, object> $services */
-    public function __construct(private readonly array $services) {}
-
-    /** @template T of object @param class-string<T> $class @return T */
-    public function get(string $class): object
-    {
-        return $this->services[$class] ?? throw new RuntimeException("No service [{$class}].");
-    }
-}
-
-final class AiAnalyzer                                          // ★ Receiver: does the real work
+// ── Step 2: the Receiver. Does the real work. ──
+class AiAnalyzer                                            // ★ Receiver
 {
     private int $calls = 0;
 
     public function analyze(int $surveyId): string
     {
-        if (++$this->calls === 1) {
-            throw new RuntimeException('AI service timeout');   // fails once, like real APIs do
+        $this->calls++;
+        if ($this->calls === 1) {
+            throw new RuntimeException('AI service timeout');   // fails the first time, like real APIs
         }
 
         return "Survey {$surveyId}: teachers rate classroom time highest";
     }
 }
 
-final class AnalyzeSurvey implements Command                    // ★ Concrete command: just data...
+// ── Step 3: a concrete command. The action, as an object. ──
+class AnalyzeSurvey implements Command                      // ★ Concrete command
 {
-    public function __construct(public readonly int $surveyId) {}
-
-    public function execute(Container $services): void          // ...plus how to run it
+    public function __construct(private AiAnalyzer $analyzer, private int $surveyId)
     {
-        echo $services->get(AiAnalyzer::class)->analyze($this->surveyId), PHP_EOL;
+    }
+
+    public function execute(): void
+    {
+        echo $this->analyzer->analyze($this->surveyId) . "\n";
     }
 }
 
-final class CommandQueue                                        // ★ Invoker
+// ── Step 4: the Invoker. Because the action is an object, it can wait in a list. ──
+class CommandQueue                                          // ★ Invoker
 {
-    /** @var list<array{payload: string, attempts: int}> */
-    private array $queue = [];
+    private array $waiting = [];
 
-    public function __construct(private readonly int $maxAttempts = 3) {}
-
-    public function push(Command $command): void                // ★ store it now...
+    public function push(Command $command): void            // ★ keep it now...
     {
-        $this->queue[] = ['payload' => serialize($command), 'attempts' => 0];   // an object can be stored
+        $this->waiting[] = ['command' => $command, 'attempts' => 0];
     }
 
-    public function work(Container $services): void            // ★ ...run it later
+    public function work(int $maxAttempts = 3): void        // ★ ...run it later
     {
-        while (($job = array_shift($this->queue)) !== null) {
-            $command = unserialize($job['payload'], ['allowed_classes' => [AnalyzeSurvey::class]]);
+        while (count($this->waiting) > 0) {
+            $job = array_shift($this->waiting);
+
             try {
-                $command->execute($services);
-            } catch (Throwable $e) {
-                $attempts = $job['attempts'] + 1;
-                echo "Attempt {$attempts} failed: {$e->getMessage()}", PHP_EOL;
-                if ($attempts < $this->maxAttempts) {
-                    $this->queue[] = ['payload' => $job['payload'], 'attempts' => $attempts];   // retry
+                $job['command']->execute();
+            } catch (Exception $e) {
+                $job['attempts']++;
+                echo "Attempt {$job['attempts']} failed: {$e->getMessage()}\n";
+
+                if ($job['attempts'] < $maxAttempts) {
+                    $this->waiting[] = $job;                // put it back to retry
                 } else {
-                    echo 'Gave up, moved to failed jobs.', PHP_EOL;        // never silent
+                    echo "Gave up after {$maxAttempts} attempts.\n";   // never silent
                 }
             }
         }
     }
 }
 
-// ── The web request: answers at once ────────────────────────────────────
+// ── Using it ──
 $queue = new CommandQueue();
-$queue->push(new AnalyzeSurvey(42));
-echo 'HTTP 202: analysis started', PHP_EOL;
 
-// ── The worker process: runs it later, retries on failure ──────────────
-$queue->work(new Container([AiAnalyzer::class => new AiAnalyzer()]));
+// The web request: queue the slow work and answer immediately.
+$queue->push(new AnalyzeSurvey(new AiAnalyzer(), 42));
+echo "HTTP 202: analysis started\n";
+
+// The worker process (later): run it, retrying on failure.
+$queue->work();

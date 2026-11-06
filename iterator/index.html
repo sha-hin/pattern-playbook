@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Iterator Pattern in PHP & Laravel, with Real Code","description":"Iterator explained for PHP and Laravel developers. Callers need to loop over data, but how it’s stored or fetched may change - give them items one at a time…","url":"https://sha-hin.github.io/pattern-playbook/iterator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/iterator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Iterator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Iterator pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/iterator.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Iterator","item":"https://sha-hin.github.io/pattern-playbook/iterator/"}]}]}</script>
 </head>
@@ -69,166 +69,155 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>The same pagination / chunking loop copied in many places</li><li>Loading 100K rows into an array before processing</li><li>Callers know the internal shape of your collection</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>A CRM API returns 100 customers per page. You sync 80,000 customers every night.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// copied in 3 jobs:</span>
-$page = 1; $all = [];
-do {
-    $response = Http::get($crm.'/customers', ['page' =&gt; $page++]);
-    $all = array_merge($all, $response-&gt;json('data'));   <span class="c">// 80,000 rows in memory</span>
-} while ($response-&gt;json('meta.has_more'));</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// copied in 3 jobs:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$page</span> = <span class="n">1</span>; <span class="v">$all</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">do</span> {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">get</span>(<span class="v">$crm</span>.<span class="s">'/customers'</span>, [<span class="s">'page'</span> =&gt; <span class="v">$page</span>++]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="v">$all</span> = <span class="f">array_merge</span>(<span class="v">$all</span>, <span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'data'</span>)); <span class="al">  </span><span class="c">// 80,000 rows in memory</span></span><span class="nl">
+</span><span class="ln" style="--i:0">} <span class="k">while</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'meta.has_more'</span>));</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-iterator">
     <h2 class="g" id="build-iterator">Build it yourself: the full Iterator pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Iterator">
-      <div class="role" role="row"><span role="rowheader">Iterator</span><span role="cell"><code>PHP's built-in Iterator interface</code> <small>rewind, valid, current, key, next</small></span></div><div class="role" role="row"><span role="rowheader">Concrete iterator</span><span role="cell"><code>CustomerIterator</code> <small>walks a paginated API, one customer at a time</small></span></div><div class="role" role="row"><span role="rowheader">Aggregate</span><span role="cell"><code>PHP's IteratorAggregate</code> <small>an object that can hand out an iterator</small></span></div><div class="role" role="row"><span role="rowheader">Concrete aggregate</span><span role="cell"><code>CrmCustomers</code> <small>the collection the caller loops over</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Iterator</span><span role="cell"><code>PHP's built-in Iterator interface</code> <small>5 methods: rewind, valid, current, key, next</small></span></div><div class="role" role="row"><span role="rowheader">Concrete iterator</span><span role="cell"><code>CustomerIterator</code> <small>walks a paginated API one customer at a time</small></span></div><div class="role" role="row"><span role="rowheader">Aggregate</span><span role="cell"><code>PHP's built-in IteratorAggregate</code> <small>an object that hands out an iterator</small></span></div><div class="role" role="row"><span role="rowheader">Concrete aggregate</span><span role="cell"><code>CrmCustomers</code> <small>what the caller loops over with foreach</small></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-final class FakeCrmApi                                          <span class="c">// stands in for an HTTP API with pages</span>
-{
-    public int $requests = 0;
-
-    /** @return array{data: list&lt;array{id: int, email: string}&gt;, has_more: bool} */
-    public function customers(int $page, int $perPage): array
-    {
-        $this-&gt;requests++;
-        $total = 7;
-        $start = ($page - 1) * $perPage;
-        $ids = range($start + 1, min($start + $perPage, $total));
-
-        return [
-            'data' =&gt; array_map(fn (int $id): array =&gt; ['id' =&gt; $id, 'email' =&gt; &quot;customer{$id}@example.com&quot;], $ids),
-            'has_more' =&gt; $start + $perPage &lt; $total,
-        ];
-    }
-}
-
-<span class="h">final class CustomerIterator implements Iterator  <span class="c">// Concrete iterator: the 5 methods</span></span>
-{
-    private int $page = 1;
-    private int $index = 0;
-    private int $position = 0;
-    /** @var list&lt;array{id: int, email: string}&gt; */
-    private array $buffer = [];
-    private bool $hasMore = true;
-
-    public function __construct(private readonly FakeCrmApi $api, private readonly int $perPage = 3) {}
-
-<span class="h">    public function rewind(): void  <span class="c">// start from the beginning</span></span>
-    {
-        $this-&gt;page = 1;
-        $this-&gt;position = 0;
-        $this-&gt;load();
-    }
-
-<span class="h">    public function valid(): bool  <span class="c">// is there an item here?</span></span>
-    {
-        if ($this-&gt;index &lt; count($this-&gt;buffer)) {
-            return true;
-        }
-        if (!$this-&gt;hasMore) {
-            return false;
-        }
-        $this-&gt;page++;                                          <span class="c">// buffer used up: fetch the next page now</span>
-        $this-&gt;load();
-
-        return $this-&gt;buffer !== [];
-    }
-
-<span class="h">    public function current(): array  <span class="c">// the item</span></span>
-    {
-        return $this-&gt;buffer[$this-&gt;index];
-    }
-
-<span class="h">    public function key(): int  <span class="c">// its position</span></span>
-    {
-        return $this-&gt;position;
-    }
-
-<span class="h">    public function next(): void  <span class="c">// move forward</span></span>
-    {
-        $this-&gt;index++;
-        $this-&gt;position++;
-    }
-
-    private function load(): void
-    {
-        $response = $this-&gt;api-&gt;customers($this-&gt;page, $this-&gt;perPage);
-        $this-&gt;buffer = $response['data'];
-        $this-&gt;hasMore = $response['has_more'];
-        $this-&gt;index = 0;
-    }
-}
-
-<span class="h">final class CrmCustomers implements IteratorAggregate  <span class="c">// Concrete aggregate</span></span>
-{
-    public function __construct(private readonly FakeCrmApi $api) {}
-
-<span class="h">    public function getIterator(): Iterator  <span class="c">// a fresh iterator for each foreach</span></span>
-    {
-        return new CustomerIterator($this-&gt;api);
-    }
-}
-
-<span class="c">// ── The caller never sees pages ─────────────────────────────────────────</span>
-$api = new FakeCrmApi();
-
-foreach (new CrmCustomers($api) as $i =&gt; $customer) {
-    echo &quot;{$i}: {$customer['email']}&quot;, PHP_EOL;
-}
-echo &quot;API requests: {$api-&gt;requests} (pages of 3)&quot;, PHP_EOL;
-
-<span class="c">// Lazy: stopping early fetches fewer pages.</span>
-$api-&gt;requests = 0;
-foreach (new CrmCustomers($api) as $customer) {
-    if ($customer['id'] === 2) {
-        break;
-    }
-}
-echo &quot;Stopped at customer 2 after {$api-&gt;requests} request&quot;, PHP_EOL;</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── A fake API that returns customers 3 at a time (like a real paginated API) ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">FakeCrmApi</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$requests</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">page</span>(<span class="k">int</span> <span class="v">$page</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">requests</span>++;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$all</span> = [<span class="s">'ali@x.com'</span>, <span class="s">'mona@x.com'</span>, <span class="s">'omar@x.com'</span>, <span class="s">'laila@x.com'</span>, <span class="s">'sara@x.com'</span>, <span class="s">'adam@x.com'</span>, <span class="s">'nour@x.com'</span>];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">array_slice</span>(<span class="v">$all</span>, (<span class="v">$page</span> - <span class="n">1</span>) * <span class="n">3</span>, <span class="n">3</span>); <span class="al">      </span><span class="c">// 3 customers per page</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the concrete iterator. PHP calls these 5 methods for you in foreach. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CustomerIterator</span> <span class="k">implements</span> <span class="t">Iterator</span> <span class="al"> </span><span class="c">// Concrete iterator</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$page</span> = <span class="n">1</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$current</span> = []; <span class="al">                           </span><span class="c">// the customers of the current page</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$index</span> = <span class="n">0</span>; <span class="al">                                </span><span class="c">// position inside the current page</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$position</span> = <span class="n">0</span>; <span class="al">                             </span><span class="c">// position overall</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">rewind</span>(): <span class="k">void</span> <span class="al"> </span><span class="c">// 1. start from the beginning</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">page</span> = <span class="n">1</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">current</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">index</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">position</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">valid</span>(): <span class="k">bool</span> <span class="al"> </span><span class="c">// 2. is there a customer here?</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">index</span> &gt;= <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>) &amp;&amp; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>) === <span class="n">3</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">page</span>++; <span class="al">                                 </span><span class="c">// page used up: fetch the next one now</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">current</span> = <span class="k">$this</span>-&gt;<span class="p">api</span>-&gt;<span class="f">page</span>(<span class="k">$this</span>-&gt;<span class="p">page</span>);</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">index</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">index</span> &lt; <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">current</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">current</span>(): <span class="k">mixed</span> <span class="al"> </span><span class="c">// 3. give me the customer</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">current</span>[<span class="k">$this</span>-&gt;<span class="p">index</span>];</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">key</span>(): <span class="k">mixed</span> <span class="al"> </span><span class="c">// 4. give me its position</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">position</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">next</span>(): <span class="k">void</span> <span class="al"> </span><span class="c">// 5. move forward</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">index</span>++;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">position</span>++;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the aggregate. What the caller loops over. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// Concrete aggregate</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">FakeCrmApi</span> <span class="v">$api</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">getIterator</span>(): <span class="t">Iterator</span> <span class="al"> </span><span class="c">// a fresh iterator for every foreach</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CustomerIterator</span>(<span class="k">$this</span>-&gt;<span class="p">api</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: the caller never sees pages ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$api</span> = <span class="k">new</span> <span class="f">FakeCrmApi</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">foreach</span> (<span class="k">new</span> <span class="f">CrmCustomers</span>(<span class="v">$api</span>) <span class="k">as</span> <span class="v">$number</span> =&gt; <span class="v">$email</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">&quot;{$number}: {$email}\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;API requests: {$api-&gt;requests}\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// It's lazy: stopping early means fewer requests.</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$api</span>-&gt;<span class="p">requests</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">foreach</span> (<span class="k">new</span> <span class="f">CrmCustomers</span>(<span class="v">$api</span>) <span class="k">as</span> <span class="v">$email</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">if</span> (<span class="v">$email</span> === <span class="s">'mona@x.com'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">break</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;Stopped at Mona after {$api-&gt;requests} request\n&quot;</span>;</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/iterator.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/iterator.php" data-umami-event="View example" data-umami-event-pattern="iterator">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>0: customer1@example.com
-1: customer2@example.com
-2: customer3@example.com
-3: customer4@example.com
-4: customer5@example.com
-5: customer6@example.com
-6: customer7@example.com
-API requests: 3 (pages of 3)
-Stopped at customer 2 after 1 request</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>0: ali@x.com
+1: mona@x.com
+2: omar@x.com
+3: laila@x.com
+4: sara@x.com
+5: adam@x.com
+6: nour@x.com
+API requests: 3
+Stopped at Mona after 1 request</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="h">final class CrmCustomers implements IteratorAggregate  <span class="c">// hides HOW they're fetched</span></span>
-{
-    public function __construct(private \Illuminate\Http\Client\PendingRequest $http) {}
-
-    public function getIterator(): Generator
-    {
-        $page = 1;
-
-        do {
-            $response = $this-&gt;http
-                -&gt;get('/customers', ['page' =&gt; $page++, 'per_page' =&gt; 100])
-                -&gt;throw();                                     <span class="c">// 4xx/5xx = exception, not empty data</span>
-
-            foreach ($response-&gt;json('data') as $customer) {
-<span class="h">                yield $customer;  <span class="c">// one at a time, flat memory</span></span>
-            }
-        } while ($response-&gt;json('meta.has_more') === true);
-    }
-}
-
-$customers = new CrmCustomers(
-    Http::baseUrl(config('services.crm.url'))-&gt;withToken(config('services.crm.token'))-&gt;retry(3, 500),
-);
-
-<span class="h">foreach ($customers as $customer) {  <span class="c">// pagination is invisible here</span></span>
-    Customer::updateOrCreate(['crm_id' =&gt; $customer['id']], ['email' =&gt; $customer['email']]);
-}</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Support\Collection implements IteratorAggregate and hands out an ArrayIterator; LengthAwarePaginator does the same. LazyCollection wraps a generator (see the Generators card) so huge sources are walked one item at a time.</p></div>
+    <pre><code><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CrmCustomers</span> <span class="k">implements</span> <span class="t">IteratorAggregate</span> <span class="al"> </span><span class="c">// hides HOW they're fetched</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">PendingRequest</span> <span class="v">$http</span>) {}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">getIterator</span>(): <span class="t">Generator</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$page</span> = <span class="n">1</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">do</span> {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$response</span> = <span class="k">$this</span>-&gt;<span class="p">http</span></span><span class="nl">
+</span><span class="ln" style="--i:16">                -&gt;<span class="f">get</span>(<span class="s">'/customers'</span>, [<span class="s">'page'</span> =&gt; <span class="v">$page</span>++, <span class="s">'per_page'</span> =&gt; <span class="n">100</span>])</span><span class="nl">
+</span><span class="ln" style="--i:16">                -&gt;<span class="f">throw</span>(); <span class="al">                                    </span><span class="c">// 4xx/5xx = exception, not empty data</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'data'</span>) <span class="k">as</span> <span class="v">$customer</span>) {</span><span class="nl">
+</span><span class="ln h" style="--i:16">                <span class="k">yield</span> <span class="v">$customer</span>; <span class="al"> </span><span class="c">// one at a time, flat memory</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            }</span><span class="nl">
+</span><span class="ln" style="--i:8">        } <span class="k">while</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'meta.has_more'</span>) === <span class="k">true</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$customers</span> = <span class="k">new</span> <span class="f">CrmCustomers</span>(</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="t">Http</span>::<span class="f">baseUrl</span>(<span class="f">config</span>(<span class="s">'services.crm.url'</span>))-&gt;<span class="f">withToken</span>(<span class="f">config</span>(<span class="s">'services.crm.token'</span>))-&gt;<span class="f">retry</span>(<span class="n">3</span>, <span class="n">500</span>),</span><span class="nl">
+</span><span class="ln" style="--i:0">);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">foreach</span> (<span class="v">$customers</span> <span class="k">as</span> <span class="v">$customer</span>) { <span class="al"> </span><span class="c">// pagination is invisible here</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="t">Customer</span>::<span class="f">updateOrCreate</span>([<span class="s">'crm_id'</span> =&gt; <span class="v">$customer</span>[<span class="s">'id'</span>]], [<span class="s">'email'</span> =&gt; <span class="v">$customer</span>[<span class="s">'email'</span>]]);</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Collection implements IteratorAggregate: its getIterator() returns a new ArrayIterator over its items, which is why foreach works on collections. Paginators do the same with the items of the current page.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Collection, LazyCollection</span><span>Model::lazyById(), cursor()</span><span>Stripe SDK autoPagingIterator()</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -239,6 +228,6 @@ $customers = new CrmCustomers(
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Prototype Pattern in PHP & Laravel, with Real Code","description":"Prototype explained for PHP and Laravel developers. You need \"the same as this one, with small changes\" - copy an existing object, deep-copy what it owns…","url":"https://sha-hin.github.io/pattern-playbook/prototype/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/prototype/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Prototype design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Prototype pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/prototype.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Prototype","item":"https://sha-hin.github.io/pattern-playbook/prototype/"}]}]}</script>
 </head>
@@ -69,97 +69,100 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>&quot;Duplicate&quot;, &quot;copy from last term&quot;, &quot;use as template&quot; buttons</li><li>Copies that accidentally change the original</li><li>Rebuilding big objects field by field</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Schools duplicate last term’s survey (40 questions, 160 options) and change the dates.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$copy = $original-&gt;replicate();
-$copy-&gt;save();
-<span class="c">// $copy has NO questions: replicate() copies the row only.</span>
-<span class="c">// Or worse: pointing the copy at the same question rows → editing one edits both.</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="v">$copy</span> = <span class="v">$original</span>-&gt;<span class="f">replicate</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$copy</span>-&gt;<span class="f">save</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// $copy has NO questions: replicate() copies the row only.</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Or worse: pointing the copy at the same question rows → editing one edits both.</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-prototype">
     <h2 class="g" id="build-prototype">Build it yourself: the full Prototype pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Prototype">
-      <div class="role" role="row"><span role="rowheader">Prototype</span><span role="cell"><code>Survey</code> <small>an existing object you copy instead of building from scratch</small></span></div><div class="role" role="row"><span role="rowheader">Cloning</span><span role="cell"><code>PHP's clone keyword</code> <small>copies the object, but objects inside it stay SHARED</small></span></div><div class="role" role="row"><span role="rowheader">Deep copy</span><span role="cell"><code>__clone</code> <small>) (runs on the new copy; clones what the copy should OWN</small></span></div><div class="role" role="row"><span role="rowheader">Shared on purpose</span><span role="cell"><code>School</code> <small>the copy points to the same school; it is not owned</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Prototype</span><span role="cell"><code>Survey</code> <small>an existing object you copy instead of building from scratch</small></span></div><div class="role" role="row"><span role="rowheader">clone</span><span role="cell"><code>PHP's copy keyword</code> <small>copies the object, but objects INSIDE it are still shared</small></span></div><div class="role" role="row"><span role="rowheader">__clone()</span><span role="cell"><code>runs on the new copy, so it can copy what the copy should own</code> <small>a deep copy</small></span></div><div class="role" role="row"><span role="rowheader">Shared on purpose</span><span role="cell"><code>School</code> <small>both surveys belong to the same school</small></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-final class School
-{
-    public function __construct(public string $name) {}
-}
-
-final class Option
-{
-    public function __construct(public string $label) {}
-}
-
-final class Question
-{
-    /** @param list&lt;Option&gt; $options */
-    public function __construct(public string $text, public array $options) {}
-
-<span class="h">    public function __clone()  <span class="c">// deep copy: the copy owns its own options</span></span>
-    {
-        $this-&gt;options = array_map(fn (Option $o): Option =&gt; clone $o, $this-&gt;options);
-    }
-}
-
-<span class="h">final class Survey  <span class="c">// Prototype</span></span>
-{
-    /** @param list&lt;Question&gt; $questions */
-    public function __construct(public string $title, public School $school, public array $questions) {}
-
-<span class="h">    public function __clone()  <span class="c">// runs on the NEW copy, right after clone</span></span>
-    {
-        $this-&gt;questions = array_map(fn (Question $q): Question =&gt; clone $q, $this-&gt;questions);
-        <span class="c">// $this-&gt;school is NOT cloned: both surveys belong to the same school (shared on purpose)</span>
-    }
-}
-
-<span class="c">// ── The original: last term's survey ───────────────────────────────────</span>
-$school = new School('Smouha Language School');
-$lastTerm = new Survey('Term 1 evaluation', $school, [
-    new Question('Explains clearly', [new Option('Yes'), new Option('No')]),
-    new Question('Starts on time', [new Option('Always'), new Option('Sometimes')]),
-]);
-
-<span class="c">// ── &quot;Start new term from last term&quot; ────────────────────────────────────</span>
-<span class="h">$nextTerm = clone $lastTerm;  <span class="c">// copy instead of rebuilding</span></span>
-$nextTerm-&gt;title = 'Term 2 evaluation';
-$nextTerm-&gt;questions[0]-&gt;text = 'Explains clearly and checks understanding';
-$nextTerm-&gt;questions[0]-&gt;options[1]-&gt;label = 'Not yet';
-
-echo &quot;Original: {$lastTerm-&gt;title} / {$lastTerm-&gt;questions[0]-&gt;text} / {$lastTerm-&gt;questions[0]-&gt;options[1]-&gt;label}&quot;, PHP_EOL;
-echo &quot;Copy:     {$nextTerm-&gt;title} / {$nextTerm-&gt;questions[0]-&gt;text} / {$nextTerm-&gt;questions[0]-&gt;options[1]-&gt;label}&quot;, PHP_EOL;
-echo 'Same school object? ', var_export($lastTerm-&gt;school === $nextTerm-&gt;school, true), PHP_EOL;
-
-<span class="c">// Remove the two __clone() methods and run again: editing the copy changes the original too.</span></code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">School</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">string</span> <span class="v">$name</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Question</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">string</span> <span class="v">$text</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── The Prototype ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Survey</span> <span class="al"> </span><span class="c">// Prototype</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">string</span> <span class="v">$title</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="t">School</span> <span class="v">$school</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">array</span> <span class="v">$questions</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__clone</span>() <span class="al"> </span><span class="c">// runs on the NEW copy, right after clone</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$copies</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">questions</span> <span class="k">as</span> <span class="v">$question</span>) {</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="v">$copies</span>[] = <span class="k">clone</span> <span class="v">$question</span>; <span class="al"> </span><span class="c">// the copy gets its OWN questions</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">questions</span> = <span class="v">$copies</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="c">// $this-&gt;school is NOT cloned: both surveys belong to the same school.</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Last term's survey ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$school</span> = <span class="k">new</span> <span class="f">School</span>(<span class="s">'Smouha Language School'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$lastTerm</span> = <span class="k">new</span> <span class="f">Survey</span>(<span class="s">'Term 1 evaluation'</span>, <span class="v">$school</span>, [</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">new</span> <span class="f">Question</span>(<span class="s">'Explains clearly'</span>),</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">new</span> <span class="f">Question</span>(<span class="s">'Starts on time'</span>),</span><span class="nl">
+</span><span class="ln" style="--i:0">]);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── &quot;Start new term from last term&quot;: copy it, then change what differs ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="v">$nextTerm</span> = <span class="k">clone</span> <span class="v">$lastTerm</span>; <span class="al"> </span><span class="c">// copy instead of rebuilding</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$nextTerm</span>-&gt;<span class="p">title</span> = <span class="s">'Term 2 evaluation'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$nextTerm</span>-&gt;<span class="p">questions</span>[<span class="n">0</span>]-&gt;<span class="p">text</span> = <span class="s">'Explains clearly and checks understanding'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Original: '</span> . <span class="v">$lastTerm</span>-&gt;<span class="p">title</span> . <span class="s">' / '</span> . <span class="v">$lastTerm</span>-&gt;<span class="p">questions</span>[<span class="n">0</span>]-&gt;<span class="p">text</span> . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Copy:     '</span> . <span class="v">$nextTerm</span>-&gt;<span class="p">title</span> . <span class="s">' / '</span> . <span class="v">$nextTerm</span>-&gt;<span class="p">questions</span>[<span class="n">0</span>]-&gt;<span class="p">text</span> . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Same school? '</span> . (<span class="v">$lastTerm</span>-&gt;<span class="p">school</span> === <span class="v">$nextTerm</span>-&gt;<span class="p">school</span> ? <span class="s">'yes'</span> : <span class="s">'no'</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Delete the __clone() method and run again: editing the copy's question</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// changes the original too, because both would share the same Question objects.</span></span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/prototype.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/prototype.php" data-umami-event="View example" data-umami-event-pattern="prototype">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Original: Term 1 evaluation / Explains clearly / No
-Copy:     Term 2 evaluation / Explains clearly and checks understanding / Not yet
-Same school object? true</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>Original: Term 1 evaluation / Explains clearly
+Copy:     Term 2 evaluation / Explains clearly and checks understanding
+Same school? yes</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>public function duplicate(Survey $original, string $newTitle): Survey
-{
-    return DB::transaction(function () use ($original, $newTitle) {    <span class="c">// all or nothing</span>
-<span class="h">        $copy = $original-&gt;replicate(['published_at']);  <span class="c">// copy the row (not its relations)</span></span>
-        $copy-&gt;title = $newTitle;
-        $copy-&gt;save();                                        <span class="c">// school_id, author_id: shared on purpose</span>
-
-        foreach ($original-&gt;questions()-&gt;with('options')-&gt;get() as $question) {
-<span class="h">            $newQuestion = $copy-&gt;questions()-&gt;save($question-&gt;replicate());  <span class="c">// deep copy owned children</span></span>
-            $newQuestion-&gt;options()-&gt;saveMany(
-                $question-&gt;options-&gt;map(fn (Option $o) =&gt; $o-&gt;replicate()),
-            );
-        }
-
-        return $copy;
-    });
-}</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Eloquent's $model-&gt;replicate() is a prototype copy of ONE row: it copies the attributes into a new, unsaved model without the primary key and timestamps. Relations are not copied, so owned children (questions, options) must be replicated by hand, as below.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">duplicate</span>(<span class="t">Survey</span> <span class="v">$original</span>, <span class="k">string</span> <span class="v">$newTitle</span>): <span class="t">Survey</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$original</span>, <span class="v">$newTitle</span>) { <span class="al">   </span><span class="c">// all or nothing</span></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="v">$copy</span> = <span class="v">$original</span>-&gt;<span class="f">replicate</span>([<span class="s">'published_at'</span>]); <span class="al"> </span><span class="c">// copy the row (not its relations)</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$copy</span>-&gt;<span class="p">title</span> = <span class="v">$newTitle</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$copy</span>-&gt;<span class="f">save</span>(); <span class="al">                                       </span><span class="c">// school_id, author_id: shared on purpose</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="v">$original</span>-&gt;<span class="f">questions</span>()-&gt;<span class="f">with</span>(<span class="s">'options'</span>)-&gt;<span class="f">get</span>() <span class="k">as</span> <span class="v">$question</span>) {</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="v">$newQuestion</span> = <span class="v">$copy</span>-&gt;<span class="f">questions</span>()-&gt;<span class="f">save</span>(<span class="v">$question</span>-&gt;<span class="f">replicate</span>()); <span class="al"> </span><span class="c">// deep copy owned children</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$newQuestion</span>-&gt;<span class="f">options</span>()-&gt;<span class="f">saveMany</span>(</span><span class="nl">
+</span><span class="ln" style="--i:16">                <span class="v">$question</span>-&gt;<span class="p">options</span>-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">Option</span> <span class="v">$o</span>) =&gt; <span class="v">$o</span>-&gt;<span class="f">replicate</span>()),</span><span class="nl">
+</span><span class="ln" style="--i:12">            );</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$copy</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    });</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> $model-&gt;replicate() copies ONE row's columns into a new, unsaved model (without the id and timestamps). Related rows are not copied: the copy even points at the same loaded relation objects. Owned children like questions must be replicated by hand.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Eloquent $model-&gt;replicate()</span><span>PHP clone + __clone()</span><span>&quot;Duplicate&quot; buttons in any admin panel</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -170,6 +173,6 @@ Same school object? true</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

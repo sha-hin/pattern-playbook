@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Dependency Injection Container in PHP & Laravel, with Real Code","description":"DI Container explained for PHP and Laravel developers. A class needs services - ask for them in the constructor; one place (the container) decides what you…","url":"https://sha-hin.github.io/pattern-playbook/container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["DI Container design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"DI Container pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/container.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"DI Container","item":"https://sha-hin.github.io/pattern-playbook/container/"}]}]}</script>
 </head>
@@ -69,164 +69,157 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>new SomeService() or Something::instance() inside methods</li><li>Tests that send real emails / hit real APIs</li><li>&quot;Only one&quot; handled by a static Singleton</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>An InvoiceSender needs a mailer and a logger. In tests you want a fake mailer.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>final class InvoiceSender
-{
-    public function send(Invoice $invoice): void
-    {
-        $mailer = new SmtpMailer(env('MAIL_HOST'));   <span class="c">// hidden dependency, real email in tests</span>
-        $mailer-&gt;send($invoice-&gt;email, new InvoiceMail($invoice));
-    }
-}</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">InvoiceSender</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="t">Invoice</span> <span class="v">$invoice</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$mailer</span> = <span class="k">new</span> <span class="f">SmtpMailer</span>(<span class="f">env</span>(<span class="s">'MAIL_HOST'</span>)); <span class="al">  </span><span class="c">// hidden dependency, real email in tests</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$mailer</span>-&gt;<span class="f">send</span>(<span class="v">$invoice</span>-&gt;<span class="p">email</span>, <span class="k">new</span> <span class="f">InvoiceMail</span>(<span class="v">$invoice</span>));</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-container">
     <h2 class="g" id="build-container">Build it yourself: the full DI Container pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of DI Container">
-      <div class="role" role="row"><span role="rowheader">Container</span><span role="cell"><code>Container</code> <small>knows how to build things; keeps shared instances</small></span></div><div class="role" role="row"><span role="rowheader">Bindings</span><span role="cell"><code>bind() = new object every time, singleton() = one shared object</code></span></div><div class="role" role="row"><span role="rowheader">Autowiring</span><span role="cell"><code>make() reads constructor types with Reflection and builds them</code></span></div><div class="role" role="row"><span role="rowheader">Service</span><span role="cell"><code>InvoiceSender</code> <small>asks for what it needs; never builds it</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Service</span><span role="cell"><code>InvoiceSender</code> <small>asks for what it needs in its constructor; never builds it</small></span></div><div class="role" role="row"><span role="rowheader">Container</span><span role="cell"><code>Container</code> <small>knows how to build things and keeps shared instances</small></span></div><div class="role" role="row"><span role="rowheader">singleton()</span><span role="cell"><code>&quot;build it once, then always give the same object&quot;</code></span></div><div class="role" role="row"><span role="rowheader">Autowiring</span><span role="cell"><code>make() reads the constructor and builds each dependency automatically</code></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-interface Mailer
-{
-    public function send(string $to, string $subject): void;
-}
-
-final class SmtpMailer implements Mailer
-{
-    public function __construct(private readonly string $host) {}
-
-    public function send(string $to, string $subject): void
-    {
-        echo &quot;SMTP {$this-&gt;host}: '{$subject}' → {$to}&quot;, PHP_EOL;
-    }
-}
-
-final class FakeMailer implements Mailer                        <span class="c">// for tests: records instead of sending</span>
-{
-    /** @var list&lt;string&gt; */
-    public array $sent = [];
-
-    public function send(string $to, string $subject): void
-    {
-        $this-&gt;sent[] = &quot;{$to}: {$subject}&quot;;
-    }
-}
-
-<span class="h">final class InvoiceSender  <span class="c">// Service: asks, never builds</span></span>
-{
-    public function __construct(private readonly Mailer $mailer) {}
-
-    public function send(int $invoiceId, string $email): void
-    {
-        $this-&gt;mailer-&gt;send($email, &quot;Invoice #{$invoiceId}&quot;);
-    }
-}
-
-<span class="h">final class Container  <span class="c">// Container</span></span>
-{
-    /** @var array&lt;string, array{factory: Closure(self): object, shared: bool}&gt; */
-    private array $bindings = [];
-
-    /** @var array&lt;string, object&gt; */
-    private array $instances = [];
-
-<span class="h">    public function bind(string $id, Closure $factory): void  <span class="c">// new object every time</span></span>
-    {
-        $this-&gt;bindings[$id] = ['factory' =&gt; $factory, 'shared' =&gt; false];
-    }
-
-<span class="h">    public function singleton(string $id, Closure $factory): void  <span class="c">// one shared object, visibly</span></span>
-    {
-        $this-&gt;bindings[$id] = ['factory' =&gt; $factory, 'shared' =&gt; true];
-    }
-
-    public function make(string $id): object
-    {
-        if (isset($this-&gt;instances[$id])) {
-            return $this-&gt;instances[$id];
-        }
-
-        $binding = $this-&gt;bindings[$id] ?? null;
-        $object = $binding !== null ? ($binding['factory'])($this) : $this-&gt;autowire($id);
-
-        if ($binding !== null &amp;&amp; $binding['shared']) {
-            $this-&gt;instances[$id] = $object;
-        }
-
-        return $object;
-    }
-
-<span class="h">    private function autowire(string $class): object  <span class="c">// read the constructor, build each dependency</span></span>
-    {
-        if (!class_exists($class)) {
-            throw new RuntimeException(&quot;Cannot build [{$class}]: bind it first (is it an interface?).&quot;);
-        }
-
-        $constructor = (new ReflectionClass($class))-&gt;getConstructor();
-        if ($constructor === null) {
-            return new $class();
-        }
-
-        $arguments = array_map(function (ReflectionParameter $p) use ($class): mixed {
-            $type = $p-&gt;getType();
-            if ($type instanceof ReflectionNamedType &amp;&amp; !$type-&gt;isBuiltin()) {
-<span class="h">                return $this-&gt;make($type-&gt;getName());  <span class="c">// recursion: dependencies of dependencies</span></span>
-            }
-            if ($p-&gt;isDefaultValueAvailable()) {
-                return $p-&gt;getDefaultValue();
-            }
-            throw new RuntimeException(&quot;Cannot guess \${$p-&gt;getName()} for [{$class}]: register a factory.&quot;);
-        }, $constructor-&gt;getParameters());
-
-        return new $class(...$arguments);
-    }
-}
-
-<span class="c">// ── The ONE place that decides what Mailer means ───────────────────────</span>
-$app = new Container();
-$app-&gt;singleton(Mailer::class, fn () =&gt; new SmtpMailer('smtp.example.com'));
-
-$app-&gt;make(InvoiceSender::class)-&gt;send(1001, 'school@example.com');   <span class="c">// InvoiceSender built automatically</span>
-echo 'Same Mailer each time? ', var_export($app-&gt;make(Mailer::class) === $app-&gt;make(Mailer::class), true), PHP_EOL;
-
-<span class="c">// ── In a test: no container, no real email ──────────────────────────────</span>
-$fake = new FakeMailer();
-(new InvoiceSender($fake))-&gt;send(1002, 'test@example.com');
-echo 'Fake recorded: ', $fake-&gt;sent[0], PHP_EOL;</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">interface</span> <span class="t">Mailer</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>): <span class="k">void</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">SmtpMailer</span> <span class="k">implements</span> <span class="t">Mailer</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">string</span> <span class="v">$host</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;SMTP {$this-&gt;host}: '{$subject}' -&gt; {$to}\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">FakeMailer</span> <span class="k">implements</span> <span class="t">Mailer</span> <span class="al">                         </span><span class="c">// for tests: remembers instead of sending</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$sent</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$subject</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">sent</span>[] = <span class="s">&quot;{$to}: {$subject}&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the service. It ASKS for a Mailer; it never creates one. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">InvoiceSender</span> <span class="al"> </span><span class="c">// Service</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">Mailer</span> <span class="v">$mailer</span>) <span class="al"> </span><span class="c">// dependency injection</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">int</span> <span class="v">$invoiceId</span>, <span class="k">string</span> <span class="v">$email</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">mailer</span>-&gt;<span class="f">send</span>(<span class="v">$email</span>, <span class="s">&quot;Invoice #{$invoiceId}&quot;</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the container ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Container</span> <span class="al"> </span><span class="c">// Container</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$factories</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$shared</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">singleton</span>(<span class="k">string</span> <span class="v">$name</span>, <span class="k">callable</span> <span class="v">$factory</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// &quot;build once, share it&quot;</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">factories</span>[<span class="v">$name</span>] = <span class="v">$factory</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">make</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">object</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">shared</span>[<span class="v">$name</span>])) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">shared</span>[<span class="v">$name</span>]; <span class="al">                   </span><span class="c">// already built: give the same object</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">factories</span>[<span class="v">$name</span>])) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">shared</span>[<span class="v">$name</span>] = (<span class="k">$this</span>-&gt;<span class="p">factories</span>[<span class="v">$name</span>])();</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">shared</span>[<span class="v">$name</span>];</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">autowire</span>(<span class="v">$name</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">private</span> <span class="k">function</span> <span class="f">autowire</span>(<span class="k">string</span> <span class="v">$class</span>): <span class="k">object</span> <span class="al"> </span><span class="c">// read the constructor, build what it needs</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$constructor</span> = (<span class="k">new</span> <span class="f">ReflectionClass</span>(<span class="v">$class</span>))-&gt;<span class="f">getConstructor</span>();</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$constructor</span> === <span class="k">null</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="k">new</span> <span class="v">$class</span>(); <span class="al">                           </span><span class="c">// no constructor: nothing to inject</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$arguments</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="v">$constructor</span>-&gt;<span class="f">getParameters</span>() <span class="k">as</span> <span class="v">$parameter</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$type</span> = <span class="v">$parameter</span>-&gt;<span class="f">getType</span>()-&gt;<span class="f">getName</span>(); <span class="al">      </span><span class="c">// e.g. &quot;Mailer&quot;</span></span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="v">$arguments</span>[] = <span class="k">$this</span>-&gt;<span class="f">make</span>(<span class="v">$type</span>); <span class="al"> </span><span class="c">// build each dependency the same way</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="v">$class</span>(...<span class="v">$arguments</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: ONE place decides what &quot;Mailer&quot; means ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$app</span> = <span class="k">new</span> <span class="f">Container</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">Mailer</span>::class, <span class="k">function</span> () {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">return</span> <span class="k">new</span> <span class="f">SmtpMailer</span>(<span class="s">'smtp.example.com'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0">});</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$sender</span> = <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">InvoiceSender</span>::class); <span class="al">                </span><span class="c">// built automatically, Mailer injected</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$sender</span>-&gt;<span class="f">send</span>(<span class="n">1001</span>, <span class="s">'school@example.com'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$same</span> = <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">Mailer</span>::class) === <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">Mailer</span>::class);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Same Mailer each time? '</span> . (<span class="v">$same</span> ? <span class="s">'yes'</span> : <span class="s">'no'</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── In a test: no container needed, and no real email is sent ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$fake</span> = <span class="k">new</span> <span class="f">FakeMailer</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$testSender</span> = <span class="k">new</span> <span class="f">InvoiceSender</span>(<span class="v">$fake</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$testSender</span>-&gt;<span class="f">send</span>(<span class="n">1002</span>, <span class="s">'test@example.com'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'The fake mailer recorded: '</span> . <span class="v">$fake</span>-&gt;<span class="p">sent</span>[<span class="n">0</span>] . <span class="s">&quot;\n&quot;</span>;</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/container.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/container.php" data-umami-event="View example" data-umami-event-pattern="container">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>SMTP smtp.example.com: 'Invoice #1001' → school@example.com
-Same Mailer each time? true
-Fake recorded: test@example.com: Invoice #1002</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>SMTP smtp.example.com: 'Invoice #1001' -&gt; school@example.com
+Same Mailer each time? yes
+The fake mailer recorded: test@example.com: Invoice #1002</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>final class InvoiceSender
-{
-<span class="h">    public function __construct(  <span class="c">// ask, don't build</span></span>
-        private Mailer $mailer,
-        private \Psr\Log\LoggerInterface $log,
-    ) {}
-
-    public function send(Invoice $invoice): void
-    {
-        $this-&gt;mailer-&gt;send($invoice-&gt;email, new InvoiceMail($invoice));
-        $this-&gt;log-&gt;info('invoice.sent', ['invoice' =&gt; $invoice-&gt;id]);
-    }
-}
-
-<span class="c">// AppServiceProvider: the ONE place that decides what Mailer means</span>
-<span class="h">$this-&gt;app-&gt;singleton(Mailer::class, fn () =&gt; new SmtpMailer(config('mail.host')));  <span class="c">// &quot;only one&quot;, visibly</span></span>
-
-<span class="c">// Controller: Laravel builds InvoiceSender and fills its constructor</span>
-public function store(Invoice $invoice, InvoiceSender $sender) { $sender-&gt;send($invoice); }
-
-<span class="c">// Test: no container needed, no real email</span>
-$mailer = new FakeMailer();
-(new InvoiceSender($mailer, new \Psr\Log\NullLogger()))-&gt;send($invoice);
-$this-&gt;assertCount(1, $mailer-&gt;sent);</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Container\Container: bind() and singleton() store closures; make() calls build(), which uses ReflectionClass to read the constructor and resolve each typed parameter recursively. That is why type-hinting a class in a controller just works.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">InvoiceSender</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>( <span class="al"> </span><span class="c">// ask, don't build</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Mailer</span> <span class="v">$mailer</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">LoggerInterface</span> <span class="v">$log</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="t">Invoice</span> <span class="v">$invoice</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">mailer</span>-&gt;<span class="f">send</span>(<span class="v">$invoice</span>-&gt;<span class="p">email</span>, <span class="k">new</span> <span class="f">InvoiceMail</span>(<span class="v">$invoice</span>));</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">log</span>-&gt;<span class="f">info</span>(<span class="s">'invoice.sent'</span>, [<span class="s">'invoice'</span> =&gt; <span class="v">$invoice</span>-&gt;<span class="p">id</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider: the ONE place that decides what Mailer means</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">singleton</span>(<span class="t">Mailer</span>::class, <span class="k">fn</span> () =&gt; <span class="k">new</span> <span class="f">SmtpMailer</span>(<span class="f">config</span>(<span class="s">'mail.host'</span>))); <span class="al"> </span><span class="c">// &quot;only one&quot;, visibly</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Controller: Laravel builds InvoiceSender and fills its constructor</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Invoice</span> <span class="v">$invoice</span>, <span class="t">InvoiceSender</span> <span class="v">$sender</span>) { <span class="v">$sender</span>-&gt;<span class="f">send</span>(<span class="v">$invoice</span>); }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Test: no container needed, no real email</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$mailer</span> = <span class="k">new</span> <span class="f">FakeMailer</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0">(<span class="k">new</span> <span class="f">InvoiceSender</span>(<span class="v">$mailer</span>, <span class="k">new</span> <span class="f">NullLogger</span>()))-&gt;<span class="f">send</span>(<span class="v">$invoice</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="f">assertCount</span>(<span class="n">1</span>, <span class="v">$mailer</span>-&gt;<span class="p">sent</span>);</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The service container. singleton() stores how to build something; make() uses PHP's ReflectionClass to read a class's constructor and builds every typed parameter, one level deeper each time. That is why type-hinting a class in a controller just works.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel service container, constructor injection</span><span>$this-&gt;app-&gt;singleton()</span><span>Every modern framework</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -237,6 +230,6 @@ $this-&gt;assertCount(1, $mailer-&gt;sent);</code></pre>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

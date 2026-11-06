@@ -7,101 +7,95 @@ declare(strict_types=1);
  * Run it: php examples/template.php
  *
  * Roles:
- * - Abstract class: GradeImport (owns the template method import(), marked final)
- * - Template method: import() (the fixed order of steps)
- * - Primitive operations: read(), map() (abstract: each child MUST fill them in)
- * - Hook: afterImport() (has a default: a child MAY override it)
+ * - Abstract class: GradeImport (owns the template method)
+ * - Template method: import() (marked final: the order of steps can never change)
+ * - Abstract steps: read(), map() (each child MUST write them)
+ * - Hook: afterImport() (has a default: a child MAY replace it)
  * - Concrete classes: CsvGradeImport, JsonGradeImport
  *
  * In Laravel:
- * FormRequest: ValidatesWhenResolvedTrait::validateResolved() always runs
- * prepareForValidation() → authorize → build validator → fail or passedValidation(),
- * in that order. You only fill in rules() and authorize(), and may override the hooks.
+ * Form requests. Laravel always runs the same steps in the same order: prepareForValidation(),
+ * then your authorize(), then validation with your rules(), then passedValidation().
+ * You only write rules() and authorize(), and may override the two hooks.
  */
 
-final class GradeStore
+// ── Step 1: the abstract class with the locked recipe ──
+abstract class GradeImport                                  // ★ Abstract class
 {
-    /** @var list<array{student: string, score: int}> */
-    public array $rows = [];
-}
+    public array $saved = [];
 
-final class InvalidImport extends RuntimeException {}
-
-abstract class GradeImport                                      // ★ Abstract class
-{
-    public function __construct(protected readonly GradeStore $store) {}
-
-    final public function import(string $source): int           // ★ Template method: the locked recipe
+    final public function import(string $source): void      // ★ Template method: final = nobody can change the order
     {
-        $raw = $this->read($source);                            // differs per system
-        $rows = array_map(fn (array $r): array => $this->map($r), $raw);   // differs per system
-        $this->validate($rows);                                 // same for everyone
-        array_push($this->store->rows, ...$rows);               // same for everyone
-        $this->afterImport(count($rows));                       // hook
+        $rawRows = $this->read($source);                    // 1. read the file      (differs per system)
 
-        return count($rows);
+        foreach ($rawRows as $raw) {
+            $row = $this->map($raw);                        // 2. rename the columns (differs per system)
+            $this->validate($row);                          // 3. validate           (same for everyone)
+            $this->saved[] = $row;                          // 4. save               (same for everyone)
+        }
+
+        $this->afterImport(count($rawRows));                // 5. a hook
     }
 
-    /** @return list<array<string|int, mixed>> */
-    abstract protected function read(string $source): array;   // ★ primitive operation: MUST fill in
+    abstract protected function read(string $source): array;   // ★ MUST be written by each child
 
-    /** @return array{student: string, score: int} */
-    abstract protected function map(array $raw): array;        // ★ primitive operation: MUST fill in
+    abstract protected function map(array $raw): array;         // ★ MUST be written by each child
 
-    protected function afterImport(int $count): void           // ★ hook: MAY override
+    protected function afterImport(int $count): void        // ★ hook: MAY be replaced
     {
-        echo static::class . " imported {$count} rows", PHP_EOL;
+        echo get_class($this) . " imported {$count} rows\n";
     }
 
-    /** @param list<array{student: string, score: int}> $rows */
-    private function validate(array $rows): void                // private: children cannot skip it
+    private function validate(array $row): void            // private: children cannot skip it
     {
-        foreach ($rows as $i => $row) {
-            if ($row['score'] < 0 || $row['score'] > 100) {
-                throw new InvalidImport("Row {$i}: score must be 0-100, got {$row['score']}.");
-            }
+        if ($row['score'] < 0 || $row['score'] > 100) {
+            throw new InvalidArgumentException("Score must be 0-100, got {$row['score']}.");
         }
     }
 }
 
-final class CsvGradeImport extends GradeImport                 // ★ Concrete class: only the 2 steps
+// ── Step 2: concrete classes. Each writes only the steps that differ. ──
+class CsvGradeImport extends GradeImport                    // ★ Concrete class
 {
     protected function read(string $source): array
     {
-        $lines = array_filter(explode("\n", trim($source)));
+        $rows = [];
+        foreach (explode("\n", trim($source)) as $line) {
+            $rows[] = explode(',', $line);                  // "S-1,Math,88" becomes ['S-1', 'Math', '88']
+        }
 
-        return array_map(fn (string $line): array => str_getcsv($line, ',', '"', ''), $lines);
+        return $rows;
     }
 
     protected function map(array $raw): array
     {
-        return ['student' => (string) $raw[0], 'score' => (int) $raw[2]];   // System A: score is column 3
+        return ['student' => $raw[0], 'score' => (int) $raw[2]];   // System A: score is the 3rd column
     }
 }
 
-final class JsonGradeImport extends GradeImport                 // ★ Concrete class
+class JsonGradeImport extends GradeImport                   // ★ Concrete class
 {
     protected function read(string $source): array
     {
-        return json_decode($source, true, 8, JSON_THROW_ON_ERROR);
+        return json_decode($source, true);
     }
 
     protected function map(array $raw): array
     {
-        return ['student' => (string) $raw['name'], 'score' => (int) $raw['mark']];   // System B: other names
+        return ['student' => $raw['name'], 'score' => (int) $raw['mark']];   // System B: different names
     }
 }
 
-// ── Using it ────────────────────────────────────────────────────────────
-$store = new GradeStore();
+// ── Using it ──
+$csv = new CsvGradeImport();
+$csv->import("S-1,Math,88\nS-2,Math,74");
 
-(new CsvGradeImport($store))->import("S-1,Math,88\nS-2,Math,74");
-(new JsonGradeImport($store))->import('[{"name":"S-3","mark":91}]');
+$json = new JsonGradeImport();
+$json->import('[{"name":"S-3","mark":91}]');
 
 try {
-    (new CsvGradeImport($store))->import('S-4,Math,140');
-} catch (InvalidImport $e) {
-    echo 'Rejected: ', $e->getMessage(), PHP_EOL;              // validation could not be skipped
+    $bad = new CsvGradeImport();
+    $bad->import('S-4,Math,140');
+} catch (InvalidArgumentException $e) {
+    echo 'Rejected: ' . $e->getMessage() . "\n";           // validation could not be skipped
 }
-
-echo 'Stored rows: ', count($store->rows), PHP_EOL;

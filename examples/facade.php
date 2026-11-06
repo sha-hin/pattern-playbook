@@ -12,16 +12,15 @@ declare(strict_types=1);
  * - Clients: the web form, the API and the CSV import (all call the facade)
  *
  * In Laravel:
- * Illuminate\Foundation\Http\Kernel::handle() is a Facade over the framework itself: one call
- * bootstraps config, providers, middleware and routing in the right order. In your own app,
- * "action" or service classes like EnrollStudent are the same idea.
+ * The HTTP Kernel is a Facade over the framework itself: one call, handle($request), sets up
+ * config and service providers, runs the middleware, calls the router and reports errors.
+ * In your own app, "action" classes like EnrollStudent are the same idea.
  * (Laravel's Cache:: style "facades" are something else: see the Laravel Facade card.)
  */
 
-// ── Subsystems ──────────────────────────────────────────────────────────
-final class Users
+// ── The subsystems. Each does one small thing. ──
+class Users
 {
-    /** @var array<int, string> */
     public array $all = [];
 
     public function create(string $name): int
@@ -38,9 +37,8 @@ final class Users
     }
 }
 
-final class Classes
+class Classes
 {
-    /** @var array<int, string> */
     public array $assigned = [];
 
     public function assign(int $studentId, string $class): void
@@ -54,62 +52,65 @@ final class Classes
     }
 }
 
-final class Billing
+class Billing
 {
     public function openAccount(int $studentId, string $plan): void
     {
-        if (!in_array($plan, ['monthly', 'yearly'], true)) {
+        if ($plan !== 'monthly' && $plan !== 'yearly') {
             throw new InvalidArgumentException("Unknown plan [{$plan}].");
         }
     }
 }
 
-final class Mailer
+class Mailer
 {
     public function welcome(string $name): void
     {
-        echo "Welcome email sent to {$name}", PHP_EOL;
+        echo "Welcome email sent to {$name}\n";
     }
 }
 
-// ── The facade ──────────────────────────────────────────────────────────
-final class EnrollStudent                                       // ★ Facade
+// ── The Facade. One simple door that runs every step in the right order. ──
+class EnrollStudent                                         // ★ Facade
 {
     public function __construct(
-        private readonly Users $users,
-        private readonly Classes $classes,
-        private readonly Billing $billing,
-        private readonly Mailer $mailer,
-    ) {}
+        private Users $users,
+        private Classes $classes,
+        private Billing $billing,
+        private Mailer $mailer,
+    ) {
+    }
 
-    public function handle(string $name, string $class, string $plan): int   // ★ one simple door
+    public function handle(string $name, string $class, string $plan): int   // ★ the one method callers use
     {
-        $studentId = $this->users->create($name);              // ★ step 1
+        $studentId = $this->users->create($name);           // ★ step 1
+
         try {
-            $this->classes->assign($studentId, $class);         // ★ step 2
-            $this->billing->openAccount($studentId, $plan);     // ★ step 3
-        } catch (Throwable $e) {
-            $this->classes->unassign($studentId);               // undo what was done: all or nothing
+            $this->classes->assign($studentId, $class);     // ★ step 2
+            $this->billing->openAccount($studentId, $plan); // ★ step 3
+        } catch (Exception $e) {
+            $this->classes->unassign($studentId);           // something failed: undo the earlier steps
             $this->users->delete($studentId);
             throw $e;
         }
-        $this->mailer->welcome($name);                          // ★ step 4, only after everything saved
+
+        $this->mailer->welcome($name);                      // ★ step 4, only after everything worked
 
         return $studentId;
     }
 }
 
-// ── Every client is one line, and none can forget a step ────────────────
+// ── Using it: every caller is one line, and none of them can forget a step ──
 $users = new Users();
 $classes = new Classes();
 $enroll = new EnrollStudent($users, $classes, new Billing(), new Mailer());
 
-$enroll->handle('Mona', '3-B', 'monthly');                      // from the web form
+$enroll->handle('Mona', '3-B', 'monthly');                  // from the web form
 
 try {
-    $enroll->handle('Omar', '3-B', 'weekly');                   // from the CSV import, with bad data
+    $enroll->handle('Omar', '3-B', 'weekly');               // from the CSV import, with a bad plan
 } catch (InvalidArgumentException $e) {
-    echo 'Import row rejected: ', $e->getMessage(), PHP_EOL;
+    echo 'Import row rejected: ' . $e->getMessage() . "\n";
 }
 
-echo 'Students: ', implode(', ', $users->all), ' | assigned: ', count($classes->assigned), PHP_EOL;
+echo 'Students: ' . implode(', ', $users->all) . ' | assigned to a class: ' . count($classes->assigned) . "\n";

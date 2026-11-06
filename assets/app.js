@@ -33,7 +33,7 @@ after:String.raw`interface Exporter
     public function extension(): string;
 }
 
-final class CsvExporter implements Exporter
+class CsvExporter implements Exporter
 {
     public function export(iterable $rows): string
     {
@@ -49,9 +49,9 @@ final class CsvExporter implements Exporter
     public function extension(): string { return 'csv'; }
 }
 
-final class PdfExporter implements Exporter { /* same two methods, uses Dompdf */ }
+class PdfExporter implements Exporter { /* same two methods, uses Dompdf */ }
 
-final class ReportService
+class ReportService
 {
     public function __construct(private ReportRepository $reports) {}
 
@@ -91,7 +91,7 @@ after:String.raw`interface SmsSender                                  // YOUR sh
     public function send(string $to, string $text): void;
 }
 
-final class TwilioSmsSender implements SmsSender      // ★ the adapter
+class TwilioSmsSender implements SmsSender      // ★ the adapter
 {
     public function __construct(
         private \Twilio\Rest\Client $twilio,
@@ -132,7 +132,7 @@ seen:['Laravel container $app->extend()','Cached repositories','HTTP client midd
 test:'A statistics query takes 3 seconds. You want caching around it, without editing the class, and no cache in local dev.',
 diagram:{bad:[['b',40,16,220,140,'','x'],['t',58,42,'class DbSchoolStats','m'],['t',58,68,'  heavy SQL …','m'],['t',58,94,'  + if ($cache…) ← edited','kx'],['t',58,120,'  + log …          ← edited','kx']],
 good:[['b',6,74,58,30,'Caller','n'],['a',64,89,86,89,'','k'],['b',88,18,206,138,'','v'],['t',100,40,'CachedSchoolStats','kv'],['t',100,58,'same interface','s'],['b',112,72,158,56,'DbSchoolStats','n'],['t',191,146,'untouched inside','s','middle']]},
-before:String.raw`final class DbSchoolStats
+before:String.raw`class DbSchoolStats
 {
     public function forSchool(int $schoolId): array
     {
@@ -147,9 +147,9 @@ after:String.raw`interface SchoolStats
     public function forSchool(int $schoolId): array;
 }
 
-final class DbSchoolStats implements SchoolStats { /* heavy SQL only, never edited */ }
+class DbSchoolStats implements SchoolStats { /* heavy SQL only, never edited */ }
 
-final class CachedSchoolStats implements SchoolStats          // ★ same interface...
+class CachedSchoolStats implements SchoolStats          // ★ same interface...
 {
     public function __construct(
         private SchoolStats $inner,                             // ★ ...holds one inside
@@ -194,7 +194,7 @@ before:String.raw`public function register(array $data): User
     $this->analytics->track('signup', $user->id); // + 2 more next month
     return $user;
 }`,
-after:String.raw`final class UserRegistered                                 // the event: just data
+after:String.raw`class UserRegistered                                 // the event: just data
 {
     public function __construct(public readonly int $userId) {}
 }
@@ -208,7 +208,7 @@ public function register(array $data): User
     });
 }
 
-final class SendWelcomeEmail implements ShouldQueue      // ★ one reaction = one listener
+class SendWelcomeEmail implements ShouldQueue      // ★ one reaction = one listener
 {
     public bool $afterCommit = true;                     // never email a user that was rolled back
     public int $tries = 5;
@@ -240,7 +240,7 @@ $user = $users->createStudent($name, $email);
 $classes->assign($user, $classId);
 $billing->openAccount($user, $plan);    // ← the import job forgot this line
 $mailer->welcome($user);`,
-after:String.raw`final class EnrollStudent                             // ★ the one front door
+after:String.raw`class EnrollStudent                             // ★ the one front door
 {
     public function __construct(
         private Users $users,
@@ -277,9 +277,9 @@ seen:['Laravel FormRequest (you fill rules(), authorize())','Base Command / Job 
 test:'Grades come from 3 school systems. All imports read → map → validate → save → log; only "read" and "map" differ.',
 diagram:{bad:[['b',10,14,280,40,'','x'],['t',22,38,'SystemA: read map validate save log','m'],['b',10,64,280,40,'','x'],['t',22,88,'SystemB: read map validate save log','m'],['b',10,114,280,40,'','x'],['t',22,138,'SystemC: read map valid… (forgot log)','kx']],
 good:[['b',4,14,292,62,'','i'],['t',14,30,'final import()','kv'],['b',12,40,52,28,'read','v'],['b',70,40,52,28,'map','v'],['b',128,40,52,28,'validate','n'],['b',186,40,48,28,'save','n'],['b',240,40,48,28,'log','n'],['b',20,120,110,30,'SystemAImport','n'],['b',150,120,110,30,'SystemBImport','n'],['a',60,120,40,72,'','k'],['a',100,120,96,72,'','k'],['t',220,108,'fill only 2 steps','s','middle']]},
-before:String.raw`final class SystemAImport { public function import($file) { /* read, map, validate, save, log */ } }
-final class SystemBImport { public function import($file) { /* read, map, validate, save, log */ } }
-final class SystemCImport { public function import($file) { /* read, map, validate, save */ } }  // forgot log`,
+before:String.raw`class SystemAImport { public function import($file) { /* read, map, validate, save, log */ } }
+class SystemBImport { public function import($file) { /* read, map, validate, save, log */ } }
+class SystemCImport { public function import($file) { /* read, map, validate, save */ } }  // forgot log`,
 after:String.raw`abstract class GradeImport
 {
     final public function import(string $path): int           // ★ the locked recipe
@@ -305,7 +305,7 @@ after:String.raw`abstract class GradeImport
     }
 }
 
-final class SystemAImport extends GradeImport
+class SystemAImport extends GradeImport
 {
     protected function read(string $path): array { return array_map('str_getcsv', file($path)); }
     protected function map(array $row): array    { return ['student_id' => $row[0], 'score' => $row[2]]; }
@@ -324,7 +324,7 @@ diagram:{bad:[['b',14,50,272,70,'','x'],['t',28,78,'new Search(12, null, null,',
 good:[['b',6,12,96,24,'school(12)','n'],['b',6,44,96,24,'subjects(…)','n'],['b',6,76,96,24,'between(…)','n'],['b',6,108,96,24,'perPage(25)','n'],['t',54,150,'any order','s','middle'],['a',102,72,128,72],['b',130,48,72,48,'build()','v'],['t',166,112,'checks all','s','middle'],['a',202,62,224,34],['a',202,82,224,112,'','k'],['b',226,18,70,30,'error','x'],['b',226,96,70,34,'Search','v']]},
 before:String.raw`$search = new EvaluationSearch(12, null, null, ['math'], null, 25, true);
 // which argument is "from"? which is "to"? is from < to? nobody checks`,
-after:String.raw`final class EvaluationSearchBuilder
+after:String.raw`class EvaluationSearchBuilder
 {
     private ?int $schoolId = null;
     private array $subjects = [];
@@ -389,13 +389,13 @@ after:String.raw`abstract class ReportState                          // default:
     }
 }
 
-final class Draft extends ReportState
+class Draft extends ReportState
 {
     public function name(): string { return 'draft'; }
     public function submit(Report $r): void { $r->moveTo(new Submitted()); }    // ★ allowed here
 }
 
-final class Submitted extends ReportState
+class Submitted extends ReportState
 {
     public function name(): string { return 'submitted'; }
     public function approve(Report $r): void { $r->moveTo(new Approved()); }
@@ -406,9 +406,9 @@ final class Submitted extends ReportState
     }
 }
 
-final class Approved extends ReportState { public function name(): string { return 'approved'; } }
+class Approved extends ReportState { public function name(): string { return 'approved'; } }
 
-final class Report
+class Report
 {
     public ?string $rejectionReason = null;
     public function __construct(private ReportState $state = new Draft()) {}
@@ -437,7 +437,7 @@ before:String.raw`public function close(Survey $survey, AiAnalyzer $ai)
     $survey->saveAnalysis($analysis);
     return back();
 }`,
-after:String.raw`final class AnalyzeSurveyResponses implements ShouldQueue   // ★ the action as an object
+after:String.raw`class AnalyzeSurveyResponses implements ShouldQueue   // ★ the action as an object
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -485,7 +485,7 @@ do {
     $response = Http::get($crm.'/customers', ['page' => $page++]);
     $all = array_merge($all, $response->json('data'));   // 80,000 rows in memory
 } while ($response->json('meta.has_more'));`,
-after:String.raw`final class CrmCustomers implements IteratorAggregate        // ★ hides HOW they're fetched
+after:String.raw`class CrmCustomers implements IteratorAggregate        // ★ hides HOW they're fetched
 {
     public function __construct(private \Illuminate\Http\Client\PendingRequest $http) {}
 
@@ -537,15 +537,14 @@ after:String.raw`interface SurveyNode                                   // ★ o
     public function maxScore(): int;
 }
 
-final class Question implements SurveyNode                // a leaf
+class Question implements SurveyNode                // a leaf
 {
     public function __construct(public readonly string $text, private int $points) {}
     public function maxScore(): int { return $this->points; }
 }
 
-final class Section implements SurveyNode                 // a group of nodes
+class Section implements SurveyNode                 // a group of nodes
 {
-    /** @var list<SurveyNode> */
     private array $children = [];
 
     public function __construct(public readonly string $title) {}
@@ -580,7 +579,7 @@ seen:['Laravel service container, constructor injection','$this->app->singleton(
 test:"A class creates its own mailer with new and env() inside its method. You can't test it without sending a real email.",
 diagram:{bad:[['b',40,24,220,122,'','x'],['t',56,48,'InvoiceSender','m'],['t',56,74,'  new SmtpMailer(env(…))','kx'],['t',56,98,'  new FileLogger(…)','kx'],['t',56,128,'builds its own: untestable','kx']],
 good:[['b',96,8,108,40,'Container','v'],['a',130,48,90,90,'','k'],['t',100,72,'passes in','s','end'],['b',30,92,120,34,'InvoiceSender','n'],['b',190,92,104,34,'FakeMailer','i'],['a',190,109,152,109,'','d'],['t',242,146,'in tests','s','middle']]},
-before:String.raw`final class InvoiceSender
+before:String.raw`class InvoiceSender
 {
     public function send(Invoice $invoice): void
     {
@@ -588,11 +587,11 @@ before:String.raw`final class InvoiceSender
         $mailer->send($invoice->email, new InvoiceMail($invoice));
     }
 }`,
-after:String.raw`final class InvoiceSender
+after:String.raw`class InvoiceSender
 {
     public function __construct(                               // ★ ask, don't build
         private Mailer $mailer,
-        private \Psr\Log\LoggerInterface $log,
+        private LoggerInterface $log,
     ) {}
 
     public function send(Invoice $invoice): void
@@ -610,7 +609,7 @@ public function store(Invoice $invoice, InvoiceSender $sender) { $sender->send($
 
 // Test: no container needed, no real email
 $mailer = new FakeMailer();
-(new InvoiceSender($mailer, new \Psr\Log\NullLogger()))->send($invoice);
+(new InvoiceSender($mailer, new NullLogger()))->send($invoice);
 $this->assertCount(1, $mailer->sent);`},
 {
 id:'factory-method', name:'Factory Method', fam:'cre', famName:'Creation',
@@ -650,7 +649,7 @@ after:String.raw`abstract class StudentImport
     abstract protected function createReader(string $path): iterable;   // ★ the factory method
 }
 
-final class CsvStudentImport extends StudentImport
+class CsvStudentImport extends StudentImport
 {
     protected function createReader(string $path): iterable
     {
@@ -658,7 +657,7 @@ final class CsvStudentImport extends StudentImport
     }
 }
 
-final class XlsxStudentImport extends StudentImport
+class XlsxStudentImport extends StudentImport
 {
     protected function createReader(string $path): iterable
     {
@@ -681,7 +680,7 @@ before:String.raw`// in 6 different services:
 $ai = app()->isLocal()
     ? new OllamaClient('http://localhost:11434')
     : new AnthropicClient(config('services.anthropic.key'));`,
-after:String.raw`final class AiManager extends \Illuminate\Support\Manager   // Laravel's own base class
+after:String.raw`class AiManager extends \Illuminate\Support\Manager   // Laravel's own base class
 {
     public function getDefaultDriver(): string
     {
@@ -750,12 +749,12 @@ seen:['Laravel Notifications + via() channels','Report × output format','Shape 
 test:'You have InvoicePaidMail, InvoicePaidSms, OrderShippedMail, OrderShippedSms, and Slack is coming.',
 diagram:{bad:[['b',6,14,138,26,'InvoicePaidMail','x'],['b',156,14,138,26,'InvoicePaidSms','x'],['b',6,50,138,26,'ShippedMail','x'],['b',156,50,138,26,'ShippedSms','x'],['b',6,86,138,26,'RefundMail','x'],['b',156,86,138,26,'RefundSms','x'],['t',150,138,'+ Slack = 3 more classes','kx','middle']],
 good:[['b',4,10,104,26,'Notification','i'],['b',14,46,94,24,'InvoicePaid','v'],['b',14,76,94,24,'OrderShipped','v'],['b',14,106,94,24,'Refund','v'],['b',192,10,104,26,'Channel','i'],['b',202,46,94,24,'mail','n'],['b',202,76,94,24,'sms','n'],['b',202,106,94,24,'+ slack','i'],['a',108,23,190,23,'','k'],['t',150,16,'via()','kv','middle'],['t',150,150,'3 + 3, not 3 × 3','s','middle']]},
-before:String.raw`final class InvoicePaidMail { /* ... */ }
-final class InvoicePaidSms  { /* ... */ }
-final class OrderShippedMail { /* ... */ }
-final class OrderShippedSms  { /* ... */ }
+before:String.raw`class InvoicePaidMail { /* ... */ }
+class InvoicePaidSms  { /* ... */ }
+class OrderShippedMail { /* ... */ }
+class OrderShippedSms  { /* ... */ }
 // Slack arrives → InvoicePaidSlack, OrderShippedSlack, ...`,
-after:String.raw`final class InvoicePaid extends Notification              // WHAT to say: one class
+after:String.raw`class InvoicePaid extends Notification              // WHAT to say: one class
 {
     use Queueable;
 
@@ -807,7 +806,7 @@ after:String.raw`interface CloudKit                                         // �
     public function mailer(): Mailer;
 }
 
-final class AwsKit implements CloudKit
+class AwsKit implements CloudKit
 {
     public function __construct(private \Aws\Sdk $aws) {}
 
@@ -816,7 +815,7 @@ final class AwsKit implements CloudKit
     public function mailer(): Mailer       { return new SesMailer($this->aws->createSesV2()); }
 }
 
-final class LocalKit implements CloudKit
+class LocalKit implements CloudKit
 {
     public function storage(): FileStorage { return new DiskStorage(storage_path('app')); }
     public function queue(): MessageQueue  { return new DatabaseQueue(DB::connection()); }
@@ -861,11 +860,14 @@ if ($payload['type'] === 'payment.succeeded') {
 }
 // ReplayWebhooksCommand: the same if/else, copied... and it forgot 'refund.created',
 // so replayed refunds were silently skipped.`,
-after:String.raw`final class WebhookEventFactory
+after:String.raw`class WebhookEventFactory
 {
     public static function fromPayload(array $payload): WebhookEvent
     {
-        $data = $payload['data'] ?? throw new InvalidWebhook('Payload has no data.');
+        if (!isset($payload['data'])) {
+            throw new InvalidWebhook('Payload has no data.');
+        }
+        $data = $payload['data'];
 
         return match ($payload['type'] ?? null) {            // ★ the ONE place that decides
             'payment.succeeded' => new PaymentSucceeded(       // ★ and knows how to build each one
@@ -915,7 +917,7 @@ after:String.raw`interface Discount
     public function apply(Money $subtotal): Money;
 }
 
-final class NoDiscount implements Discount
+class NoDiscount implements Discount
 {
     public function apply(Money $subtotal): Money
     {
@@ -923,7 +925,7 @@ final class NoDiscount implements Discount
     }
 }
 
-final class CouponDiscount implements Discount { /* percentage, expiry, limits */ }
+class CouponDiscount implements Discount { /* percentage, expiry, limits */ }
 
 // Decided ONCE, where the request is read:
 $discount = $request->filled('coupon')
@@ -950,7 +952,7 @@ good:[['b',6,24,82,36,'100 EGP','v'],['t',100,47,'+','','middle'],['b',112,24,82
 before:String.raw`$total = $price + $shipping;           // 0.1 + 0.2 = 0.30000000000000004
 $total = $priceEgp + $feeUsd;          // EGP + USD, no error
 if ($total < 0) { /* this check is copied in 6 places, and missing in 2 */ }`,
-after:String.raw`final class Money
+after:String.raw`class Money
 {
     public function __construct(
         public readonly int $amount,                 // ★ smallest unit (piastres): exact math
@@ -980,7 +982,7 @@ after:String.raw`final class Money
 }
 
 // Eloquent cast: the column stays an integer, your code only ever sees Money
-final class MoneyCast implements \Illuminate\Contracts\Database\Eloquent\CastsAttributes
+class MoneyCast implements \Illuminate\Contracts\Database\Eloquent\CastsAttributes
 {
     public function get(Model $model, string $key, mixed $value, array $attributes): Money
     {
@@ -1006,7 +1008,7 @@ seen:['Laravel event() + Event::listen()','Symfony EventDispatcher','PSR-14'],
 test:'OrderService, PaymentService and UserService each have their own subscribe() and notify() code, and Billing must subscribe to all of them.',
 diagram:{bad:[['b',6,14,110,40,'','n'],['t',16,30,'OrderService','m'],['t',16,46,'+ own list','kx'],['b',6,104,110,40,'','n'],['t',16,120,'PaymentService','m'],['t',16,136,'+ own list','kx'],['a',116,34,190,70,'','x'],['a',116,124,190,92,'','x'],['b',192,58,100,44,'Billing','n'],['t',242,124,'wired to each','kx','middle']],
 good:[['b',4,20,82,26,'Orders','n'],['b',4,70,82,26,'Payments','n'],['b',4,120,82,26,'Users','n'],['a',86,33,108,74],['a',86,83,108,83],['a',86,133,108,92],['b',110,58,84,50,'Dispatcher','v'],['a',194,72,214,30,'','k'],['a',194,83,214,83,'','k'],['a',194,94,214,136,'','k'],['b',216,16,80,28,'Billing','n'],['b',216,69,80,28,'Analytics','n'],['b',216,122,80,28,'Receipts','n']]},
-before:String.raw`final class PaymentService
+before:String.raw`class PaymentService
 {
     private array $observers = [];                     // the same code lives in OrderService,
     public function subscribe(PaymentObserver $o) {...} // UserService, RefundService...
@@ -1015,12 +1017,11 @@ before:String.raw`final class PaymentService
 
 $orders->subscribe($billing);                         // Billing must know every sender
 $payments->subscribe($billing);`,
-after:String.raw`final class EventDispatcher
+after:String.raw`class EventDispatcher
 {
-    /** @var array<class-string, list<string|callable>> */
     private array $listeners = [];
 
-    public function __construct(private \Psr\Container\ContainerInterface $container) {}
+    public function __construct(private Container $container) {}
 
     public function listen(string $eventClass, string|callable $listener): void   // ★ by event TYPE
     {
@@ -1039,7 +1040,7 @@ after:String.raw`final class EventDispatcher
     }
 }
 
-final class PaymentReceived                                  // an event: just data
+class PaymentReceived                                  // an event: just data
 {
     public function __construct(public readonly int $invoiceId, public readonly int $amount) {}
 }
@@ -1107,7 +1108,7 @@ seen:['Laravel Jobs + dispatch()','Symfony Messenger','league/tactician'],
 test:'School statistics must be recalculated from an admin button, a nightly schedule and after imports. The logic lives in one controller.',
 diagram:{bad:[['b',10,20,280,100,'','x'],['t',24,46,'StatsController::recalculate()','m'],['t',24,70,'  …all the business logic…','m'],['t',24,96,'  scheduler? import? → copy it','kx']],
 good:[['b',4,14,62,24,'Button','n'],['b',4,72,62,24,'Schedule','n'],['b',4,130,62,24,'Import','n'],['a',66,26,90,74],['a',66,84,90,84],['a',66,142,90,94],['b',92,62,92,44,'Recalculate…','v'],['t',138,124,'just data','s','middle'],['a',184,84,204,84,'','k'],['b',206,66,32,36,'Bus','n'],['a',238,84,250,84,'','k'],['b',252,62,44,44,'Handler','n']]},
-before:String.raw`final class StatsController
+before:String.raw`class StatsController
 {
     public function recalculate(School $school, StatsCalculator $calc, StatsRepository $stats)
     {
@@ -1115,12 +1116,12 @@ before:String.raw`final class StatsController
         return back();                                               // need this too... copy it?
     }
 }`,
-after:String.raw`final class RecalculateSchoolStats                         // ★ the command: only data
+after:String.raw`class RecalculateSchoolStats                         // ★ the command: only data
 {
     public function __construct(public readonly int $schoolId) {}
 }
 
-final class RecalculateSchoolStatsHandler                   // ★ the handler: logic + dependencies
+class RecalculateSchoolStatsHandler                   // ★ the handler: logic + dependencies
 {
     public function __construct(private StatsCalculator $calc, private StatsRepository $stats) {}
 
@@ -1130,18 +1131,20 @@ final class RecalculateSchoolStatsHandler                   // ★ the handler: 
     }
 }
 
-final class CommandBus
+class CommandBus
 {
-    /** @param array<class-string, class-string> $handlers */
     public function __construct(
-        private \Psr\Container\ContainerInterface $container,
+        private Container $container,
         private array $handlers,
     ) {}
 
     public function dispatch(object $command): mixed
     {
-        $handler = $this->handlers[$command::class]
-            ?? throw new LogicException('No handler for ' . $command::class);   // wiring bugs fail loudly
+        $class = get_class($command);
+        if (!isset($this->handlers[$class])) {
+            throw new LogicException("No handler for {$class}");   // wiring bugs fail loudly
+        }
+        $handler = $this->handlers[$class];
 
         return DB::transaction(                                              // ★ one place for shared rules
             fn () => $this->container->get($handler)->handle($command)
@@ -1216,7 +1219,7 @@ abstract class Facade
 }
 
 // The Laravel way, for your own service:
-final class Ai extends \Illuminate\Support\Facades\Facade
+class Ai extends \Illuminate\Support\Facades\Facade
 {
     protected static function getFacadeAccessor(): string
     {
@@ -1244,17 +1247,55 @@ const FAMILY = { cre: 'Creation', str: 'Structure', beh: 'Behaviour' };
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+const KW = new Set('abstract and as break case catch class clone const continue declare default do echo else elseif enum extends final finally fn for foreach function if implements instanceof interface match namespace new or private protected public readonly return static switch throw trait try use var while yield'.split(' '));
+const LIT = new Set(['true', 'false', 'null', 'TRUE', 'FALSE', 'NULL']);
+const TYPES = new Set('array bool callable float int iterable mixed never object string void self parent'.split(' '));
+
 function codeHtml(src) {
-  return src.split('\n').map(line => {
-    const hot = line.includes('★');
-    const l = line.replace(/\s*\/\/ ★\s*/, '  // ').replace('★', '').replace(/\s+\/\/\s*$/, '');
-    const m = l.match(/(^|[^:])\/\//);
-    const i = m ? m.index + m[1].length : -1;
-    const code = i >= 0 ? l.slice(0, i) : l;
-    const com = i >= 0 ? l.slice(i) : '';
-    const html = esc(code) + (com ? '<span class="c">' + esc(com) + '</span>' : '');
-    return hot ? '<span class="h">' + html + '</span>' : html;
+  const hot = [];
+  const clean = src.split('\n').map((line, n) => {
+    hot[n] = line.includes('★');
+    return line.replace(/\s*\/\/ ★\s*/, '  // ').replace('★', '').replace(/\s+\/\/\s*$/, '');
   }).join('\n');
+
+  const re = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|#(?!\[)[^\n]*)|('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|(\$[A-Za-z_]\w*)|(\b\d[\d_]*(?:\.\d+)?\b)|([A-Za-z_]\w*)/g;
+  const out = [];
+  let last = 0, m;
+  const push = (text, cls) => { if (text) out.push([text, cls]); };
+  while ((m = re.exec(clean))) {
+    push(clean.slice(last, m.index), '');
+    last = re.lastIndex;
+    const [t, com, str, v, num, word] = m;
+    if (com) push(t, 'c');
+    else if (str) push(t, 's');
+    else if (v) push(t, v === '$this' ? 'k' : 'v');
+    else if (num) push(t, 'n');
+    else if (word) {
+      const before = clean.slice(Math.max(0, m.index - 2), m.index);
+      const after = clean.slice(last).match(/^\s*\(/);
+      if (before === '->' || before === '?>') push(t, after ? 'f' : 'p');
+      else if (KW.has(t.toLowerCase()) && before.slice(-1) !== ':' ) push(t, 'k');
+      else if (LIT.has(t) || TYPES.has(t)) push(t, 'k');
+      else if (after) push(t, 'f');
+      else if (/^[A-Z]/.test(t)) push(t, 't');
+      else push(t, '');
+    }
+  }
+  push(clean.slice(last), '');
+
+  const lines = [''];
+  for (const [text, cls] of out) {
+    text.split('\n').forEach((piece, i) => {
+      if (i > 0) lines.push('');
+      if (piece) lines[lines.length - 1] += cls ? `<span class="${cls}">${esc(piece)}</span>` : esc(piece);
+    });
+  }
+  return lines
+    .map(l => l.replace(/(\S|<\/span>) ( +)(<span class="c">)/, (_, a, sp, c) => `${a} <span class="al">${sp}</span>${c}`))   // alignment spaces before a comment, hidden on phones
+    .map((l, n) => {
+      const indent = clean.split('\n')[n].match(/^ */)[0].length;   // used on phones: wrapped lines stay indented
+      return `<span class="ln${hot[n] ? ' h' : ''}" style="--i:${indent}">${l}</span>`;
+    }).join('<span class="nl">\n</span>');
 }
 
 function shape(el) {

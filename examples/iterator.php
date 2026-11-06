@@ -7,116 +7,105 @@ declare(strict_types=1);
  * Run it: php examples/iterator.php
  *
  * Roles:
- * - Iterator: PHP's built-in Iterator interface (rewind, valid, current, key, next)
- * - Concrete iterator: CustomerIterator (walks a paginated API, one customer at a time)
- * - Aggregate: PHP's IteratorAggregate (an object that can hand out an iterator)
- * - Concrete aggregate: CrmCustomers (the collection the caller loops over)
+ * - Iterator: PHP's built-in Iterator interface (5 methods: rewind, valid, current, key, next)
+ * - Concrete iterator: CustomerIterator (walks a paginated API one customer at a time)
+ * - Aggregate: PHP's built-in IteratorAggregate (an object that hands out an iterator)
+ * - Concrete aggregate: CrmCustomers (what the caller loops over with foreach)
  *
  * In Laravel:
- * Illuminate\Support\Collection implements IteratorAggregate and hands out an
- * ArrayIterator; LengthAwarePaginator does the same. LazyCollection wraps a generator
- * (see the Generators card) so huge sources are walked one item at a time.
+ * Collection implements IteratorAggregate: its getIterator() returns a new ArrayIterator over
+ * its items, which is why foreach works on collections. Paginators do the same with the
+ * items of the current page.
  */
 
-final class FakeCrmApi                                          // stands in for an HTTP API with pages
+// ── A fake API that returns customers 3 at a time (like a real paginated API) ──
+class FakeCrmApi
 {
     public int $requests = 0;
 
-    /** @return array{data: list<array{id: int, email: string}>, has_more: bool} */
-    public function customers(int $page, int $perPage): array
+    public function page(int $page): array
     {
         $this->requests++;
-        $total = 7;
-        $start = ($page - 1) * $perPage;
-        $ids = range($start + 1, min($start + $perPage, $total));
+        $all = ['ali@x.com', 'mona@x.com', 'omar@x.com', 'laila@x.com', 'sara@x.com', 'adam@x.com', 'nour@x.com'];
 
-        return [
-            'data' => array_map(fn (int $id): array => ['id' => $id, 'email' => "customer{$id}@example.com"], $ids),
-            'has_more' => $start + $perPage < $total,
-        ];
+        return array_slice($all, ($page - 1) * 3, 3);       // 3 customers per page
     }
 }
 
-final class CustomerIterator implements Iterator               // ★ Concrete iterator: the 5 methods
+// ── Step 1: the concrete iterator. PHP calls these 5 methods for you in foreach. ──
+class CustomerIterator implements Iterator                  // ★ Concrete iterator
 {
     private int $page = 1;
-    private int $index = 0;
-    private int $position = 0;
-    /** @var list<array{id: int, email: string}> */
-    private array $buffer = [];
-    private bool $hasMore = true;
+    private array $current = [];                            // the customers of the current page
+    private int $index = 0;                                 // position inside the current page
+    private int $position = 0;                              // position overall
 
-    public function __construct(private readonly FakeCrmApi $api, private readonly int $perPage = 3) {}
+    public function __construct(private FakeCrmApi $api)
+    {
+    }
 
-    public function rewind(): void                              // ★ start from the beginning
+    public function rewind(): void                          // ★ 1. start from the beginning
     {
         $this->page = 1;
+        $this->current = $this->api->page(1);
+        $this->index = 0;
         $this->position = 0;
-        $this->load();
     }
 
-    public function valid(): bool                               // ★ is there an item here?
+    public function valid(): bool                           // ★ 2. is there a customer here?
     {
-        if ($this->index < count($this->buffer)) {
-            return true;
+        if ($this->index >= count($this->current) && count($this->current) === 3) {
+            $this->page++;                                  // page used up: fetch the next one now
+            $this->current = $this->api->page($this->page);
+            $this->index = 0;
         }
-        if (!$this->hasMore) {
-            return false;
-        }
-        $this->page++;                                          // buffer used up: fetch the next page now
-        $this->load();
 
-        return $this->buffer !== [];
+        return $this->index < count($this->current);
     }
 
-    public function current(): array                           // ★ the item
+    public function current(): mixed                        // ★ 3. give me the customer
     {
-        return $this->buffer[$this->index];
+        return $this->current[$this->index];
     }
 
-    public function key(): int                                  // ★ its position
+    public function key(): mixed                            // ★ 4. give me its position
     {
         return $this->position;
     }
 
-    public function next(): void                                // ★ move forward
+    public function next(): void                            // ★ 5. move forward
     {
         $this->index++;
         $this->position++;
     }
-
-    private function load(): void
-    {
-        $response = $this->api->customers($this->page, $this->perPage);
-        $this->buffer = $response['data'];
-        $this->hasMore = $response['has_more'];
-        $this->index = 0;
-    }
 }
 
-final class CrmCustomers implements IteratorAggregate          // ★ Concrete aggregate
+// ── Step 2: the aggregate. What the caller loops over. ──
+class CrmCustomers implements IteratorAggregate             // ★ Concrete aggregate
 {
-    public function __construct(private readonly FakeCrmApi $api) {}
+    public function __construct(private FakeCrmApi $api)
+    {
+    }
 
-    public function getIterator(): Iterator                     // ★ a fresh iterator for each foreach
+    public function getIterator(): Iterator                 // ★ a fresh iterator for every foreach
     {
         return new CustomerIterator($this->api);
     }
 }
 
-// ── The caller never sees pages ─────────────────────────────────────────
+// ── Using it: the caller never sees pages ──
 $api = new FakeCrmApi();
 
-foreach (new CrmCustomers($api) as $i => $customer) {
-    echo "{$i}: {$customer['email']}", PHP_EOL;
+foreach (new CrmCustomers($api) as $number => $email) {
+    echo "{$number}: {$email}\n";
 }
-echo "API requests: {$api->requests} (pages of 3)", PHP_EOL;
+echo "API requests: {$api->requests}\n";
 
-// Lazy: stopping early fetches fewer pages.
+// It's lazy: stopping early means fewer requests.
 $api->requests = 0;
-foreach (new CrmCustomers($api) as $customer) {
-    if ($customer['id'] === 2) {
+foreach (new CrmCustomers($api) as $email) {
+    if ($email === 'mona@x.com') {
         break;
     }
 }
-echo "Stopped at customer 2 after {$api->requests} request", PHP_EOL;
+echo "Stopped at Mona after {$api->requests} request\n";

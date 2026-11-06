@@ -13,29 +13,35 @@ declare(strict_types=1);
  * - Clients: the webhook endpoint and the replay script, which only call the factory
  *
  * In Laravel:
- * Illuminate\Database\Connectors\ConnectionFactory::createConnector() is a Simple Factory:
- * a match on the configured driver returns MySqlConnector, PostgresConnector, SQLiteConnector
- * or SqlServerConnector, and an unknown driver throws "Unsupported driver".
+ * The database layer picks its connector with a Simple Factory: a match on the configured
+ * driver ('mysql', 'pgsql', 'sqlite'...) builds the right connector class, and an unknown
+ * driver throws "Unsupported driver".
  */
 
-interface WebhookEvent                                          // ★ Product
+// ── Step 1: the Product. What every object the factory builds has in common. ──
+interface WebhookEvent                                      // ★ Product
 {
     public function summary(): string;
 }
 
-final class PaymentSucceeded implements WebhookEvent            // Concrete product
+// ── Step 2: concrete products. Different classes with different data. ──
+class PaymentSucceeded implements WebhookEvent
 {
-    public function __construct(public readonly string $paymentId, public readonly int $amountInPiastres) {}
+    public function __construct(public string $paymentId, public int $amountInPiastres)
+    {
+    }
 
     public function summary(): string
     {
-        return sprintf('Payment %s succeeded: %.2f EGP', $this->paymentId, $this->amountInPiastres / 100);
+        return "Payment {$this->paymentId} succeeded: " . ($this->amountInPiastres / 100) . ' EGP';
     }
 }
 
-final class PaymentFailed implements WebhookEvent               // Concrete product
+class PaymentFailed implements WebhookEvent
 {
-    public function __construct(public readonly string $paymentId, public readonly string $reason) {}
+    public function __construct(public string $paymentId, public string $reason)
+    {
+    }
 
     public function summary(): string
     {
@@ -43,32 +49,27 @@ final class PaymentFailed implements WebhookEvent               // Concrete prod
     }
 }
 
-final class UnknownWebhookType extends InvalidArgumentException {}
-
-final class WebhookEventFactory                                 // ★ Factory
+// ── Step 3: the Factory. The ONE place that reads the input and builds the right object. ──
+class WebhookEventFactory                                   // ★ Factory
 {
-    /** @param array<string, mixed> $payload */
     public static function fromPayload(array $payload): WebhookEvent
     {
-        $data = $payload['data'] ?? throw new UnknownWebhookType('Payload has no data.');
+        $type = $payload['type'] ?? 'missing';
+        $data = $payload['data'] ?? [];
 
-        return match ($payload['type'] ?? null) {               // ★ the one place that decides
-            'payment.succeeded' => new PaymentSucceeded(        // ★ and knows how to build each class
-                (string) $data['id'],
-                (int) $data['amount'],
-            ),
-            'payment.failed' => new PaymentFailed(
-                (string) $data['id'],
-                (string) ($data['failure_message'] ?? 'unknown'),
-            ),
-            default => throw new UnknownWebhookType(            // ★ never silently ignored
-                'Unknown webhook type [' . ($payload['type'] ?? 'missing') . '].',
-            ),
-        };
+        if ($type === 'payment.succeeded') {                // ★ decide which class...
+            return new PaymentSucceeded($data['id'], (int) $data['amount']);   // ★ ...and build it
+        }
+
+        if ($type === 'payment.failed') {
+            return new PaymentFailed($data['id'], $data['failure_message'] ?? 'unknown');
+        }
+
+        throw new InvalidArgumentException("Unknown webhook type [{$type}].");   // ★ never silently ignored
     }
 }
 
-// ── Clients: the webhook endpoint, the replay script and the tests all use the same line ──
+// ── Using it: the webhook endpoint, the replay script and the tests all use the same line ──
 $incoming = [
     ['type' => 'payment.succeeded', 'data' => ['id' => 'pay_1', 'amount' => 15750]],
     ['type' => 'payment.failed', 'data' => ['id' => 'pay_2', 'failure_message' => 'card declined']],
@@ -77,8 +78,9 @@ $incoming = [
 
 foreach ($incoming as $payload) {
     try {
-        echo WebhookEventFactory::fromPayload($payload)->summary(), PHP_EOL;
-    } catch (UnknownWebhookType $e) {
-        echo 'Rejected: ', $e->getMessage(), PHP_EOL;          // a real app logs it and answers 422
+        $event = WebhookEventFactory::fromPayload($payload);
+        echo $event->summary() . "\n";
+    } catch (InvalidArgumentException $e) {
+        echo 'Rejected: ' . $e->getMessage() . "\n";       // a real app logs it and answers 422
     }
 }

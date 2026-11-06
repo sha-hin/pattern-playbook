@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Builder Pattern in PHP & Laravel, with Real Code","description":"Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…","url":"https://sha-hin.github.io/pattern-playbook/builder/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/builder/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Builder pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/builder.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Builder","item":"https://sha-hin.github.io/pattern-playbook/builder/"}]}]}</script>
 </head>
@@ -69,180 +69,169 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>Constructor with 5+ parameters, many nullable</li><li>Rules like &quot;if A is set, B must be…&quot;</li><li>The object is filled in over several screens or steps</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>A search API with optional filters: school, subjects, date range, page size. &quot;from&quot; must be before &quot;to&quot;.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$search = new EvaluationSearch(12, null, null, ['math'], null, 25, true);
-<span class="c">// which argument is &quot;from&quot;? which is &quot;to&quot;? is from &lt; to? nobody checks</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="v">$search</span> = <span class="k">new</span> <span class="f">EvaluationSearch</span>(<span class="n">12</span>, <span class="k">null</span>, <span class="k">null</span>, [<span class="s">'math'</span>], <span class="k">null</span>, <span class="n">25</span>, <span class="k">true</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// which argument is &quot;from&quot;? which is &quot;to&quot;? is from &lt; to? nobody checks</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-builder">
     <h2 class="g" id="build-builder">Build it yourself: the full Builder pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Builder">
-      <div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>EvaluationSearch</code> <small>readonly; can never exist in an invalid state</small></span></div><div class="role" role="row"><span role="rowheader">Builder</span><span role="cell"><code>EvaluationSearchBuilder</code> <small>collects parts step by step, checks everything in build()</small></span></div><div class="role" role="row"><span role="rowheader">Director</span><span role="cell"><code>SearchPresets</code> <small>runs a fixed recipe of builder steps, so it is not repeated</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>any code that needs a search</code></span></div>
+      <div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>EvaluationSearch</code> <small>the finished object; readonly, so it can never become invalid</small></span></div><div class="role" role="row"><span role="rowheader">Builder</span><span role="cell"><code>EvaluationSearchBuilder</code> <small>collects the parts step by step, checks everything in build()</small></span></div><div class="role" role="row"><span role="rowheader">Director</span><span role="cell"><code>SearchPresets</code> <small>a saved recipe of builder steps, so it isn't repeated</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>any code that needs a search</code></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">final class EvaluationSearch  <span class="c">// Product: readonly, built once</span></span>
-{
-    /** @param list&lt;string&gt; $subjects */
-    public function __construct(
-        public readonly ?int $schoolId,
-        public readonly array $subjects,
-        public readonly ?string $from,
-        public readonly ?string $to,
-        public readonly int $perPage,
-    ) {}
-
-    /** @return array{0: string, 1: list&lt;int|string&gt;} SQL and its bindings */
-    public function toSql(): array
-    {
-        $where = [];
-        $bindings = [];
-
-        if ($this-&gt;schoolId !== null) {
-            $where[] = 'school_id = ?';
-            $bindings[] = $this-&gt;schoolId;
-        }
-        if ($this-&gt;subjects !== []) {
-            $where[] = 'subject IN (' . implode(', ', array_fill(0, count($this-&gt;subjects), '?')) . ')';
-            array_push($bindings, ...$this-&gt;subjects);
-        }
-        if ($this-&gt;from !== null) {
-            $where[] = 'submitted_on BETWEEN ? AND ?';
-            array_push($bindings, $this-&gt;from, $this-&gt;to);
-        }
-
-        $sql = 'SELECT * FROM evaluations'
-            . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where))
-            . ' ORDER BY id LIMIT ' . $this-&gt;perPage;
-
-        return [$sql, $bindings];
-    }
-}
-
-<span class="h">final class EvaluationSearchBuilder  <span class="c">// Builder</span></span>
-{
-    private ?int $schoolId = null;
-    /** @var list&lt;string&gt; */
-    private array $subjects = [];
-    private ?string $from = null;
-    private ?string $to = null;
-    private int $perPage = 25;
-
-<span class="h">    public function school(int $id): self  <span class="c">// each step sets one part...</span></span>
-    {
-        $this-&gt;schoolId = $id;
-
-<span class="h">        return $this;  <span class="c">// ...and returns $this for chaining</span></span>
-    }
-
-    public function subjects(string ...$subjects): self
-    {
-        $this-&gt;subjects = array_values($subjects);
-
-        return $this;
-    }
-
-    public function between(string $from, string $to): self
-    {
-        $this-&gt;from = $from;
-        $this-&gt;to = $to;
-
-        return $this;
-    }
-
-    public function perPage(int $perPage): self
-    {
-        $this-&gt;perPage = $perPage;
-
-        return $this;
-    }
-
-<span class="h">    public function build(): EvaluationSearch  <span class="c">// the one gate: rules that need several parts</span></span>
-    {
-        foreach ([$this-&gt;from, $this-&gt;to] as $date) {
-            if ($date !== null &amp;&amp; DateTimeImmutable::createFromFormat('!Y-m-d', $date) === false) {
-                throw new InvalidArgumentException(&quot;Invalid date [{$date}], use YYYY-MM-DD.&quot;);
-            }
-        }
-        if ($this-&gt;from !== null &amp;&amp; $this-&gt;from &gt; $this-&gt;to) {
-            throw new InvalidArgumentException('&quot;from&quot; must be before &quot;to&quot;.');
-        }
-        if ($this-&gt;perPage &lt; 1 || $this-&gt;perPage &gt; 100) {
-            throw new InvalidArgumentException('perPage must be between 1 and 100.');
-        }
-
-        return new EvaluationSearch($this-&gt;schoolId, $this-&gt;subjects, $this-&gt;from, $this-&gt;to, $this-&gt;perPage);
-    }
-}
-
-<span class="h">final class SearchPresets  <span class="c">// Director: a reusable recipe</span></span>
-{
-    public static function thisTermForSchool(EvaluationSearchBuilder $builder, int $schoolId): EvaluationSearch
-    {
-        return $builder-&gt;school($schoolId)-&gt;between('2026-09-01', '2027-01-31')-&gt;perPage(50)-&gt;build();
-    }
-}
-
-<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
-$search = (new EvaluationSearchBuilder())                       <span class="c">// steps in any order</span>
-    -&gt;subjects('math', 'science')
-    -&gt;school(12)
-    -&gt;between('2026-09-01', '2026-10-31')
-    -&gt;build();
-
-[$sql, $bindings] = $search-&gt;toSql();
-echo $sql, PHP_EOL, json_encode($bindings), PHP_EOL;
-
-echo SearchPresets::thisTermForSchool(new EvaluationSearchBuilder(), 7)-&gt;toSql()[0], PHP_EOL;
-
-try {
-    (new EvaluationSearchBuilder())-&gt;between('2026-10-31', '2026-09-01')-&gt;build();
-} catch (InvalidArgumentException $e) {
-    echo 'Refused: ', $e-&gt;getMessage(), PHP_EOL;
-}</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Product. Built once, cannot change afterwards. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearch</span> <span class="al"> </span><span class="c">// Product</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">int</span> <span class="v">$schoolId</span>, <span class="al">                    </span><span class="c">// readonly: can't be changed after creation</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> <span class="k">array</span> <span class="v">$subjects</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">string</span> <span class="v">$from</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> ?<span class="k">string</span> <span class="v">$to</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$perPage</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">describe</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$parts</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">schoolId</span> !== <span class="k">null</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$parts</span>[] = <span class="s">&quot;school {$this-&gt;schoolId}&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">subjects</span>) &gt; <span class="n">0</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$parts</span>[] = <span class="s">'subjects '</span> . <span class="f">implode</span>(<span class="s">' + '</span>, <span class="k">$this</span>-&gt;<span class="p">subjects</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">from</span> !== <span class="k">null</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$parts</span>[] = <span class="s">&quot;from {$this-&gt;from} to {$this-&gt;to}&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$parts</span>[] = <span class="s">&quot;{$this-&gt;perPage} per page&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">implode</span>(<span class="s">', '</span>, <span class="v">$parts</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Builder. One method per part, in any order. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearchBuilder</span> <span class="al"> </span><span class="c">// Builder</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">int</span> <span class="v">$schoolId</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$subjects</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$from</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$to</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$perPage</span> = <span class="n">25</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">school</span>(<span class="k">int</span> <span class="v">$id</span>): <span class="k">static</span> <span class="al"> </span><span class="c">// each step sets one part...</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">schoolId</span> = <span class="v">$id</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>; <span class="al"> </span><span class="c">// ...and returns $this, so calls can be chained</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">subjects</span>(<span class="k">string</span> ...<span class="v">$subjects</span>): <span class="k">static</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">subjects</span> = <span class="v">$subjects</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">between</span>(<span class="k">string</span> <span class="v">$from</span>, <span class="k">string</span> <span class="v">$to</span>): <span class="k">static</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">from</span> = <span class="v">$from</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">to</span> = <span class="v">$to</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">perPage</span>(<span class="k">int</span> <span class="v">$perPage</span>): <span class="k">static</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">perPage</span> = <span class="v">$perPage</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">build</span>(): <span class="t">EvaluationSearch</span> <span class="al"> </span><span class="c">// the last step: check the rules, then create</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">from</span> !== <span class="k">null</span> &amp;&amp; <span class="k">$this</span>-&gt;<span class="p">from</span> &gt; <span class="k">$this</span>-&gt;<span class="p">to</span>) { <span class="al">     </span><span class="c">// this rule needs TWO parts</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'&quot;from&quot; must be before &quot;to&quot;.'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">perPage</span> &lt; <span class="n">1</span> || <span class="k">$this</span>-&gt;<span class="p">perPage</span> &gt; <span class="n">100</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'perPage must be between 1 and 100.'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">EvaluationSearch</span>(<span class="k">$this</span>-&gt;<span class="p">schoolId</span>, <span class="k">$this</span>-&gt;<span class="p">subjects</span>, <span class="k">$this</span>-&gt;<span class="p">from</span>, <span class="k">$this</span>-&gt;<span class="p">to</span>, <span class="k">$this</span>-&gt;<span class="p">perPage</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Director. A recipe you use often, written once. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">SearchPresets</span> <span class="al"> </span><span class="c">// Director</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">thisTerm</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="t">EvaluationSearch</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> (<span class="k">new</span> <span class="f">EvaluationSearchBuilder</span>())</span><span class="nl">
+</span><span class="ln" style="--i:12">            -&gt;<span class="f">school</span>(<span class="v">$schoolId</span>)</span><span class="nl">
+</span><span class="ln" style="--i:12">            -&gt;<span class="f">between</span>(<span class="s">'2026-09-01'</span>, <span class="s">'2027-01-31'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:12">            -&gt;<span class="f">perPage</span>(<span class="n">50</span>)</span><span class="nl">
+</span><span class="ln" style="--i:12">            -&gt;<span class="f">build</span>();</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$search</span> = (<span class="k">new</span> <span class="f">EvaluationSearchBuilder</span>()) <span class="al">                  </span><span class="c">// steps in any order</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">subjects</span>(<span class="s">'math'</span>, <span class="s">'science'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">school</span>(<span class="n">12</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">between</span>(<span class="s">'2026-09-01'</span>, <span class="s">'2026-10-31'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">build</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="v">$search</span>-&gt;<span class="f">describe</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="t">SearchPresets</span>::<span class="f">thisTerm</span>(<span class="n">7</span>)-&gt;<span class="f">describe</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">try</span> {</span><span class="nl">
+</span><span class="ln" style="--i:4">    (<span class="k">new</span> <span class="f">EvaluationSearchBuilder</span>())-&gt;<span class="f">between</span>(<span class="s">'2026-10-31'</span>, <span class="s">'2026-09-01'</span>)-&gt;<span class="f">build</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0">} <span class="k">catch</span> (<span class="t">InvalidArgumentException</span> <span class="v">$e</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">'Refused: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/builder.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/builder.php" data-umami-event="View example" data-umami-event-pattern="builder">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>SELECT * FROM evaluations WHERE school_id = ? AND subject IN (?, ?) AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 25
-[12,&quot;math&quot;,&quot;science&quot;,&quot;2026-09-01&quot;,&quot;2026-10-31&quot;]
-SELECT * FROM evaluations WHERE school_id = ? AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 50
+    <div class="output"><span>Output</span><pre><code>school 12, subjects math + science, from 2026-09-01 to 2026-10-31, 25 per page
+school 7, from 2026-09-01 to 2027-01-31, 50 per page
 Refused: &quot;from&quot; must be before &quot;to&quot;.</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>final class EvaluationSearchBuilder
-{
-    private ?int $schoolId = null;
-    private array $subjects = [];
-    private ?string $from = null;
-    private ?string $to = null;
-    private int $perPage = 25;
-
-    public function school(int $id): self              { $this-&gt;schoolId = $id; return $this; }
-    public function subjects(string ...$s): self       { $this-&gt;subjects = $s; return $this; }
-    public function between(string $from, string $to): self { $this-&gt;from = $from; $this-&gt;to = $to; return $this; }
-    public function perPage(int $n): self              { $this-&gt;perPage = $n; return $this; }
-
-<span class="h">    public function build(): EvaluationSearch  <span class="c">// every rule checked here, once</span></span>
-    {
-        if ($this-&gt;from !== null &amp;&amp; $this-&gt;from &gt; $this-&gt;to) {
-            throw new InvalidArgumentException('&quot;from&quot; must be before &quot;to&quot;.');
-        }
-        if ($this-&gt;perPage &lt; 1 || $this-&gt;perPage &gt; 100) {
-            throw new InvalidArgumentException('perPage must be between 1 and 100.');
-        }
-
-        return new EvaluationSearch(                    <span class="c">// readonly: can't become invalid later</span>
-            $this-&gt;schoolId, $this-&gt;subjects, $this-&gt;from, $this-&gt;to, $this-&gt;perPage,
-        );
-    }
-}
-
-<span class="h">$search = (new EvaluationSearchBuilder())  <span class="c">// readable, any order</span></span>
-    -&gt;school(12)
-    -&gt;subjects('math', 'science')
-    -&gt;between('2026-09-01', '2026-10-31')
-    -&gt;build();</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> The query builder: Illuminate\Database\Query\Builder only collects parts (wheres, orders, limit, bindings). Nothing touches the database until get(), which asks the Grammar (compileSelect) to turn those parts into one SQL string with bindings.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">EvaluationSearchBuilder</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">int</span> <span class="v">$schoolId</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$subjects</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$from</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> ?<span class="k">string</span> <span class="v">$to</span> = <span class="k">null</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">int</span> <span class="v">$perPage</span> = <span class="n">25</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">school</span>(<span class="k">int</span> <span class="v">$id</span>): <span class="k">self</span>              { <span class="k">$this</span>-&gt;<span class="p">schoolId</span> = <span class="v">$id</span>; <span class="k">return</span> <span class="k">$this</span>; }</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">subjects</span>(<span class="k">string</span> ...<span class="v">$s</span>): <span class="k">self</span>       { <span class="k">$this</span>-&gt;<span class="p">subjects</span> = <span class="v">$s</span>; <span class="k">return</span> <span class="k">$this</span>; }</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">between</span>(<span class="k">string</span> <span class="v">$from</span>, <span class="k">string</span> <span class="v">$to</span>): <span class="k">self</span> { <span class="k">$this</span>-&gt;<span class="p">from</span> = <span class="v">$from</span>; <span class="k">$this</span>-&gt;<span class="p">to</span> = <span class="v">$to</span>; <span class="k">return</span> <span class="k">$this</span>; }</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">perPage</span>(<span class="k">int</span> <span class="v">$n</span>): <span class="k">self</span>              { <span class="k">$this</span>-&gt;<span class="p">perPage</span> = <span class="v">$n</span>; <span class="k">return</span> <span class="k">$this</span>; }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">build</span>(): <span class="t">EvaluationSearch</span> <span class="al"> </span><span class="c">// every rule checked here, once</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">from</span> !== <span class="k">null</span> &amp;&amp; <span class="k">$this</span>-&gt;<span class="p">from</span> &gt; <span class="k">$this</span>-&gt;<span class="p">to</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'&quot;from&quot; must be before &quot;to&quot;.'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="p">perPage</span> &lt; <span class="n">1</span> || <span class="k">$this</span>-&gt;<span class="p">perPage</span> &gt; <span class="n">100</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'perPage must be between 1 and 100.'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">EvaluationSearch</span>( <span class="al">                   </span><span class="c">// readonly: can't become invalid later</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">schoolId</span>, <span class="k">$this</span>-&gt;<span class="p">subjects</span>, <span class="k">$this</span>-&gt;<span class="p">from</span>, <span class="k">$this</span>-&gt;<span class="p">to</span>, <span class="k">$this</span>-&gt;<span class="p">perPage</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        );</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="v">$search</span> = (<span class="k">new</span> <span class="f">EvaluationSearchBuilder</span>()) <span class="al"> </span><span class="c">// readable, any order</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">school</span>(<span class="n">12</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">subjects</span>(<span class="s">'math'</span>, <span class="s">'science'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">between</span>(<span class="s">'2026-09-01'</span>, <span class="s">'2026-10-31'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    -&gt;<span class="f">build</span>();</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The query builder. where(), orderBy() and limit() only collect parts and return $this. Nothing touches the database until get(), which turns all the parts into one SQL string.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Query Builder (-&gt;where()-&gt;get())</span><span>MailMessage (-&gt;line()-&gt;action())</span><span>Http::withToken()-&gt;timeout()-&gt;post()</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -253,6 +242,6 @@ Refused: &quot;from&quot; must be before &quot;to&quot;.</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

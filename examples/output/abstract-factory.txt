@@ -1,4 +1,4 @@
-Local:
-  [memory queue] report 42 ready at /tmp/report-42.pdf
-Cloud:
-  [remote queue] report 43 ready at https://school-reports.storage.example.com/report-43.pdf
+Local development:
+  [memory queue] Report 42 is ready at /var/app/storage/report-42.pdf
+Production:
+  [cloud queue] Report 42 is ready at https://reports.cloud.example.com/report-42.pdf

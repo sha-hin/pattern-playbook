@@ -13,30 +13,29 @@ declare(strict_types=1);
  * - Client: Checkout (calls apply() without ever checking for null)
  *
  * In Laravel:
- * Laravel ships several: Illuminate\Cache\NullStore (cache driver "null"),
- * Illuminate\Broadcasting\Broadcasters\NullBroadcaster, and the "null" log channel
- * (Monolog's NullHandler). Choosing them in config turns a feature off without a single if.
+ * Laravel ships several null objects: the "null" cache driver (NullStore), the "null"
+ * broadcaster and the "null" log channel. Choosing one in config turns a feature off
+ * without a single if in your code.
  */
 
-interface Discount                                              // ★ Abstract object
+// ── Step 1: the interface the caller depends on ──
+interface Discount                                          // ★ Abstract object
 {
-    public function apply(int $subtotalInPiastres): int;
+    public function apply(int $subtotal): int;
 
     public function label(): string;
 }
 
-final class PercentageCoupon implements Discount                // Real object
+// ── Step 2: the real object ──
+class PercentageCoupon implements Discount                  // Real object
 {
-    public function __construct(private readonly string $code, private readonly int $percent)
+    public function __construct(private string $code, private int $percent)
     {
-        if ($percent < 1 || $percent > 100) {
-            throw new InvalidArgumentException('Percent must be between 1 and 100.');
-        }
     }
 
-    public function apply(int $subtotalInPiastres): int
+    public function apply(int $subtotal): int
     {
-        return (int) round($subtotalInPiastres * (100 - $this->percent) / 100);
+        return (int) round($subtotal * (100 - $this->percent) / 100);
     }
 
     public function label(): string
@@ -45,11 +44,12 @@ final class PercentageCoupon implements Discount                // Real object
     }
 }
 
-final class NoDiscount implements Discount                      // ★ Null object
+// ── Step 3: the null object. Same interface, does nothing, never crashes. ──
+class NoDiscount implements Discount                        // ★ Null object
 {
-    public function apply(int $subtotalInPiastres): int
+    public function apply(int $subtotal): int
     {
-        return $subtotalInPiastres;                             // ★ does nothing, safely
+        return $subtotal;                                   // ★ returns the total unchanged
     }
 
     public function label(): string
@@ -58,28 +58,40 @@ final class NoDiscount implements Discount                      // ★ Null obje
     }
 }
 
-final class Checkout                                            // ★ Client: no null checks anywhere
+// ── Step 4: the client. No "if ($discount !== null)" anywhere. ──
+class Checkout                                              // ★ Client
 {
-    public function __construct(private readonly Discount $discount) {}
-
-    public function total(int $subtotalInPiastres): string
+    public function __construct(private Discount $discount)
     {
-        return sprintf('%.2f EGP (%s)', $this->discount->apply($subtotalInPiastres) / 100, $this->discount->label());
+    }
+
+    public function total(int $subtotal): string
+    {
+        $total = $this->discount->apply($subtotal);         // ★ always safe to call
+
+        return ($total / 100) . ' EGP (' . $this->discount->label() . ')';
     }
 }
 
-// ── Decide ONCE, where the input is read ────────────────────────────────
+// ── Using it: decide ONCE, where the coupon is read ──
 function discountFor(?string $coupon): Discount
 {
-    return match ($coupon) {
-        null, '' => new NoDiscount(),                           // "no coupon" is a normal case
-        'STUDENT' => new PercentageCoupon('STUDENT', 10),
-        default => throw new InvalidArgumentException("Unknown coupon [{$coupon}]."),   // a wrong coupon is an error, not "nothing"
-    };
+    if ($coupon === null || $coupon === '') {
+        return new NoDiscount();                            // "no coupon" is a normal case
+    }
+
+    if ($coupon === 'STUDENT') {
+        return new PercentageCoupon('STUDENT', 10);
+    }
+
+    throw new InvalidArgumentException("Unknown coupon [{$coupon}].");   // a WRONG coupon is an error, not "nothing"
 }
 
-echo (new Checkout(discountFor('STUDENT')))->total(20000), PHP_EOL;
-echo (new Checkout(discountFor(null)))->total(20000), PHP_EOL;
+$withCoupon = new Checkout(discountFor('STUDENT'));
+$withoutCoupon = new Checkout(discountFor(null));
+
+echo $withCoupon->total(20000) . "\n";
+echo $withoutCoupon->total(20000) . "\n";
 
 // Never use a Null Object where "missing" is a bug: no payment method must throw,
 // not silently charge nothing.

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Simple Factory Pattern in PHP & Laravel, with Real Code","description":"Simple Factory explained for PHP and Laravel developers. Turning raw input (a string, a payload) into the right object is copied around - put that decision…","url":"https://sha-hin.github.io/pattern-playbook/simple-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/simple-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Simple Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Simple Factory pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/simple-factory.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Simple Factory","item":"https://sha-hin.github.io/pattern-playbook/simple-factory/"}]}]}</script>
 </head>
@@ -69,14 +69,14 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>A switch where each branch only says new X(), and it is copied in 2+ places</li><li>Objects built from raw arrays, with the field names repeated everywhere</li><li>A default branch that silently ignores or guesses</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>A payment provider sends webhooks: payment succeeded, payment failed, refund created. A controller, a replay command and the tests all turn them into event objects.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// WebhookController:</span>
-if ($payload['type'] === 'payment.succeeded') {
-    $event = new PaymentSucceeded($payload['data']['id'], $payload['data']['amount']);
-} elseif ($payload['type'] === 'payment.failed') {
-    $event = new PaymentFailed($payload['data']['id'], $payload['data']['failure_message']);
-}
-<span class="c">// ReplayWebhooksCommand: the same if/else, copied... and it forgot 'refund.created',</span>
-<span class="c">// so replayed refunds were silently skipped.</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// WebhookController:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">if</span> (<span class="v">$payload</span>[<span class="s">'type'</span>] === <span class="s">'payment.succeeded'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="v">$event</span> = <span class="k">new</span> <span class="f">PaymentSucceeded</span>(<span class="v">$payload</span>[<span class="s">'data'</span>][<span class="s">'id'</span>], <span class="v">$payload</span>[<span class="s">'data'</span>][<span class="s">'amount'</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:0">} <span class="k">elseif</span> (<span class="v">$payload</span>[<span class="s">'type'</span>] === <span class="s">'payment.failed'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="v">$event</span> = <span class="k">new</span> <span class="f">PaymentFailed</span>(<span class="v">$payload</span>[<span class="s">'data'</span>][<span class="s">'id'</span>], <span class="v">$payload</span>[<span class="s">'data'</span>][<span class="s">'failure_message'</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ReplayWebhooksCommand: the same if/else, copied... and it forgot 'refund.created',</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// so replayed refunds were silently skipped.</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-simple-factory">
     <h2 class="g" id="build-simple-factory">Build it yourself: the full Simple Factory pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -84,114 +84,119 @@ if ($payload['type'] === 'payment.succeeded') {
       <div class="role" role="row"><span role="rowheader">Factory</span><span role="cell"><code>WebhookEventFactory</code> <small>the ONE place that decides which class to build, and builds it</small></span></div><div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>WebhookEvent</code> <small>what every built object has in common</small></span></div><div class="role" role="row"><span role="rowheader">Concrete products</span><span role="cell"><code>PaymentSucceeded, PaymentFailed</code> <small>different data, not interchangeable</small></span></div><div class="role" role="row"><span role="rowheader">Clients</span><span role="cell"><code>the webhook endpoint and the replay script, which only call the factory</code></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">interface WebhookEvent  <span class="c">// Product</span></span>
-{
-    public function summary(): string;
-}
-
-final class PaymentSucceeded implements WebhookEvent            <span class="c">// Concrete product</span>
-{
-    public function __construct(public readonly string $paymentId, public readonly int $amountInPiastres) {}
-
-    public function summary(): string
-    {
-        return sprintf('Payment %s succeeded: %.2f EGP', $this-&gt;paymentId, $this-&gt;amountInPiastres / 100);
-    }
-}
-
-final class PaymentFailed implements WebhookEvent               <span class="c">// Concrete product</span>
-{
-    public function __construct(public readonly string $paymentId, public readonly string $reason) {}
-
-    public function summary(): string
-    {
-        return &quot;Payment {$this-&gt;paymentId} failed: {$this-&gt;reason}&quot;;
-    }
-}
-
-final class UnknownWebhookType extends InvalidArgumentException {}
-
-<span class="h">final class WebhookEventFactory  <span class="c">// Factory</span></span>
-{
-    /** @param array&lt;string, mixed&gt; $payload */
-    public static function fromPayload(array $payload): WebhookEvent
-    {
-        $data = $payload['data'] ?? throw new UnknownWebhookType('Payload has no data.');
-
-<span class="h">        return match ($payload['type'] ?? null) {  <span class="c">// the one place that decides</span></span>
-<span class="h">            'payment.succeeded' =&gt; new PaymentSucceeded(  <span class="c">// and knows how to build each class</span></span>
-                (string) $data['id'],
-                (int) $data['amount'],
-            ),
-            'payment.failed' =&gt; new PaymentFailed(
-                (string) $data['id'],
-                (string) ($data['failure_message'] ?? 'unknown'),
-            ),
-<span class="h">            default =&gt; throw new UnknownWebhookType(  <span class="c">// never silently ignored</span></span>
-                'Unknown webhook type [' . ($payload['type'] ?? 'missing') . '].',
-            ),
-        };
-    }
-}
-
-<span class="c">// ── Clients: the webhook endpoint, the replay script and the tests all use the same line ──</span>
-$incoming = [
-    ['type' =&gt; 'payment.succeeded', 'data' =&gt; ['id' =&gt; 'pay_1', 'amount' =&gt; 15750]],
-    ['type' =&gt; 'payment.failed', 'data' =&gt; ['id' =&gt; 'pay_2', 'failure_message' =&gt; 'card declined']],
-    ['type' =&gt; 'payment.teleported', 'data' =&gt; ['id' =&gt; 'pay_3']],
-];
-
-foreach ($incoming as $payload) {
-    try {
-        echo WebhookEventFactory::fromPayload($payload)-&gt;summary(), PHP_EOL;
-    } catch (UnknownWebhookType $e) {
-        echo 'Rejected: ', $e-&gt;getMessage(), PHP_EOL;          <span class="c">// a real app logs it and answers 422</span>
-    }
-}</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Product. What every object the factory builds has in common. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">WebhookEvent</span> <span class="al"> </span><span class="c">// Product</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summary</span>(): <span class="k">string</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: concrete products. Different classes with different data. ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">PaymentSucceeded</span> <span class="k">implements</span> <span class="t">WebhookEvent</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">string</span> <span class="v">$paymentId</span>, <span class="k">public</span> <span class="k">int</span> <span class="v">$amountInPiastres</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summary</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;Payment {$this-&gt;paymentId} succeeded: &quot;</span> . (<span class="k">$this</span>-&gt;<span class="p">amountInPiastres</span> / <span class="n">100</span>) . <span class="s">' EGP'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">PaymentFailed</span> <span class="k">implements</span> <span class="t">WebhookEvent</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">string</span> <span class="v">$paymentId</span>, <span class="k">public</span> <span class="k">string</span> <span class="v">$reason</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summary</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;Payment {$this-&gt;paymentId} failed: {$this-&gt;reason}&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Factory. The ONE place that reads the input and builds the right object. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">WebhookEventFactory</span> <span class="al"> </span><span class="c">// Factory</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromPayload</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="t">WebhookEvent</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$type</span> = <span class="v">$payload</span>[<span class="s">'type'</span>] ?? <span class="s">'missing'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$data</span> = <span class="v">$payload</span>[<span class="s">'data'</span>] ?? [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">if</span> (<span class="v">$type</span> === <span class="s">'payment.succeeded'</span>) { <span class="al"> </span><span class="c">// decide which class...</span></span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentSucceeded</span>(<span class="v">$data</span>[<span class="s">'id'</span>], (<span class="k">int</span>) <span class="v">$data</span>[<span class="s">'amount'</span>]); <span class="al"> </span><span class="c">// ...and build it</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$type</span> === <span class="s">'payment.failed'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="k">new</span> <span class="f">PaymentFailed</span>(<span class="v">$data</span>[<span class="s">'id'</span>], <span class="v">$data</span>[<span class="s">'failure_message'</span>] ?? <span class="s">'unknown'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Unknown webhook type [{$type}].&quot;</span>); <span class="al"> </span><span class="c">// never silently ignored</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: the webhook endpoint, the replay script and the tests all use the same line ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$incoming</span> = [</span><span class="nl">
+</span><span class="ln" style="--i:4">    [<span class="s">'type'</span> =&gt; <span class="s">'payment.succeeded'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_1'</span>, <span class="s">'amount'</span> =&gt; <span class="n">15750</span>]],</span><span class="nl">
+</span><span class="ln" style="--i:4">    [<span class="s">'type'</span> =&gt; <span class="s">'payment.failed'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_2'</span>, <span class="s">'failure_message'</span> =&gt; <span class="s">'card declined'</span>]],</span><span class="nl">
+</span><span class="ln" style="--i:4">    [<span class="s">'type'</span> =&gt; <span class="s">'payment.teleported'</span>, <span class="s">'data'</span> =&gt; [<span class="s">'id'</span> =&gt; <span class="s">'pay_3'</span>]],</span><span class="nl">
+</span><span class="ln" style="--i:0">];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">foreach</span> (<span class="v">$incoming</span> <span class="k">as</span> <span class="v">$payload</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">try</span> {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$event</span> = <span class="t">WebhookEventFactory</span>::<span class="f">fromPayload</span>(<span class="v">$payload</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="v">$event</span>-&gt;<span class="f">summary</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    } <span class="k">catch</span> (<span class="t">InvalidArgumentException</span> <span class="v">$e</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">'Rejected: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>; <span class="al">      </span><span class="c">// a real app logs it and answers 422</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/simple-factory.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/simple-factory.php" data-umami-event="View example" data-umami-event-pattern="simple-factory">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Payment pay_1 succeeded: 157.50 EGP
+    <div class="output"><span>Output</span><pre><code>Payment pay_1 succeeded: 157.5 EGP
 Payment pay_2 failed: card declined
 Rejected: Unknown webhook type [payment.teleported].</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>final class WebhookEventFactory
-{
-    public static function fromPayload(array $payload): WebhookEvent
-    {
-        $data = $payload['data'] ?? throw new InvalidWebhook('Payload has no data.');
-
-<span class="h">        return match ($payload['type'] ?? null) {  <span class="c">// the ONE place that decides</span></span>
-<span class="h">            'payment.succeeded' =&gt; new PaymentSucceeded(  <span class="c">// and knows how to build each one</span></span>
-                paymentId: $data['id'],
-                amount: new Money((int) $data['amount'], strtoupper($data['currency'])),
-            ),
-            'payment.failed' =&gt; new PaymentFailed(
-                paymentId: $data['id'],
-                reason: $data['failure_message'] ?? 'unknown',
-            ),
-            'refund.created' =&gt; new RefundCreated(
-                refundId: $data['id'],
-                paymentId: $data['payment_id'],
-            ),
-<span class="h">            default =&gt; throw new UnknownWebhookType(  <span class="c">// never silently ignored</span></span>
-                'Unknown webhook type [' . ($payload['type'] ?? 'missing') . '].'
-            ),
-        };
-    }
-}
-
-<span class="c">// WebhookController, ReplayWebhooksCommand and the tests: the same line</span>
-$event = WebhookEventFactory::fromPayload($request-&gt;json()-&gt;all());
-event($event);
-
-<span class="c">// Note: PaymentSucceeded and RefundCreated are NOT interchangeable strategies.</span>
-<span class="c">// They hold different data. The pattern here is only about building the right one.</span></code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Database\Connectors\ConnectionFactory::createConnector() is a Simple Factory: a match on the configured driver returns MySqlConnector, PostgresConnector, SQLiteConnector or SqlServerConnector, and an unknown driver throws &quot;Unsupported driver&quot;.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">WebhookEventFactory</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromPayload</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="t">WebhookEvent</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">isset</span>(<span class="v">$payload</span>[<span class="s">'data'</span>])) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidWebhook</span>(<span class="s">'Payload has no data.'</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$data</span> = <span class="v">$payload</span>[<span class="s">'data'</span>];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">match</span> (<span class="v">$payload</span>[<span class="s">'type'</span>] ?? <span class="k">null</span>) { <span class="al"> </span><span class="c">// the ONE place that decides</span></span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="s">'payment.succeeded'</span> =&gt; <span class="k">new</span> <span class="f">PaymentSucceeded</span>( <span class="al"> </span><span class="c">// and knows how to build each one</span></span><span class="nl">
+</span><span class="ln" style="--i:16">                paymentId: <span class="v">$data</span>[<span class="s">'id'</span>],</span><span class="nl">
+</span><span class="ln" style="--i:16">                amount: <span class="k">new</span> <span class="f">Money</span>((<span class="k">int</span>) <span class="v">$data</span>[<span class="s">'amount'</span>], <span class="f">strtoupper</span>(<span class="v">$data</span>[<span class="s">'currency'</span>])),</span><span class="nl">
+</span><span class="ln" style="--i:12">            ),</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="s">'payment.failed'</span> =&gt; <span class="k">new</span> <span class="f">PaymentFailed</span>(</span><span class="nl">
+</span><span class="ln" style="--i:16">                paymentId: <span class="v">$data</span>[<span class="s">'id'</span>],</span><span class="nl">
+</span><span class="ln" style="--i:16">                reason: <span class="v">$data</span>[<span class="s">'failure_message'</span>] ?? <span class="s">'unknown'</span>,</span><span class="nl">
+</span><span class="ln" style="--i:12">            ),</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="s">'refund.created'</span> =&gt; <span class="k">new</span> <span class="f">RefundCreated</span>(</span><span class="nl">
+</span><span class="ln" style="--i:16">                refundId: <span class="v">$data</span>[<span class="s">'id'</span>],</span><span class="nl">
+</span><span class="ln" style="--i:16">                paymentId: <span class="v">$data</span>[<span class="s">'payment_id'</span>],</span><span class="nl">
+</span><span class="ln" style="--i:12">            ),</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">default</span> =&gt; <span class="k">throw</span> <span class="k">new</span> <span class="f">UnknownWebhookType</span>( <span class="al"> </span><span class="c">// never silently ignored</span></span><span class="nl">
+</span><span class="ln" style="--i:16">                <span class="s">'Unknown webhook type ['</span> . (<span class="v">$payload</span>[<span class="s">'type'</span>] ?? <span class="s">'missing'</span>) . <span class="s">'].'</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            ),</span><span class="nl">
+</span><span class="ln" style="--i:8">        };</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// WebhookController, ReplayWebhooksCommand and the tests: the same line</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$event</span> = <span class="t">WebhookEventFactory</span>::<span class="f">fromPayload</span>(<span class="v">$request</span>-&gt;<span class="f">json</span>()-&gt;<span class="f">all</span>());</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="f">event</span>(<span class="v">$event</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Note: PaymentSucceeded and RefundCreated are NOT interchangeable strategies.</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// They hold different data. The pattern here is only about building the right one.</span></span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The database layer picks its connector with a Simple Factory: a match on the configured driver ('mysql', 'pgsql', 'sqlite'...) builds the right connector class, and an unknown driver throws &quot;Unsupported driver&quot;.</p></div>
   <div class="vsbox"><h2>Don't confuse it with <a href="../strategy/" data-umami-event="Open pattern" data-umami-event-pattern="strategy" data-umami-event-from="compare">Strategy</a></h2>
     <div class="vstable" role="table" aria-label="Simple Factory compared with Strategy">
       <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Simple Factory</span><span role="columnheader">Strategy</span></div>
@@ -206,6 +211,6 @@ event($event);
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

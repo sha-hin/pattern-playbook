@@ -7,64 +7,75 @@ declare(strict_types=1);
  * Run it: php examples/generators.php
  *
  * Roles:
- * - Generator function: evaluations() (contains yield, so PHP turns it into an Iterator)
- * - yield: hands out one value and pauses until the loop asks for the next
- * - Consumer: the foreach writing the CSV (looks exactly like a normal loop)
+ * - Generator function: evaluations() (it contains yield, so PHP turns it into an iterator)
+ * - yield: hands out one value and pauses until the loop asks for the next one
+ * - Consumer: the foreach that writes the CSV (it looks like a normal loop)
  *
  * In Laravel:
- * LazyCollection::make(function () { yield ...; }) is built on generators.
- * Model::lazyById(1000) runs one "WHERE id > ? ORDER BY id LIMIT 1000" query at a time and
- * yields each row, and cursor() yields rows from a single PDO statement.
+ * Model::lazyById(1000) returns a LazyCollection built on a generator: it runs one
+ * "WHERE id > ? ORDER BY id LIMIT 1000" query at a time and yields each row, so memory
+ * stays small however big the table is.
  */
 
-$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+// ── Setup: a table with 100,000 rows in an in-memory SQLite database ──
+$db = new PDO('sqlite::memory:');
+$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE evaluations (id INTEGER PRIMARY KEY, school_id INTEGER, score INTEGER, notes TEXT)');
+
 $db->beginTransaction();
 $insert = $db->prepare('INSERT INTO evaluations (school_id, score, notes) VALUES (?, ?, ?)');
-for ($i = 1; $i <= 100_000; $i++) {
+for ($i = 1; $i <= 100000; $i++) {
     $insert->execute([$i % 300, $i % 101, str_repeat('x', 60)]);
 }
 $db->commit();
 
-/** @return Generator<int, array{id: int, school_id: int, score: int, notes: string}> */
-function evaluations(PDO $db, int $chunk = 1000): Generator   // ★ a generator function
+// ── Step 1: a generator function. Notice "yield" instead of "return". ──
+function evaluations(PDO $db): Generator                   // ★ generator function
 {
-    $query = $db->prepare('SELECT * FROM evaluations WHERE id > ? ORDER BY id LIMIT ?');
+    $query = $db->prepare('SELECT * FROM evaluations WHERE id > ? ORDER BY id LIMIT 1000');
     $lastId = 0;
 
-    do {
-        $query->execute([$lastId, $chunk]);
-        $rows = $query->fetchAll(PDO::FETCH_ASSOC);             // at most one chunk in memory
+    while (true) {
+        $query->execute([$lastId]);
+        $rows = $query->fetchAll(PDO::FETCH_ASSOC);         // at most 1,000 rows in memory
+
+        if (count($rows) === 0) {
+            return;                                         // no more rows: the loop ends
+        }
 
         foreach ($rows as $row) {
-            yield $row;                                         // ★ hand out one row, pause here
-            $lastId = (int) $row['id'];
+            yield $row;                                     // ★ hand out one row, pause here
+            $lastId = $row['id'];
         }
-    } while (count($rows) === $chunk);                          // WHERE id > ? stays fast at any depth
+    }
 }
 
-function exportCsv(iterable $rows): int                         // works with arrays AND generators
+// ── Step 2: a normal loop that works with arrays AND generators ──
+function exportCsv(iterable $rows): int
 {
-    $out = fopen('php://temp', 'w+') ?: throw new RuntimeException('Cannot open a temp stream.');
+    $file = fopen('php://memory', 'w');
     $count = 0;
+
     foreach ($rows as $row) {
-        fputcsv($out, $row, ',', '"', '');
+        fwrite($file, implode(',', $row) . "\n");
         $count++;
     }
-    fclose($out);
+
+    fclose($file);
 
     return $count;
 }
 
-// ── 1. With a generator: memory stays flat ─────────────────────────────
-memory_reset_peak_usage();
-$before = memory_get_usage();
-$count = exportCsv(evaluations($db));                           // ★ looks like a normal loop
-printf("Generator: %d rows, peak extra memory %.1f MB\n", $count, (memory_get_peak_usage() - $before) / 1048576);
+// ── Compare the memory used ──
+$start = memory_get_usage();
+$count = exportCsv(evaluations($db));                       // ★ looks like any other loop
+$usedByGenerator = memory_get_peak_usage() - $start;
 
-// ── 2. Loading everything first: memory grows with the table ───────────
-memory_reset_peak_usage();
-$before = memory_get_usage();
-$all = $db->query('SELECT * FROM evaluations ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
-$count = exportCsv($all);
-printf("fetchAll:  %d rows, peak extra memory %.1f MB\n", $count, (memory_get_peak_usage() - $before) / 1048576);
+$start = memory_get_usage();
+$allRows = $db->query('SELECT * FROM evaluations')->fetchAll(PDO::FETCH_ASSOC);   // everything at once
+exportCsv($allRows);
+$usedByFetchAll = memory_get_peak_usage() - $start;
+
+echo "Exported {$count} rows\n";
+echo 'Generator: about ' . round($usedByGenerator / 1048576) . " MB\n";
+echo 'fetchAll:  about ' . round($usedByFetchAll / 1048576) . " MB\n";

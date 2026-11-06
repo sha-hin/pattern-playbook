@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Manager / Driver Pattern in Laravel: Backends Chosen by Config","description":"Manager / Driver explained for PHP and Laravel developers. One service with interchangeable backends chosen by config - a manager builds the configured…","url":"https://sha-hin.github.io/pattern-playbook/manager/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/manager/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Manager / Driver design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Manager / Driver pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/manager.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Manager / Driver","item":"https://sha-hin.github.io/pattern-playbook/manager/"}]}]}</script>
 </head>
@@ -69,148 +69,148 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>if ($env === …) new X else new Y in several places</li><li>A service with a &quot;provider&quot; setting in .env</li><li>Different backends in local, staging and production</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Local development uses a local LLM (Ollama). Production uses a hosted API. Same code everywhere.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in 6 different services:</span>
-$ai = app()-&gt;isLocal()
-    ? new OllamaClient('http://localhost:11434')
-    : new AnthropicClient(config('services.anthropic.key'));</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// in 6 different services:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$ai</span> = <span class="f">app</span>()-&gt;<span class="f">isLocal</span>()</span><span class="nl">
+</span><span class="ln" style="--i:4">    ? <span class="k">new</span> <span class="f">OllamaClient</span>(<span class="s">'http://localhost:11434'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    : <span class="k">new</span> <span class="f">AnthropicClient</span>(<span class="f">config</span>(<span class="s">'services.anthropic.key'</span>));</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-manager">
     <h2 class="g" id="build-manager">Build it yourself: the full Manager / Driver pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Manager / Driver">
-      <div class="role" role="row"><span role="rowheader">Manager</span><span role="cell"><code>Manager</code> <small>abstract: pick a driver by name, build it once, reuse it</small></span></div><div class="role" role="row"><span role="rowheader">Concrete manager</span><span role="cell"><code>AiManager</code> <small>one create{Name}Driver() method per backend</small></span></div><div class="role" role="row"><span role="rowheader">Driver contract</span><span role="cell"><code>AiClient; Drivers: LocalLlmClient, HostedApiClient</code></span></div><div class="role" role="row"><span role="rowheader">Config</span><span role="cell"><code>decides the default driver</code></span></div>
+      <div class="role" role="row"><span role="rowheader">Driver contract</span><span role="cell"><code>AiClient</code> <small>what every backend can do</small></span></div><div class="role" role="row"><span role="rowheader">Drivers</span><span role="cell"><code>LocalLlmClient, HostedApiClient</code> <small>one per backend</small></span></div><div class="role" role="row"><span role="rowheader">Manager</span><span role="cell"><code>Manager</code> <small>picks a driver by name, builds it once, reuses it</small></span></div><div class="role" role="row"><span role="rowheader">Concrete manager</span><span role="cell"><code>AiManager</code> <small>one create...Driver() method per backend</small></span></div><div class="role" role="row"><span role="rowheader">Config</span><span role="cell"><code>decides which driver is the default</code></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">interface AiClient  <span class="c">// Driver contract</span></span>
-{
-    public function summarize(string $text): string;
-}
-
-final class LocalLlmClient implements AiClient                  <span class="c">// Driver (local development)</span>
-{
-    public function __construct(private readonly string $url) {}
-
-    public function summarize(string $text): string
-    {
-        return &quot;[local model at {$this-&gt;url}] &quot; . mb_substr($text, 0, 30) . '…';
-    }
-}
-
-final class HostedApiClient implements AiClient                 <span class="c">// Driver (production)</span>
-{
-    public function __construct(private readonly string $apiKey) {}
-
-    public function summarize(string $text): string
-    {
-        return '[hosted API, key …' . substr($this-&gt;apiKey, -4) . '] ' . mb_substr($text, 0, 30) . '…';
-    }
-}
-
-<span class="h">abstract class Manager  <span class="c">// Manager</span></span>
-{
-    /** @var array&lt;string, object&gt; */
-    private array $drivers = [];
-
-    /** @var array&lt;string, Closure(array): object&gt; */
-    private array $customCreators = [];
-
-    /** @param array&lt;string, mixed&gt; $config */
-    public function __construct(protected readonly array $config) {}
-
-    abstract public function defaultDriver(): string;
-
-<span class="h">    final public function driver(?string $name = null): object  <span class="c">// pick, build once, reuse</span></span>
-    {
-        $name ??= $this-&gt;defaultDriver();
-
-        return $this-&gt;drivers[$name] ??= $this-&gt;create($name);
-    }
-
-    final public function extend(string $name, Closure $creator): void   <span class="c">// add a backend without editing the class</span>
-    {
-        $this-&gt;customCreators[$name] = $creator;
-        unset($this-&gt;drivers[$name]);
-    }
-
-    private function create(string $name): object
-    {
-        if (isset($this-&gt;customCreators[$name])) {
-            return ($this-&gt;customCreators[$name])($this-&gt;config);
-        }
-
-        $method = 'create' . ucfirst($name) . 'Driver';        <span class="c">// 'local' → createLocalDriver()</span>
-        if (!method_exists($this, $method)) {
-            throw new InvalidArgumentException(&quot;AI driver [{$name}] is not supported.&quot;);
-        }
-
-        return $this-&gt;{$method}();
-    }
-}
-
-<span class="h">final class AiManager extends Manager  <span class="c">// Concrete manager</span></span>
-{
-    public function defaultDriver(): string
-    {
-        return $this-&gt;config['default'] ?? throw new RuntimeException('Set ai.default in config.');
-    }
-
-<span class="h">    protected function createLocalDriver(): AiClient  <span class="c">// one method per backend</span></span>
-    {
-        return new LocalLlmClient($this-&gt;config['local']['url']);
-    }
-
-    protected function createHostedDriver(): AiClient
-    {
-        return new HostedApiClient($this-&gt;config['hosted']['key']);
-    }
-}
-
-<span class="c">// ── Config differs per environment; the code does not ──────────────────</span>
-$config = [
-    'default' =&gt; getenv('AI_DRIVER') ?: 'local',
-    'local'   =&gt; ['url' =&gt; 'http://localhost:11434'],
-    'hosted'  =&gt; ['key' =&gt; 'sk-test-9f2c'],
-];
-
-$ai = new AiManager($config);
-echo $ai-&gt;driver()-&gt;summarize('Teachers rate classroom time management highest this term.'), PHP_EOL;
-echo $ai-&gt;driver('hosted')-&gt;summarize('Teachers rate classroom time management highest this term.'), PHP_EOL;
-echo 'Built once? ', var_export($ai-&gt;driver() === $ai-&gt;driver(), true), PHP_EOL;</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the driver contract and two drivers ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">AiClient</span> <span class="al"> </span><span class="c">// Driver contract</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summarize</span>(<span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">LocalLlmClient</span> <span class="k">implements</span> <span class="t">AiClient</span> <span class="al"> </span><span class="c">// Driver for local development</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">string</span> <span class="v">$url</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summarize</span>(<span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;[local model at {$this-&gt;url}] &quot;</span> . <span class="f">substr</span>(<span class="v">$text</span>, <span class="n">0</span>, <span class="n">30</span>) . <span class="s">'...'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">HostedApiClient</span> <span class="k">implements</span> <span class="t">AiClient</span> <span class="al"> </span><span class="c">// Driver for production</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">string</span> <span class="v">$apiKey</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">summarize</span>(<span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">'[hosted API] '</span> . <span class="f">substr</span>(<span class="v">$text</span>, <span class="n">0</span>, <span class="n">30</span>) . <span class="s">'...'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Manager. Pick by name, build once, reuse. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">Manager</span> <span class="al"> </span><span class="c">// Manager</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$drivers</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">protected</span> <span class="k">array</span> <span class="v">$config</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">defaultDriver</span>(): <span class="k">string</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">driver</span>(?<span class="k">string</span> <span class="v">$name</span> = <span class="k">null</span>): <span class="k">object</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$name</span> === <span class="k">null</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$name</span> = <span class="k">$this</span>-&gt;<span class="f">defaultDriver</span>(); <span class="al">                </span><span class="c">// no name given: use the config</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">drivers</span>[<span class="v">$name</span>])) {</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="v">$method</span> = <span class="s">'create'</span> . <span class="f">ucfirst</span>(<span class="v">$name</span>) . <span class="s">'Driver'</span>; <span class="al"> </span><span class="c">// 'local' becomes createLocalDriver()</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">if</span> (!<span class="f">method_exists</span>(<span class="k">$this</span>, <span class="v">$method</span>)) {</span><span class="nl">
+</span><span class="ln" style="--i:16">                <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;AI driver [{$name}] is not supported.&quot;</span>);</span><span class="nl">
+</span><span class="ln" style="--i:12">            }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">drivers</span>[<span class="v">$name</span>] = <span class="k">$this</span>-&gt;<span class="v">$method</span>(); <span class="al"> </span><span class="c">// build it the first time...</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">drivers</span>[<span class="v">$name</span>]; <span class="al"> </span><span class="c">// ...then always reuse it</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the concrete manager. One small method per backend. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">AiManager</span> <span class="k">extends</span> <span class="t">Manager</span> <span class="al"> </span><span class="c">// Concrete manager</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">defaultDriver</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">config</span>[<span class="s">'default'</span>];</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createLocalDriver</span>(): <span class="t">AiClient</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">LocalLlmClient</span>(<span class="k">$this</span>-&gt;<span class="p">config</span>[<span class="s">'local_url'</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createHostedDriver</span>(): <span class="t">AiClient</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">HostedApiClient</span>(<span class="k">$this</span>-&gt;<span class="p">config</span>[<span class="s">'hosted_key'</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: config changes per environment, the code never does ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$config</span> = [</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="s">'default'</span> =&gt; <span class="s">'local'</span>, <span class="al">                                  </span><span class="c">// 'hosted' in production</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="s">'local_url'</span> =&gt; <span class="s">'http://localhost:11434'</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="s">'hosted_key'</span> =&gt; <span class="s">'secret-key'</span>,</span><span class="nl">
+</span><span class="ln" style="--i:0">];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$ai</span> = <span class="k">new</span> <span class="f">AiManager</span>(<span class="v">$config</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$text</span> = <span class="s">'Teachers rate classroom time management highest this term.'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="v">$ai</span>-&gt;<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>) . <span class="s">&quot;\n&quot;</span>; <span class="al">              </span><span class="c">// the default from config</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="v">$ai</span>-&gt;<span class="f">driver</span>(<span class="s">'hosted'</span>)-&gt;<span class="f">summarize</span>(<span class="v">$text</span>) . <span class="s">&quot;\n&quot;</span>; <span class="al">      </span><span class="c">// or a named one</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$same</span> = <span class="v">$ai</span>-&gt;<span class="f">driver</span>() === <span class="v">$ai</span>-&gt;<span class="f">driver</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Built only once? '</span> . (<span class="v">$same</span> ? <span class="s">'yes'</span> : <span class="s">'no'</span>) . <span class="s">&quot;\n&quot;</span>;</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/manager.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/manager.php" data-umami-event="View example" data-umami-event-pattern="manager">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>[local model at http://localhost:11434] Teachers rate classroom time m…
-[hosted API, key …9f2c] Teachers rate classroom time m…
-Built once? true</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>[local model at http://localhost:11434] Teachers rate classroom time m...
+[hosted API] Teachers rate classroom time m...
+Built only once? yes</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>final class AiManager extends \Illuminate\Support\Manager   <span class="c">// Laravel's own base class</span>
-{
-    public function getDefaultDriver(): string
-    {
-<span class="h">        return $this-&gt;config-&gt;get('ai.default');  <span class="c">// .env: AI_DRIVER=ollama</span></span>
-    }
-
-<span class="h">    protected function createOllamaDriver(): AiClient  <span class="c">// one method per driver</span></span>
-    {
-        return new OllamaClient($this-&gt;config-&gt;get('ai.ollama.url'));
-    }
-
-    protected function createAnthropicDriver(): AiClient
-    {
-        return new AnthropicClient($this-&gt;config-&gt;get('ai.anthropic.key'));
-    }
-}
-
-<span class="c">// AppServiceProvider</span>
-$this-&gt;app-&gt;singleton(AiManager::class, fn ($app) =&gt; new AiManager($app));
-
-<span class="c">// Anywhere:</span>
-<span class="h">$summary = app(AiManager::class)-&gt;driver()-&gt;summarize($text);  <span class="c">// config decides, built once</span></span>
-$check   = app(AiManager::class)-&gt;driver('anthropic')-&gt;summarize($text);   <span class="c">// or by name</span></code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Support\Manager: driver($name) returns $this-&gt;drivers[$name] ??= createDriver(), which calls create{Name}Driver() or a creator added with extend(). CacheManager, MailManager, HashManager and FilesystemManager all work this way.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">AiManager</span> <span class="k">extends</span> \<span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Manager</span> <span class="al">  </span><span class="c">// Laravel's own base class</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">getDefaultDriver</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">config</span>-&gt;<span class="f">get</span>(<span class="s">'ai.default'</span>); <span class="al"> </span><span class="c">// .env: AI_DRIVER=ollama</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createOllamaDriver</span>(): <span class="t">AiClient</span> <span class="al"> </span><span class="c">// one method per driver</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">OllamaClient</span>(<span class="k">$this</span>-&gt;<span class="p">config</span>-&gt;<span class="f">get</span>(<span class="s">'ai.ollama.url'</span>));</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createAnthropicDriver</span>(): <span class="t">AiClient</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">AnthropicClient</span>(<span class="k">$this</span>-&gt;<span class="p">config</span>-&gt;<span class="f">get</span>(<span class="s">'ai.anthropic.key'</span>));</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">singleton</span>(<span class="t">AiManager</span>::class, <span class="k">fn</span> (<span class="v">$app</span>) =&gt; <span class="k">new</span> <span class="f">AiManager</span>(<span class="v">$app</span>));</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Anywhere:</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="v">$summary</span> = <span class="f">app</span>(<span class="t">AiManager</span>::class)-&gt;<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>); <span class="al"> </span><span class="c">// config decides, built once</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$check</span>   = <span class="f">app</span>(<span class="t">AiManager</span>::class)-&gt;<span class="f">driver</span>(<span class="s">'anthropic'</span>)-&gt;<span class="f">summarize</span>(<span class="v">$text</span>); <span class="al">  </span><span class="c">// or by name</span></span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's Manager class: driver($name) builds the driver the first time (by calling create{Name}Driver()) and returns the same object after that. Hashing and sessions use it, and Cache, Mail and Storage use the same idea.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Cache::driver(), Mail::mailer(), Storage::disk()</span><span>Queue connections</span><span>Laravel's Illuminate\Support\Manager</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -221,6 +221,6 @@ $check   = app(AiManager::class)-&gt;driver('anthropic')-&gt;summarize($text);  
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

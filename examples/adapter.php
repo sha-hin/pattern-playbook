@@ -13,67 +13,63 @@ declare(strict_types=1);
  * - Client: OrderNotifier (only knows the Target)
  *
  * In Laravel:
- * Storage::put() works on S3, local disk or FTP because of adapters. Each Flysystem adapter
- * (AwsS3V3Adapter, LocalFilesystemAdapter...) translates one storage SDK into Flysystem's
- * interface, and Laravel's own Illuminate\Filesystem\FilesystemAdapter adapts Flysystem
- * to Laravel's Filesystem contract.
+ * Storage::put() works on S3, local disk or FTP because of adapters. Laravel's
+ * FilesystemAdapter translates Laravel's put() / exists() into the Flysystem library's
+ * write() / has(), and each Flysystem adapter translates those into one storage SDK.
  */
 
-// ── Third-party code (pretend it came from Composer). You cannot change it. ──
-final class AcmeSmsClient                                       // ★ Adaptee
+// ── The third-party class (pretend it came from Composer). You can't change it. ──
+class AcmeSmsClient                                         // ★ Adaptee
 {
-    /**
-     * @param array{msisdn: string, text: string} $payload
-     * @return array{status: string, id?: string, error?: string}
-     */
     public function dispatch(array $payload): array
     {
-        if (preg_match('/^\+\d{8,15}$/', $payload['msisdn']) !== 1) {
+        if (!str_starts_with($payload['msisdn'], '+')) {
             return ['status' => 'rejected', 'error' => 'invalid msisdn'];
         }
 
-        return ['status' => 'queued', 'id' => 'acme_' . substr(md5($payload['text']), 0, 8)];
+        return ['status' => 'queued', 'id' => 'acme_' . rand(1000, 9999)];
     }
 }
 
-// ── Your code ───────────────────────────────────────────────────────────
-interface SmsSender                                             // ★ Target
+// ── Step 1: the Target. The simple interface YOUR code wants. ──
+interface SmsSender                                         // ★ Target
 {
-    /** @return string the provider's message id */
-    public function send(string $phone, string $text): string;
+    public function send(string $phone, string $text): string;   // returns the message id
 }
 
-final class SmsFailed extends RuntimeException {}
-
-final class AcmeSmsAdapter implements SmsSender                 // ★ Adapter: the Target outside...
+// ── Step 2: the Adapter. Your interface outside, their class inside. ──
+class AcmeSmsAdapter implements SmsSender                   // ★ Adapter
 {
-    public function __construct(private readonly AcmeSmsClient $client) {}   // ★ ...the Adaptee inside
+    public function __construct(private AcmeSmsClient $client)   // ★ holds the third-party object
+    {
+    }
 
     public function send(string $phone, string $text): string
     {
-        $result = $this->client->dispatch([                     // ★ translate the call
-            'msisdn' => $this->toInternational($phone),
-            'text'   => $text,
-        ]);
-
-        if ($result['status'] !== 'queued') {                   // ★ translate a status array into an exception
-            throw new SmsFailed("SMS to {$phone} failed: " . ($result['error'] ?? $result['status']));
+        $phone = str_replace(' ', '', $phone);
+        if (str_starts_with($phone, '0')) {
+            $phone = '+2' . $phone;                          // Egyptian 0100... becomes +20100...
         }
 
-        return $result['id'] ?? throw new SmsFailed('Provider accepted the SMS but returned no id.');
-    }
+        $result = $this->client->dispatch([                 // ★ translate YOUR call into THEIR call
+            'msisdn' => $phone,
+            'text' => $text,
+        ]);
 
-    private function toInternational(string $phone): string    // Egyptian "010..." becomes "+2010..."
-    {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($result['status'] !== 'queued') {               // ★ turn their "status" array into an exception
+            throw new RuntimeException("SMS to {$phone} failed: {$result['error']}");
+        }
 
-        return str_starts_with($digits, '0') ? '+2' . $digits : '+' . $digits;
+        return $result['id'];
     }
 }
 
-final class OrderNotifier                                       // ★ Client: knows only the Target
+// ── Step 3: the Client. It only knows SmsSender. ──
+class OrderNotifier                                         // ★ Client
 {
-    public function __construct(private readonly SmsSender $sms) {}
+    public function __construct(private SmsSender $sms)
+    {
+    }
 
     public function orderReady(string $phone, int $orderId): string
     {
@@ -81,15 +77,16 @@ final class OrderNotifier                                       // ★ Client: k
     }
 }
 
-// ── Using it ────────────────────────────────────────────────────────────
+// ── Using it ──
 $notifier = new OrderNotifier(new AcmeSmsAdapter(new AcmeSmsClient()));
 
-echo 'Sent, id: ', $notifier->orderReady('0100 123 4567', 42), PHP_EOL;
+$id = $notifier->orderReady('0100 123 4567', 42);
+echo 'Sent, id starts with: ' . substr($id, 0, 5) . "\n";
 
 try {
     $notifier->orderReady('12', 43);
-} catch (SmsFailed $e) {
-    echo $e->getMessage(), PHP_EOL;
+} catch (RuntimeException $e) {
+    echo $e->getMessage() . "\n";
 }
 
 // Switching provider = one new adapter class. OrderNotifier never changes.

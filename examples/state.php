@@ -7,47 +7,57 @@ declare(strict_types=1);
  * Run it: php examples/state.php
  *
  * Roles:
- * - Context: Report (holds its current state and hands every action to it)
- * - State: ReportState (base class: every action forbidden by default)
+ * - Context: Report (holds its current state and passes every action to it)
+ * - State: ReportState (base class: every action is refused unless a child allows it)
  * - Concrete states: Draft, Submitted, Approved (each allows only its own moves)
  *
  * In Laravel:
- * Not built in. The popular package spatie/laravel-model-states stores the state class
- * name in a model column, and each state class declares which transitions are allowed:
- * the same structure as below, with persistence added.
+ * Laravel's core has no State class: a status is usually a string or enum column. When each
+ * status also needs its own behaviour, the spatie/laravel-model-states package adds exactly
+ * this structure: it saves the state class in the column and gives each state its own class.
  */
 
-final class IllegalTransition extends LogicException {}
-
-abstract class ReportState                                      // ★ State: forbidden unless a child allows it
+// ── Step 1: the State base class. Everything is refused by default. ──
+abstract class ReportState                                  // ★ State
 {
     abstract public function name(): string;
 
-    public function submit(Report $report): void { $this->deny('submit'); }
-
-    public function approve(Report $report): void { $this->deny('approve'); }
-
-    public function reject(Report $report, string $reason): void { $this->deny('reject'); }
-
-    private function deny(string $action): never
-    {
-        throw new IllegalTransition("Cannot {$action} a report that is {$this->name()}.");
-    }
-}
-
-final class Draft extends ReportState                           // ★ Concrete state
-{
-    public function name(): string { return 'draft'; }
-
     public function submit(Report $report): void
     {
-        $report->moveTo(new Submitted());                       // ★ the state decides what comes next
+        throw new LogicException("Cannot submit a report that is {$this->name()}.");
+    }
+
+    public function approve(Report $report): void
+    {
+        throw new LogicException("Cannot approve a report that is {$this->name()}.");
+    }
+
+    public function reject(Report $report, string $reason): void
+    {
+        throw new LogicException("Cannot reject a report that is {$this->name()}.");
     }
 }
 
-final class Submitted extends ReportState                       // ★ Concrete state
+// ── Step 2: concrete states. Each one allows only its own moves. ──
+class Draft extends ReportState                             // ★ Concrete state
 {
-    public function name(): string { return 'submitted'; }
+    public function name(): string
+    {
+        return 'draft';
+    }
+
+    public function submit(Report $report): void            // a draft CAN be submitted
+    {
+        $report->moveTo(new Submitted());                   // ★ the state decides what comes next
+    }
+}
+
+class Submitted extends ReportState                         // ★ Concrete state
+{
+    public function name(): string
+    {
+        return 'submitted';
+    }
 
     public function approve(Report $report): void
     {
@@ -56,55 +66,64 @@ final class Submitted extends ReportState                       // ★ Concrete 
 
     public function reject(Report $report, string $reason): void
     {
-        if (trim($reason) === '') {
-            throw new InvalidArgumentException('A rejection needs a reason.');
-        }
         $report->rejectionReason = $reason;
-        $report->moveTo(new Draft());
+        $report->moveTo(new Draft());                       // rejected reports go back to draft
     }
 }
 
-final class Approved extends ReportState                        // ★ Concrete state: final, allows nothing
+class Approved extends ReportState                          // ★ Concrete state: allows nothing more
 {
-    public function name(): string { return 'approved'; }
+    public function name(): string
+    {
+        return 'approved';
+    }
 }
 
-final class Report                                              // ★ Context
+// ── Step 3: the Context. It has no if statements at all. ──
+class Report                                                // ★ Context
 {
+    private ReportState $state;
     public ?string $rejectionReason = null;
-
-    /** @var list<string> */
     public array $history = [];
 
-    public function __construct(private ReportState $state = new Draft()) {}
-
-    public function submit(): void { $this->state->submit($this); }        // ★ no if anywhere
-
-    public function approve(): void { $this->state->approve($this); }
-
-    public function reject(string $reason): void { $this->state->reject($this, $reason); }
-
-    public function status(): string { return $this->state->name(); }
-
-    /** @internal called only by the state objects */
-    public function moveTo(ReportState $next): void
+    public function __construct()
     {
-        $this->history[] = $this->state->name() . ' → ' . $next->name();
+        $this->state = new Draft();                         // every report starts as a draft
+    }
+
+    public function submit(): void
+    {
+        $this->state->submit($this);                        // ★ just ask the current state
+    }
+
+    public function approve(): void
+    {
+        $this->state->approve($this);
+    }
+
+    public function reject(string $reason): void
+    {
+        $this->state->reject($this, $reason);
+    }
+
+    public function moveTo(ReportState $next): void         // called by the state classes
+    {
+        $this->history[] = $this->state->name() . ' -> ' . $next->name();
         $this->state = $next;
     }
 }
 
-// ── Using it ────────────────────────────────────────────────────────────
+// ── Using it ──
 $report = new Report();
 $report->submit();
 $report->reject('Missing the science scores.');
 $report->submit();
 $report->approve();
 
-echo implode(PHP_EOL, $report->history), PHP_EOL;
+echo implode("\n", $report->history) . "\n";
 
 try {
-    $report->submit();                                          // approved reports are locked
-} catch (IllegalTransition $e) {
-    echo 'Refused: ', $e->getMessage(), PHP_EOL;
+    $report->submit();                                      // approved reports are locked
+} catch (LogicException $e) {
+    echo 'Refused: ' . $e->getMessage() . "\n";
 }

@@ -1,3 +1,2 @@
 Margherita, Pepperoni
-Same object? true
-After swap: NULL
+After swapping in a fresh cache: NULL

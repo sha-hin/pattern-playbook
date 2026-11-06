@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Null Object Pattern in PHP & Laravel, with Real Code","description":"Null Object explained for PHP and Laravel developers. \"Nothing\" is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…","url":"https://sha-hin.github.io/pattern-playbook/null-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/null-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Null Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Null Object pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/null-object.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Null Object","item":"https://sha-hin.github.io/pattern-playbook/null-object/"}]}]}</script>
 </head>
@@ -69,11 +69,11 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>The same null check in many places</li><li>&quot;Call to a member function … on null&quot; in your logs</li><li>An optional collaborator (logger, discount, notifier)</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Checkout with an optional coupon. The discount is used by the order, the invoice, the receipt and the reports.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// copied in Order, Invoice, Receipt, MonthlyReport:</span>
-$total = $coupon !== null ? $coupon-&gt;apply($subtotal) : $subtotal;
-
-<span class="c">// MonthlyReport forgot the check:</span>
-$total = $coupon-&gt;apply($subtotal);   <span class="c">// Error: Call to a member function apply() on null</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// copied in Order, Invoice, Receipt, MonthlyReport:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$total</span> = <span class="v">$coupon</span> !== <span class="k">null</span> ? <span class="v">$coupon</span>-&gt;<span class="f">apply</span>(<span class="v">$subtotal</span>) : <span class="v">$subtotal</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// MonthlyReport forgot the check:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$total</span> = <span class="v">$coupon</span>-&gt;<span class="f">apply</span>(<span class="v">$subtotal</span>); <span class="al">  </span><span class="c">// Error: Call to a member function apply() on null</span></span></code></pre></div>
   <section class="scratch" aria-labelledby="build-null-object">
     <h2 class="g" id="build-null-object">Build it yourself: the full Null Object pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -81,107 +81,119 @@ $total = $coupon-&gt;apply($subtotal);   <span class="c">// Error: Call to a mem
       <div class="role" role="row"><span role="rowheader">Abstract object</span><span role="cell"><code>Discount</code> <small>the interface the caller depends on</small></span></div><div class="role" role="row"><span role="rowheader">Real object</span><span role="cell"><code>PercentageCoupon</code> <small>does real work</small></span></div><div class="role" role="row"><span role="rowheader">Null object</span><span role="cell"><code>NoDiscount</code> <small>same interface, safely does nothing</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>Checkout</code> <small>calls apply() without ever checking for null</small></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">interface Discount  <span class="c">// Abstract object</span></span>
-{
-    public function apply(int $subtotalInPiastres): int;
-
-    public function label(): string;
-}
-
-final class PercentageCoupon implements Discount                <span class="c">// Real object</span>
-{
-    public function __construct(private readonly string $code, private readonly int $percent)
-    {
-        if ($percent &lt; 1 || $percent &gt; 100) {
-            throw new InvalidArgumentException('Percent must be between 1 and 100.');
-        }
-    }
-
-    public function apply(int $subtotalInPiastres): int
-    {
-        return (int) round($subtotalInPiastres * (100 - $this-&gt;percent) / 100);
-    }
-
-    public function label(): string
-    {
-        return &quot;{$this-&gt;code} (-{$this-&gt;percent}%)&quot;;
-    }
-}
-
-<span class="h">final class NoDiscount implements Discount  <span class="c">// Null object</span></span>
-{
-    public function apply(int $subtotalInPiastres): int
-    {
-<span class="h">        return $subtotalInPiastres;  <span class="c">// does nothing, safely</span></span>
-    }
-
-    public function label(): string
-    {
-        return 'no coupon';
-    }
-}
-
-<span class="h">final class Checkout  <span class="c">// Client: no null checks anywhere</span></span>
-{
-    public function __construct(private readonly Discount $discount) {}
-
-    public function total(int $subtotalInPiastres): string
-    {
-        return sprintf('%.2f EGP (%s)', $this-&gt;discount-&gt;apply($subtotalInPiastres) / 100, $this-&gt;discount-&gt;label());
-    }
-}
-
-<span class="c">// ── Decide ONCE, where the input is read ────────────────────────────────</span>
-function discountFor(?string $coupon): Discount
-{
-    return match ($coupon) {
-        null, '' =&gt; new NoDiscount(),                           <span class="c">// &quot;no coupon&quot; is a normal case</span>
-        'STUDENT' =&gt; new PercentageCoupon('STUDENT', 10),
-        default =&gt; throw new InvalidArgumentException(&quot;Unknown coupon [{$coupon}].&quot;),   <span class="c">// a wrong coupon is an error, not &quot;nothing&quot;</span>
-    };
-}
-
-echo (new Checkout(discountFor('STUDENT')))-&gt;total(20000), PHP_EOL;
-echo (new Checkout(discountFor(null)))-&gt;total(20000), PHP_EOL;
-
-<span class="c">// Never use a Null Object where &quot;missing&quot; is a bug: no payment method must throw,</span>
-<span class="c">// not silently charge nothing.</span></code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the interface the caller depends on ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">Discount</span> <span class="al"> </span><span class="c">// Abstract object</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">apply</span>(<span class="k">int</span> <span class="v">$subtotal</span>): <span class="k">int</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">label</span>(): <span class="k">string</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the real object ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">PercentageCoupon</span> <span class="k">implements</span> <span class="t">Discount</span> <span class="al">                 </span><span class="c">// Real object</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">string</span> <span class="v">$code</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$percent</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">apply</span>(<span class="k">int</span> <span class="v">$subtotal</span>): <span class="k">int</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> (<span class="k">int</span>) <span class="f">round</span>(<span class="v">$subtotal</span> * (<span class="n">100</span> - <span class="k">$this</span>-&gt;<span class="p">percent</span>) / <span class="n">100</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">label</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;{$this-&gt;code} (-{$this-&gt;percent}%)&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the null object. Same interface, does nothing, never crashes. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">NoDiscount</span> <span class="k">implements</span> <span class="t">Discount</span> <span class="al"> </span><span class="c">// Null object</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">apply</span>(<span class="k">int</span> <span class="v">$subtotal</span>): <span class="k">int</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="v">$subtotal</span>; <span class="al"> </span><span class="c">// returns the total unchanged</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">label</span>(): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">'no coupon'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 4: the client. No &quot;if ($discount !== null)&quot; anywhere. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">Checkout</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">Discount</span> <span class="v">$discount</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">total</span>(<span class="k">int</span> <span class="v">$subtotal</span>): <span class="k">string</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="v">$total</span> = <span class="k">$this</span>-&gt;<span class="p">discount</span>-&gt;<span class="f">apply</span>(<span class="v">$subtotal</span>); <span class="al"> </span><span class="c">// always safe to call</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> (<span class="v">$total</span> / <span class="n">100</span>) . <span class="s">' EGP ('</span> . <span class="k">$this</span>-&gt;<span class="p">discount</span>-&gt;<span class="f">label</span>() . <span class="s">')'</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: decide ONCE, where the coupon is read ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">function</span> <span class="f">discountFor</span>(?<span class="k">string</span> <span class="v">$coupon</span>): <span class="t">Discount</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">if</span> (<span class="v">$coupon</span> === <span class="k">null</span> || <span class="v">$coupon</span> === <span class="s">''</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">NoDiscount</span>(); <span class="al">                           </span><span class="c">// &quot;no coupon&quot; is a normal case</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">if</span> (<span class="v">$coupon</span> === <span class="s">'STUDENT'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">PercentageCoupon</span>(<span class="s">'STUDENT'</span>, <span class="n">10</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Unknown coupon [{$coupon}].&quot;</span>); <span class="al">  </span><span class="c">// a WRONG coupon is an error, not &quot;nothing&quot;</span></span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$withCoupon</span> = <span class="k">new</span> <span class="f">Checkout</span>(<span class="f">discountFor</span>(<span class="s">'STUDENT'</span>));</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$withoutCoupon</span> = <span class="k">new</span> <span class="f">Checkout</span>(<span class="f">discountFor</span>(<span class="k">null</span>));</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="v">$withCoupon</span>-&gt;<span class="f">total</span>(<span class="n">20000</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="v">$withoutCoupon</span>-&gt;<span class="f">total</span>(<span class="n">20000</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Never use a Null Object where &quot;missing&quot; is a bug: no payment method must throw,</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// not silently charge nothing.</span></span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/null-object.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/null-object.php" data-umami-event="View example" data-umami-event-pattern="null-object">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>180.00 EGP (STUDENT (-10%))
-200.00 EGP (no coupon)</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>180 EGP (STUDENT (-10%))
+200 EGP (no coupon)</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>interface Discount
-{
-    public function apply(Money $subtotal): Money;
-}
-
-final class NoDiscount implements Discount
-{
-    public function apply(Money $subtotal): Money
-    {
-<span class="h">        return $subtotal;  <span class="c">// does nothing, safely</span></span>
-    }
-}
-
-final class CouponDiscount implements Discount { /* percentage, expiry, limits */ }
-
-<span class="c">// Decided ONCE, where the request is read:</span>
-$discount = $request-&gt;filled('coupon')
-    ? $coupons-&gt;findValidOrFail($request-&gt;input('coupon'))   <span class="c">// a wrong coupon = 422, never ignored</span>
-<span class="h">    : new NoDiscount();  <span class="c">// &quot;no coupon&quot; is normal</span></span>
-
-<span class="c">// Order, Invoice, Receipt, Report — no null checks anywhere:</span>
-$total = $discount-&gt;apply($cart-&gt;subtotal());
-
-<span class="c">// ✗ Never use it for something whose absence is a BUG:</span>
-<span class="c">//   no payment method → throw, don't pass a &quot;NoPayment&quot; that charges nothing.</span></code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel ships several: Illuminate\Cache\NullStore (cache driver &quot;null&quot;), Illuminate\Broadcasting\Broadcasters\NullBroadcaster, and the &quot;null&quot; log channel (Monolog's NullHandler). Choosing them in config turns a feature off without a single if.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">interface</span> <span class="t">Discount</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">apply</span>(<span class="t">Money</span> <span class="v">$subtotal</span>): <span class="t">Money</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">NoDiscount</span> <span class="k">implements</span> <span class="t">Discount</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">apply</span>(<span class="t">Money</span> <span class="v">$subtotal</span>): <span class="t">Money</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="v">$subtotal</span>; <span class="al"> </span><span class="c">// does nothing, safely</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CouponDiscount</span> <span class="k">implements</span> <span class="t">Discount</span> { <span class="c">/* percentage, expiry, limits */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Decided ONCE, where the request is read:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$discount</span> = <span class="v">$request</span>-&gt;<span class="f">filled</span>(<span class="s">'coupon'</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    ? <span class="v">$coupons</span>-&gt;<span class="f">findValidOrFail</span>(<span class="v">$request</span>-&gt;<span class="f">input</span>(<span class="s">'coupon'</span>)) <span class="al">  </span><span class="c">// a wrong coupon = 422, never ignored</span></span><span class="nl">
+</span><span class="ln h" style="--i:4">    : <span class="k">new</span> <span class="f">NoDiscount</span>(); <span class="al"> </span><span class="c">// &quot;no coupon&quot; is normal</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// Order, Invoice, Receipt, Report — no null checks anywhere:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$total</span> = <span class="v">$discount</span>-&gt;<span class="f">apply</span>(<span class="v">$cart</span>-&gt;<span class="f">subtotal</span>());</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ✗ Never use it for something whose absence is a BUG:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">//   no payment method → throw, don't pass a &quot;NoPayment&quot; that charges nothing.</span></span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel ships several null objects: the &quot;null&quot; cache driver (NullStore), the &quot;null&quot; broadcaster and the &quot;null&quot; log channel. Choosing one in config turns a feature off without a single if in your code.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Psr\Log\NullLogger</span><span>Laravel &quot;null&quot; cache store, log channel, broadcaster</span><span>Symfony Console NullOutput</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -192,6 +204,6 @@ $total = $discount-&gt;apply($cart-&gt;subtotal());
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

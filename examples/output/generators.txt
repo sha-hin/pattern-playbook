@@ -1,2 +1,3 @@
-Generator: 100000 rows, peak extra memory ~3 MB
-fetchAll:  100000 rows, peak extra memory ~49 MB
+Exported 100000 rows
+Generator: about 8 MB
+fetchAll:  about 55 MB

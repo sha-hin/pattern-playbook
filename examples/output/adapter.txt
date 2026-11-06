@@ -1,2 +1,2 @@
-Sent, id: acme_78ea98fb
+Sent, id starts with: acme_
 SMS to 12 failed: invalid msisdn

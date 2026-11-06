@@ -8,59 +8,71 @@ declare(strict_types=1);
  *
  * Roles:
  * - Dispatcher: EventDispatcher (the one shared middleman)
- * - Events: OrderPlaced, PaymentReceived (small data classes)
- * - Listeners: callables registered per event class
+ * - Events: OrderPlaced, PaymentReceived (small classes that only carry data)
+ * - Listeners: functions registered for an event class
  * - Senders: OrderService, PaymentService (know only the dispatcher)
  *
  * In Laravel:
- * Illuminate\Events\Dispatcher: listen() stores listeners keyed by event class, dispatch()
- * finds them, builds class listeners through the container, and pushes listeners that
- * implement ShouldQueue onto the queue instead of running them now.
+ * Laravel's event Dispatcher: listen() stores listeners under the event's class name,
+ * dispatch() finds and calls them. Listener classes are built by the container, and
+ * listeners that implement ShouldQueue are pushed onto the queue instead of running now.
  */
 
-final class OrderPlaced                                         // ★ Event: just data
+// ── Step 1: events. Small classes that only carry data. ──
+class OrderPlaced                                           // ★ Event
 {
-    public function __construct(public readonly int $orderId, public readonly int $totalInPiastres) {}
+    public function __construct(public int $orderId)
+    {
+    }
 }
 
-final class PaymentReceived                                     // ★ Event: just data
+class PaymentReceived                                       // ★ Event
 {
-    public function __construct(public readonly int $orderId, public readonly int $amountInPiastres) {}
+    public function __construct(public int $orderId, public int $amount)
+    {
+    }
 }
 
-final class EventDispatcher                                     // ★ Dispatcher: the middleman
+// ── Step 2: the dispatcher. The one middleman everybody talks to. ──
+class EventDispatcher                                       // ★ Dispatcher
 {
-    /** @var array<class-string, list<callable(object): void>> */
     private array $listeners = [];
 
-    /** @param class-string $eventClass */
-    public function listen(string $eventClass, callable $listener): void   // ★ register by event TYPE
+    public function listen(string $eventClass, callable $listener): void   // ★ register by event class
     {
         $this->listeners[$eventClass][] = $listener;
     }
 
-    public function dispatch(object $event): void              // ★ one door for every sender
+    public function dispatch(object $event): void          // ★ one door for every sender
     {
-        foreach ($this->listeners[$event::class] ?? [] as $listener) {
-            $listener($event);                                  // errors are not swallowed
+        $eventClass = get_class($event);
+        $listeners = $this->listeners[$eventClass] ?? [];
+
+        foreach ($listeners as $listener) {
+            $listener($event);
         }
     }
 }
 
-final class OrderService                                        // ★ Sender: knows only the dispatcher
+// ── Step 3: senders. They only know the dispatcher, never the listeners. ──
+class OrderService                                          // ★ Sender
 {
-    public function __construct(private readonly EventDispatcher $events) {}
+    public function __construct(private EventDispatcher $events)
+    {
+    }
 
-    public function place(int $orderId, int $total): void
+    public function place(int $orderId): void
     {
         // ... save the order ...
-        $this->events->dispatch(new OrderPlaced($orderId, $total));
+        $this->events->dispatch(new OrderPlaced($orderId));
     }
 }
 
-final class PaymentService                                      // ★ Sender
+class PaymentService                                        // ★ Sender
 {
-    public function __construct(private readonly EventDispatcher $events) {}
+    public function __construct(private EventDispatcher $events)
+    {
+    }
 
     public function receive(int $orderId, int $amount): void
     {
@@ -69,16 +81,26 @@ final class PaymentService                                      // ★ Sender
     }
 }
 
-// ── Wiring: listeners never reference the senders ───────────────────────
+// ── Using it: listeners are registered in one place ──
 $events = new EventDispatcher();
 
-$events->listen(OrderPlaced::class, fn (OrderPlaced $e) => print("Kitchen: start order #{$e->orderId}" . PHP_EOL));
-$events->listen(PaymentReceived::class, fn (PaymentReceived $e) => print("Billing: mark order #{$e->orderId} paid" . PHP_EOL));
+$events->listen(OrderPlaced::class, function (OrderPlaced $event) {
+    echo "Kitchen: start order #{$event->orderId}\n";
+});
+
+$events->listen(PaymentReceived::class, function (PaymentReceived $event) {
+    echo "Billing: mark order #{$event->orderId} as paid\n";
+});
 
 // Analytics listens to BOTH senders without knowing either of them:
-$track = fn (object $e) => print('Analytics: ' . (new ReflectionClass($e))->getShortName() . PHP_EOL);
+$track = function (object $event) {
+    echo 'Analytics: ' . get_class($event) . "\n";
+};
 $events->listen(OrderPlaced::class, $track);
 $events->listen(PaymentReceived::class, $track);
 
-(new OrderService($events))->place(12, 15750);
-(new PaymentService($events))->receive(12, 15750);
+$orders = new OrderService($events);
+$payments = new PaymentService($events);
+
+$orders->place(12);
+$payments->receive(12, 15750);

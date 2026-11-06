@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Facade Pattern in PHP & Laravel, with Real Code","description":"Facade explained for PHP and Laravel developers. A multi-step job that touches many services, needed from many places - one class with one method that runs…","url":"https://sha-hin.github.io/pattern-playbook/facade/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/facade/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Facade pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Facade","item":"https://sha-hin.github.io/pattern-playbook/facade/"}]}]}</script>
 </head>
@@ -69,11 +69,11 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>The same 3–5 service calls are copied in several controllers/jobs</li><li>A bug where one copy forgot a step</li><li>New developers ask &quot;what do I call to do X?&quot;</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Enrolling a student: create user, assign class, open billing, send welcome. From web, API and CSV import.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// WebController, ApiController and ImportStudentsJob each contain:</span>
-$user = $users-&gt;createStudent($name, $email);
-$classes-&gt;assign($user, $classId);
-$billing-&gt;openAccount($user, $plan);    <span class="c">// ← the import job forgot this line</span>
-$mailer-&gt;welcome($user);</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// WebController, ApiController and ImportStudentsJob each contain:</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$user</span> = <span class="v">$users</span>-&gt;<span class="f">createStudent</span>(<span class="v">$name</span>, <span class="v">$email</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$classes</span>-&gt;<span class="f">assign</span>(<span class="v">$user</span>, <span class="v">$classId</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$billing</span>-&gt;<span class="f">openAccount</span>(<span class="v">$user</span>, <span class="v">$plan</span>); <span class="al">   </span><span class="c">// ← the import job forgot this line</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$mailer</span>-&gt;<span class="f">welcome</span>(<span class="v">$user</span>);</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-facade">
     <h2 class="g" id="build-facade">Build it yourself: the full Facade pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -81,138 +81,139 @@ $mailer-&gt;welcome($user);</code></pre></div>
       <div class="role" role="row"><span role="rowheader">Facade</span><span role="cell"><code>EnrollStudent</code> <small>one simple method that runs the whole job</small></span></div><div class="role" role="row"><span role="rowheader">Subsystems</span><span role="cell"><code>Users, Classes, Billing, Mailer</code> <small>still usable on their own</small></span></div><div class="role" role="row"><span role="rowheader">Clients</span><span role="cell"><code>the web form, the API and the CSV import</code> <small>all call the facade</small></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="c">// ── Subsystems ──────────────────────────────────────────────────────────</span>
-final class Users
-{
-    /** @var array&lt;int, string&gt; */
-    public array $all = [];
-
-    public function create(string $name): int
-    {
-        $id = count($this-&gt;all) + 1;
-        $this-&gt;all[$id] = $name;
-
-        return $id;
-    }
-
-    public function delete(int $id): void
-    {
-        unset($this-&gt;all[$id]);
-    }
-}
-
-final class Classes
-{
-    /** @var array&lt;int, string&gt; */
-    public array $assigned = [];
-
-    public function assign(int $studentId, string $class): void
-    {
-        $this-&gt;assigned[$studentId] = $class;
-    }
-
-    public function unassign(int $studentId): void
-    {
-        unset($this-&gt;assigned[$studentId]);
-    }
-}
-
-final class Billing
-{
-    public function openAccount(int $studentId, string $plan): void
-    {
-        if (!in_array($plan, ['monthly', 'yearly'], true)) {
-            throw new InvalidArgumentException(&quot;Unknown plan [{$plan}].&quot;);
-        }
-    }
-}
-
-final class Mailer
-{
-    public function welcome(string $name): void
-    {
-        echo &quot;Welcome email sent to {$name}&quot;, PHP_EOL;
-    }
-}
-
-<span class="c">// ── The facade ──────────────────────────────────────────────────────────</span>
-<span class="h">final class EnrollStudent  <span class="c">// Facade</span></span>
-{
-    public function __construct(
-        private readonly Users $users,
-        private readonly Classes $classes,
-        private readonly Billing $billing,
-        private readonly Mailer $mailer,
-    ) {}
-
-<span class="h">    public function handle(string $name, string $class, string $plan): int  <span class="c">// one simple door</span></span>
-    {
-<span class="h">        $studentId = $this-&gt;users-&gt;create($name);  <span class="c">// step 1</span></span>
-        try {
-<span class="h">            $this-&gt;classes-&gt;assign($studentId, $class);  <span class="c">// step 2</span></span>
-<span class="h">            $this-&gt;billing-&gt;openAccount($studentId, $plan);  <span class="c">// step 3</span></span>
-        } catch (Throwable $e) {
-            $this-&gt;classes-&gt;unassign($studentId);               <span class="c">// undo what was done: all or nothing</span>
-            $this-&gt;users-&gt;delete($studentId);
-            throw $e;
-        }
-<span class="h">        $this-&gt;mailer-&gt;welcome($name);  <span class="c">// step 4, only after everything saved</span></span>
-
-        return $studentId;
-    }
-}
-
-<span class="c">// ── Every client is one line, and none can forget a step ────────────────</span>
-$users = new Users();
-$classes = new Classes();
-$enroll = new EnrollStudent($users, $classes, new Billing(), new Mailer());
-
-$enroll-&gt;handle('Mona', '3-B', 'monthly');                      <span class="c">// from the web form</span>
-
-try {
-    $enroll-&gt;handle('Omar', '3-B', 'weekly');                   <span class="c">// from the CSV import, with bad data</span>
-} catch (InvalidArgumentException $e) {
-    echo 'Import row rejected: ', $e-&gt;getMessage(), PHP_EOL;
-}
-
-echo 'Students: ', implode(', ', $users-&gt;all), ' | assigned: ', count($classes-&gt;assigned), PHP_EOL;</code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── The subsystems. Each does one small thing. ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Users</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$all</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">create</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">int</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$id</span> = <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">all</span>) + <span class="n">1</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">all</span>[<span class="v">$id</span>] = <span class="v">$name</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$id</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">delete</span>(<span class="k">int</span> <span class="v">$id</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="f">unset</span>(<span class="k">$this</span>-&gt;<span class="p">all</span>[<span class="v">$id</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Classes</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$assigned</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">assign</span>(<span class="k">int</span> <span class="v">$studentId</span>, <span class="k">string</span> <span class="v">$class</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">assigned</span>[<span class="v">$studentId</span>] = <span class="v">$class</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">unassign</span>(<span class="k">int</span> <span class="v">$studentId</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="f">unset</span>(<span class="k">$this</span>-&gt;<span class="p">assigned</span>[<span class="v">$studentId</span>]);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Billing</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">openAccount</span>(<span class="k">int</span> <span class="v">$studentId</span>, <span class="k">string</span> <span class="v">$plan</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$plan</span> !== <span class="s">'monthly'</span> &amp;&amp; <span class="v">$plan</span> !== <span class="s">'yearly'</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">&quot;Unknown plan [{$plan}].&quot;</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">Mailer</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">welcome</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;Welcome email sent to {$name}\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── The Facade. One simple door that runs every step in the right order. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// Facade</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Users</span> <span class="v">$users</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Classes</span> <span class="v">$classes</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Billing</span> <span class="v">$billing</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Mailer</span> <span class="v">$mailer</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="k">string</span> <span class="v">$name</span>, <span class="k">string</span> <span class="v">$class</span>, <span class="k">string</span> <span class="v">$plan</span>): <span class="k">int</span> <span class="al"> </span><span class="c">// the one method callers use</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="v">$studentId</span> = <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">create</span>(<span class="v">$name</span>); <span class="al"> </span><span class="c">// step 1</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">try</span> {</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">assign</span>(<span class="v">$studentId</span>, <span class="v">$class</span>); <span class="al"> </span><span class="c">// step 2</span></span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">openAccount</span>(<span class="v">$studentId</span>, <span class="v">$plan</span>); <span class="al"> </span><span class="c">// step 3</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">unassign</span>(<span class="v">$studentId</span>); <span class="al">          </span><span class="c">// something failed: undo the earlier steps</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">delete</span>(<span class="v">$studentId</span>);</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="v">$e</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">mailer</span>-&gt;<span class="f">welcome</span>(<span class="v">$name</span>); <span class="al"> </span><span class="c">// step 4, only after everything worked</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$studentId</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: every caller is one line, and none of them can forget a step ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$users</span> = <span class="k">new</span> <span class="f">Users</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$classes</span> = <span class="k">new</span> <span class="f">Classes</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$enroll</span> = <span class="k">new</span> <span class="f">EnrollStudent</span>(<span class="v">$users</span>, <span class="v">$classes</span>, <span class="k">new</span> <span class="f">Billing</span>(), <span class="k">new</span> <span class="f">Mailer</span>());</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$enroll</span>-&gt;<span class="f">handle</span>(<span class="s">'Mona'</span>, <span class="s">'3-B'</span>, <span class="s">'monthly'</span>); <span class="al">                 </span><span class="c">// from the web form</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">try</span> {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="v">$enroll</span>-&gt;<span class="f">handle</span>(<span class="s">'Omar'</span>, <span class="s">'3-B'</span>, <span class="s">'weekly'</span>); <span class="al">              </span><span class="c">// from the CSV import, with a bad plan</span></span><span class="nl">
+</span><span class="ln" style="--i:0">} <span class="k">catch</span> (<span class="t">InvalidArgumentException</span> <span class="v">$e</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">'Import row rejected: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Students: '</span> . <span class="f">implode</span>(<span class="s">', '</span>, <span class="v">$users</span>-&gt;<span class="p">all</span>) . <span class="s">' | assigned to a class: '</span> . <span class="f">count</span>(<span class="v">$classes</span>-&gt;<span class="p">assigned</span>) . <span class="s">&quot;\n&quot;</span>;</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/facade.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/facade.php" data-umami-event="View example" data-umami-event-pattern="facade">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Welcome email sent to Mona
 Import row rejected: Unknown plan [weekly].
-Students: Mona | assigned: 1</code></pre></div>
+Students: Mona | assigned to a class: 1</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="h">final class EnrollStudent  <span class="c">// the one front door</span></span>
-{
-    public function __construct(
-        private Users $users,
-        private Classes $classes,
-        private Billing $billing,
-        private Mailer $mailer,
-    ) {}
-
-    public function handle(EnrollmentData $data): Student
-    {
-        return DB::transaction(function () use ($data) {
-            $student = $this-&gt;users-&gt;createStudent($data-&gt;name, $data-&gt;email);
-            $this-&gt;classes-&gt;assign($student, $data-&gt;classId);
-            $this-&gt;billing-&gt;openAccount($student, $data-&gt;plan);
-
-            DB::afterCommit(fn () =&gt; $this-&gt;mailer-&gt;welcome($student));  <span class="c">// only if all of it saved</span>
-
-            return $student;
-        });
-    }
-}
-
-<span class="c">// WebController, ApiController, ImportStudentsJob — all the same single line:</span>
-<span class="h">$student = $enrollStudent-&gt;handle($data);  <span class="c">// can't forget a step</span></span></code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Foundation\Http\Kernel::handle() is a Facade over the framework itself: one call bootstraps config, providers, middleware and routing in the right order. In your own app, &quot;action&quot; or service classes like EnrollStudent are the same idea. (Laravel's Cache:: style &quot;facades&quot; are something else: see the Laravel Facade card.)</p></div>
+    <pre><code><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">EnrollStudent</span> <span class="al"> </span><span class="c">// the one front door</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Users</span> <span class="v">$users</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Classes</span> <span class="v">$classes</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Billing</span> <span class="v">$billing</span>,</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="t">Mailer</span> <span class="v">$mailer</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">EnrollmentData</span> <span class="v">$data</span>): <span class="t">Student</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$data</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$student</span> = <span class="k">$this</span>-&gt;<span class="p">users</span>-&gt;<span class="f">createStudent</span>(<span class="v">$data</span>-&gt;<span class="p">name</span>, <span class="v">$data</span>-&gt;<span class="p">email</span>);</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">classes</span>-&gt;<span class="f">assign</span>(<span class="v">$student</span>, <span class="v">$data</span>-&gt;<span class="p">classId</span>);</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">openAccount</span>(<span class="v">$student</span>, <span class="v">$data</span>-&gt;<span class="p">plan</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="t">DB</span>::<span class="f">afterCommit</span>(<span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;<span class="p">mailer</span>-&gt;<span class="f">welcome</span>(<span class="v">$student</span>)); <span class="al"> </span><span class="c">// only if all of it saved</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="v">$student</span>;</span><span class="nl">
+</span><span class="ln" style="--i:8">        });</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// WebController, ApiController, ImportStudentsJob — all the same single line:</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="v">$student</span> = <span class="v">$enrollStudent</span>-&gt;<span class="f">handle</span>(<span class="v">$data</span>); <span class="al"> </span><span class="c">// can't forget a step</span></span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> The HTTP Kernel is a Facade over the framework itself: one call, handle($request), sets up config and service providers, runs the middleware, calls the router and reports errors. In your own app, &quot;action&quot; classes like EnrollStudent are the same idea. (Laravel's Cache:: style &quot;facades&quot; are something else: see the Laravel Facade card.)</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel &quot;action&quot; / service classes</span><span>Application::handle() in frameworks</span><span>Not Laravel’s Cache:: (that’s a Proxy)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -223,6 +224,6 @@ Students: Mona | assigned: 1</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

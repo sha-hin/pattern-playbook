@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Decorator Pattern in PHP & Laravel, with Real Code","description":"Decorator explained for PHP and Laravel developers. Add behaviour (cache, log, retry) around a class without editing it - wrap it in a class with the SAME…","url":"https://sha-hin.github.io/pattern-playbook/decorator/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/decorator/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Decorator pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/decorator.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Decorator","item":"https://sha-hin.github.io/pattern-playbook/decorator/"}]}]}</script>
 </head>
@@ -69,16 +69,16 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>You need caching / logging / retry around something that works</li><li>Constructor flags like $withCache, $withLogging</li><li>Different environments need different extras</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>School statistics take 3 seconds of SQL. You want a 10-minute cache, but not in local dev.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>final class DbSchoolStats
-{
-    public function forSchool(int $schoolId): array
-    {
-        if (config('stats.cache') &amp;&amp; Cache::has(&quot;stats:{$schoolId}&quot;)) {   <span class="c">// cache code mixed in</span>
-            return Cache::get(&quot;stats:{$schoolId}&quot;);
-        }
-        <span class="c">// ...heavy SQL...</span>
-    }
-}</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">config</span>(<span class="s">'stats.cache'</span>) &amp;&amp; <span class="t">Cache</span>::<span class="f">has</span>(<span class="s">&quot;stats:{$schoolId}&quot;</span>)) { <span class="al">  </span><span class="c">// cache code mixed in</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">return</span> <span class="t">Cache</span>::<span class="f">get</span>(<span class="s">&quot;stats:{$schoolId}&quot;</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="c">// ...heavy SQL...</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-decorator">
     <h2 class="g" id="build-decorator">Build it yourself: the full Decorator pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -86,123 +86,125 @@
       <div class="role" role="row"><span role="rowheader">Component</span><span role="cell"><code>SchoolStats</code> <small>the interface</small></span></div><div class="role" role="row"><span role="rowheader">Concrete component</span><span role="cell"><code>DbSchoolStats</code> <small>the real, slow work; never edited</small></span></div><div class="role" role="row"><span role="rowheader">Decorators</span><span role="cell"><code>CachedSchoolStats, LoggedSchoolStats</code> <small>same interface, each wraps another SchoolStats</small></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">interface SchoolStats  <span class="c">// Component</span></span>
-{
-    /** @return array{school: int, average: int} */
-    public function forSchool(int $schoolId): array;
-}
-
-<span class="h">final class DbSchoolStats implements SchoolStats  <span class="c">// Concrete component: never edited</span></span>
-{
-    public int $queries = 0;
-
-    public function forSchool(int $schoolId): array
-    {
-        $this-&gt;queries++;                                       <span class="c">// imagine 3 seconds of SQL here</span>
-        usleep(20_000);
-
-        return ['school' =&gt; $schoolId, 'average' =&gt; 70 + $schoolId % 20];
-    }
-}
-
-<span class="h">final class CachedSchoolStats implements SchoolStats  <span class="c">// Decorator #1: same interface...</span></span>
-{
-    /** @var array&lt;int, array{value: array{school: int, average: int}, expires: int}&gt; */
-    private array $cache = [];
-
-    public function __construct(
-<span class="h">        private readonly SchoolStats $inner,  <span class="c">// ...wraps another SchoolStats</span></span>
-        private readonly int $ttlSeconds = 600,
-    ) {}
-
-    public function forSchool(int $schoolId): array
-    {
-        $hit = $this-&gt;cache[$schoolId] ?? null;
-
-        if ($hit !== null &amp;&amp; $hit['expires'] &gt; time()) {
-<span class="h">            return $hit['value'];  <span class="c">// added behaviour: served from cache</span></span>
-        }
-
-<span class="h">        $value = $this-&gt;inner-&gt;forSchool($schoolId);  <span class="c">// otherwise pass the call inside</span></span>
-        $this-&gt;cache[$schoolId] = ['value' =&gt; $value, 'expires' =&gt; time() + $this-&gt;ttlSeconds];
-
-        return $value;
-    }
-}
-
-<span class="h">final class LoggedSchoolStats implements SchoolStats  <span class="c">// Decorator #2</span></span>
-{
-    /** @var list&lt;string&gt; */
-    public array $log = [];
-
-    public function __construct(private readonly SchoolStats $inner) {}
-
-    public function forSchool(int $schoolId): array
-    {
-        $start = hrtime(true);
-        $result = $this-&gt;inner-&gt;forSchool($schoolId);
-        $this-&gt;log[] = sprintf('school %d answered in %.1f ms', $schoolId, (hrtime(true) - $start) / 1e6);
-
-        return $result;
-    }
-}
-
-<span class="c">// ── Stack the layers: log → cache → database ────────────────────────────</span>
-$db = new DbSchoolStats();
-<span class="h">$stats = new LoggedSchoolStats(new CachedSchoolStats($db));  <span class="c">// any combination, any order</span></span>
-
-$stats-&gt;forSchool(7);
-$stats-&gt;forSchool(7);                                           <span class="c">// served by the cache layer</span>
-$stats-&gt;forSchool(9);
-
-echo &quot;Database queries: {$db-&gt;queries} (not 3)&quot;, PHP_EOL;
-echo implode(PHP_EOL, $stats-&gt;log), PHP_EOL;
-
-<span class="c">// In local development, skip the cache by simply not wrapping: new LoggedSchoolStats($db).</span></code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Component interface ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Component</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the real work. We never edit this class. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Concrete component</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$queries</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">queries</span>++;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="f">usleep</span>(<span class="n">20000</span>); <span class="al">                                     </span><span class="c">// pretend this is a slow SQL query</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> [<span class="s">'school'</span> =&gt; <span class="v">$schoolId</span>, <span class="s">'average'</span> =&gt; <span class="n">70</span> + <span class="v">$schoolId</span>];</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: a decorator. Same interface, wraps another SchoolStats, adds caching. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #1</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$cache</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>) <span class="al"> </span><span class="c">// wraps another SchoolStats</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">cache</span>[<span class="v">$schoolId</span>])) {</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">cache</span>[<span class="v">$schoolId</span>]; <span class="al"> </span><span class="c">// added behaviour: answer from the cache</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="v">$result</span> = <span class="k">$this</span>-&gt;<span class="p">inner</span>-&gt;<span class="f">forSchool</span>(<span class="v">$schoolId</span>); <span class="al"> </span><span class="c">// otherwise pass the call inside</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">cache</span>[<span class="v">$schoolId</span>] = <span class="v">$result</span>; <span class="al">                 </span><span class="c">// a real cache also sets an expiry time</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$result</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 4: another decorator. Adds timing logs. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">LoggedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// Decorator #2</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$log</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>)</span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$start</span> = <span class="f">microtime</span>(<span class="k">true</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$result</span> = <span class="k">$this</span>-&gt;<span class="p">inner</span>-&gt;<span class="f">forSchool</span>(<span class="v">$schoolId</span>);</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$ms</span> = <span class="f">round</span>((<span class="f">microtime</span>(<span class="k">true</span>) - <span class="v">$start</span>) * <span class="n">1000</span>, <span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">log</span>[] = <span class="s">&quot;school {$schoolId} answered in {$ms} ms&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$result</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it: stack the layers like a phone in a case in a pouch ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$db</span> = <span class="k">new</span> <span class="f">DbSchoolStats</span>();</span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="v">$stats</span> = <span class="k">new</span> <span class="f">LoggedSchoolStats</span>(<span class="k">new</span> <span class="f">CachedSchoolStats</span>(<span class="v">$db</span>)); <span class="al"> </span><span class="c">// log → cache → database</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$stats</span>-&gt;<span class="f">forSchool</span>(<span class="n">7</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$stats</span>-&gt;<span class="f">forSchool</span>(<span class="n">7</span>); <span class="al">                                      </span><span class="c">// the cache layer answers this one</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$stats</span>-&gt;<span class="f">forSchool</span>(<span class="n">9</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;Database queries: {$db-&gt;queries} (not 3)\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="f">implode</span>(<span class="s">&quot;\n&quot;</span>, <span class="v">$stats</span>-&gt;<span class="p">log</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// No cache in local development? Simply don't wrap it: new LoggedSchoolStats($db).</span></span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/decorator.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/decorator.php" data-umami-event="View example" data-umami-event-pattern="decorator">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Database queries: 2 (not 3)
-school 7 answered in 20.2 ms
-school 7 answered in 0.0 ms
-school 9 answered in 20.1 ms</code></pre></div>
+school 7 answered in 20.1 ms
+school 7 answered in 0 ms
+school 9 answered in 20.2 ms</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>interface SchoolStats
-{
-    public function forSchool(int $schoolId): array;
-}
-
-final class DbSchoolStats implements SchoolStats { /* heavy SQL only, never edited */ }
-
-<span class="h">final class CachedSchoolStats implements SchoolStats  <span class="c">// same interface...</span></span>
-{
-    public function __construct(
-<span class="h">        private SchoolStats $inner,  <span class="c">// ...holds one inside</span></span>
-        private \Illuminate\Contracts\Cache\Repository $cache,
-    ) {}
-
-    public function forSchool(int $schoolId): array
-    {
-        return $this-&gt;cache-&gt;remember(
-            &quot;school-stats:{$schoolId}&quot;,
-            600,
-<span class="h">            fn () =&gt; $this-&gt;inner-&gt;forSchool($schoolId),  <span class="c">// add caching, pass the call in</span></span>
-        );
-    }
-}
-
-<span class="c">// AppServiceProvider</span>
-$this-&gt;app-&gt;bind(SchoolStats::class, DbSchoolStats::class);
-
-if (! $this-&gt;app-&gt;isLocal()) {
-    $this-&gt;app-&gt;extend(SchoolStats::class, fn (SchoolStats $stats, $app) =&gt;
-        new CachedSchoolStats($stats, $app['cache.store']));
-}</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> $app-&gt;extend(SchoolStats::class, fn ($stats) =&gt; new CachedSchoolStats($stats)) tells the container to wrap a service every time it is built. Guzzle, under Laravel's Http client, builds retry() and logging the same way: each middleware wraps the next handler.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">interface</span> <span class="t">SchoolStats</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">DbSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> { <span class="c">/* heavy SQL only, never edited */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CachedSchoolStats</span> <span class="k">implements</span> <span class="t">SchoolStats</span> <span class="al"> </span><span class="c">// same interface...</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">private</span> <span class="t">SchoolStats</span> <span class="v">$inner</span>, <span class="al"> </span><span class="c">// ...holds one inside</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">private</span> \<span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Cache</span>\<span class="t">Repository</span> <span class="v">$cache</span>,</span><span class="nl">
+</span><span class="ln" style="--i:4">    ) {}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">forSchool</span>(<span class="k">int</span> <span class="v">$schoolId</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">cache</span>-&gt;<span class="f">remember</span>(</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="s">&quot;school-stats:{$schoolId}&quot;</span>,</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="n">600</span>,</span><span class="nl">
+</span><span class="ln h" style="--i:12">            <span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;<span class="p">inner</span>-&gt;<span class="f">forSchool</span>(<span class="v">$schoolId</span>), <span class="al"> </span><span class="c">// add caching, pass the call in</span></span><span class="nl">
+</span><span class="ln" style="--i:8">        );</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">bind</span>(<span class="t">SchoolStats</span>::class, <span class="t">DbSchoolStats</span>::class);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">if</span> (! <span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">isLocal</span>()) {</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">extend</span>(<span class="t">SchoolStats</span>::class, <span class="k">fn</span> (<span class="t">SchoolStats</span> <span class="v">$stats</span>, <span class="v">$app</span>) =&gt;</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">new</span> <span class="f">CachedSchoolStats</span>(<span class="v">$stats</span>, <span class="v">$app</span>[<span class="s">'cache.store'</span>]));</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> $this-&gt;app-&gt;extend(SchoolStats::class, fn ($stats) =&gt; new CachedSchoolStats($stats)) tells the container to wrap a service every time it is built. Each extend() adds one more layer.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel container $app-&gt;extend()</span><span>Cached repositories</span><span>HTTP client middleware (retry, log)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -213,6 +215,6 @@ if (! $this-&gt;app-&gt;isLocal()) {
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

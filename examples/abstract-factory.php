@@ -7,103 +7,89 @@ declare(strict_types=1);
  * Run it: php examples/abstract-factory.php
  *
  * Roles:
- * - Abstract factory: InfrastructureKit (one create method per product in the family)
+ * - Abstract products: FileStorage, MessageQueue (the things a family contains)
+ * - Concrete products: CloudStorage + CloudQueue (cloud family), DiskStorage + MemoryQueue (local family)
+ * - Abstract factory: InfrastructureKit (one create method per product)
  * - Concrete factories: CloudKit, LocalKit (each makes a whole matching family)
- * - Abstract products: FileStorage, MessageQueue
- * - Concrete products: BucketStorage + RemoteQueue (cloud family), DiskStorage + MemoryQueue (local family)
- * - Client: ReportPublisher (uses a kit; can never mix families)
+ * - Client: ReportPublisher (uses one kit, so it can never mix families)
  *
  * In Laravel:
- * Database connections: each Connection class makes its own matching family through
- * getDefaultQueryGrammar(), getDefaultSchemaGrammar() and getDefaultPostProcessor().
- * A MySqlConnection always comes with MySQL grammars, a SQLiteConnection with SQLite ones,
- * so SQL written for one database is never sent to another.
+ * Database connections. Each connection class creates its own matching family: a MySQL
+ * connection always comes with the MySQL query grammar, schema grammar and result processor,
+ * an SQLite connection with the SQLite ones. SQL for one database never reaches another.
  */
 
-interface FileStorage                                           // ★ Abstract product A
+// ── Step 1: the abstract products ──
+interface FileStorage                                       // ★ Abstract product A
 {
-    public function put(string $path, string $contents): string;
+    public function put(string $name): string;             // returns where the file is
 }
 
-interface MessageQueue                                          // ★ Abstract product B
+interface MessageQueue                                      // ★ Abstract product B
 {
     public function push(string $message): void;
 }
 
-interface InfrastructureKit                                     // ★ Abstract factory
+// ── Step 2: the cloud family ──
+class CloudStorage implements FileStorage
+{
+    public function put(string $name): string
+    {
+        return "https://reports.cloud.example.com/{$name}";
+    }
+}
+
+class CloudQueue implements MessageQueue
+{
+    public function push(string $message): void
+    {
+        echo "  [cloud queue] {$message}\n";
+    }
+}
+
+// ── Step 3: the local family ──
+class DiskStorage implements FileStorage
+{
+    public function put(string $name): string
+    {
+        return "/var/app/storage/{$name}";
+    }
+}
+
+class MemoryQueue implements MessageQueue
+{
+    public function push(string $message): void
+    {
+        echo "  [memory queue] {$message}\n";
+    }
+}
+
+// ── Step 4: the abstract factory and one concrete factory per family ──
+interface InfrastructureKit                                 // ★ Abstract factory
 {
     public function storage(): FileStorage;
 
     public function queue(): MessageQueue;
 }
 
-// ── Family 1: cloud ─────────────────────────────────────────────────────
-final class BucketStorage implements FileStorage
+class CloudKit implements InfrastructureKit                 // ★ Concrete factory: cloud family only
 {
-    public function __construct(private readonly string $bucket) {}
-
-    public function put(string $path, string $contents): string
-    {
-        return "https://{$this->bucket}.storage.example.com/{$path}";   // pretend upload
-    }
-}
-
-final class RemoteQueue implements MessageQueue
-{
-    public function push(string $message): void
-    {
-        echo "  [remote queue] {$message}", PHP_EOL;
-    }
-}
-
-final class CloudKit implements InfrastructureKit                // ★ Concrete factory: cloud family
-{
-    public function __construct(private readonly string $bucket) {}
-
     public function storage(): FileStorage
     {
-        return new BucketStorage($this->bucket);
+        return new CloudStorage();
     }
 
     public function queue(): MessageQueue
     {
-        return new RemoteQueue();
+        return new CloudQueue();
     }
 }
 
-// ── Family 2: local development ─────────────────────────────────────────
-final class DiskStorage implements FileStorage
-{
-    public function __construct(private readonly string $dir) {}
-
-    public function put(string $path, string $contents): string
-    {
-        $file = $this->dir . '/' . basename($path);
-        if (file_put_contents($file, $contents) === false) {
-            throw new RuntimeException("Cannot write {$file}");
-        }
-
-        return $file;
-    }
-}
-
-final class MemoryQueue implements MessageQueue
-{
-    /** @var list<string> */
-    public array $messages = [];
-
-    public function push(string $message): void
-    {
-        $this->messages[] = $message;
-        echo "  [memory queue] {$message}", PHP_EOL;
-    }
-}
-
-final class LocalKit implements InfrastructureKit                // ★ Concrete factory: local family
+class LocalKit implements InfrastructureKit                 // ★ Concrete factory: local family only
 {
     public function storage(): FileStorage
     {
-        return new DiskStorage(sys_get_temp_dir());
+        return new DiskStorage();
     }
 
     public function queue(): MessageQueue
@@ -112,25 +98,25 @@ final class LocalKit implements InfrastructureKit                // ★ Concrete
     }
 }
 
-// ── Client: only knows the abstract factory ─────────────────────────────
-final class ReportPublisher                                     // ★ Client
+// ── Step 5: the client. It only knows the kit. ──
+class ReportPublisher                                       // ★ Client
 {
-    public function __construct(private readonly InfrastructureKit $kit) {}
-
-    public function publish(int $reportId, string $pdf): void
+    public function __construct(private InfrastructureKit $kit)
     {
-        $location = $this->kit->storage()->put("report-{$reportId}.pdf", $pdf);   // ★ both products...
-        $this->kit->queue()->push("report {$reportId} ready at {$location}");    // ★ ...from the SAME family
+    }
+
+    public function publish(int $reportId): void
+    {
+        $location = $this->kit->storage()->put("report-{$reportId}.pdf");   // ★ both products...
+        $this->kit->queue()->push("Report {$reportId} is ready at {$location}");   // ★ ...from the SAME family
     }
 }
 
-// ── The ONE decision ────────────────────────────────────────────────────
-$production = getenv('APP_ENV') === 'production';
-$kit = $production ? new CloudKit('school-reports') : new LocalKit();
+// ── Using it: ONE decision picks the whole family ──
+echo "Local development:\n";
+$publisher = new ReportPublisher(new LocalKit());
+$publisher->publish(42);
 
-echo $production ? 'Production:' : 'Local:', PHP_EOL;
-(new ReportPublisher($kit))->publish(42, '%PDF-1.7 ...');
-@unlink(sys_get_temp_dir() . '/report-42.pdf');               // tidy up the demo file
-
-echo 'Cloud:', PHP_EOL;
-(new ReportPublisher(new CloudKit('school-reports')))->publish(43, '%PDF-1.7 ...');
+echo "Production:\n";
+$publisher = new ReportPublisher(new CloudKit());
+$publisher->publish(42);

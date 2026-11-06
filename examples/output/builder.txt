@@ -1,4 +1,3 @@
-SELECT * FROM evaluations WHERE school_id = ? AND subject IN (?, ?) AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 25
-[12,"math","science","2026-09-01","2026-10-31"]
-SELECT * FROM evaluations WHERE school_id = ? AND submitted_on BETWEEN ? AND ? ORDER BY id LIMIT 50
+school 12, subjects math + science, from 2026-09-01 to 2026-10-31, 25 per page
+school 7, from 2026-09-01 to 2027-01-31, 50 per page
 Refused: "from" must be before "to".

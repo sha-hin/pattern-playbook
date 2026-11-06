@@ -3,6 +3,7 @@
 :root{
   --bg:#f1f3f6; --card:#ffffff; --fg:#131a24; --muted:#5b6574; --line:#d4dae2; --well:#f6f8fa;
   --code:#f3f5f8; --code-c:#6c7685;
+  --tk-k:#8a3ab9; --tk-s:#1d7a3a; --tk-v:#b4400f; --tk-n:#0b7285; --tk-f:#1a5fb4; --tk-t:#9a5b00;
   --cre:#5847d8; --cre-bg:#ece9ff; --str:#0a8464; --str-bg:#dcf3ea; --beh:#c24f2a; --beh-bg:#fbe7df;
   --bad:#c2352b; --bad-bg:#fdecea; --good:#13804a; --good-bg:#e3f4ea;
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
@@ -12,11 +13,13 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0d1218; --card:#151c25; --fg:#e6ebf1; --muted:#98a3b1; --line:#2a3441; --well:#1b232e;
   --code:#0f151c; --code-c:#7c8796;
+  --tk-k:#c792ea; --tk-s:#a3d977; --tk-v:#f78c6c; --tk-n:#5ec4d3; --tk-f:#82aaff; --tk-t:#ffcb6b;
   --cre:#a79eff; --cre-bg:#2b2662; --str:#4fd2a6; --str-bg:#0b3c2f; --beh:#f28a60; --beh-bg:#4a2113;
   --bad:#f27a70; --bad-bg:#3d1715; --good:#5fd394; --good-bg:#103522; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1218; --card:#151c25; --fg:#e6ebf1; --muted:#98a3b1; --line:#2a3441; --well:#1b232e;
   --code:#0f151c; --code-c:#7c8796;
+  --tk-k:#c792ea; --tk-s:#a3d977; --tk-v:#f78c6c; --tk-n:#5ec4d3; --tk-f:#82aaff; --tk-t:#ffcb6b;
   --cre:#a79eff; --cre-bg:#2b2662; --str:#4fd2a6; --str-bg:#0b3c2f; --beh:#f28a60; --beh-bg:#4a2113;
   --bad:#f27a70; --bad-bg:#3d1715; --good:#5fd394; --good-bg:#103522; color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15.5px;line-height:1.6}
@@ -78,7 +81,7 @@ svg.d .ld{stroke:var(--muted);stroke-width:1.3;fill:none;stroke-dasharray:4 3}
 .code h2{margin:0 0 6px;font-size:12px;letter-spacing:.07em;text-transform:uppercase}
 .code h2.b{color:var(--bad)} .code h2.g{color:var(--good)}
 pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:12px 14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6}
-pre .c{color:var(--code-c)} pre .h{display:inline-block;min-width:100%;background:var(--fam-bg);box-shadow:-14px 0 0 var(--fam-bg),14px 0 0 var(--fam-bg)}
+pre .c{color:var(--code-c);font-style:italic} pre .k{color:var(--tk-k)} pre .s{color:var(--tk-s)} pre .v{color:var(--tk-v)} pre .n{color:var(--tk-n)} pre .f{color:var(--tk-f)} pre .t{color:var(--tk-t)} pre .h{display:inline-block;min-width:100%;background:var(--fam-bg);box-shadow:-14px 0 0 var(--fam-bg),14px 0 0 var(--fam-bg)}
 pre.before{border-color:var(--bad)}
 .legend{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .legend mark{background:var(--fam-bg);color:var(--fg);padding:0 4px;border-radius:3px}
@@ -199,3 +202,18 @@ header{align-items:end}
 .output pre{background:#0f151c;color:#d7dee6;border-color:#0f151c}
 .howlaravel{margin:10px 0 0;font-size:14px;background:var(--fam-bg);border-radius:10px;padding:10px 14px}
 @media (max-width:520px){.role{grid-template-columns:1fr;gap:2px}}
+
+/* Phones: the card goes edge to edge so drawings and code get the full width; code wraps instead of scrolling */
+@media (max-width:600px){
+  .wrap .card{margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));border-radius:0;border-left:0;border-right:0;padding:22px max(16px,env(safe-area-inset-left,0px));gap:18px}
+  .panel{padding:10px 6px 6px}
+  svg.d text{font-size:13px} svg.d text.s,svg.d text.m{font-size:11px}
+  .scratch{padding:0;border:0;background:none;border-radius:0}
+  .scratch pre{background:var(--code)}
+  pre{font-size:12px;padding:10px 12px;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+  pre .al,pre .nl{display:none}
+  pre .ln{display:block;padding-left:calc((var(--i) + 4) * 1ch);text-indent:calc((var(--i) + 4) * -1ch)}
+  pre .ln:empty::before{content:" "}
+  pre .ln.h{display:block}
+  pre .h{box-shadow:-12px 0 0 var(--fam-bg),12px 0 0 var(--fam-bg)}
+}

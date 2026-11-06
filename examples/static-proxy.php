@@ -7,20 +7,20 @@ declare(strict_types=1);
  * Run it: php examples/static-proxy.php
  *
  * Roles:
- * - Proxy base: Facade (turns a static call into a call on a real object)
- * - Concrete proxy: Cache (names which service it stands for)
- * - Real subject: ArrayCache (the one real object, living in the container)
- * - Container: ServiceContainer (where the real object comes from)
+ * - Real object: ArrayCache (the actual service that does the work)
+ * - Container: Services (where the one real object is kept)
+ * - Proxy base: Facade (turns a static call into a normal method call)
+ * - Concrete proxy: Cache (says which service it stands for)
  *
  * In Laravel:
- * Illuminate\Support\Facades\Facade::__callStatic() calls getFacadeRoot(), which resolves
- * getFacadeAccessor() from the container (and caches it), then forwards the call.
- * Facade::swap() and Cache::shouldReceive() replace that object in tests.
+ * The Facade base class has a __callStatic() method. It asks the container for the object
+ * named by getFacadeAccessor() (for Cache that is 'cache'), remembers it, and forwards the
+ * call. Cache::shouldReceive() in tests swaps that object for a mock.
  */
 
-final class ArrayCache                                          // ★ Real subject: the actual service
+// ── Step 1: the real object ──
+class ArrayCache                                            // ★ Real object
 {
-    /** @var array<string, mixed> */
     private array $items = [];
 
     public function put(string $key, mixed $value): void
@@ -28,63 +28,39 @@ final class ArrayCache                                          // ★ Real subj
         $this->items[$key] = $value;
     }
 
-    public function get(string $key, mixed $default = null): mixed
+    public function get(string $key): mixed
     {
-        return $this->items[$key] ?? $default;
+        return $this->items[$key] ?? null;
     }
 }
 
-final class ServiceContainer                                    // a tiny container (see the DI Container card)
+// ── Step 2: a tiny container that keeps one object per name ──
+class Services
 {
-    /** @var array<string, Closure(): object> */
-    private array $factories = [];
-
-    /** @var array<string, object> */
-    private array $instances = [];
-
-    public function singleton(string $id, Closure $factory): void
-    {
-        $this->factories[$id] = $factory;
-    }
-
-    public function make(string $id): object
-    {
-        return $this->instances[$id] ??= ($this->factories[$id] ?? throw new RuntimeException("Nothing bound for [{$id}]."))();
-    }
-
-    public function swap(string $id, object $instance): void   // used by tests
-    {
-        $this->instances[$id] = $instance;
-    }
+    public static array $objects = [];
 }
 
-abstract class Facade                                           // ★ Proxy base
+// ── Step 3: the proxy base. Turns Cache::get() into $realObject->get(). ──
+abstract class Facade                                       // ★ Proxy base
 {
-    private static ?ServiceContainer $container = null;
+    abstract protected static function accessor(): string; // which service am I a shortcut for?
 
-    public static function setContainer(ServiceContainer $container): void
-    {
-        self::$container = $container;
-    }
-
-    /** The container id of the real object behind this shortcut. */
-    abstract protected static function accessor(): string;
-
-    /** @param list<mixed> $arguments */
     public static function __callStatic(string $method, array $arguments): mixed   // ★ PHP calls this for Cache::anything()
     {
-        $container = self::$container ?? throw new RuntimeException('Facade container not set.');
-        $target = $container->make(static::accessor());        // ★ find the ONE real object
+        $name = static::accessor();
 
-        if (!method_exists($target, $method)) {
-            throw new BadMethodCallException(static::class . "::{$method}() does not exist.");
+        if (!isset(Services::$objects[$name])) {
+            throw new RuntimeException("No service called [{$name}].");
         }
 
-        return $target->{$method}(...$arguments);               // ★ forward the call, unchanged
+        $realObject = Services::$objects[$name];            // ★ find the ONE real object
+
+        return $realObject->$method(...$arguments);         // ★ forward the call, unchanged
     }
 }
 
-final class Cache extends Facade                                // ★ Concrete proxy
+// ── Step 4: a concrete proxy. It only names its service. ──
+class Cache extends Facade                                  // ★ Concrete proxy
 {
     protected static function accessor(): string
     {
@@ -92,16 +68,12 @@ final class Cache extends Facade                                // ★ Concrete 
     }
 }
 
-// ── Bootstrapping (what the framework does for you) ─────────────────────
-$container = new ServiceContainer();
-$container->singleton('cache', fn () => new ArrayCache());
-Facade::setContainer($container);
+// ── Using it ──
+Services::$objects['cache'] = new ArrayCache();             // the framework does this at startup
 
-// ── The static-looking call is a normal method call on one object ──────
-Cache::put('menu', ['Margherita', 'Pepperoni']);
-echo implode(', ', Cache::get('menu')), PHP_EOL;
-echo 'Same object? ', var_export($container->make('cache')->get('menu') === Cache::get('menu'), true), PHP_EOL;
+Cache::put('menu', 'Margherita, Pepperoni');                // looks static...
+echo Cache::get('menu') . "\n";                             // ...but is a normal call on one object
 
-// In a test, swap the real object for a fake one: no static code to fight with.
-$container->swap('cache', new ArrayCache());
-echo 'After swap: ', var_export(Cache::get('menu'), true), PHP_EOL;
+// In a test, replace the real object. No static code to fight with:
+Services::$objects['cache'] = new ArrayCache();
+echo 'After swapping in a fresh cache: ' . var_export(Cache::get('menu'), true) . "\n";

@@ -7,15 +7,15 @@ declare(strict_types=1);
  * Run it: php examples/container.php
  *
  * Roles:
- * - Container: Container (knows how to build things; keeps shared instances)
- * - Bindings: bind() = new object every time, singleton() = one shared object
- * - Autowiring: make() reads constructor types with Reflection and builds them
- * - Service: InvoiceSender (asks for what it needs; never builds it)
+ * - Service: InvoiceSender (asks for what it needs in its constructor; never builds it)
+ * - Container: Container (knows how to build things and keeps shared instances)
+ * - singleton(): "build it once, then always give the same object"
+ * - Autowiring: make() reads the constructor and builds each dependency automatically
  *
  * In Laravel:
- * Illuminate\Container\Container: bind() and singleton() store closures; make() calls
- * build(), which uses ReflectionClass to read the constructor and resolve each typed
- * parameter recursively. That is why type-hinting a class in a controller just works.
+ * The service container. singleton() stores how to build something; make() uses PHP's
+ * ReflectionClass to read a class's constructor and builds every typed parameter, one level
+ * deeper each time. That is why type-hinting a class in a controller just works.
  */
 
 interface Mailer
@@ -23,19 +23,20 @@ interface Mailer
     public function send(string $to, string $subject): void;
 }
 
-final class SmtpMailer implements Mailer
+class SmtpMailer implements Mailer
 {
-    public function __construct(private readonly string $host) {}
+    public function __construct(private string $host)
+    {
+    }
 
     public function send(string $to, string $subject): void
     {
-        echo "SMTP {$this->host}: '{$subject}' → {$to}", PHP_EOL;
+        echo "SMTP {$this->host}: '{$subject}' -> {$to}\n";
     }
 }
 
-final class FakeMailer implements Mailer                        // for tests: records instead of sending
+class FakeMailer implements Mailer                          // for tests: remembers instead of sending
 {
-    /** @var list<string> */
     public array $sent = [];
 
     public function send(string $to, string $subject): void
@@ -44,9 +45,12 @@ final class FakeMailer implements Mailer                        // for tests: re
     }
 }
 
-final class InvoiceSender                                       // ★ Service: asks, never builds
+// ── Step 1: the service. It ASKS for a Mailer; it never creates one. ──
+class InvoiceSender                                         // ★ Service
 {
-    public function __construct(private readonly Mailer $mailer) {}
+    public function __construct(private Mailer $mailer)    // ★ dependency injection
+    {
+    }
 
     public function send(int $invoiceId, string $email): void
     {
@@ -54,74 +58,63 @@ final class InvoiceSender                                       // ★ Service: 
     }
 }
 
-final class Container                                           // ★ Container
+// ── Step 2: the container ──
+class Container                                             // ★ Container
 {
-    /** @var array<string, array{factory: Closure(self): object, shared: bool}> */
-    private array $bindings = [];
+    private array $factories = [];
+    private array $shared = [];
 
-    /** @var array<string, object> */
-    private array $instances = [];
-
-    public function bind(string $id, Closure $factory): void    // ★ new object every time
+    public function singleton(string $name, callable $factory): void   // ★ "build once, share it"
     {
-        $this->bindings[$id] = ['factory' => $factory, 'shared' => false];
+        $this->factories[$name] = $factory;
     }
 
-    public function singleton(string $id, Closure $factory): void   // ★ one shared object, visibly
+    public function make(string $name): object
     {
-        $this->bindings[$id] = ['factory' => $factory, 'shared' => true];
+        if (isset($this->shared[$name])) {
+            return $this->shared[$name];                    // already built: give the same object
+        }
+
+        if (isset($this->factories[$name])) {
+            $this->shared[$name] = ($this->factories[$name])();
+
+            return $this->shared[$name];
+        }
+
+        return $this->autowire($name);
     }
 
-    public function make(string $id): object
+    private function autowire(string $class): object       // ★ read the constructor, build what it needs
     {
-        if (isset($this->instances[$id])) {
-            return $this->instances[$id];
-        }
-
-        $binding = $this->bindings[$id] ?? null;
-        $object = $binding !== null ? ($binding['factory'])($this) : $this->autowire($id);
-
-        if ($binding !== null && $binding['shared']) {
-            $this->instances[$id] = $object;
-        }
-
-        return $object;
-    }
-
-    private function autowire(string $class): object            // ★ read the constructor, build each dependency
-    {
-        if (!class_exists($class)) {
-            throw new RuntimeException("Cannot build [{$class}]: bind it first (is it an interface?).");
-        }
-
         $constructor = (new ReflectionClass($class))->getConstructor();
         if ($constructor === null) {
-            return new $class();
+            return new $class();                            // no constructor: nothing to inject
         }
 
-        $arguments = array_map(function (ReflectionParameter $p) use ($class): mixed {
-            $type = $p->getType();
-            if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
-                return $this->make($type->getName());           // ★ recursion: dependencies of dependencies
-            }
-            if ($p->isDefaultValueAvailable()) {
-                return $p->getDefaultValue();
-            }
-            throw new RuntimeException("Cannot guess \${$p->getName()} for [{$class}]: register a factory.");
-        }, $constructor->getParameters());
+        $arguments = [];
+        foreach ($constructor->getParameters() as $parameter) {
+            $type = $parameter->getType()->getName();       // e.g. "Mailer"
+            $arguments[] = $this->make($type);              // ★ build each dependency the same way
+        }
 
         return new $class(...$arguments);
     }
 }
 
-// ── The ONE place that decides what Mailer means ───────────────────────
+// ── Using it: ONE place decides what "Mailer" means ──
 $app = new Container();
-$app->singleton(Mailer::class, fn () => new SmtpMailer('smtp.example.com'));
+$app->singleton(Mailer::class, function () {
+    return new SmtpMailer('smtp.example.com');
+});
 
-$app->make(InvoiceSender::class)->send(1001, 'school@example.com');   // InvoiceSender built automatically
-echo 'Same Mailer each time? ', var_export($app->make(Mailer::class) === $app->make(Mailer::class), true), PHP_EOL;
+$sender = $app->make(InvoiceSender::class);                 // built automatically, Mailer injected
+$sender->send(1001, 'school@example.com');
 
-// ── In a test: no container, no real email ──────────────────────────────
+$same = $app->make(Mailer::class) === $app->make(Mailer::class);
+echo 'Same Mailer each time? ' . ($same ? 'yes' : 'no') . "\n";
+
+// ── In a test: no container needed, and no real email is sent ──
 $fake = new FakeMailer();
-(new InvoiceSender($fake))->send(1002, 'test@example.com');
-echo 'Fake recorded: ', $fake->sent[0], PHP_EOL;
+$testSender = new InvoiceSender($fake);
+$testSender->send(1002, 'test@example.com');
+echo 'The fake mailer recorded: ' . $fake->sent[0] . "\n";

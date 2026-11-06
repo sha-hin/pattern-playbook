@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=dbe7249e5d">
+<link rel="stylesheet" href="../assets/style.css?v=744b6ade3d">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Factory Method Pattern in PHP & Laravel, with Real Code","description":"Factory Method explained for PHP and Laravel developers. A parent class runs a process that needs an object, but each child needs a different one - leave a…","url":"https://sha-hin.github.io/pattern-playbook/factory-method/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/factory-method/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Factory Method design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Factory Method pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/factory-method.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Factory Method","item":"https://sha-hin.github.io/pattern-playbook/factory-method/"}]}]}</script>
 </head>
@@ -69,155 +69,142 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>A base class with a switch to decide which object to new</li><li>Subclasses that differ mainly in &quot;which helper object&quot;</li><li>&quot;Add a new type&quot; means editing the parent</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Students can be imported from CSV or Excel. The import process is the same; only the file reader differs.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>abstract class StudentImport
-{
-    public function run(string $path): void
-    {
-        $reader = match (pathinfo($path, PATHINFO_EXTENSION)) {   <span class="c">// the parent decides... badly</span>
-            'csv'  =&gt; new CsvReader($path),
-            'xlsx' =&gt; new XlsxReader($path),
-        };
-        foreach ($reader as $row) { /* save */ }
-    }
-}</code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">StudentImport</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">run</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">void</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$reader</span> = <span class="k">match</span> (<span class="f">pathinfo</span>(<span class="v">$path</span>, <span class="t">PATHINFO_EXTENSION</span>)) { <span class="al">  </span><span class="c">// the parent decides... badly</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="s">'csv'</span>  =&gt; <span class="k">new</span> <span class="f">CsvReader</span>(<span class="v">$path</span>),</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="s">'xlsx'</span> =&gt; <span class="k">new</span> <span class="f">XlsxReader</span>(<span class="v">$path</span>),</span><span class="nl">
+</span><span class="ln" style="--i:8">        };</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="v">$reader</span> <span class="k">as</span> <span class="v">$row</span>) { <span class="c">/* save */</span> }</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-factory-method">
     <h2 class="g" id="build-factory-method">Build it yourself: the full Factory Method pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Factory Method">
-      <div class="role" role="row"><span role="rowheader">Creator</span><span role="cell"><code>StudentImport</code> <small>runs the process; leaves createReader() to its children</small></span></div><div class="role" role="row"><span role="rowheader">Factory method</span><span role="cell"><code>createReader</code> <small>) (abstract: &quot;give me a reader, I don't care which&quot;</small></span></div><div class="role" role="row"><span role="rowheader">Concrete creators</span><span role="cell"><code>CsvStudentImport, JsonLinesStudentImport</code> <small>each decides which reader</small></span></div><div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>RowReader; Concrete products: CsvRowReader, JsonLinesRowReader</code></span></div>
+      <div class="role" role="row"><span role="rowheader">Creator</span><span role="cell"><code>StudentImport</code> <small>runs the process, but leaves &quot;which reader?&quot; to its children</small></span></div><div class="role" role="row"><span role="rowheader">Factory method</span><span role="cell"><code>createReader</code> <small>) (abstract: each child decides what to create</small></span></div><div class="role" role="row"><span role="rowheader">Concrete creators</span><span role="cell"><code>CsvStudentImport, JsonStudentImport</code></span></div><div class="role" role="row"><span role="rowheader">Product</span><span role="cell"><code>RowReader; Concrete products: CsvReader, JsonReader</code></span></div>
     </div>
     
-    <pre><code>&lt;?php
-
-declare(strict_types=1);
-
-<span class="h">interface RowReader  <span class="c">// Product</span></span>
-{
-    /** @return iterable&lt;array{code: string, name: string}&gt; */
-    public function rows(): iterable;
-}
-
-final class CsvRowReader implements RowReader                   <span class="c">// Concrete product</span>
-{
-    public function __construct(private readonly string $path) {}
-
-    public function rows(): iterable
-    {
-        $file = new SplFileObject($this-&gt;path);
-        $file-&gt;setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::READ_AHEAD);
-        $file-&gt;setCsvControl(',', '&quot;', '');
-        foreach ($file as $cells) {
-            yield ['code' =&gt; (string) $cells[0], 'name' =&gt; (string) $cells[1]];
-        }
-    }
-}
-
-final class JsonLinesRowReader implements RowReader            <span class="c">// Concrete product</span>
-{
-    public function __construct(private readonly string $path) {}
-
-    public function rows(): iterable
-    {
-        foreach (new SplFileObject($this-&gt;path) as $line) {
-            if (trim((string) $line) === '') {
-                continue;
-            }
-            $row = json_decode((string) $line, true, 4, JSON_THROW_ON_ERROR);
-            yield ['code' =&gt; (string) $row['code'], 'name' =&gt; (string) $row['full_name']];
-        }
-    }
-}
-
-<span class="h">abstract class StudentImport  <span class="c">// Creator</span></span>
-{
-    /** @var array&lt;string, string&gt; */
-    public array $students = [];
-
-    final public function run(string $path): int                <span class="c">// the process: same for every format</span>
-    {
-        $count = 0;
-<span class="h">        foreach ($this-&gt;createReader($path)-&gt;rows() as $row) {  <span class="c">// &quot;give me a reader&quot;, don't care which</span></span>
-            $this-&gt;students[$row['code']] = $row['name'];
-            $count++;
-        }
-
-        return $count;
-    }
-
-<span class="h">    abstract protected function createReader(string $path): RowReader;  <span class="c">// the factory method</span></span>
-}
-
-<span class="h">final class CsvStudentImport extends StudentImport  <span class="c">// Concrete creator</span></span>
-{
-    protected function createReader(string $path): RowReader
-    {
-<span class="h">        return new CsvRowReader($path);  <span class="c">// the child decides</span></span>
-    }
-}
-
-<span class="h">final class JsonLinesStudentImport extends StudentImport  <span class="c">// Concrete creator</span></span>
-{
-    protected function createReader(string $path): RowReader
-    {
-        return new JsonLinesRowReader($path);
-    }
-}
-
-<span class="c">// ── Using it ────────────────────────────────────────────────────────────</span>
-$csv = tempnam(sys_get_temp_dir(), 'students');
-$jsonl = tempnam(sys_get_temp_dir(), 'students');
-file_put_contents($csv, &quot;S-1,Mona Adel\nS-2,Omar Said\n&quot;);
-file_put_contents($jsonl, &quot;{\&quot;code\&quot;:\&quot;S-3\&quot;,\&quot;full_name\&quot;:\&quot;Laila Hassan\&quot;}\n&quot;);
-
-$fromCsv = new CsvStudentImport();
-echo 'CSV imported: ', $fromCsv-&gt;run($csv), PHP_EOL;
-
-$fromJson = new JsonLinesStudentImport();
-echo 'JSONL imported: ', $fromJson-&gt;run($jsonl), PHP_EOL;
-
-echo implode(', ', [...$fromCsv-&gt;students, ...$fromJson-&gt;students]), PHP_EOL;
-
-unlink($csv);
-unlink($jsonl);
-<span class="c">// A new format = one new creator + one new reader. StudentImport::run() never changes.</span></code></pre>
+    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Product and its concrete versions ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">RowReader</span> <span class="al"> </span><span class="c">// Product</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">rows</span>(<span class="k">string</span> <span class="v">$content</span>): <span class="k">array</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CsvReader</span> <span class="k">implements</span> <span class="t">RowReader</span> <span class="al">                       </span><span class="c">// Concrete product</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">rows</span>(<span class="k">string</span> <span class="v">$content</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$rows</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="f">explode</span>(<span class="s">&quot;\n&quot;</span>, <span class="f">trim</span>(<span class="v">$content</span>)) <span class="k">as</span> <span class="v">$line</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            [<span class="v">$code</span>, <span class="v">$name</span>] = <span class="f">explode</span>(<span class="s">','</span>, <span class="v">$line</span>); <span class="al">          </span><span class="c">// &quot;S-1,Mona Adel&quot;</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$rows</span>[] = [<span class="s">'code'</span> =&gt; <span class="v">$code</span>, <span class="s">'name'</span> =&gt; <span class="v">$name</span>];</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$rows</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">JsonReader</span> <span class="k">implements</span> <span class="t">RowReader</span> <span class="al">                      </span><span class="c">// Concrete product</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">rows</span>(<span class="k">string</span> <span class="v">$content</span>): <span class="k">array</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$rows</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="f">json_decode</span>(<span class="v">$content</span>, <span class="k">true</span>) <span class="k">as</span> <span class="v">$item</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$rows</span>[] = [<span class="s">'code'</span> =&gt; <span class="v">$item</span>[<span class="s">'code'</span>], <span class="s">'name'</span> =&gt; <span class="v">$item</span>[<span class="s">'full_name'</span>]];</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$rows</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Creator. The process is fixed; the reader is left to the children. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">StudentImport</span> <span class="al"> </span><span class="c">// Creator</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">array</span> <span class="v">$students</span> = [];</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">run</span>(<span class="k">string</span> <span class="v">$content</span>): <span class="k">int</span> <span class="al">              </span><span class="c">// the process: same for every format</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="v">$reader</span> = <span class="k">$this</span>-&gt;<span class="f">createReader</span>(); <span class="al"> </span><span class="c">// &quot;give me a reader&quot;, don't care which</span></span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="v">$reader</span>-&gt;<span class="f">rows</span>(<span class="v">$content</span>) <span class="k">as</span> <span class="v">$row</span>) {</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">students</span>[<span class="v">$row</span>[<span class="s">'code'</span>]] = <span class="v">$row</span>[<span class="s">'name'</span>];</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">count</span>(<span class="k">$this</span>-&gt;<span class="p">students</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(): <span class="t">RowReader</span>; <span class="al"> </span><span class="c">// the factory method</span></span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: concrete creators. Each one decides which reader to create. ──</span></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">CsvStudentImport</span> <span class="k">extends</span> <span class="t">StudentImport</span> <span class="al"> </span><span class="c">// Concrete creator</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(): <span class="t">RowReader</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CsvReader</span>(); <span class="al"> </span><span class="c">// the child decides</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:0"><span class="k">class</span> <span class="t">JsonStudentImport</span> <span class="k">extends</span> <span class="t">StudentImport</span> <span class="al"> </span><span class="c">// Concrete creator</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(): <span class="t">RowReader</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">JsonReader</span>();</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// ── Using it ──</span></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$fromCsv</span> = <span class="k">new</span> <span class="f">CsvStudentImport</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'CSV imported: '</span> . <span class="v">$fromCsv</span>-&gt;<span class="f">run</span>(<span class="s">&quot;S-1,Mona Adel\nS-2,Omar Said&quot;</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="v">$fromJson</span> = <span class="k">new</span> <span class="f">JsonStudentImport</span>();</span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'JSON imported: '</span> . <span class="v">$fromJson</span>-&gt;<span class="f">run</span>(<span class="s">'[{&quot;code&quot;:&quot;S-3&quot;,&quot;full_name&quot;:&quot;Laila Hassan&quot;}]'</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="c">// A new format (Excel) = one new creator + one new reader. StudentImport::run() never changes.</span></span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/factory-method.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/factory-method.php" data-umami-event="View example" data-umami-event-pattern="factory-method">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>CSV imported: 2
-JSONL imported: 1
-Mona Adel, Omar Said, Laila Hassan</code></pre></div>
+JSON imported: 1</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code>abstract class StudentImport
-{
-    final public function run(string $path): int             <span class="c">// the process: same for every format</span>
-    {
-        $count = 0;
-<span class="h">        foreach ($this-&gt;createReader($path) as $row) {  <span class="c">// &quot;give me a reader&quot;, don't care which</span></span>
-            Student::updateOrCreate(['code' =&gt; $row['code']], ['name' =&gt; $row['name']]);
-            $count++;
-        }
-        return $count;
-    }
-
-<span class="h">    abstract protected function createReader(string $path): iterable;  <span class="c">// the factory method</span></span>
-}
-
-final class CsvStudentImport extends StudentImport
-{
-    protected function createReader(string $path): iterable
-    {
-<span class="h">        return new CsvRowReader($path);  <span class="c">// the child decides</span></span>
-    }
-}
-
-final class XlsxStudentImport extends StudentImport
-{
-    protected function createReader(string $path): iterable
-    {
-        return new XlsxRowReader($path);
-    }
-}</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Illuminate\Support\Manager: its driver() method runs the process (pick, build once, reuse) and calls create{Name}Driver(), a factory method that each child supplies: CacheManager::createRedisDriver(), createFileDriver(), and so on.</p></div>
+    <pre><code><span class="ln" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">StudentImport</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">final</span> <span class="k">public</span> <span class="k">function</span> <span class="f">run</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">int</span> <span class="al">            </span><span class="c">// the process: same for every format</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="v">$count</span> = <span class="n">0</span>;</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="f">createReader</span>(<span class="v">$path</span>) <span class="k">as</span> <span class="v">$row</span>) { <span class="al"> </span><span class="c">// &quot;give me a reader&quot;, don't care which</span></span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="t">Student</span>::<span class="f">updateOrCreate</span>([<span class="s">'code'</span> =&gt; <span class="v">$row</span>[<span class="s">'code'</span>]], [<span class="s">'name'</span> =&gt; <span class="v">$row</span>[<span class="s">'name'</span>]]);</span><span class="nl">
+</span><span class="ln" style="--i:12">            <span class="v">$count</span>++;</span><span class="nl">
+</span><span class="ln" style="--i:8">        }</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$count</span>;</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln h" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span>; <span class="al"> </span><span class="c">// the factory method</span></span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">CsvStudentImport</span> <span class="k">extends</span> <span class="t">StudentImport</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CsvRowReader</span>(<span class="v">$path</span>); <span class="al"> </span><span class="c">// the child decides</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span><span class="nl">
+</span><span class="ln" style="--i:0"></span><span class="nl">
+</span><span class="ln" style="--i:0"><span class="k">class</span> <span class="t">XlsxStudentImport</span> <span class="k">extends</span> <span class="t">StudentImport</span></span><span class="nl">
+</span><span class="ln" style="--i:0">{</span><span class="nl">
+</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createReader</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">iterable</span></span><span class="nl">
+</span><span class="ln" style="--i:4">    {</span><span class="nl">
+</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">XlsxRowReader</span>(<span class="v">$path</span>);</span><span class="nl">
+</span><span class="ln" style="--i:4">    }</span><span class="nl">
+</span><span class="ln" style="--i:0">}</span></code></pre>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's Manager base class (behind sessions, hashing, notifications) runs the same process for every driver and calls a factory method that each child class supplies: SessionManager has createFileDriver(), createDatabaseDriver(), createRedisDriver()...</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Manager: createRedisDriver(), createFileDriver()</span><span>Notification::toMail() returns your MailMessage</span><span>Test factories</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -228,6 +215,6 @@ final class XlsxStudentImport extends StudentImport
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=ddc52e2cb7" defer></script>
+<script src="../assets/app.js?v=3ba2343d6e" defer></script>
 </body>
 </html>

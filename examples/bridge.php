@@ -7,46 +7,48 @@ declare(strict_types=1);
  * Run it: php examples/bridge.php
  *
  * Roles:
- * - Abstraction: Notification (WHAT to say; holds a Channel, which is the bridge)
+ * - Abstraction: Notification (WHAT to say; it holds a Channel, and that link is the "bridge")
  * - Refined abstractions: InvoicePaid, OrderDelayed
  * - Implementor: Channel (HOW to deliver)
  * - Concrete implementors: EmailChannel, SmsChannel
- * Result: 2 + 2 classes cover all 4 combinations, instead of 2 × 2 classes.
+ * 2 notifications + 2 channels = 4 classes cover all 4 combinations.
  *
  * In Laravel:
- * Notifications: a Notification class (the abstraction) says what to send; via() names the
- * channels, and Illuminate\Notifications\ChannelManager resolves channel classes
- * (MailChannel, DatabaseChannel...) that each call send() and the matching toMail(),
- * toArray()... method. Any notification works on any channel.
+ * Notifications. Your notification class says WHAT to send; via() lists the channels.
+ * Laravel looks up each channel class (mail, database, SMS...) and calls its send(), which
+ * asks your notification for toMail(), toArray()... Any notification works on any channel.
  */
 
-interface Channel                                               // ★ Implementor: HOW
+// ── Step 1: the Implementor. HOW to deliver. ──
+interface Channel                                           // ★ Implementor
 {
     public function deliver(string $to, string $subject, string $body): void;
 }
 
-final class EmailChannel implements Channel                     // ★ Concrete implementor
+class EmailChannel implements Channel                       // ★ Concrete implementor
 {
     public function deliver(string $to, string $subject, string $body): void
     {
-        echo "EMAIL to {$to}" . PHP_EOL . "  Subject: {$subject}" . PHP_EOL . "  {$body}" . PHP_EOL;
+        echo "EMAIL to {$to}\n  Subject: {$subject}\n  {$body}\n";
     }
 }
 
-final class SmsChannel implements Channel                       // ★ Concrete implementor
+class SmsChannel implements Channel                         // ★ Concrete implementor
 {
     public function deliver(string $to, string $subject, string $body): void
     {
-        $text = mb_strlen($body) > 70 ? mb_substr($body, 0, 69) . '…' : $body;   // SMS: no subject, short text
-        echo "SMS to {$to}: {$text}" . PHP_EOL;
+        echo "SMS to {$to}: {$body}\n";                    // SMS has no subject line
     }
 }
 
-abstract class Notification                                     // ★ Abstraction: WHAT
+// ── Step 2: the Abstraction. WHAT to say. It HAS a channel. ──
+abstract class Notification                                 // ★ Abstraction
 {
-    public function __construct(protected readonly Channel $channel) {}   // ★ the bridge: has-a Channel
+    public function __construct(protected Channel $channel) // ★ the bridge between the two sides
+    {
+    }
 
-    final public function send(string $to): void
+    public function send(string $to): void
     {
         $this->channel->deliver($to, $this->subject(), $this->body());
     }
@@ -56,9 +58,10 @@ abstract class Notification                                     // ★ Abstracti
     abstract protected function body(): string;
 }
 
-final class InvoicePaid extends Notification                    // ★ Refined abstraction
+// ── Step 3: refined abstractions. One class per message. ──
+class InvoicePaid extends Notification                      // ★ Refined abstraction
 {
-    public function __construct(Channel $channel, private readonly string $invoiceNo)
+    public function __construct(Channel $channel, private string $invoiceNo)
     {
         parent::__construct($channel);
     }
@@ -70,31 +73,35 @@ final class InvoicePaid extends Notification                    // ★ Refined a
 
     protected function body(): string
     {
-        return "Thank you. We received the payment for invoice {$this->invoiceNo}.";
+        return "Thank you, invoice {$this->invoiceNo} is paid.";
     }
 }
 
-final class OrderDelayed extends Notification                   // ★ Refined abstraction
+class OrderDelayed extends Notification                     // ★ Refined abstraction
 {
-    public function __construct(Channel $channel, private readonly int $orderId, private readonly int $minutes)
+    public function __construct(Channel $channel, private int $orderId, private int $minutes)
     {
         parent::__construct($channel);
     }
 
     protected function subject(): string
     {
-        return "Order #{$this->orderId} is running late";
+        return "Order #{$this->orderId} is late";
     }
 
     protected function body(): string
     {
-        return "Sorry, order #{$this->orderId} will be about {$this->minutes} minutes late. A driver is on the way.";
+        return "Sorry, order #{$this->orderId} is about {$this->minutes} minutes late.";
     }
 }
 
-// ── Any message × any channel, with no class per combination ───────────
-(new InvoicePaid(new EmailChannel(), 'INV-2026-114'))->send('school@example.com');
-(new InvoicePaid(new SmsChannel(), 'INV-2026-114'))->send('+201001234567');
-(new OrderDelayed(new SmsChannel(), 42, 15))->send('+201001234567');
+// ── Using it: any message x any channel, with no class per combination ──
+$invoiceByEmail = new InvoicePaid(new EmailChannel(), 'INV-114');
+$invoiceBySms = new InvoicePaid(new SmsChannel(), 'INV-114');
+$delayBySms = new OrderDelayed(new SmsChannel(), 42, 15);
+
+$invoiceByEmail->send('school@example.com');
+$invoiceBySms->send('+201001234567');
+$delayBySms->send('+201001234567');
 
 // A WhatsApp channel = 1 new class, and every existing notification can use it.

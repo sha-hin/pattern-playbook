@@ -7,101 +7,116 @@ declare(strict_types=1);
  * Run it: php examples/outbox.php
  *
  * Roles:
- * - Business write + outbox row: ApproveEvaluation (both in ONE database transaction)
+ * - Business write + outbox row: ApproveEvaluation (both saved in ONE database transaction)
  * - Outbox: the "outbox" table (messages waiting to be sent)
- * - Relay: OutboxRelay (a worker: sends unsent rows, retries, records failures)
- * - Idempotent receiver: MinistryApi (ignores a message it already processed)
+ * - Relay: OutboxRelay (a worker that sends waiting messages and retries failures)
+ * - Idempotent receiver: MinistryApi (ignores a message it has already processed)
  *
  * In Laravel:
- * Not built in. DB::afterCommit() and $afterCommit on queued jobs stop messages for
- * rolled-back data, but a crash right after the commit can still lose them. An outbox
- * table plus a scheduled worker, as below, closes that gap.
+ * With the "database" queue driver, a queued job is just a row in the jobs table. Dispatch a
+ * job inside DB::transaction() on the same connection, and the job row is saved in the SAME
+ * transaction as your data: the jobs table becomes your outbox, and queue:work is the relay.
  */
 
-final class MinistryApi                                         // the external system (unreliable)
+// ── The external system. Unreliable, like real APIs. ──
+class MinistryApi
 {
-    /** @var array<string, true> */
-    private array $seen = [];
-
+    private array $alreadyReceived = [];
     private int $calls = 0;
 
-    public function sync(array $payload, string $idempotencyKey): void
+    public function sync(int $evaluationId, string $key): void
     {
-        if (++$this->calls === 1) {
+        $this->calls++;
+        if ($this->calls === 1) {
             throw new RuntimeException('Ministry API: 503 Service Unavailable');
         }
-        if (isset($this->seen[$idempotencyKey])) {              // ★ idempotent: a repeat does nothing
-            echo "Ministry: already have {$idempotencyKey}, ignored", PHP_EOL;
+
+        if (isset($this->alreadyReceived[$key])) {          // ★ idempotent: a repeat does nothing
+            echo "Ministry: already have {$key}, ignored\n";
 
             return;
         }
-        $this->seen[$idempotencyKey] = true;
-        echo "Ministry: received evaluation {$payload['evaluation_id']}", PHP_EOL;
+
+        $this->alreadyReceived[$key] = true;
+        echo "Ministry: received evaluation {$evaluationId}\n";
     }
 }
 
-final class ApproveEvaluation
+// ── Step 1: save the data AND the message in one transaction ──
+class ApproveEvaluation
 {
-    public function __construct(private readonly PDO $db) {}
+    public function __construct(private PDO $db)
+    {
+    }
 
     public function handle(int $evaluationId): void
     {
-        $this->db->beginTransaction();                          // ★ ONE transaction for both writes
+        $this->db->beginTransaction();                      // ★ ONE transaction for both writes
+
         try {
-            $this->db->prepare("UPDATE evaluations SET status = 'approved' WHERE id = ?")->execute([$evaluationId]);
-            $this->db->prepare(
-                'INSERT INTO outbox (idempotency_key, payload, attempts) VALUES (?, ?, 0)'   // ★ the message, saved with the data
-            )->execute(["ministry-sync:{$evaluationId}", json_encode(['evaluation_id' => $evaluationId])]);
-            $this->db->commit();                                // both saved, or neither
-        } catch (Throwable $e) {
+            $approve = $this->db->prepare("UPDATE evaluations SET status = 'approved' WHERE id = ?");
+            $approve->execute([$evaluationId]);
+
+            $message = $this->db->prepare('INSERT INTO outbox (message_key, evaluation_id) VALUES (?, ?)');
+            $message->execute(["ministry-sync:{$evaluationId}", $evaluationId]);   // ★ the message, saved with the data
+
+            $this->db->commit();                            // both are saved, or neither is
+        } catch (Exception $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 }
 
-final class OutboxRelay                                         // ★ Relay: runs every minute
+// ── Step 2: the relay. A worker that runs every minute. ──
+class OutboxRelay                                           // ★ Relay
 {
-    public function __construct(
-        private readonly PDO $db,
-        private readonly MinistryApi $api,
-        private readonly int $maxAttempts = 10,
-    ) {}
+    public function __construct(private PDO $db, private MinistryApi $api)
+    {
+    }
 
     public function run(): void
     {
-        $rows = $this->db->prepare('SELECT * FROM outbox WHERE sent_at IS NULL AND attempts < ? ORDER BY id LIMIT 100');
-        $rows->execute([$this->maxAttempts]);
+        $rows = $this->db->query('SELECT * FROM outbox WHERE sent_at IS NULL AND attempts < 10')->fetchAll();
 
-        foreach ($rows->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach ($rows as $row) {
             try {
-                $this->api->sync(json_decode($row['payload'], true, 8, JSON_THROW_ON_ERROR), $row['idempotency_key']);
-                $this->db->prepare("UPDATE outbox SET sent_at = datetime('now') WHERE id = ?")->execute([$row['id']]);
-            } catch (Throwable $e) {
-                $this->db->prepare('UPDATE outbox SET attempts = attempts + 1, last_error = ? WHERE id = ?')
-                    ->execute([substr($e->getMessage(), 0, 1000), $row['id']]);
-                echo "Relay: will retry ({$e->getMessage()})", PHP_EOL;   // a real app logs this
+                $this->api->sync((int) $row['evaluation_id'], $row['message_key']);
+
+                $sent = $this->db->prepare("UPDATE outbox SET sent_at = datetime('now') WHERE id = ?");
+                $sent->execute([$row['id']]);
+            } catch (Exception $e) {
+                $failed = $this->db->prepare('UPDATE outbox SET attempts = attempts + 1, last_error = ? WHERE id = ?');
+                $failed->execute([$e->getMessage(), $row['id']]);
+                echo "Relay: will retry next minute ({$e->getMessage()})\n";
             }
         }
     }
 }
 
-// ── Setup ───────────────────────────────────────────────────────────────
-$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$db->exec("CREATE TABLE evaluations (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'submitted')");
-$db->exec('CREATE TABLE outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, idempotency_key TEXT NOT NULL UNIQUE,
-           payload TEXT NOT NULL, attempts INTEGER NOT NULL, last_error TEXT, sent_at TEXT)');
+// ── Setup: an in-memory SQLite database ──
+$db = new PDO('sqlite::memory:');
+$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+$db->exec("CREATE TABLE evaluations (id INTEGER PRIMARY KEY, status TEXT DEFAULT 'submitted')");
+$db->exec('CREATE TABLE outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_key TEXT NOT NULL UNIQUE,
+    evaluation_id INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    sent_at TEXT
+)');
 $db->exec('INSERT INTO evaluations (id) VALUES (42)');
 
-$api = new MinistryApi();
-$relay = new OutboxRelay($db, $api);
+$relay = new OutboxRelay($db, new MinistryApi());
 
-// ── The request: saves both, sends nothing ──────────────────────────────
-(new ApproveEvaluation($db))->handle(42);
+// ── Using it ──
+(new ApproveEvaluation($db))->handle(42);                   // the request saves both, sends nothing
 
-$relay->run();                                                  // minute 1: the API is down
-$relay->run();                                                  // minute 2: delivered
+$relay->run();                                              // minute 1: the API is down
+$relay->run();                                              // minute 2: delivered
 
-// A crash after sending but before marking it sent would send it again:
+// If the worker crashed after sending but before marking it sent, it would send it again:
 $db->exec('UPDATE outbox SET sent_at = NULL');
-$relay->run();                                                  // the receiver ignores the repeat
+$relay->run();                                              // the receiver ignores the repeat
