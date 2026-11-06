@@ -94,19 +94,19 @@ after:String.raw`interface SmsSender                                  // YOUR sh
 final class TwilioSmsSender implements SmsSender      // ★ the adapter
 {
     public function __construct(
-        private \Twilio\Rest\Client $twilio,
-        private string $from,
+        private readonly \Twilio\Rest\Client $twilio,
+        private readonly string $from,
     ) {}
 
     public function send(string $to, string $text): void
     {
-        $message = $this->twilio->messages->create($to, [   // ★ translate the call
-            'from' => $this->from,
-            'body' => $text,
-        ]);
-
-        if ($message->status === 'failed') {               // ★ translate failure into an exception
-            throw new SmsFailed("SMS to {$to} failed: {$message->errorMessage}");
+        try {
+            $this->twilio->messages->create($to, [          // ★ translate the call
+                'from' => $this->from,
+                'body' => $text,
+            ]);
+        } catch (\Twilio\Exceptions\TwilioException $e) {  // ★ their exception → your exception
+            throw new SmsFailed("SMS to {$to} failed: {$e->getMessage()}", 0, $e);
         }
     }
 }

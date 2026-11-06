@@ -76,60 +76,120 @@
     <h2 class="g" id="build-adapter">Build it yourself: the full Adapter pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
     <div class="roles" role="table" aria-label="The parts of Adapter">
-      <div class="role" role="row"><span role="rowheader">Target</span><span role="cell"><code>SmsSender</code> <small>the interface YOUR code wants</small></span></div><div class="role" role="row"><span role="rowheader">Adaptee</span><span role="cell"><code>AcmeSmsClient</code> <small>a third-party class with the wrong shape, which you cannot edit</small></span></div><div class="role" role="row"><span role="rowheader">Adapter</span><span role="cell"><code>AcmeSmsAdapter</code> <small>implements the Target, holds the Adaptee, translates between them</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>OrderNotifier</code> <small>only knows the Target</small></span></div>
+      <div class="role" role="row"><span role="rowheader">Target</span><span role="cell"><code>SmsSender</code> <small>the ONE interface your app uses to send an SMS</small></span></div><div class="role" role="row"><span role="rowheader">Adaptees</span><span role="cell"><code>FakeTwilioClient, FakeVonageClient</code> <small>third-party SDKs: different method names, different results, can't be edited</small></span></div><div class="role" role="row"><span role="rowheader">Adapters</span><span role="cell"><code>TwilioSmsSender, VonageSmsSender</code> <small>each implements SmsSender and translates to one SDK</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>OrderNotifier</code> <small>only knows SmsSender, so it never changes when the provider changes</small></span></div>
     </div>
-    
+    <p class="rolenote">The two fake SDKs are shaped like the real Twilio and Vonage SDKs, simplified so the file runs on its own.</p>
     <pre><code>&lt;?php
 
 <span class="k">declare</span>(strict_types=<span class="n">1</span>);
 
-<span class="c">// ── The third-party class (pretend it came from Composer). You can't change it. ──</span>
-<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsClient</span>  <span class="c">// Adaptee</span></span>
-{
-    <span class="c">/**</span>
-<span class="c">     * @param array{msisdn: string, text: string} $payload</span>
-<span class="c">     * @return array{status: string, id?: string, error?: string}</span>
-<span class="c">     */</span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="k">array</span>
-    {
-        <span class="k">if</span> (!<span class="f">str_starts_with</span>(<span class="v">$payload</span>[<span class="s">'msisdn'</span>], <span class="s">'+'</span>)) {
-            <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'rejected'</span>, <span class="s">'error'</span> =&gt; <span class="s">'invalid msisdn'</span>];
-        }
+<span class="c">// ═══ Part 1: two third-party SDKs (pretend they came from Composer). You can't edit them. ═══</span>
 
-        <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'queued'</span>, <span class="s">'id'</span> =&gt; <span class="s">'acme_'</span> . <span class="f">rand</span>(<span class="n">1000</span>, <span class="n">9999</span>)];
+<span class="c">/** What Twilio's SDK gives back: an object with a sid. */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">TwilioMessage</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$sid</span>)
+    {
     }
 }
 
-<span class="c">// ── Step 1: the Target. The simple interface YOUR code wants. ──</span>
+<span class="c">/** What Twilio's SDK throws when the API refuses a message. */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">TwilioException</span> <span class="k">extends</span> <span class="t">Exception</span>
+{
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">FakeTwilioClient</span>  <span class="c">// Adaptee #1</span></span>
+{
+    <span class="k">private</span> <span class="k">int</span> <span class="v">$sent</span> = <span class="n">0</span>;
+
+    <span class="c">/** @param array{from: string, body: string} $options */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">createMessage</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">array</span> <span class="v">$options</span>): <span class="t">TwilioMessage</span>
+    {
+        <span class="k">if</span> (!<span class="f">str_starts_with</span>(<span class="v">$to</span>, <span class="s">'+'</span>)) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">TwilioException</span>(<span class="s">&quot;The 'To' number {$to} is not a valid phone number.&quot;</span>);
+        }
+
+        <span class="k">$this</span>-&gt;<span class="p">sent</span>++;
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">TwilioMessage</span>(<span class="s">'SM'</span> . <span class="k">$this</span>-&gt;<span class="p">sent</span>);
+    }
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">FakeVonageClient</span>  <span class="c">// Adaptee #2: a completely different shape</span></span>
+{
+    <span class="k">private</span> <span class="k">int</span> <span class="v">$sent</span> = <span class="n">0</span>;
+
+    <span class="c">/** @return array{status: string, message-id?: string, error-text?: string} */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">sendText</span>(<span class="k">string</span> <span class="v">$from</span>, <span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">array</span>
+    {
+        <span class="k">if</span> (<span class="f">strlen</span>(<span class="v">$to</span>) &lt; <span class="n">10</span>) {
+            <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'3'</span>, <span class="s">'error-text'</span> =&gt; <span class="s">'Invalid to number'</span>];   <span class="c">// Vonage: &quot;0&quot; means success</span>
+        }
+
+        <span class="k">$this</span>-&gt;<span class="p">sent</span>++;
+
+        <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'0'</span>, <span class="s">'message-id'</span> =&gt; <span class="s">'VN-'</span> . <span class="k">$this</span>-&gt;<span class="p">sent</span>];
+    }
+}
+
+<span class="c">// ═══ Part 2: YOUR side ═══</span>
+
+<span class="c">// ── Step 1: the Target. The one simple interface your app uses. ──</span>
 <span class="h"><span class="k">interface</span> <span class="t">SmsSender</span>  <span class="c">// Target</span></span>
 {
-    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>;   <span class="c">// returns the message id</span>
+    <span class="c">/**</span>
+<span class="c">     * @return string the provider's message id</span>
+<span class="c">     * @throws SmsFailed when the provider refuses the message</span>
+<span class="c">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>;
 }
 
-<span class="c">// ── Step 2: the Adapter. Your interface outside, their class inside. ──</span>
-<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsAdapter</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// Adapter</span></span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">SmsFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span>              <span class="c">// one error type, whatever the provider</span>
 {
-<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AcmeSmsClient</span> <span class="v">$client</span>)  <span class="c">// holds the third-party object</span></span>
-    {
+}
+
+<span class="c">// ── Step 2: one adapter per SDK. Same interface outside, different SDK inside. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// Adapter #1</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+<span class="h">        <span class="k">private</span> <span class="k">readonly</span> <span class="t">FakeTwilioClient</span> <span class="v">$twilio</span>,  <span class="c">// holds the third-party object</span></span>
+        <span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$from</span>,
+    ) {
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>
     {
-        <span class="v">$phone</span> = <span class="f">str_replace</span>(<span class="s">' '</span>, <span class="s">''</span>, <span class="v">$phone</span>);
-        <span class="k">if</span> (<span class="f">str_starts_with</span>(<span class="v">$phone</span>, <span class="s">'0'</span>)) {
-            <span class="v">$phone</span> = <span class="s">'+2'</span> . <span class="v">$phone</span>;                          <span class="c">// Egyptian 0100... becomes +20100...</span>
+        <span class="k">try</span> {
+<span class="h">            <span class="v">$message</span> = <span class="k">$this</span>-&gt;<span class="p">twilio</span>-&gt;<span class="f">createMessage</span>(<span class="v">$to</span>, [  <span class="c">// your call → their call</span></span>
+                <span class="s">'from'</span> =&gt; <span class="k">$this</span>-&gt;<span class="p">from</span>,
+                <span class="s">'body'</span> =&gt; <span class="v">$text</span>,
+            ]);
+<span class="h">        } <span class="k">catch</span> (<span class="t">TwilioException</span> <span class="v">$e</span>) {  <span class="c">// their exception → your exception</span></span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;Twilio refused SMS to {$to}: {$e-&gt;getMessage()}&quot;</span>, <span class="n">0</span>, <span class="v">$e</span>);
         }
 
-<span class="h">        <span class="v">$result</span> = <span class="k">$this</span>-&gt;<span class="p">client</span>-&gt;<span class="f">dispatch</span>([  <span class="c">// translate YOUR call into THEIR call</span></span>
-            <span class="s">'msisdn'</span> =&gt; <span class="v">$phone</span>,
-            <span class="s">'text'</span> =&gt; <span class="v">$text</span>,
-        ]);
+<span class="h">        <span class="k">return</span> <span class="v">$message</span>-&gt;<span class="p">sid</span>;  <span class="c">// their result → your result</span></span>
+    }
+}
 
-<span class="h">        <span class="k">if</span> (<span class="v">$result</span>[<span class="s">'status'</span>] !== <span class="s">'queued'</span>) {  <span class="c">// turn their &quot;status&quot; array into an exception</span></span>
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;SMS to {$phone} failed: {$result['error']}&quot;</span>);
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">VonageSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// Adapter #2</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="k">readonly</span> <span class="t">FakeVonageClient</span> <span class="v">$vonage</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$from</span>,
+    ) {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>
+    {
+<span class="h">        <span class="v">$response</span> = <span class="k">$this</span>-&gt;<span class="p">vonage</span>-&gt;<span class="f">sendText</span>(<span class="k">$this</span>-&gt;<span class="p">from</span>, <span class="v">$to</span>, <span class="v">$text</span>);  <span class="c">// different method, different argument order</span></span>
+
+<span class="h">        <span class="k">if</span> (<span class="v">$response</span>[<span class="s">'status'</span>] !== <span class="s">'0'</span>) {  <span class="c">// their status code → your exception</span></span>
+            <span class="v">$error</span> = <span class="v">$response</span>[<span class="s">'error-text'</span>] ?? <span class="s">'unknown error'</span>;
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;Vonage refused SMS to {$to}: {$error}&quot;</span>);
         }
 
-        <span class="k">return</span> <span class="v">$result</span>[<span class="s">'id'</span>];
+        <span class="k">return</span> <span class="v">$response</span>[<span class="s">'message-id'</span>] ?? <span class="s">''</span>;
     }
 }
 
@@ -146,22 +206,28 @@
     }
 }
 
-<span class="c">// ── Using it ──</span>
-<span class="v">$notifier</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">AcmeSmsAdapter</span>(<span class="k">new</span> <span class="f">AcmeSmsClient</span>()));
+<span class="c">// ═══ Using it: the SAME OrderNotifier with either provider ═══</span>
+<span class="v">$withTwilio</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">TwilioSmsSender</span>(<span class="k">new</span> <span class="f">FakeTwilioClient</span>(), <span class="s">'+15550001111'</span>));
+<span class="v">$withVonage</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">VonageSmsSender</span>(<span class="k">new</span> <span class="f">FakeVonageClient</span>(), <span class="s">'PizzaShop'</span>));
 
-<span class="v">$id</span> = <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'0100 123 4567'</span>, <span class="n">42</span>);
-<span class="k">echo</span> <span class="s">'Sent, id starts with: '</span> . <span class="f">substr</span>(<span class="v">$id</span>, <span class="n">0</span>, <span class="n">5</span>) . <span class="s">&quot;\n&quot;</span>;
+<span class="k">echo</span> <span class="s">'Twilio message id: '</span> . <span class="v">$withTwilio</span>-&gt;<span class="f">orderReady</span>(<span class="s">'+201001234567'</span>, <span class="n">42</span>) . <span class="s">&quot;\n&quot;</span>;
+<span class="k">echo</span> <span class="s">'Vonage message id: '</span> . <span class="v">$withVonage</span>-&gt;<span class="f">orderReady</span>(<span class="s">'+201001234567'</span>, <span class="n">42</span>) . <span class="s">&quot;\n&quot;</span>;
 
-<span class="k">try</span> {
-    <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'12'</span>, <span class="n">43</span>);
-} <span class="k">catch</span> (<span class="t">RuntimeException</span> <span class="v">$e</span>) {
-    <span class="k">echo</span> <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
+<span class="c">// Each SDK fails in its own way (an exception vs a status code), but the caller catches ONE type:</span>
+<span class="k">foreach</span> ([<span class="v">$withTwilio</span>, <span class="v">$withVonage</span>] <span class="k">as</span> <span class="v">$notifier</span>) {
+    <span class="k">try</span> {
+        <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'12345'</span>, <span class="n">43</span>);
+    } <span class="k">catch</span> (<span class="t">SmsFailed</span> <span class="v">$e</span>) {
+        <span class="k">echo</span> <span class="s">'Caught SmsFailed: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
+    }
 }
 
-<span class="c">// Switching provider = one new adapter class. OrderNotifier never changes.</span></code></pre>
+<span class="c">// Switching provider = pass a different adapter. OrderNotifier never changes.</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/adapter.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php" data-umami-event="View example" data-umami-event-pattern="adapter">Open the file on GitHub</a></p>
-    <div class="output"><span>Output</span><pre><code>Sent, id starts with: acme_
-SMS to 12 failed: invalid msisdn</code></pre></div>
+    <div class="output"><span>Output</span><pre><code>Twilio message id: SM1
+Vonage message id: VN-1
+Caught SmsFailed: Twilio refused SMS to 12345: The 'To' number 12345 is not a valid phone number.
+Caught SmsFailed: Vonage refused SMS to 12345: Invalid to number</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
@@ -173,19 +239,19 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 <span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// the adapter</span></span>
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
-        <span class="k">private</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="t">Client</span> <span class="v">$twilio</span>,
-        <span class="k">private</span> <span class="k">string</span> <span class="v">$from</span>,
+        <span class="k">private</span> <span class="k">readonly</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="t">Client</span> <span class="v">$twilio</span>,
+        <span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$from</span>,
     ) {}
 
     <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span>
     {
-<span class="h">        <span class="v">$message</span> = <span class="k">$this</span>-&gt;<span class="p">twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$to</span>, [  <span class="c">// translate the call</span></span>
-            <span class="s">'from'</span> =&gt; <span class="k">$this</span>-&gt;<span class="p">from</span>,
-            <span class="s">'body'</span> =&gt; <span class="v">$text</span>,
-        ]);
-
-<span class="h">        <span class="k">if</span> (<span class="v">$message</span>-&gt;<span class="p">status</span> === <span class="s">'failed'</span>) {  <span class="c">// translate failure into an exception</span></span>
-            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;SMS to {$to} failed: {$message-&gt;errorMessage}&quot;</span>);
+        <span class="k">try</span> {
+<span class="h">            <span class="k">$this</span>-&gt;<span class="p">twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$to</span>, [  <span class="c">// translate the call</span></span>
+                <span class="s">'from'</span> =&gt; <span class="k">$this</span>-&gt;<span class="p">from</span>,
+                <span class="s">'body'</span> =&gt; <span class="v">$text</span>,
+            ]);
+<span class="h">        } <span class="k">catch</span> (\<span class="t">Twilio</span>\<span class="t">Exceptions</span>\<span class="t">TwilioException</span> <span class="v">$e</span>) {  <span class="c">// their exception → your exception</span></span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;SMS to {$to} failed: {$e-&gt;getMessage()}&quot;</span>, <span class="n">0</span>, <span class="v">$e</span>);
         }
     }
 }
@@ -199,7 +265,7 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 <span class="c">// Everywhere else:</span>
 <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SmsSender</span> <span class="v">$sms</span>) {}
 <span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$user</span>-&gt;<span class="p">phone</span>, <span class="s">'Your report is ready.'</span>);</code></pre>
-    <p class="howlaravel"><b>How Laravel builds it inside:</b> Storage::put() works on S3, local disk or FTP because of adapters. Laravel's FilesystemAdapter translates Laravel's put() / exists() into the Flysystem library's write() / has(), and each Flysystem adapter translates those into one storage SDK.</p></div>
+    <p class="howlaravel"><b>How Laravel builds it inside:</b> Storage::put() works on S3, local disk or FTP because of adapters. Laravel's FilesystemAdapter translates Laravel's put() / exists() into the Flysystem library's write() / fileExists(), and each Flysystem adapter translates those into one storage SDK.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Storage over Flysystem adapters (S3, local, FTP)</span><span>Mail transports</span><span>Your own payment / SMS gateways</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
@@ -210,6 +276,6 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=096e3b420e" defer></script>
+<script src="../assets/app.js?v=8ca1a6650e" defer></script>
 </body>
 </html>
