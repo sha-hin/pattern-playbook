@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Chapter 6: Classes create their own database and mailer (Singleton, Dependency Injection Container in PHP) | Pattern Playbook</title>
+<meta name="description" content="Wiring code grows every chapter and a teammate proposes a Singleton database. Learn the Singleton pattern, why it hurts, and replace it with a dependency injection container in PHP.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/06-container/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Chapter 6: Classes create their own database and mailer (Singleton, Dependency Injection Container in PHP) | Pattern Playbook">
+<meta property="og:description" content="Wiring code grows every chapter and a teammate proposes a Singleton database. Learn the Singleton pattern, why it hurts, and replace it with a dependency injection container in PHP.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/06-container/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns in PHP, learned by fixing one real app">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chapter 6: Classes create their own database and mailer (Singleton, Dependency Injection Container in PHP) | Pattern Playbook">
+<meta name="twitter:description" content="Wiring code grows every chapter and a teammate proposes a Singleton database. Learn the Singleton pattern, why it hurts, and replace it with a dependency injection container in PHP.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=c9e8db968e">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Chapter 6: Classes create their own database and mailer","description":"Wiring code grows every chapter and a teammate proposes a Singleton database. Learn the Singleton pattern, why it hurts, and replace it with a dependency injection container in PHP.","url":"https://sha-hin.github.io/pattern-playbook/06-container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/06-container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Singleton pattern","Dependency Injection Container pattern","PHP"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Evalu8, chapter 6","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/tree/main/chapters/06-container","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Chapter 6","item":"https://sha-hin.github.io/pattern-playbook/06-container/"}]}]}</script>
+</head>
+<body data-page="06-container" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Find a chapter or pattern (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Find a pattern</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Evalu8 course</a> › Part 1 · Foundations</p>
+<p class="eyebrow">Chapter 6 of 30</p>
+<h1>Classes create their own database and mailer</h1>
+<p class="tags"><span class="ptag gof" title="In the Gang of Four book">Singleton</span><span class="ptag" title="Not in the Gang of Four book">Dependency Injection Container</span></p>
+</header>
+<section class="ticket" aria-label="The ticket">
+<p class="tk-label">New ticket</p>
+<h2>&quot;Make Database a Singleton so we stop passing PDO around&quot;</h2>
+<p class="tk-from">From Code review, pull request #212</p>
+<p><code>TermReport</code> now needs five objects, each repository needs the connection, and the top of every script is 30 lines of <code>new</code>. This PR adds <code>Database::connection()</code> so any class can grab the connection itself. Approve?</p>
+</section>
+<section><h2>Why the quick fix is a trap</h2><p>The pull request uses the classic <b>Singleton</b> from the Gang of Four book: a private constructor and a static method that always returns the same instance.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">the quick fix (we won’t do this)</span></div>
+<pre class="code rejected"><code><span class="k">final</span> <span class="k">class</span> <span class="t">Database</span>
+{
+    <span class="k">private</span> <span class="k">static</span> ?<span class="t">PDO</span> <span class="v">$connection</span> = <span class="k">null</span>;
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">__construct</span>() {}           <span class="c">// nobody else can create one</span>
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">connection</span>(): <span class="t">PDO</span>
+    {
+        <span class="k">return</span> <span class="k">self</span>::<span class="v">$connection</span> ??= <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite:/var/lib/evalu8.db'</span>);
+    }
+}
+
+<span class="c">// ...inside SqliteResponseRepository:</span>
+<span class="v">$select</span> = <span class="t">Database</span>::<span class="f">connection</span>()-&gt;<span class="f">prepare</span>(<span class="s">'SELECT ...'</span>);</code></pre>
+</div>
+<p>It does remove the wiring, and that is why Singletons are tempting. But it costs a lot:</p><p><b>Hidden dependency.</b> Reading <code>SqliteResponseRepository</code>’s constructor no longer tells you it needs a database. You find out by reading every line.</p><p><b>One connection, forever.</b> The nightly Ministry export should read from a replica database. With <code>Database::connection()</code> hard-coded inside every repository, there is no way to give one script a different connection.</p><p><b>Global state.</b> Anything any class does to the shared connection (a transaction left open, a changed setting) leaks into every other class.</p><p>The real need is: &quot;build each object <b>once</b>, and hand it to the classes that need it&quot;. That is a job for one object that knows how to build everything: a container.</p></section>
+<section class="pattern"><h2>The pattern: Dependency Injection Container</h2>
+<p class="rule"><span>Remember it</span>Classes ask for what they need in their constructor and never build it themselves → one container knows how to build everything, and keeps one shared instance where you ask it to.</p>
+<p>Our classes already follow <b>dependency injection</b>: <code>TermReport</code> receives its repositories in its constructor instead of creating them. The container only automates the wiring: <code>$app-&gt;make(TermReport::class)</code> reads the constructor, sees it needs a <code>TeacherRepository</code>, a <code>ResponseRepository</code> and so on, and builds each of those the same way.</p><p>Interfaces can’t be built, so we tell the container once which class to use for each (<code>TeacherRepository</code> → <code>SqliteTeacherRepository</code>). Everything else is automatic.</p><p><code>singleton()</code> gives us what the Singleton pattern promised (one shared PDO) <b>without</b> the static global: the classes still receive the connection in their constructor, and a different script can bind a different connection.</p><p>Singleton is in the Gang of Four book; the DI container is not (the term was popularised by Martin Fowler in 2004). Most modern PHP code uses the container’s singleton instead of the Singleton pattern.</p>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Without it</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Dependency Injection Container: the problem"><rect class="bx" x="66" y="8" width="168" height="34" rx="7"/><text x="150" y="29" text-anchor="middle" class="kx">Database::connection()</text><rect class="bn" x="6" y="96" width="80" height="30" rx="7"/><text x="46" y="115" text-anchor="middle" class="">TermReport</text><rect class="bn" x="110" y="96" width="80" height="30" rx="7"/><text x="150" y="115" text-anchor="middle" class="">Repos</text><rect class="bn" x="214" y="96" width="80" height="30" rx="7"/><text x="254" y="115" text-anchor="middle" class="">Export</text><line class="lx" x1="46" y1="96" x2="120" y2="44" marker-end="url(#arx)"/><line class="lx" x1="150" y1="96" x2="150" y2="44" marker-end="url(#arx)"/><line class="lx" x1="254" y1="96" x2="180" y2="44" marker-end="url(#arx)"/><text x="150" y="152" class="kx" text-anchor="middle">hidden, global, one forever</text></svg><p>Every class reaches into a global. Its needs are invisible, and there can only ever be one database.</p></figure>
+<figure class="panel good"><figcaption><h3>With Dependency Injection Container</h3></figcaption><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Dependency Injection Container: the fix"><rect class="bv" x="100" y="8" width="100" height="36" rx="7"/><text x="150" y="30" text-anchor="middle" class="kv">Container</text><line class="lk" x1="150" y1="44" x2="50" y2="88" marker-end="url(#ar)"/><line class="lk" x1="150" y1="44" x2="150" y2="88" marker-end="url(#ar)"/><line class="lk" x1="150" y1="44" x2="250" y2="88" marker-end="url(#ar)"/><rect class="bn" x="6" y="90" width="88" height="30" rx="7"/><text x="50" y="109" text-anchor="middle" class="">TermReport</text><rect class="bn" x="106" y="90" width="88" height="30" rx="7"/><text x="150" y="109" text-anchor="middle" class="">Repos</text><rect class="bn" x="206" y="90" width="88" height="30" rx="7"/><text x="250" y="109" text-anchor="middle" class="">PDO (once)</text><text x="150" y="146" class="s" text-anchor="middle">everything arrives through the constructor</text></svg><p>The container builds each object and passes in what it needs. One PDO is shared, but nothing is global.</p></figure>
+</div>
+
+</section>
+<section><h2>Build it, step by step</h2>
+<p class="hint">Changed files show only what changed since chapter 5: <b class="plus">green</b> lines are new, <b class="minus">red</b> lines are removed. <b>Copy</b> always copies the complete file.</p>
+<ol class="steps"><li class="step"><h3><span class="num">1</span>An exception that always says why</h3><div class="codebox">
+<div class="filehead"><span class="path">src/Container/ContainerException.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/06-container/src/Container/ContainerException.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Container</span>;
+
+<span class="k">use</span> <span class="t">LogicException</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Thrown when the container can't build what was asked for, always with the reason.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">ContainerException</span> <span class="k">extends</span> <span class="t">LogicException</span>
+{
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">2</span>The container</h3><p><code>bind()</code> and <code>singleton()</code> register a function that builds something. <code>make()</code> uses that function if there is one; otherwise it <b>autowires</b>: it reads the class’s constructor with PHP’s Reflection API and builds each typed parameter by calling <code>make()</code> again.</p><p>It refuses loudly instead of guessing: an interface with no binding, a parameter like <code>string $dsn</code> with no default, a binding that returns the wrong type, or two classes that need each other (a circular dependency) all throw a <code>ContainerException</code> with the reason.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Container/Container.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/06-container/src/Container/Container.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Container</span>;
+
+<span class="k">use</span> <span class="t">Closure</span>;
+<span class="k">use</span> <span class="t">ReflectionClass</span>;
+<span class="k">use</span> <span class="t">ReflectionNamedType</span>;
+
+<span class="c">/**</span>
+<span class="c"> * A small dependency injection container.</span>
+<span class="c"> *</span>
+<span class="c"> * - bind():      &quot;to build X, run this function&quot; (a new object every time)</span>
+<span class="c"> * - singleton(): the same, but build it once and share it for the life of the app</span>
+<span class="c"> * - make():      build X; classes with no binding are built automatically by reading</span>
+<span class="c"> *                their constructor and building each typed parameter the same way</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">Container</span>
+{
+    <span class="c">/** @var array&lt;string, Closure(self): object&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$factories</span> = [];
+
+    <span class="c">/** @var array&lt;string, true&gt; ids registered with singleton() */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$shared</span> = [];
+
+    <span class="c">/** @var array&lt;string, object&gt; singletons already built */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$instances</span> = [];
+
+    <span class="c">/** @var array&lt;string, true&gt; what is being built right now, to catch circular dependencies */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$building</span> = [];
+
+    <span class="c">/** @param Closure(self): object $factory */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">bind</span>(<span class="k">string</span> <span class="v">$id</span>, <span class="t">Closure</span> <span class="v">$factory</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;factories[<span class="v">$id</span>] = <span class="v">$factory</span>;
+        <span class="f">unset</span>(<span class="k">$this</span>-&gt;shared[<span class="v">$id</span>], <span class="k">$this</span>-&gt;instances[<span class="v">$id</span>]);
+    }
+
+    <span class="c">/** @param Closure(self): object $factory */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">singleton</span>(<span class="k">string</span> <span class="v">$id</span>, <span class="t">Closure</span> <span class="v">$factory</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">bind</span>(<span class="v">$id</span>, <span class="v">$factory</span>);
+        <span class="k">$this</span>-&gt;shared[<span class="v">$id</span>] = <span class="k">true</span>;
+    }
+
+    <span class="c">/**</span>
+<span class="c">     * @template T of object</span>
+<span class="c">     * @param class-string&lt;T&gt; $id</span>
+<span class="c">     * @return T</span>
+<span class="c">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">make</span>(<span class="k">string</span> <span class="v">$id</span>): <span class="k">object</span>
+    {
+        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;instances[<span class="v">$id</span>])) {
+            <span class="c">/** @var T */</span>
+            <span class="k">return</span> <span class="k">$this</span>-&gt;instances[<span class="v">$id</span>];
+        }
+
+        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;building[<span class="v">$id</span>])) {
+            <span class="v">$chain</span> = <span class="f">implode</span>(<span class="s">' → '</span>, [...<span class="f">array_keys</span>(<span class="k">$this</span>-&gt;building), <span class="v">$id</span>]);
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">ContainerException</span>(<span class="s">&quot;Circular dependency: {$chain}.&quot;</span>);
+        }
+
+        <span class="k">$this</span>-&gt;building[<span class="v">$id</span>] = <span class="k">true</span>;
+        <span class="k">try</span> {
+            <span class="v">$object</span> = <span class="f">isset</span>(<span class="k">$this</span>-&gt;factories[<span class="v">$id</span>]) ? (<span class="k">$this</span>-&gt;factories[<span class="v">$id</span>])(<span class="k">$this</span>) : <span class="k">$this</span>-&gt;<span class="f">autowire</span>(<span class="v">$id</span>);
+        } <span class="k">finally</span> {
+            <span class="f">unset</span>(<span class="k">$this</span>-&gt;building[<span class="v">$id</span>]);
+        }
+
+        <span class="k">if</span> (!<span class="v">$object</span> <span class="k">instanceof</span> <span class="v">$id</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">ContainerException</span>(<span class="s">&quot;The binding for {$id} returned &quot;</span> . <span class="v">$object</span>::class . <span class="s">', which is not a '</span> . <span class="v">$id</span> . <span class="s">'.'</span>);
+        }
+
+        <span class="k">if</span> (<span class="f">isset</span>(<span class="k">$this</span>-&gt;shared[<span class="v">$id</span>])) {
+            <span class="k">$this</span>-&gt;instances[<span class="v">$id</span>] = <span class="v">$object</span>;
+        }
+
+        <span class="k">return</span> <span class="v">$object</span>;
+    }
+
+    <span class="c">/**</span>
+<span class="c">     * @template T of object</span>
+<span class="c">     * @param class-string&lt;T&gt; $class</span>
+<span class="c">     * @return T</span>
+<span class="c">     */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">autowire</span>(<span class="k">string</span> <span class="v">$class</span>): <span class="k">object</span>
+    {
+        <span class="k">if</span> (!<span class="f">class_exists</span>(<span class="v">$class</span>) &amp;&amp; !<span class="f">interface_exists</span>(<span class="v">$class</span>)) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">ContainerException</span>(<span class="s">&quot;Can't build [{$class}]: no binding, and no class with that name.&quot;</span>);
+        }
+
+        <span class="v">$reflection</span> = <span class="k">new</span> <span class="f">ReflectionClass</span>(<span class="v">$class</span>);
+        <span class="k">if</span> (!<span class="v">$reflection</span>-&gt;<span class="f">isInstantiable</span>()) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">ContainerException</span>(<span class="s">&quot;Can't build [{$class}]: it is an interface or abstract class. Bind it to a class first.&quot;</span>);
+        }
+
+        <span class="v">$constructor</span> = <span class="v">$reflection</span>-&gt;<span class="f">getConstructor</span>();
+        <span class="k">if</span> (<span class="v">$constructor</span> === <span class="k">null</span>) {
+            <span class="k">return</span> <span class="v">$reflection</span>-&gt;<span class="f">newInstance</span>();
+        }
+
+        <span class="v">$arguments</span> = [];
+        <span class="k">foreach</span> (<span class="v">$constructor</span>-&gt;<span class="f">getParameters</span>() <span class="k">as</span> <span class="v">$parameter</span>) {
+            <span class="v">$type</span> = <span class="v">$parameter</span>-&gt;<span class="f">getType</span>();
+
+            <span class="k">if</span> (<span class="v">$type</span> <span class="k">instanceof</span> <span class="t">ReflectionNamedType</span> &amp;&amp; !<span class="v">$type</span>-&gt;<span class="f">isBuiltin</span>()) {
+                <span class="c">/** @var class-string $dependency */</span>
+                <span class="v">$dependency</span> = <span class="v">$type</span>-&gt;<span class="f">getName</span>();
+                <span class="v">$arguments</span>[] = <span class="k">$this</span>-&gt;<span class="f">make</span>(<span class="v">$dependency</span>);
+            } <span class="k">elseif</span> (<span class="v">$parameter</span>-&gt;<span class="f">isDefaultValueAvailable</span>()) {
+                <span class="v">$arguments</span>[] = <span class="v">$parameter</span>-&gt;<span class="f">getDefaultValue</span>();
+            } <span class="k">else</span> {
+                <span class="k">throw</span> <span class="k">new</span> <span class="f">ContainerException</span>(
+                    <span class="s">&quot;Can't build [{$class}]: parameter \${$parameter-&gt;getName()} has no class type and no default. Bind {$class} with a factory.&quot;</span>
+                );
+            }
+        }
+
+        <span class="k">return</span> <span class="v">$reflection</span>-&gt;<span class="f">newInstanceArgs</span>(<span class="v">$arguments</span>);
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">3</span>Demo data in its own class</h3><p>The schools and teachers used to be inserted at the top of the script. They move into one class, so every entry script gets the same demo database.</p><div class="codebox">
+<div class="filehead"><span class="path">src/Demo/SampleData.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/06-container/src/Demo/SampleData.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">namespace</span> <span class="t">Evalu8</span>\<span class="t">Demo</span>;
+
+<span class="k">use</span> <span class="t">PDO</span>;
+
+<span class="c">/**</span>
+<span class="c"> * Demo schools and teachers. The demo database lives in memory, so it is filled on every run;</span>
+<span class="c"> * a real deployment would point the container at a database that already has its data.</span>
+<span class="c"> */</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">SampleData</span>
+{
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">load</span>(<span class="t">PDO</span> <span class="v">$db</span>): <span class="k">void</span>
+    {
+        <span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO schools (name, scoring_method, scoring_weights, comment_analysis) VALUES</span>
+<span class="s">            ('Smouha', 'weighted', '{\&quot;student\&quot;: 0.5, \&quot;peer\&quot;: 0.2, \&quot;principal\&quot;: 0.3}', 1),</span>
+<span class="s">            ('Miami', 'median', NULL, 0),</span>
+<span class="s">            ('Victoria', 'average', NULL, 1)&quot;</span>);
+
+        <span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO teachers (id, name, email, school) VALUES</span>
+<span class="s">            (1, 'Hany Mostafa', 'hany@smouha.edu.eg', 'Smouha'),</span>
+<span class="s">            (2, 'Nadia Fawzy', NULL, 'Smouha'),</span>
+<span class="s">            (3, 'Karim Adel', 'karim@miami.edu.eg', 'Miami'),</span>
+<span class="s">            (4, 'Laila Samir', 'laila@victoria.edu.eg', 'Victoria')&quot;</span>);
+    }
+}</code></pre>
+</div></li><li class="step"><h3><span class="num">4</span>The one place that wires the app</h3><p>The database connection is a <code>singleton</code>: built the first time something needs it, then shared. Its DSN comes from the <code>EVALU8_DSN</code> environment variable, so a nightly export can point at a replica without changing any class.</p><p>Then four lines map interfaces to implementations. That is all the configuration this app needs; everything else is autowired.</p><div class="codebox">
+<div class="filehead"><span class="path">bootstrap/app.php</span><span class="badge new">new file</span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/06-container/bootstrap/app.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">/*</span>
+<span class="c"> * The ONE place that decides how the app's objects are built and connected.</span>
+<span class="c"> * Every entry script (bin/*.php) starts with: $app = require __DIR__ . '/../bootstrap/app.php';</span>
+<span class="c"> */</span>
+
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Analysis</span>\<span class="t">CommentAnalyzer</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Analysis</span>\<span class="t">KeywordCommentAnalyzer</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Container</span>\<span class="t">Container</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Demo</span>\<span class="t">SampleData</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">ResponseRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">SchoolRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">TeacherRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">Schema</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteResponseRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteSchoolRepository</span>;
+<span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteTeacherRepository</span>;
+
+<span class="k">require</span> __DIR__ . <span class="s">'/../vendor/autoload.php'</span>;
+
+<span class="v">$app</span> = <span class="k">new</span> <span class="f">Container</span>();
+
+<span class="c">// One database connection for the whole run, built the first time something needs it.</span>
+<span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">PDO</span>::class, <span class="k">function</span> (): <span class="t">PDO</span> {
+    <span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="f">getenv</span>(<span class="s">'EVALU8_DSN'</span>) ?: <span class="s">'sqlite::memory:'</span>);
+    <span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);
+    <span class="t">Schema</span>::<span class="f">create</span>(<span class="v">$db</span>);
+    <span class="t">SampleData</span>::<span class="f">load</span>(<span class="v">$db</span>);
+
+    <span class="k">return</span> <span class="v">$db</span>;
+});
+
+<span class="c">// Interfaces → the classes that implement them. Everything else is built automatically.</span>
+<span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">TeacherRepository</span>::class, <span class="k">fn</span> (<span class="t">Container</span> <span class="v">$c</span>) =&gt; <span class="v">$c</span>-&gt;<span class="f">make</span>(<span class="t">SqliteTeacherRepository</span>::class));
+<span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">ResponseRepository</span>::class, <span class="k">fn</span> (<span class="t">Container</span> <span class="v">$c</span>) =&gt; <span class="v">$c</span>-&gt;<span class="f">make</span>(<span class="t">SqliteResponseRepository</span>::class));
+<span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">SchoolRepository</span>::class, <span class="k">fn</span> (<span class="t">Container</span> <span class="v">$c</span>) =&gt; <span class="v">$c</span>-&gt;<span class="f">make</span>(<span class="t">SqliteSchoolRepository</span>::class));
+<span class="v">$app</span>-&gt;<span class="f">singleton</span>(<span class="t">CommentAnalyzer</span>::class, <span class="k">fn</span> (<span class="t">Container</span> <span class="v">$c</span>) =&gt; <span class="v">$c</span>-&gt;<span class="f">make</span>(<span class="t">KeywordCommentAnalyzer</span>::class));
+
+<span class="k">return</span> <span class="v">$app</span>;</code></pre>
+</div></li><li class="step"><h3><span class="num">5</span>The script asks the container</h3><p>The 30 lines of <code>new</code> become <code>$app-&gt;make(TermReport::class)</code>. The end of the script shows the shared connection and the error you get when wiring is missing.</p><div class="codebox">
+<div class="filehead"><span class="path">bin/evaluations.php</span><span class="badge chg" title="Lines added and removed since chapter 5"><b class="plus">+21</b> <b class="minus">−34</b></span><a class="gh" href="https://github.com/sha-hin/pattern-playbook/blob/main/chapters/06-container/bin/evaluations.php" data-umami-event="Open file on GitHub">GitHub</a></div>
+<pre class="code diff" data-copy="&lt;?php
+
+declare(strict_types=1);
+
+/*
+ * Evalu8, chapter 6: the container builds and connects every object.
+ *
+ *     composer dump-autoload
+ *     php bin/evaluations.php
+ */
+
+use Evalu8\Container\Container;
+use Evalu8\Container\ContainerException;
+use Evalu8\Domain\InvalidValue;
+use Evalu8\Domain\RespondentRole;
+use Evalu8\Domain\Response;
+use Evalu8\Domain\ResponseRepository;
+use Evalu8\Domain\Score;
+use Evalu8\Reporting\TermReport;
+
+const CURRENT_TERM = '2026-T1';
+
+/** @var Container $app */
+$app = require __DIR__ . '/../bootstrap/app.php';
+
+$responses = $app-&gt;make(ResponseRepository::class);
+
+// ── Answers coming in from the survey form ──
+$submitted = [
+    [1, 'student', '5', 'Explains clearly'], [1, 'student', '4', ''], [1, 'student', '5', ''],
+    [1, 'peer', '3', ''], [1, 'principal', '4', 'Good planning'],
+    [2, 'student', '3', 'Starts late'], [2, 'student', '4', ''], [2, 'peer', '2', ''], [2, 'principal', '2', ''],
+    [3, 'student', '1', 'I failed the test'], [3, 'student', '4', ''], [3, 'student', '4', ''], [3, 'peer', '5', ''],
+    [4, 'student', '4', 'Explains clearly'], [4, 'peer', '3', 'Lessons feel rushed'],
+    [4, 'principal', '140', 'typo'],
+];
+
+echo &quot;REJECTED ANSWERS\n&quot;;
+foreach ($submitted as $number =&gt; [$teacherId, $role, $score, $comment]) {
+    try {
+        $responses-&gt;add(new Response(
+            $teacherId,
+            CURRENT_TERM,
+            RespondentRole::fromInput($role),
+            Score::fromInput($score),
+            $comment,
+        ));
+    } catch (InvalidValue $e) {
+        echo &quot;Row {$number}: {$e-&gt;getMessage()}\n&quot;;
+    }
+}
+
+// ── Ask the container; it reads TermReport's constructor and builds the rest ──
+$report = $app-&gt;make(TermReport::class);                    // built with everything it needs
+
+$results = $report-&gt;results(CURRENT_TERM);                  // calculated ONCE, used three times below
+
+// ── The term report ──
+echo &quot;\nTERM REPORT &quot; . CURRENT_TERM . &quot;\n&quot;;
+foreach ($results as $result) {
+    echo str_pad($result-&gt;teacher-&gt;name, 14) . str_pad($result-&gt;teacher-&gt;school, 10)
+        . str_pad($result-&gt;method, 10) . str_pad($result-&gt;formattedScore(), 7) . &quot;comments: {$result-&gt;commentSummary}\n&quot;;
+}
+
+// ── Email each teacher a summary ──
+echo &quot;\nEMAILS\n&quot;;
+foreach ($results as $result) {
+    if ($result-&gt;teacher-&gt;email === null) {
+        echo &quot;Not sent to {$result-&gt;teacher-&gt;name}: no email address on file.\n&quot;;
+        continue;
+    }
+
+    echo &quot;To: &lt;{$result-&gt;teacher-&gt;email}&gt; Your {$result-&gt;method} score this term is {$result-&gt;formattedScore()}\n&quot;;
+}
+
+// ── CSV export for the Ministry ──
+echo &quot;\nMINISTRY CSV\n&quot;;
+echo &quot;teacher,school,responses,method,score\n&quot;;
+foreach ($results as $result) {
+    $score = $result-&gt;score === null ? '' : round($result-&gt;score, 2);
+    echo &quot;{$result-&gt;teacher-&gt;name},{$result-&gt;teacher-&gt;school},{$result-&gt;responseCount},{$result-&gt;method},{$score}\n&quot;;
+}
+
+
+// ── The container at work ──
+echo &quot;\nCONTAINER\n&quot;;
+$sameConnection = $app-&gt;make(PDO::class) === $app-&gt;make(PDO::class);
+echo 'One shared database connection: ' . ($sameConnection ? 'yes' : 'no') . &quot;\n&quot;;
+
+try {
+    (new Container())-&gt;make(TermReport::class);    // a container with no bindings
+} catch (ContainerException $e) {
+    echo &quot;Clear error when wiring is missing: {$e-&gt;getMessage()}\n&quot;;
+}
+"><code><span class="ln fold">⋯ 2 unchanged lines</span><span class="ln"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="ln"> </span><span class="ln"><span class="c">/*</span></span><span class="ln del"><span class="c"> * Evalu8, chapter 5: comment analysis for the schools that pay for it.</span></span><span class="ln add"><span class="c"> * Evalu8, chapter 6: the container builds and connects every object.</span></span><span class="ln"><span class="c"> *</span></span><span class="ln"><span class="c"> *     composer dump-autoload</span></span><span class="ln"><span class="c"> *     php bin/evaluations.php</span></span><span class="ln"><span class="c"> */</span></span><span class="ln"> </span><span class="ln del"><span class="k">require</span> __DIR__ . <span class="s">'/../vendor/autoload.php'</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Analysis</span>\<span class="t">CommentAnalyzerFactory</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Analysis</span>\<span class="t">KeywordCommentAnalyzer</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Container</span>\<span class="t">Container</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Container</span>\<span class="t">ContainerException</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">InvalidValue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">RespondentRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Response</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">ResponseRepository</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Domain</span>\<span class="t">Score</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">Schema</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteResponseRepository</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteSchoolRepository</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Infrastructure</span>\<span class="t">Sqlite</span>\<span class="t">SqliteTeacherRepository</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Reporting</span>\<span class="t">TermReport</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Evalu8</span>\<span class="t">Scoring</span>\<span class="t">ScoringMethodFactory</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> <span class="t">CURRENT_TERM</span> = <span class="s">'2026-T1'</span>;</span><span class="ln"> </span><span class="ln del"><span class="c">// ── Setup: database, tables, schools (with their settings) and teachers ──</span></span><span class="ln del"><span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite::memory:'</span>);</span><span class="ln del"><span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);</span><span class="ln del"><span class="t">Schema</span>::<span class="f">create</span>(<span class="v">$db</span>);</span><span class="ln del"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO schools (name, scoring_method, scoring_weights, comment_analysis) VALUES</span></span><span class="ln del"><span class="s">    ('Smouha', 'weighted', '{\&quot;student\&quot;: 0.5, \&quot;peer\&quot;: 0.2, \&quot;principal\&quot;: 0.3}', 1),</span></span><span class="ln del"><span class="s">    ('Miami', 'median', NULL, 0),</span></span><span class="ln del"><span class="s">    ('Victoria', 'average', NULL, 1)&quot;</span>);</span><span class="ln del"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">&quot;INSERT INTO teachers (id, name, email, school) VALUES</span></span><span class="ln del"><span class="s">    (1, 'Hany Mostafa', 'hany@smouha.edu.eg', 'Smouha'),</span></span><span class="ln del"><span class="s">    (2, 'Nadia Fawzy', NULL, 'Smouha'),</span></span><span class="ln del"><span class="s">    (3, 'Karim Adel', 'karim@miami.edu.eg', 'Miami'),</span></span><span class="ln del"><span class="s">    (4, 'Laila Samir', 'laila@victoria.edu.eg', 'Victoria')&quot;</span>);</span><span class="ln del"> </span><span class="ln del"><span class="v">$teachers</span> = <span class="k">new</span> <span class="f">SqliteTeacherRepository</span>(<span class="v">$db</span>);</span><span class="ln del"><span class="v">$responses</span> = <span class="k">new</span> <span class="f">SqliteResponseRepository</span>(<span class="v">$db</span>);</span><span class="ln add"><span class="c">/** @var Container $app */</span></span><span class="ln add"><span class="v">$app</span> = <span class="k">require</span> __DIR__ . <span class="s">'/../bootstrap/app.php'</span>;</span><span class="ln add"> </span><span class="ln add"><span class="v">$responses</span> = <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">ResponseRepository</span>::class);</span><span class="ln"> </span><span class="ln"><span class="c">// ── Answers coming in from the survey form ──</span></span><span class="ln"><span class="v">$submitted</span> = [</span><span class="ln fold">⋯ 20 unchanged lines</span><span class="ln">    }</span><span class="ln">}</span><span class="ln"> </span><span class="ln del"><span class="c">// ── No list of schools in the code any more: each school's settings decide ──</span></span><span class="ln del"><span class="v">$report</span> = <span class="k">new</span> <span class="f">TermReport</span>(</span><span class="ln del">    <span class="v">$teachers</span>,</span><span class="ln del">    <span class="v">$responses</span>,</span><span class="ln del">    <span class="k">new</span> <span class="f">SqliteSchoolRepository</span>(<span class="v">$db</span>),</span><span class="ln del">    <span class="k">new</span> <span class="f">ScoringMethodFactory</span>(),</span><span class="ln del">    <span class="k">new</span> <span class="f">CommentAnalyzerFactory</span>(<span class="k">new</span> <span class="f">KeywordCommentAnalyzer</span>()),</span><span class="ln del">);</span><span class="ln add"><span class="c">// ── Ask the container; it reads TermReport's constructor and builds the rest ──</span></span><span class="ln add"><span class="v">$report</span> = <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">TermReport</span>::class);                    <span class="c">// built with everything it needs</span></span><span class="ln"> </span><span class="ln"><span class="v">$results</span> = <span class="v">$report</span>-&gt;<span class="f">results</span>(<span class="t">CURRENT_TERM</span>);                  <span class="c">// calculated ONCE, used three times below</span></span><span class="ln"> </span><span class="ln fold">⋯ 23 unchanged lines</span><span class="ln">    <span class="k">echo</span> <span class="s">&quot;{$result-&gt;teacher-&gt;name},{$result-&gt;teacher-&gt;school},{$result-&gt;responseCount},{$result-&gt;method},{$score}\n&quot;</span>;</span><span class="ln">}</span><span class="ln"> </span><span class="ln add"> </span><span class="ln add"><span class="c">// ── The container at work ──</span></span><span class="ln add"><span class="k">echo</span> <span class="s">&quot;\nCONTAINER\n&quot;</span>;</span><span class="ln add"><span class="v">$sameConnection</span> = <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">PDO</span>::class) === <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">PDO</span>::class);</span><span class="ln add"><span class="k">echo</span> <span class="s">'One shared database connection: '</span> . (<span class="v">$sameConnection</span> ? <span class="s">'yes'</span> : <span class="s">'no'</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="ln add"> </span><span class="ln add"><span class="k">try</span> {</span><span class="ln add">    (<span class="k">new</span> <span class="f">Container</span>())-&gt;<span class="f">make</span>(<span class="t">TermReport</span>::class);    <span class="c">// a container with no bindings</span></span><span class="ln add">} <span class="k">catch</span> (<span class="t">ContainerException</span> <span class="v">$e</span>) {</span><span class="ln add">    <span class="k">echo</span> <span class="s">&quot;Clear error when wiring is missing: {$e-&gt;getMessage()}\n&quot;</span>;</span><span class="ln add">}</span></code></pre>
+</div></li></ol></section>
+<section class="run"><h2>Run it</h2><p>The results are identical to chapter 5: the container changed how objects are built, not what they do.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">terminal, inside chapters/06-container</span></div>
+<pre class="code"><code>composer dump-autoload
+php bin/evaluations.php</code></pre>
+</div>
+<div class="output"><span>Output</span><pre>REJECTED ANSWERS
+Row 15: A score must be between 1 and 5, got 140.
+
+TERM REPORT 2026-T1
+Hany Mostafa  Smouha    weighted  4.13   comments: themes: clarity (1), planning (1)
+Nadia Fawzy   Smouha    weighted  2.75   comments: themes: punctuality (1)
+Karim Adel    Miami     median    4.00   comments: not included in this school’s plan
+Laila Samir   Victoria  average   3.50   comments: themes: clarity (1), pace (1)
+
+EMAILS
+To: &lt;hany@smouha.edu.eg&gt; Your weighted score this term is 4.13
+Not sent to Nadia Fawzy: no email address on file.
+To: &lt;karim@miami.edu.eg&gt; Your median score this term is 4.00
+To: &lt;laila@victoria.edu.eg&gt; Your average score this term is 3.50
+
+MINISTRY CSV
+teacher,school,responses,method,score
+Hany Mostafa,Smouha,5,weighted,4.13
+Nadia Fawzy,Smouha,4,weighted,2.75
+Karim Adel,Miami,4,median,4
+Laila Samir,Victoria,2,average,3.5
+
+CONTAINER
+One shared database connection: yes
+Clear error when wiring is missing: Can't build [Evalu8\Domain\TeacherRepository]: it is an interface or abstract class. Bind it to a class first.</pre></div></section>
+<section class="laravel"><h2>How Laravel does it</h2><p>This is Laravel’s service container in miniature. <code>$this-&gt;app-&gt;singleton()</code> and <code>bind()</code> work like ours, and <code>make()</code> autowires with Reflection the same way. That is why you can type-hint a class in a controller’s constructor and it just arrives.</p><p>Laravel apps rarely need hand-written Singletons: <code>singleton()</code> in a service provider gives one shared instance without a global.</p>
+<div class="codebox">
+<div class="filehead"><span class="path">Laravel</span></div>
+<pre class="code"><code><span class="c">// app/Providers/AppServiceProvider.php</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span>
+{
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">TeacherRepository</span>::class, <span class="t">SqliteTeacherRepository</span>::class);
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ResponseRepository</span>::class, <span class="t">SqliteResponseRepository</span>::class);
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">CommentAnalyzer</span>::class, <span class="t">KeywordCommentAnalyzer</span>::class);
+}
+
+<span class="c">// Any controller, job or command:</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">TermReport</span> <span class="v">$report</span>) {}   <span class="c">// built by the container</span></code></pre>
+</div></section>
+<section class="check"><h2>Check yourself</h2><p class="hint">Answer in your head, then open the answer.</p>
+<details><summary>What does the Singleton pattern hide that dependency injection shows?</summary><p>What a class depends on. With injection, the constructor lists every dependency; with <code>Database::connection()</code> it is buried inside the methods.</p></details><details><summary>How does the container know how to build <code>TermReport</code>?</summary><p>It reads the constructor with Reflection and builds each typed parameter with <code>make()</code>, using a binding when there is one (for interfaces) and autowiring otherwise.</p></details><details><summary>The nightly export must use a read replica. What changes?</summary><p>Nothing in the classes. The export script sets <code>EVALU8_DSN</code> (or binds a different <code>PDO</code>), and every repository receives that connection.</p></details></section>
+<section class="nextup"><p>Part 2 starts: the keyword analyzer is too simple, and the comments must go through a real language model. But each AI provider’s SDK looks completely different.</p>
+<nav class="pager" aria-label="Chapters">
+<a rel="prev" href="../05-null-object/"><small>← Chapter 5</small>Schools without AI analysis crash the report</a>
+<span class="soon"><small>Chapter 7, coming soon</small>Move from the OpenAI SDK to a local LLM</span>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"The code we inherited","patterns":[],"slug":"00-the-mess","ready":true},{"n":1,"title":"Scores of 140 got into the database","patterns":["Value Object"],"slug":"01-value-object","ready":true},{"n":2,"title":"Only this term’s answers must count","patterns":["Repository","Data Mapper vs Active Record"],"slug":"02-repository","ready":true},{"n":3,"title":"Each school scores teachers its own way","patterns":["Strategy"],"slug":"03-strategy","ready":true},{"n":4,"title":"The scoring method must come from school settings","patterns":["Simple Factory"],"slug":"04-simple-factory","ready":true},{"n":5,"title":"Schools without AI analysis crash the report","patterns":["Null Object"],"slug":"05-null-object","ready":true},{"n":6,"title":"Classes create their own database and mailer","patterns":["Singleton","Dependency Injection Container"],"slug":"06-container","ready":true},{"n":7,"title":"Move from the OpenAI SDK to a local LLM","patterns":["Adapter"],"slug":"","ready":false},{"n":8,"title":"Local model in development, hosted model in production","patterns":["Manager / Driver"],"slug":"","ready":false},{"n":9,"title":"AI calls are slow and expensive","patterns":["Decorator"],"slug":"","ready":false},{"n":10,"title":"Load the 50 MB results only when opened, only for allowed users","patterns":["Proxy"],"slug":"","ready":false},{"n":11,"title":"Closing a survey takes six steps, and callers forget some","patterns":["Facade"],"slug":"","ready":false},{"n":12,"title":"Import answers from Google Forms CSV, Excel and JSON","patterns":["Template Method"],"slug":"","ready":false},{"n":13,"title":"Each importer needs its own reader","patterns":["Factory Method"],"slug":"","ready":false},{"n":14,"title":"Exporting 100,000 responses runs out of memory","patterns":["Iterator","Generators"],"slug":"","ready":false},{"n":15,"title":"100,000 response objects repeat the same question data","patterns":["Flyweight"],"slug":"","ready":false},{"n":16,"title":"Sections inside sections: score the whole tree","patterns":["Composite"],"slug":"","ready":false},{"n":17,"title":"Export, validate and count the tree without editing it","patterns":["Visitor"],"slug":"","ready":false},{"n":18,"title":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","patterns":["Interpreter"],"slug":"","ready":false},{"n":19,"title":"Start next term from last term’s survey","patterns":["Prototype"],"slug":"","ready":false},{"n":20,"title":"Build complex report searches and documents","patterns":["Builder"],"slug":"","ready":false},{"n":21,"title":"Survey lifecycle: draft, open, closed, archived","patterns":["State"],"slug":"","ready":false},{"n":22,"title":"When a survey closes, five things must happen","patterns":["Observer","Event Dispatcher"],"slug":"","ready":false},{"n":23,"title":"The 40-second AI analysis times out the request","patterns":["Command","Command Bus"],"slug":"","ready":false},{"n":24,"title":"The Ministry sync was lost when the server died","patterns":["Unit of Work","Transactional Outbox"],"slug":"","ready":false},{"n":25,"title":"Submitting an answer needs six checks","patterns":["Chain of Responsibility","Pipeline"],"slug":"","ready":false},{"n":26,"title":"“Teachers with 3+ evaluations this term, not on leave”","patterns":["Specification"],"slug":"","ready":false},{"n":27,"title":"Local vs cloud: storage and queue must always match","patterns":["Abstract Factory"],"slug":"","ready":false},{"n":28,"title":"Three notification types × four channels","patterns":["Bridge"],"slug":"","ready":false},{"n":29,"title":"Survey editor parts keep changing each other","patterns":["Mediator"],"slug":"","ready":false},{"n":30,"title":"“Undo” in the survey editor","patterns":["Memento"],"slug":"","ready":false}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"Scores of 140 got into the database","slug":"01-value-object","ready":true,"gof":false},{"name":"Repository","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Data Mapper","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Active Record","chapter":2,"chapterTitle":"Only this term’s answers must count","slug":"02-repository","ready":true,"gof":false},{"name":"Strategy","chapter":3,"chapterTitle":"Each school scores teachers its own way","slug":"03-strategy","ready":true,"gof":true},{"name":"Simple Factory","chapter":4,"chapterTitle":"The scoring method must come from school settings","slug":"04-simple-factory","ready":true,"gof":false},{"name":"Null Object","chapter":5,"chapterTitle":"Schools without AI analysis crash the report","slug":"05-null-object","ready":true,"gof":false},{"name":"Singleton","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":true},{"name":"Dependency Injection Container","chapter":6,"chapterTitle":"Classes create their own database and mailer","slug":"06-container","ready":true,"gof":false},{"name":"Adapter","chapter":7,"chapterTitle":"Move from the OpenAI SDK to a local LLM","slug":"","ready":false,"gof":true},{"name":"Manager / Driver","chapter":8,"chapterTitle":"Local model in development, hosted model in production","slug":"","ready":false,"gof":false},{"name":"Decorator","chapter":9,"chapterTitle":"AI calls are slow and expensive","slug":"","ready":false,"gof":true},{"name":"Proxy","chapter":10,"chapterTitle":"Load the 50 MB results only when opened, only for allowed users","slug":"","ready":false,"gof":true},{"name":"Facade","chapter":11,"chapterTitle":"Closing a survey takes six steps, and callers forget some","slug":"","ready":false,"gof":true},{"name":"Template Method","chapter":12,"chapterTitle":"Import answers from Google Forms CSV, Excel and JSON","slug":"","ready":false,"gof":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Each importer needs its own reader","slug":"","ready":false,"gof":true},{"name":"Iterator","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"","ready":false,"gof":true},{"name":"Generators","chapter":14,"chapterTitle":"Exporting 100,000 responses runs out of memory","slug":"","ready":false,"gof":false},{"name":"Flyweight","chapter":15,"chapterTitle":"100,000 response objects repeat the same question data","slug":"","ready":false,"gof":true},{"name":"Composite","chapter":16,"chapterTitle":"Sections inside sections: score the whole tree","slug":"","ready":false,"gof":true},{"name":"Visitor","chapter":17,"chapterTitle":"Export, validate and count the tree without editing it","slug":"","ready":false,"gof":true},{"name":"Interpreter","chapter":18,"chapterTitle":"“Show Q5 only if Q3 ≥ 4 and the role is teacher”","slug":"","ready":false,"gof":true},{"name":"Prototype","chapter":19,"chapterTitle":"Start next term from last term’s survey","slug":"","ready":false,"gof":true},{"name":"Builder","chapter":20,"chapterTitle":"Build complex report searches and documents","slug":"","ready":false,"gof":true},{"name":"State","chapter":21,"chapterTitle":"Survey lifecycle: draft, open, closed, archived","slug":"","ready":false,"gof":true},{"name":"Observer","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"When a survey closes, five things must happen","slug":"","ready":false,"gof":false},{"name":"Command","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":true},{"name":"Command Bus","chapter":23,"chapterTitle":"The 40-second AI analysis times out the request","slug":"","ready":false,"gof":false},{"name":"Unit of Work","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Transactional Outbox","chapter":24,"chapterTitle":"The Ministry sync was lost when the server died","slug":"","ready":false,"gof":false},{"name":"Chain of Responsibility","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":true},{"name":"Pipeline","chapter":25,"chapterTitle":"Submitting an answer needs six checks","slug":"","ready":false,"gof":false},{"name":"Specification","chapter":26,"chapterTitle":"“Teachers with 3+ evaluations this term, not on leave”","slug":"","ready":false,"gof":false},{"name":"Abstract Factory","chapter":27,"chapterTitle":"Local vs cloud: storage and queue must always match","slug":"","ready":false,"gof":true},{"name":"Bridge","chapter":28,"chapterTitle":"Three notification types × four channels","slug":"","ready":false,"gof":true},{"name":"Mediator","chapter":29,"chapterTitle":"Survey editor parts keep changing each other","slug":"","ready":false,"gof":true},{"name":"Memento","chapter":30,"chapterTitle":"“Undo” in the survey editor","slug":"","ready":false,"gof":true}]}</script>
+<script src="../assets/site.js?v=d61b3d9de7" defer></script>
+</body>
+</html>

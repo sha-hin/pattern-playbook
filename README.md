@@ -35,6 +35,6 @@ Chapter 0 is the original single script: `php chapters/00-the-mess/evaluations.p
 After changing chapter code or text:
 
 ```bash
-build/run-chapters.sh   # re-runs every chapter and saves chapters/<slug>/output.txt
+node build/run-chapters.mjs   # re-runs every chapter and saves chapters/<slug>/output.txt
 node build/build.mjs    # regenerates the pages, sitemap and 404
 ```

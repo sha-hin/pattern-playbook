@@ -4,7 +4,7 @@
 //   node build/build.mjs
 //
 // Code on the pages is read from chapters/<slug>/ at build time, and each chapter's output
-// from chapters/<slug>/output.txt (refresh it with build/run-chapters.sh), so the site always
+// from chapters/<slug>/output.txt (refresh it with node build/run-chapters.mjs), so the site always
 // shows exactly the code that runs.
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';

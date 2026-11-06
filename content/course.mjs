@@ -6,6 +6,8 @@
 //   { file, diff: path }   show what changed compared with <path> in the previous chapter
 //   { code }               a short snippet that is not part of the project (e.g. a rejected idea)
 
+import { PART1 } from './part1.mjs';
+
 export const PARTS = {
   1: 'Foundations',
   2: 'Talking to the outside world',
@@ -21,9 +23,9 @@ export const PLAN = [
   { n: 1, part: 1, slug: '01-value-object', title: 'Scores of 140 got into the database', patterns: ['Value Object'], ready: true },
   { n: 2, part: 1, slug: '02-repository', title: 'Only this term’s answers must count', patterns: ['Repository', 'Data Mapper vs Active Record'], ready: true },
   { n: 3, part: 1, slug: '03-strategy', title: 'Each school scores teachers its own way', patterns: ['Strategy'], ready: true },
-  { n: 4, part: 1, title: 'The scoring method must come from school settings', patterns: ['Simple Factory'] },
-  { n: 5, part: 1, title: 'Schools without AI analysis crash the report', patterns: ['Null Object'] },
-  { n: 6, part: 1, title: 'Classes create their own database and mailer', patterns: ['Singleton', 'Dependency Injection Container'] },
+  { n: 4, part: 1, slug: '04-simple-factory', ready: true, title: 'The scoring method must come from school settings', patterns: ['Simple Factory'] },
+  { n: 5, part: 1, slug: '05-null-object', ready: true, title: 'Schools without AI analysis crash the report', patterns: ['Null Object'] },
+  { n: 6, part: 1, slug: '06-container', ready: true, title: 'Classes create their own database and mailer', patterns: ['Singleton', 'Dependency Injection Container'] },
   { n: 7, part: 2, title: 'Move from the OpenAI SDK to a local LLM', patterns: ['Adapter'] },
   { n: 8, part: 2, title: 'Local model in development, hosted model in production', patterns: ['Manager / Driver'] },
   { n: 9, part: 2, title: 'AI calls are slow and expensive', patterns: ['Decorator'] },
@@ -59,6 +61,7 @@ export const GOF = new Set([
 ]);
 
 export const CHAPTERS = {
+  ...PART1,
 
   // ════════════════════════════════════════════════════════════════════
   '00-the-mess': {
