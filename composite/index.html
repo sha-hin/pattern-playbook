@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Composite Pattern in PHP & Laravel, with Real Code","description":"Composite explained for PHP and Laravel developers. Your data is a tree (parts inside wholes, any depth) - items and groups share one interface; a group asks…","url":"https://sha-hin.github.io/pattern-playbook/composite/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/composite/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Composite design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Composite pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/composite.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Composite","item":"https://sha-hin.github.io/pattern-playbook/composite/"}]}]}</script>
 </head>
@@ -69,14 +69,14 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>instanceof checks to tell a group from an item</li><li>Recursive functions copied for every calculation</li><li>&quot;Groups can contain groups&quot; in the requirements</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>A survey has sections, sub-sections and questions. You need the max score, the question count, the rendering.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">function</span> <span class="f">maxScore</span>(<span class="k">array</span> <span class="v">$nodes</span>): <span class="k">int</span> {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="v">$total</span> = <span class="n">0</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">foreach</span> (<span class="v">$nodes</span> <span class="k">as</span> <span class="v">$node</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="v">$node</span> <span class="k">instanceof</span> <span class="t">Section</span>) { <span class="v">$total</span> += <span class="f">maxScore</span>(<span class="v">$node</span>-&gt;<span class="p">children</span>); } <span class="al">  </span><span class="c">// and again in</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">else</span> { <span class="v">$total</span> += <span class="v">$node</span>-&gt;<span class="p">points</span>; } <span class="al">                                       </span><span class="c">// countQuestions(),</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    } <span class="al">                                                                           </span><span class="c">// render(), export()...</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">return</span> <span class="v">$total</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="k">function</span> <span class="f">maxScore</span>(<span class="k">array</span> <span class="v">$nodes</span>): <span class="k">int</span> {
+    <span class="v">$total</span> = <span class="n">0</span>;
+    <span class="k">foreach</span> (<span class="v">$nodes</span> <span class="k">as</span> <span class="v">$node</span>) {
+        <span class="k">if</span> (<span class="v">$node</span> <span class="k">instanceof</span> <span class="t">Section</span>) { <span class="v">$total</span> += <span class="f">maxScore</span>(<span class="v">$node</span>-&gt;<span class="p">children</span>); }   <span class="c">// and again in</span>
+        <span class="k">else</span> { <span class="v">$total</span> += <span class="v">$node</span>-&gt;<span class="p">points</span>; }                                        <span class="c">// countQuestions(),</span>
+    }                                                                            <span class="c">// render(), export()...</span>
+    <span class="k">return</span> <span class="v">$total</span>;
+}</code></pre></div>
   <section class="scratch" aria-labelledby="build-composite">
     <h2 class="g" id="build-composite">Build it yourself: the full Composite pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -84,87 +84,87 @@
       <div class="role" role="row"><span role="rowheader">Component</span><span role="cell"><code>SurveyNode</code> <small>one interface for single items AND groups</small></span></div><div class="role" role="row"><span role="rowheader">Leaf</span><span role="cell"><code>Question</code> <small>has no children</small></span></div><div class="role" role="row"><span role="rowheader">Composite</span><span role="cell"><code>Section</code> <small>holds SurveyNodes, which can be Questions or other Sections</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>code that calls maxScore() on the top node, whatever the depth</code></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Component. One interface for items and groups. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">SurveyNode</span> <span class="al"> </span><span class="c">// Component</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Leaf. A single question. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Question</span> <span class="k">implements</span> <span class="t">SurveyNode</span> <span class="al"> </span><span class="c">// Leaf</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$text</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$points</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">points</span>; <span class="al">                              </span><span class="c">// a leaf just answers</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;{$indent}- {$this-&gt;text} ({$this-&gt;points} pts)\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Composite. A section that holds questions OR other sections. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Section</span> <span class="k">implements</span> <span class="t">SurveyNode</span> <span class="al"> </span><span class="c">// Composite</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;SurveyNode&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$children</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$title</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>): <span class="k">static</span> <span class="al"> </span><span class="c">// accepts a Question or a Section</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">children</span>[] = <span class="v">$node</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$total</span> = <span class="n">0</span>;</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">children</span> <span class="k">as</span> <span class="v">$child</span>) {</span><span class="nl">
-</span><span class="ln h" style="--i:12">            <span class="v">$total</span> += <span class="v">$child</span>-&gt;<span class="f">maxScore</span>(); <span class="al"> </span><span class="c">// just ask each child; no instanceof</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$total</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;{$indent}{$this-&gt;title}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">children</span> <span class="k">as</span> <span class="v">$child</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="v">$child</span>-&gt;<span class="f">show</span>(<span class="v">$indent</span> . <span class="s">'  '</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it: a tree of any depth ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$timeManagement</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Time management'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$timeManagement</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Starts on time'</span>, <span class="n">3</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$timeManagement</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Finishes the plan'</span>, <span class="n">2</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$classroom</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Classroom'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$classroom</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Explains clearly'</span>, <span class="n">5</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$classroom</span>-&gt;<span class="f">add</span>(<span class="v">$timeManagement</span>); <span class="al">                          </span><span class="c">// a section inside a section</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teacher evaluation'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span>-&gt;<span class="f">add</span>(<span class="v">$classroom</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Overall rating'</span>, <span class="n">10</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span>-&gt;<span class="f">show</span>(<span class="s">''</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Max score: '</span> . <span class="v">$survey</span>-&gt;<span class="f">maxScore</span>() . <span class="s">&quot;\n&quot;</span>; <span class="al">          </span><span class="c">// 20, counted through every level</span></span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── Step 1: the Component. One interface for items and groups. ──</span>
+<span class="h"><span class="k">interface</span> <span class="t">SurveyNode</span>  <span class="c">// Component</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span>;
+}
+
+<span class="c">// ── Step 2: the Leaf. A single question. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">Question</span> <span class="k">implements</span> <span class="t">SurveyNode</span>  <span class="c">// Leaf</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$text</span>, <span class="k">private</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$points</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">points</span>;                               <span class="c">// a leaf just answers</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;{$indent}- {$this-&gt;text} ({$this-&gt;points} pts)\n&quot;</span>;
+    }
+}
+
+<span class="c">// ── Step 3: the Composite. A section that holds questions OR other sections. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">Section</span> <span class="k">implements</span> <span class="t">SurveyNode</span>  <span class="c">// Composite</span></span>
+{
+    <span class="c">/** @var list&lt;SurveyNode&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$children</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$title</span>)
+    {
+    }
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>): <span class="k">static</span>  <span class="c">// accepts a Question or a Section</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">children</span>[] = <span class="v">$node</span>;
+
+        <span class="k">return</span> <span class="k">$this</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>
+    {
+        <span class="v">$total</span> = <span class="n">0</span>;
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">children</span> <span class="k">as</span> <span class="v">$child</span>) {
+<span class="h">            <span class="v">$total</span> += <span class="v">$child</span>-&gt;<span class="f">maxScore</span>();  <span class="c">// just ask each child; no instanceof</span></span>
+        }
+
+        <span class="k">return</span> <span class="v">$total</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="k">string</span> <span class="v">$indent</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;{$indent}{$this-&gt;title}\n&quot;</span>;
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">children</span> <span class="k">as</span> <span class="v">$child</span>) {
+            <span class="v">$child</span>-&gt;<span class="f">show</span>(<span class="v">$indent</span> . <span class="s">'  '</span>);
+        }
+    }
+}
+
+<span class="c">// ── Using it: a tree of any depth ──</span>
+<span class="v">$timeManagement</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Time management'</span>);
+<span class="v">$timeManagement</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Starts on time'</span>, <span class="n">3</span>));
+<span class="v">$timeManagement</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Finishes the plan'</span>, <span class="n">2</span>));
+
+<span class="v">$classroom</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Classroom'</span>);
+<span class="v">$classroom</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Explains clearly'</span>, <span class="n">5</span>));
+<span class="v">$classroom</span>-&gt;<span class="f">add</span>(<span class="v">$timeManagement</span>);                           <span class="c">// a section inside a section</span>
+
+<span class="v">$survey</span> = <span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teacher evaluation'</span>);
+<span class="v">$survey</span>-&gt;<span class="f">add</span>(<span class="v">$classroom</span>);
+<span class="v">$survey</span>-&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Overall rating'</span>, <span class="n">10</span>));
+
+<span class="v">$survey</span>-&gt;<span class="f">show</span>(<span class="s">''</span>);
+<span class="k">echo</span> <span class="s">'Max score: '</span> . <span class="v">$survey</span>-&gt;<span class="f">maxScore</span>() . <span class="s">&quot;\n&quot;</span>;           <span class="c">// 20, counted through every level</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/composite.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/composite.php" data-umami-event="View example" data-umami-event-pattern="composite">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Teacher evaluation
   Classroom
@@ -177,42 +177,42 @@ Max score: 20</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">SurveyNode</span> <span class="al"> </span><span class="c">// one shape for items and groups</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Question</span> <span class="k">implements</span> <span class="t">SurveyNode</span> <span class="al">               </span><span class="c">// a leaf</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$text</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$points</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span> { <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">points</span>; }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Section</span> <span class="k">implements</span> <span class="t">SurveyNode</span> <span class="al">                </span><span class="c">// a group of nodes</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;SurveyNode&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$children</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$title</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>): <span class="k">self</span> { <span class="k">$this</span>-&gt;<span class="p">children</span>[] = <span class="v">$node</span>; <span class="k">return</span> <span class="k">$this</span>; }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">array_sum</span>(<span class="f">array_map</span>(</span><span class="nl">
-</span><span class="ln h" style="--i:12">            <span class="k">fn</span> (<span class="t">SurveyNode</span> <span class="v">$child</span>) =&gt; <span class="v">$child</span>-&gt;<span class="f">maxScore</span>(), <span class="al"> </span><span class="c">// no instanceof: just ask</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">children</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        ));</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teacher evaluation'</span>))</span><span class="nl">
-</span><span class="ln" style="--i:4">    -&gt;<span class="f">add</span>((<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Classroom'</span>))</span><span class="nl">
-</span><span class="ln" style="--i:8">        -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Explains clearly'</span>, <span class="n">5</span>))</span><span class="nl">
-</span><span class="ln" style="--i:8">        -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Manages time'</span>, <span class="n">5</span>)))</span><span class="nl">
-</span><span class="ln" style="--i:4">    -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Overall'</span>, <span class="n">10</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$survey</span>-&gt;<span class="f">maxScore</span>(); <span class="al">  </span><span class="c">// 20, at any depth</span></span></code></pre>
+    <pre><code><span class="h"><span class="k">interface</span> <span class="t">SurveyNode</span>  <span class="c">// one shape for items and groups</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>;
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">Question</span> <span class="k">implements</span> <span class="t">SurveyNode</span>                <span class="c">// a leaf</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$text</span>, <span class="k">private</span> <span class="k">int</span> <span class="v">$points</span>) {}
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span> { <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">points</span>; }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">Section</span> <span class="k">implements</span> <span class="t">SurveyNode</span>                 <span class="c">// a group of nodes</span>
+{
+    <span class="c">/** @var list&lt;SurveyNode&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$children</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$title</span>) {}
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="t">SurveyNode</span> <span class="v">$node</span>): <span class="k">self</span> { <span class="k">$this</span>-&gt;<span class="p">children</span>[] = <span class="v">$node</span>; <span class="k">return</span> <span class="k">$this</span>; }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">maxScore</span>(): <span class="k">int</span>
+    {
+        <span class="k">return</span> <span class="f">array_sum</span>(<span class="f">array_map</span>(
+<span class="h">            <span class="k">fn</span> (<span class="t">SurveyNode</span> <span class="v">$child</span>) =&gt; <span class="v">$child</span>-&gt;<span class="f">maxScore</span>(),  <span class="c">// no instanceof: just ask</span></span>
+            <span class="k">$this</span>-&gt;<span class="p">children</span>,
+        ));
+    }
+}
+
+<span class="v">$survey</span> = (<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Teacher evaluation'</span>))
+    -&gt;<span class="f">add</span>((<span class="k">new</span> <span class="f">Section</span>(<span class="s">'Classroom'</span>))
+        -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Explains clearly'</span>, <span class="n">5</span>))
+        -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Manages time'</span>, <span class="n">5</span>)))
+    -&gt;<span class="f">add</span>(<span class="k">new</span> <span class="f">Question</span>(<span class="s">'Overall'</span>, <span class="n">10</span>));
+
+<span class="v">$survey</span>-&gt;<span class="f">maxScore</span>();   <span class="c">// 20, at any depth</span></code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Nested where groups in the query builder. where(function ($q) { ... }) stores a whole group as ONE condition, and when the SQL is built, a group compiles its own conditions inside brackets. Groups can hold groups: &quot;status = ? and (total &gt; ? or vip = ?)&quot;.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Nested Blade components</span><span>Menus and category trees</span><span>Permission groups inside groups</span></div></div>
@@ -224,6 +224,6 @@ Max score: 20</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

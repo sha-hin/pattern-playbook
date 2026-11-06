@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Adapter Pattern in PHP & Laravel, with Real Code","description":"Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…","url":"https://sha-hin.github.io/pattern-playbook/adapter/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/adapter/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Adapter pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Adapter","item":"https://sha-hin.github.io/pattern-playbook/adapter/"}]}]}</script>
 </head>
@@ -69,9 +69,9 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>A vendor SDK is called directly all over your code</li><li>&quot;We might switch provider&quot; is said in a meeting</li><li>The SDK returns false / status arrays instead of throwing</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>You send SMS through Twilio today. Management wants to try Vonage next quarter.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// in 12 different controllers and jobs:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$twilio</span> = <span class="k">new</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="f">Client</span>(<span class="f">config</span>(<span class="s">'services.twilio.sid'</span>), <span class="f">config</span>(<span class="s">'services.twilio.token'</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$phone</span>, [<span class="s">'from'</span> =&gt; <span class="s">'+1555...'</span>, <span class="s">'body'</span> =&gt; <span class="v">$text</span>]);</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in 12 different controllers and jobs:</span>
+<span class="v">$twilio</span> = <span class="k">new</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="f">Client</span>(<span class="f">config</span>(<span class="s">'services.twilio.sid'</span>), <span class="f">config</span>(<span class="s">'services.twilio.token'</span>));
+<span class="v">$twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$phone</span>, [<span class="s">'from'</span> =&gt; <span class="s">'+1555...'</span>, <span class="s">'body'</span> =&gt; <span class="v">$text</span>]);</code></pre></div>
   <section class="scratch" aria-labelledby="build-adapter">
     <h2 class="g" id="build-adapter">Build it yourself: the full Adapter pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -79,126 +79,126 @@
       <div class="role" role="row"><span role="rowheader">Target</span><span role="cell"><code>SmsSender</code> <small>the interface YOUR code wants</small></span></div><div class="role" role="row"><span role="rowheader">Adaptee</span><span role="cell"><code>AcmeSmsClient</code> <small>a third-party class with the wrong shape, which you cannot edit</small></span></div><div class="role" role="row"><span role="rowheader">Adapter</span><span role="cell"><code>AcmeSmsAdapter</code> <small>implements the Target, holds the Adaptee, translates between them</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>OrderNotifier</code> <small>only knows the Target</small></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── The third-party class (pretend it came from Composer). You can't change it. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsClient</span> <span class="al"> </span><span class="c">// Adaptee</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     * @param array{msisdn: string, text: string} $payload</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     * @return array{status: string, id?: string, error?: string}</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="k">array</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">str_starts_with</span>(<span class="v">$payload</span>[<span class="s">'msisdn'</span>], <span class="s">'+'</span>)) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'rejected'</span>, <span class="s">'error'</span> =&gt; <span class="s">'invalid msisdn'</span>];</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'queued'</span>, <span class="s">'id'</span> =&gt; <span class="s">'acme_'</span> . <span class="f">rand</span>(<span class="n">1000</span>, <span class="n">9999</span>)];</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Target. The simple interface YOUR code wants. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// Target</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>; <span class="al">  </span><span class="c">// returns the message id</span></span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Adapter. Your interface outside, their class inside. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsAdapter</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// Adapter</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AcmeSmsClient</span> <span class="v">$client</span>) <span class="al"> </span><span class="c">// holds the third-party object</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$phone</span> = <span class="f">str_replace</span>(<span class="s">' '</span>, <span class="s">''</span>, <span class="v">$phone</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (<span class="f">str_starts_with</span>(<span class="v">$phone</span>, <span class="s">'0'</span>)) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="v">$phone</span> = <span class="s">'+2'</span> . <span class="v">$phone</span>; <span class="al">                         </span><span class="c">// Egyptian 0100... becomes +20100...</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="v">$result</span> = <span class="k">$this</span>-&gt;<span class="p">client</span>-&gt;<span class="f">dispatch</span>([ <span class="al"> </span><span class="c">// translate YOUR call into THEIR call</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="s">'msisdn'</span> =&gt; <span class="v">$phone</span>,</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="s">'text'</span> =&gt; <span class="v">$text</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        ]);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">if</span> (<span class="v">$result</span>[<span class="s">'status'</span>] !== <span class="s">'queued'</span>) { <span class="al"> </span><span class="c">// turn their &quot;status&quot; array into an exception</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;SMS to {$phone} failed: {$result['error']}&quot;</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$result</span>[<span class="s">'id'</span>];</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the Client. It only knows SmsSender. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderNotifier</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">SmsSender</span> <span class="v">$sms</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">orderReady</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">int</span> <span class="v">$orderId</span>): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$phone</span>, <span class="s">&quot;Order #{$orderId} is ready.&quot;</span>);</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$notifier</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">AcmeSmsAdapter</span>(<span class="k">new</span> <span class="f">AcmeSmsClient</span>()));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$id</span> = <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'0100 123 4567'</span>, <span class="n">42</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'Sent, id starts with: '</span> . <span class="f">substr</span>(<span class="v">$id</span>, <span class="n">0</span>, <span class="n">5</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">try</span> {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'12'</span>, <span class="n">43</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0">} <span class="k">catch</span> (<span class="t">RuntimeException</span> <span class="v">$e</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// Switching provider = one new adapter class. OrderNotifier never changes.</span></span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── The third-party class (pretend it came from Composer). You can't change it. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsClient</span>  <span class="c">// Adaptee</span></span>
+{
+    <span class="c">/**</span>
+<span class="c">     * @param array{msisdn: string, text: string} $payload</span>
+<span class="c">     * @return array{status: string, id?: string, error?: string}</span>
+<span class="c">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="k">array</span>
+    {
+        <span class="k">if</span> (!<span class="f">str_starts_with</span>(<span class="v">$payload</span>[<span class="s">'msisdn'</span>], <span class="s">'+'</span>)) {
+            <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'rejected'</span>, <span class="s">'error'</span> =&gt; <span class="s">'invalid msisdn'</span>];
+        }
+
+        <span class="k">return</span> [<span class="s">'status'</span> =&gt; <span class="s">'queued'</span>, <span class="s">'id'</span> =&gt; <span class="s">'acme_'</span> . <span class="f">rand</span>(<span class="n">1000</span>, <span class="n">9999</span>)];
+    }
+}
+
+<span class="c">// ── Step 1: the Target. The simple interface YOUR code wants. ──</span>
+<span class="h"><span class="k">interface</span> <span class="t">SmsSender</span>  <span class="c">// Target</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>;   <span class="c">// returns the message id</span>
+}
+
+<span class="c">// ── Step 2: the Adapter. Your interface outside, their class inside. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">AcmeSmsAdapter</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// Adapter</span></span>
+{
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">AcmeSmsClient</span> <span class="v">$client</span>)  <span class="c">// holds the third-party object</span></span>
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">string</span>
+    {
+        <span class="v">$phone</span> = <span class="f">str_replace</span>(<span class="s">' '</span>, <span class="s">''</span>, <span class="v">$phone</span>);
+        <span class="k">if</span> (<span class="f">str_starts_with</span>(<span class="v">$phone</span>, <span class="s">'0'</span>)) {
+            <span class="v">$phone</span> = <span class="s">'+2'</span> . <span class="v">$phone</span>;                          <span class="c">// Egyptian 0100... becomes +20100...</span>
+        }
+
+<span class="h">        <span class="v">$result</span> = <span class="k">$this</span>-&gt;<span class="p">client</span>-&gt;<span class="f">dispatch</span>([  <span class="c">// translate YOUR call into THEIR call</span></span>
+            <span class="s">'msisdn'</span> =&gt; <span class="v">$phone</span>,
+            <span class="s">'text'</span> =&gt; <span class="v">$text</span>,
+        ]);
+
+<span class="h">        <span class="k">if</span> (<span class="v">$result</span>[<span class="s">'status'</span>] !== <span class="s">'queued'</span>) {  <span class="c">// turn their &quot;status&quot; array into an exception</span></span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;SMS to {$phone} failed: {$result['error']}&quot;</span>);
+        }
+
+        <span class="k">return</span> <span class="v">$result</span>[<span class="s">'id'</span>];
+    }
+}
+
+<span class="c">// ── Step 3: the Client. It only knows SmsSender. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderNotifier</span>  <span class="c">// Client</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">SmsSender</span> <span class="v">$sms</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">orderReady</span>(<span class="k">string</span> <span class="v">$phone</span>, <span class="k">int</span> <span class="v">$orderId</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$phone</span>, <span class="s">&quot;Order #{$orderId} is ready.&quot;</span>);
+    }
+}
+
+<span class="c">// ── Using it ──</span>
+<span class="v">$notifier</span> = <span class="k">new</span> <span class="f">OrderNotifier</span>(<span class="k">new</span> <span class="f">AcmeSmsAdapter</span>(<span class="k">new</span> <span class="f">AcmeSmsClient</span>()));
+
+<span class="v">$id</span> = <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'0100 123 4567'</span>, <span class="n">42</span>);
+<span class="k">echo</span> <span class="s">'Sent, id starts with: '</span> . <span class="f">substr</span>(<span class="v">$id</span>, <span class="n">0</span>, <span class="n">5</span>) . <span class="s">&quot;\n&quot;</span>;
+
+<span class="k">try</span> {
+    <span class="v">$notifier</span>-&gt;<span class="f">orderReady</span>(<span class="s">'12'</span>, <span class="n">43</span>);
+} <span class="k">catch</span> (<span class="t">RuntimeException</span> <span class="v">$e</span>) {
+    <span class="k">echo</span> <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
+}
+
+<span class="c">// Switching provider = one new adapter class. OrderNotifier never changes.</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/adapter.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/adapter.php" data-umami-event="View example" data-umami-event-pattern="adapter">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Sent, id starts with: acme_
 SMS to 12 failed: invalid msisdn</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">interface</span> <span class="t">SmsSender</span> <span class="al">                                 </span><span class="c">// YOUR shape</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span> <span class="al"> </span><span class="c">// the adapter</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="t">Client</span> <span class="v">$twilio</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">string</span> <span class="v">$from</span>,</span><span class="nl">
-</span><span class="ln" style="--i:4">    ) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="v">$message</span> = <span class="k">$this</span>-&gt;<span class="p">twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$to</span>, [ <span class="al"> </span><span class="c">// translate the call</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="s">'from'</span> =&gt; <span class="k">$this</span>-&gt;<span class="p">from</span>,</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="s">'body'</span> =&gt; <span class="v">$text</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        ]);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">if</span> (<span class="v">$message</span>-&gt;<span class="p">status</span> === <span class="s">'failed'</span>) { <span class="al"> </span><span class="c">// translate failure into an exception</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;SMS to {$to} failed: {$message-&gt;errorMessage}&quot;</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider: switching provider later = change this one binding</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">bind</span>(<span class="t">SmsSender</span>::class, <span class="k">fn</span> () =&gt; <span class="k">new</span> <span class="f">TwilioSmsSender</span>(</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">new</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="f">Client</span>(<span class="f">config</span>(<span class="s">'services.twilio.sid'</span>), <span class="f">config</span>(<span class="s">'services.twilio.token'</span>)),</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="f">config</span>(<span class="s">'services.twilio.from'</span>),</span><span class="nl">
-</span><span class="ln" style="--i:0">));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// Everywhere else:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SmsSender</span> <span class="v">$sms</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$user</span>-&gt;<span class="p">phone</span>, <span class="s">'Your report is ready.'</span>);</span></code></pre>
+    <pre><code><span class="k">interface</span> <span class="t">SmsSender</span>                                  <span class="c">// YOUR shape</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span>;
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">TwilioSmsSender</span> <span class="k">implements</span> <span class="t">SmsSender</span>  <span class="c">// the adapter</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="t">Client</span> <span class="v">$twilio</span>,
+        <span class="k">private</span> <span class="k">string</span> <span class="v">$from</span>,
+    ) {}
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">string</span> <span class="v">$to</span>, <span class="k">string</span> <span class="v">$text</span>): <span class="k">void</span>
+    {
+<span class="h">        <span class="v">$message</span> = <span class="k">$this</span>-&gt;<span class="p">twilio</span>-&gt;<span class="p">messages</span>-&gt;<span class="f">create</span>(<span class="v">$to</span>, [  <span class="c">// translate the call</span></span>
+            <span class="s">'from'</span> =&gt; <span class="k">$this</span>-&gt;<span class="p">from</span>,
+            <span class="s">'body'</span> =&gt; <span class="v">$text</span>,
+        ]);
+
+<span class="h">        <span class="k">if</span> (<span class="v">$message</span>-&gt;<span class="p">status</span> === <span class="s">'failed'</span>) {  <span class="c">// translate failure into an exception</span></span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">SmsFailed</span>(<span class="s">&quot;SMS to {$to} failed: {$message-&gt;errorMessage}&quot;</span>);
+        }
+    }
+}
+
+<span class="c">// AppServiceProvider: switching provider later = change this one binding</span>
+<span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">bind</span>(<span class="t">SmsSender</span>::class, <span class="k">fn</span> () =&gt; <span class="k">new</span> <span class="f">TwilioSmsSender</span>(
+    <span class="k">new</span> \<span class="t">Twilio</span>\<span class="t">Rest</span>\<span class="f">Client</span>(<span class="f">config</span>(<span class="s">'services.twilio.sid'</span>), <span class="f">config</span>(<span class="s">'services.twilio.token'</span>)),
+    <span class="f">config</span>(<span class="s">'services.twilio.from'</span>),
+));
+
+<span class="c">// Everywhere else:</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">SmsSender</span> <span class="v">$sms</span>) {}
+<span class="k">$this</span>-&gt;<span class="p">sms</span>-&gt;<span class="f">send</span>(<span class="v">$user</span>-&gt;<span class="p">phone</span>, <span class="s">'Your report is ready.'</span>);</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Storage::put() works on S3, local disk or FTP because of adapters. Laravel's FilesystemAdapter translates Laravel's put() / exists() into the Flysystem library's write() / has(), and each Flysystem adapter translates those into one storage SDK.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Storage over Flysystem adapters (S3, local, FTP)</span><span>Mail transports</span><span>Your own payment / SMS gateways</span></div></div>
@@ -210,6 +210,6 @@ SMS to 12 failed: invalid msisdn</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

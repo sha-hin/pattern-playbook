@@ -206,17 +206,20 @@ header{align-items:end}
 .howlaravel{margin:10px 0 0;font-size:14px;background:var(--fam-bg);border-radius:10px;padding:10px 14px}
 @media (max-width:520px){.role{grid-template-columns:1fr;gap:2px}}
 
-/* Phones: the card goes edge to edge so drawings and code get the full width; code wraps instead of scrolling */
+/* Copy button on code blocks */
+.codebox{position:relative;min-width:0}
+.codebox pre{padding-top:34px}
+.copybtn{position:absolute;top:6px;right:6px;font:500 12px var(--body);color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 10px;cursor:pointer}
+.copybtn:hover{color:var(--fg);border-color:var(--muted)}
+.copybtn:focus-visible{outline:2px solid var(--fam,var(--fg));outline-offset:2px}
+
+/* Phones: the card goes edge to edge so drawings and code get the full width; code scrolls sideways inside its box */
 @media (max-width:600px){
   .wrap .card{margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));border-radius:0;border-left:0;border-right:0;padding:22px max(16px,env(safe-area-inset-left,0px));gap:18px}
   .panel{padding:10px 6px 6px}
   svg.d text{font-size:13px} svg.d text.s,svg.d text.m{font-size:11px}
   .scratch{padding:0;border:0;background:none;border-radius:0}
   .scratch pre{background:var(--code)}
-  pre{font-size:12px;padding:10px 12px;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}
-  pre .al,pre .nl{display:none}
-  pre .ln{display:block;padding-left:calc((var(--i) + 4) * 1ch);text-indent:calc((var(--i) + 4) * -1ch)}
-  pre .ln:empty::before{content:" "}
-  pre .ln.h{display:block}
+  pre{font-size:12px;padding:10px 12px;border-radius:10px}
   pre .h{box-shadow:-12px 0 0 var(--fam-bg),12px 0 0 var(--fam-bg)}
 }

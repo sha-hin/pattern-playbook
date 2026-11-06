@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Observer Pattern in PHP & Laravel, with Real Code","description":"Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…","url":"https://sha-hin.github.io/pattern-playbook/observer/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/observer/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Observer design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Observer pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Observer","item":"https://sha-hin.github.io/pattern-playbook/observer/"}]}]}</script>
 </head>
@@ -69,15 +69,15 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>One method calls 4+ unrelated services after the main work</li><li>&quot;Also, when X happens, we should…&quot; keeps coming</li><li>The core action fails because a side-effect (email) failed</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>After sign-up: welcome email, start trial, sync CRM, track analytics. More coming.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">array</span> <span class="v">$data</span>): <span class="t">User</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="v">$user</span> = <span class="t">User</span>::<span class="f">create</span>(<span class="v">$data</span>);</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$user</span>)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">WelcomeMail</span>()); <span class="al">    </span><span class="c">// if the mail server is down,</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">startTrial</span>(<span class="v">$user</span>); <span class="al">           </span><span class="c">// registration fails too</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">$this</span>-&gt;<span class="p">crm</span>-&gt;<span class="f">sync</span>(<span class="v">$user</span>);</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">$this</span>-&gt;<span class="p">analytics</span>-&gt;<span class="f">track</span>(<span class="s">'signup'</span>, <span class="v">$user</span>-&gt;<span class="p">id</span>); <span class="c">// + 2 more next month</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">return</span> <span class="v">$user</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">array</span> <span class="v">$data</span>): <span class="t">User</span>
+{
+    <span class="v">$user</span> = <span class="t">User</span>::<span class="f">create</span>(<span class="v">$data</span>);
+    <span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$user</span>)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">WelcomeMail</span>());     <span class="c">// if the mail server is down,</span>
+    <span class="k">$this</span>-&gt;<span class="p">billing</span>-&gt;<span class="f">startTrial</span>(<span class="v">$user</span>);            <span class="c">// registration fails too</span>
+    <span class="k">$this</span>-&gt;<span class="p">crm</span>-&gt;<span class="f">sync</span>(<span class="v">$user</span>);
+    <span class="k">$this</span>-&gt;<span class="p">analytics</span>-&gt;<span class="f">track</span>(<span class="s">'signup'</span>, <span class="v">$user</span>-&gt;<span class="p">id</span>); <span class="c">// + 2 more next month</span>
+    <span class="k">return</span> <span class="v">$user</span>;
+}</code></pre></div>
   <section class="scratch" aria-labelledby="build-observer">
     <h2 class="g" id="build-observer">Build it yourself: the full Observer pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -85,87 +85,87 @@
       <div class="role" role="row"><span role="rowheader">Subject</span><span role="cell"><code>Registration</code> <small>keeps a list of observers and notifies them</small></span></div><div class="role" role="row"><span role="rowheader">Observer</span><span role="cell"><code>RegistrationObserver</code> <small>the interface every reaction must follow</small></span></div><div class="role" role="row"><span role="rowheader">Concrete observers</span><span role="cell"><code>SendWelcomeEmail, StartFreeTrial, SyncToCrm</code></span></div>
     </div>
     <p class="rolenote">PHP has the same two interfaces built in: SplSubject and SplObserver.</p>
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">User</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$id</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$email</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the Observer interface. Every reaction follows it. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">RegistrationObserver</span> <span class="al"> </span><span class="c">// Observer</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the Subject. Keeps a list of observers and notifies them. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Registration</span> <span class="al"> </span><span class="c">// Subject</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var list&lt;RegistrationObserver&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">attach</span>(<span class="t">RegistrationObserver</span> <span class="v">$observer</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// subscribe</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">observers</span>[] = <span class="v">$observer</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">string</span> <span class="v">$email</span>): <span class="t">User</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$user</span> = <span class="k">new</span> <span class="f">User</span>(<span class="n">1</span>, <span class="v">$email</span>); <span class="al">                       </span><span class="c">// the real work (saving the user)</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="f">notify</span>(<span class="v">$user</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$user</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">function</span> <span class="f">notify</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">observers</span> <span class="k">as</span> <span class="v">$observer</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">try</span> {</span><span class="nl">
-</span><span class="ln h" style="--i:16">                <span class="v">$observer</span>-&gt;<span class="f">userRegistered</span>(<span class="v">$user</span>); <span class="al"> </span><span class="c">// ring the bell, don't care who listens</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:16">                <span class="c">// One broken reaction must not stop the others, but it must not be silent.</span></span><span class="nl">
-</span><span class="ln" style="--i:16">                <span class="k">echo</span> <span class="s">'[error log] '</span> . <span class="f">get_class</span>(<span class="v">$observer</span>) . <span class="s">' failed: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:12">            }</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: concrete observers. One class per reaction. ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;Welcome email sent to {$user-&gt;email}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">StartFreeTrial</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;14-day trial started for user {$user-&gt;id}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SyncToCrm</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">'CRM API timed out'</span>); <span class="al">   </span><span class="c">// broken today, on purpose</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$registration</span> = <span class="k">new</span> <span class="f">Registration</span>();</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SendWelcomeEmail</span>());</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SyncToCrm</span>());</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">StartFreeTrial</span>()); <span class="al">               </span><span class="c">// a new reaction = attach one more</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$registration</span>-&gt;<span class="f">register</span>(<span class="s">'ali@example.com'</span>);</span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">User</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$id</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">string</span> <span class="v">$email</span>)
+    {
+    }
+}
+
+<span class="c">// ── Step 1: the Observer interface. Every reaction follows it. ──</span>
+<span class="h"><span class="k">interface</span> <span class="t">RegistrationObserver</span>  <span class="c">// Observer</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>;
+}
+
+<span class="c">// ── Step 2: the Subject. Keeps a list of observers and notifies them. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">Registration</span>  <span class="c">// Subject</span></span>
+{
+    <span class="c">/** @var list&lt;RegistrationObserver&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = [];
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">attach</span>(<span class="t">RegistrationObserver</span> <span class="v">$observer</span>): <span class="k">void</span>  <span class="c">// subscribe</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">observers</span>[] = <span class="v">$observer</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">string</span> <span class="v">$email</span>): <span class="t">User</span>
+    {
+        <span class="v">$user</span> = <span class="k">new</span> <span class="f">User</span>(<span class="n">1</span>, <span class="v">$email</span>);                        <span class="c">// the real work (saving the user)</span>
+        <span class="k">$this</span>-&gt;<span class="f">notify</span>(<span class="v">$user</span>);
+
+        <span class="k">return</span> <span class="v">$user</span>;
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">notify</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>
+    {
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">observers</span> <span class="k">as</span> <span class="v">$observer</span>) {
+            <span class="k">try</span> {
+<span class="h">                <span class="v">$observer</span>-&gt;<span class="f">userRegistered</span>(<span class="v">$user</span>);  <span class="c">// ring the bell, don't care who listens</span></span>
+            } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+                <span class="c">// One broken reaction must not stop the others, but it must not be silent.</span>
+                <span class="k">echo</span> <span class="s">'[error log] '</span> . <span class="f">get_class</span>(<span class="v">$observer</span>) . <span class="s">' failed: '</span> . <span class="v">$e</span>-&gt;<span class="f">getMessage</span>() . <span class="s">&quot;\n&quot;</span>;
+            }
+        }
+    }
+}
+
+<span class="c">// ── Step 3: concrete observers. One class per reaction. ──</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;Welcome email sent to {$user-&gt;email}\n&quot;</span>;
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">StartFreeTrial</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;14-day trial started for user {$user-&gt;id}\n&quot;</span>;
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">SyncToCrm</span> <span class="k">implements</span> <span class="t">RegistrationObserver</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">userRegistered</span>(<span class="t">User</span> <span class="v">$user</span>): <span class="k">void</span>
+    {
+        <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">'CRM API timed out'</span>);    <span class="c">// broken today, on purpose</span>
+    }
+}
+
+<span class="c">// ── Using it ──</span>
+<span class="v">$registration</span> = <span class="k">new</span> <span class="f">Registration</span>();
+<span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SendWelcomeEmail</span>());
+<span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">SyncToCrm</span>());
+<span class="v">$registration</span>-&gt;<span class="f">attach</span>(<span class="k">new</span> <span class="f">StartFreeTrial</span>());                <span class="c">// a new reaction = attach one more</span>
+
+<span class="v">$registration</span>-&gt;<span class="f">register</span>(<span class="s">'ali@example.com'</span>);</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/observer.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/observer.php" data-umami-event="View example" data-umami-event-pattern="observer">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Welcome email sent to ali@example.com
 [error log] SyncToCrm failed: CRM API timed out
@@ -173,35 +173,35 @@
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">UserRegistered</span> <span class="al">                                </span><span class="c">// the event: just data</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$userId</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">array</span> <span class="v">$data</span>): <span class="t">User</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$data</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$user</span> = <span class="t">User</span>::<span class="f">create</span>(<span class="v">$data</span>);</span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="f">event</span>(<span class="k">new</span> <span class="f">UserRegistered</span>(<span class="v">$user</span>-&gt;<span class="p">id</span>)); <span class="al"> </span><span class="c">// ring the bell, know nobody</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$user</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    });</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">ShouldQueue</span> <span class="al"> </span><span class="c">// one reaction = one listener</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">bool</span> <span class="v">$afterCommit</span> = <span class="k">true</span>; <span class="al">                    </span><span class="c">// never email a user that was rolled back</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">UserRegistered</span> <span class="v">$event</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="t">Mail</span>::<span class="f">to</span>(<span class="t">User</span>::<span class="f">findOrFail</span>(<span class="v">$event</span>-&gt;<span class="p">userId</span>))-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">WelcomeMail</span>());</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider::boot() — a new reaction is one new line here</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">SendWelcomeEmail</span>::class);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">StartFreeTrial</span>::class);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">SyncToCrm</span>::class);</span></code></pre>
+    <pre><code><span class="k">final</span> <span class="k">class</span> <span class="t">UserRegistered</span>                                 <span class="c">// the event: just data</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$userId</span>) {}
+}
+
+<span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">array</span> <span class="v">$data</span>): <span class="t">User</span>
+{
+    <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$data</span>) {
+        <span class="v">$user</span> = <span class="t">User</span>::<span class="f">create</span>(<span class="v">$data</span>);
+<span class="h">        <span class="f">event</span>(<span class="k">new</span> <span class="f">UserRegistered</span>(<span class="v">$user</span>-&gt;<span class="p">id</span>));  <span class="c">// ring the bell, know nobody</span></span>
+        <span class="k">return</span> <span class="v">$user</span>;
+    });
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">SendWelcomeEmail</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>  <span class="c">// one reaction = one listener</span></span>
+{
+    <span class="k">public</span> <span class="k">bool</span> <span class="v">$afterCommit</span> = <span class="k">true</span>;                     <span class="c">// never email a user that was rolled back</span>
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">UserRegistered</span> <span class="v">$event</span>): <span class="k">void</span>
+    {
+        <span class="t">Mail</span>::<span class="f">to</span>(<span class="t">User</span>::<span class="f">findOrFail</span>(<span class="v">$event</span>-&gt;<span class="p">userId</span>))-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">WelcomeMail</span>());
+    }
+}
+
+<span class="c">// AppServiceProvider::boot() — a new reaction is one new line here</span>
+<span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">SendWelcomeEmail</span>::class);
+<span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">StartFreeTrial</span>::class);
+<span class="t">Event</span>::<span class="f">listen</span>(<span class="t">UserRegistered</span>::class, <span class="t">SyncToCrm</span>::class);</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Eloquent model observers: User::observe(UserObserver::class) attaches an object whose created(), updated()... methods run when the model is saved. Laravel registers them on its event dispatcher (see the Event Dispatcher card).</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel events + listeners</span><span>Eloquent model observers (created, updated)</span><span>Webhooks</span></div></div>
@@ -213,6 +213,6 @@
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

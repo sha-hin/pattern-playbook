@@ -1292,12 +1292,7 @@ function codeHtml(src) {
       if (piece) lines[lines.length - 1] += cls ? `<span class="${cls}">${esc(piece)}</span>` : esc(piece);
     });
   }
-  return lines
-    .map(l => l.replace(/(\S|<\/span>) ( +)(<span class="c">)/, (_, a, sp, c) => `${a} <span class="al">${sp}</span>${c}`))   // alignment spaces before a comment, hidden on phones
-    .map((l, n) => {
-      const indent = clean.split('\n')[n].match(/^ */)[0].length;   // used on phones: wrapped lines stay indented
-      return `<span class="ln${hot[n] ? ' h' : ''}" style="--i:${indent}">${l}</span>`;
-    }).join('<span class="nl">\n</span>');
+  return lines.map((l, n) => hot[n] ? '<span class="h">' + l + '</span>' : l).join('\n');
 }
 
 function shape(el) {
@@ -1577,6 +1572,42 @@ if (typeof document !== 'undefined') {
     if (e.key === '/' && !typing && wrap.hidden) { e.preventDefault(); open(); }
   });
   $('.searchbtn').addEventListener('click', open);
+
+
+  // Copy button on every code block (not on program output)
+  document.querySelectorAll('pre').forEach(pre => {
+    if (pre.closest('.output')) return;
+    const box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copybtn';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    box.appendChild(btn);
+    btn.addEventListener('click', () => {
+      const text = pre.textContent;
+      const done = ok => {
+        btn.textContent = ok ? 'Copied' : 'Press Ctrl+C';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
+      };
+      const select = () => {
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        done(false);
+      };
+      try {
+        navigator.clipboard.writeText(text).then(() => { done(true); track('Copy code'); }, select);
+      } catch (e) {
+        select();
+      }
+    });
+  });
 
   const current = document.querySelector('.chips a[aria-current]');
   if (current) current.scrollIntoView({ block: 'nearest', inline: 'center' });

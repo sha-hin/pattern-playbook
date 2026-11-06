@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Event Dispatcher Pattern in PHP & Laravel, with Real Code","description":"Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…","url":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Event Dispatcher design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Event Dispatcher pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/event-dispatcher.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Event Dispatcher","item":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/"}]}]}</script>
 </head>
@@ -69,15 +69,15 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>subscribe() / notify() code duplicated in several services</li><li>A listener needs a reference to the exact service object</li><li>You want some listeners queued, some after commit</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Orders, Payments and Users all emit events. Billing listens to orders AND payments. Analytics listens to everything.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentService</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = []; <span class="al">                    </span><span class="c">// the same code lives in OrderService,</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">subscribe</span>(<span class="t">PaymentObserver</span> <span class="v">$o</span>) {...} <span class="c">// UserService, RefundService...</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">function</span> <span class="f">notify</span>(<span class="t">Payment</span> <span class="v">$p</span>) {...}</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$orders</span>-&gt;<span class="f">subscribe</span>(<span class="v">$billing</span>); <span class="al">                        </span><span class="c">// Billing must know every sender</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$payments</span>-&gt;<span class="f">subscribe</span>(<span class="v">$billing</span>);</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentService</span>
+{
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$observers</span> = [];                     <span class="c">// the same code lives in OrderService,</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">subscribe</span>(<span class="t">PaymentObserver</span> <span class="v">$o</span>) {...} <span class="c">// UserService, RefundService...</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">notify</span>(<span class="t">Payment</span> <span class="v">$p</span>) {...}
+}
+
+<span class="v">$orders</span>-&gt;<span class="f">subscribe</span>(<span class="v">$billing</span>);                         <span class="c">// Billing must know every sender</span>
+<span class="v">$payments</span>-&gt;<span class="f">subscribe</span>(<span class="v">$billing</span>);</code></pre></div>
   <section class="scratch" aria-labelledby="build-event-dispatcher">
     <h2 class="g" id="build-event-dispatcher">Build it yourself: the full Event Dispatcher pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -85,101 +85,101 @@
       <div class="role" role="row"><span role="rowheader">Dispatcher</span><span role="cell"><code>EventDispatcher</code> <small>the one shared middleman</small></span></div><div class="role" role="row"><span role="rowheader">Events</span><span role="cell"><code>OrderPlaced, PaymentReceived</code> <small>small classes that only carry data</small></span></div><div class="role" role="row"><span role="rowheader">Listeners</span><span role="cell"><code>functions registered for an event class</code></span></div><div class="role" role="row"><span role="rowheader">Senders</span><span role="cell"><code>OrderService, PaymentService</code> <small>know only the dispatcher</small></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: events. Small classes that only carry data. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderPlaced</span> <span class="al"> </span><span class="c">// Event</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$orderId</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentReceived</span> <span class="al"> </span><span class="c">// Event</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$orderId</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the dispatcher. The one middleman everybody talks to. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EventDispatcher</span> <span class="al"> </span><span class="c">// Dispatcher</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;class-string, list&lt;callable(object): void&gt;&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$listeners</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/**</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     * @param class-string $eventClass</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     * @param callable(object): void $listener</span></span><span class="nl">
-</span><span class="ln" style="--i:5"><span class="c">     */</span></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">listen</span>(<span class="k">string</span> <span class="v">$eventClass</span>, <span class="k">callable</span> <span class="v">$listener</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// register by event class</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>][] = <span class="v">$listener</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// one door for every sender</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$eventClass</span> = <span class="f">get_class</span>(<span class="v">$event</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$listeners</span> = <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>] ?? [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="v">$listeners</span> <span class="k">as</span> <span class="v">$listener</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="v">$listener</span>(<span class="v">$event</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: senders. They only know the dispatcher, never the listeners. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderService</span> <span class="al"> </span><span class="c">// Sender</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">EventDispatcher</span> <span class="v">$events</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">place</span>(<span class="k">int</span> <span class="v">$orderId</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="c">// ... save the order ...</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">OrderPlaced</span>(<span class="v">$orderId</span>));</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentService</span> <span class="al"> </span><span class="c">// Sender</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">EventDispatcher</span> <span class="v">$events</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">receive</span>(<span class="k">int</span> <span class="v">$orderId</span>, <span class="k">int</span> <span class="v">$amount</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="c">// ... record the payment ...</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">PaymentReceived</span>(<span class="v">$orderId</span>, <span class="v">$amount</span>));</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it: listeners are registered in one place ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span> = <span class="k">new</span> <span class="f">EventDispatcher</span>();</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">OrderPlaced</span>::class, <span class="k">function</span> (<span class="t">OrderPlaced</span> <span class="v">$event</span>): <span class="k">void</span> {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">&quot;Kitchen: start order #{$event-&gt;orderId}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">});</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="k">function</span> (<span class="t">PaymentReceived</span> <span class="v">$event</span>): <span class="k">void</span> {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">&quot;Billing: mark order #{$event-&gt;orderId} as paid\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">});</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// Analytics listens to BOTH senders without knowing either of them:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$track</span> = <span class="k">function</span> (<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span> {</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">echo</span> <span class="s">'Analytics: '</span> . <span class="f">get_class</span>(<span class="v">$event</span>) . <span class="s">&quot;\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">};</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">OrderPlaced</span>::class, <span class="v">$track</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="v">$track</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$orders</span> = <span class="k">new</span> <span class="f">OrderService</span>(<span class="v">$events</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$payments</span> = <span class="k">new</span> <span class="f">PaymentService</span>(<span class="v">$events</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$orders</span>-&gt;<span class="f">place</span>(<span class="n">12</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$payments</span>-&gt;<span class="f">receive</span>(<span class="n">12</span>, <span class="n">15750</span>);</span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── Step 1: events. Small classes that only carry data. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderPlaced</span>  <span class="c">// Event</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$orderId</span>)
+    {
+    }
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentReceived</span>  <span class="c">// Event</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$orderId</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>)
+    {
+    }
+}
+
+<span class="c">// ── Step 2: the dispatcher. The one middleman everybody talks to. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">EventDispatcher</span>  <span class="c">// Dispatcher</span></span>
+{
+    <span class="c">/** @var array&lt;class-string, list&lt;callable(object): void&gt;&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$listeners</span> = [];
+
+    <span class="c">/**</span>
+<span class="c">     * @param class-string $eventClass</span>
+<span class="c">     * @param callable(object): void $listener</span>
+<span class="c">     */</span>
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">listen</span>(<span class="k">string</span> <span class="v">$eventClass</span>, <span class="k">callable</span> <span class="v">$listener</span>): <span class="k">void</span>  <span class="c">// register by event class</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>][] = <span class="v">$listener</span>;
+    }
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span>  <span class="c">// one door for every sender</span></span>
+    {
+        <span class="v">$eventClass</span> = <span class="f">get_class</span>(<span class="v">$event</span>);
+        <span class="v">$listeners</span> = <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>] ?? [];
+
+        <span class="k">foreach</span> (<span class="v">$listeners</span> <span class="k">as</span> <span class="v">$listener</span>) {
+            <span class="v">$listener</span>(<span class="v">$event</span>);
+        }
+    }
+}
+
+<span class="c">// ── Step 3: senders. They only know the dispatcher, never the listeners. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">OrderService</span>  <span class="c">// Sender</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">EventDispatcher</span> <span class="v">$events</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">place</span>(<span class="k">int</span> <span class="v">$orderId</span>): <span class="k">void</span>
+    {
+        <span class="c">// ... save the order ...</span>
+        <span class="k">$this</span>-&gt;<span class="p">events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">OrderPlaced</span>(<span class="v">$orderId</span>));
+    }
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentService</span>  <span class="c">// Sender</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">EventDispatcher</span> <span class="v">$events</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">receive</span>(<span class="k">int</span> <span class="v">$orderId</span>, <span class="k">int</span> <span class="v">$amount</span>): <span class="k">void</span>
+    {
+        <span class="c">// ... record the payment ...</span>
+        <span class="k">$this</span>-&gt;<span class="p">events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">PaymentReceived</span>(<span class="v">$orderId</span>, <span class="v">$amount</span>));
+    }
+}
+
+<span class="c">// ── Using it: listeners are registered in one place ──</span>
+<span class="v">$events</span> = <span class="k">new</span> <span class="f">EventDispatcher</span>();
+
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">OrderPlaced</span>::class, <span class="k">function</span> (<span class="t">OrderPlaced</span> <span class="v">$event</span>): <span class="k">void</span> {
+    <span class="k">echo</span> <span class="s">&quot;Kitchen: start order #{$event-&gt;orderId}\n&quot;</span>;
+});
+
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="k">function</span> (<span class="t">PaymentReceived</span> <span class="v">$event</span>): <span class="k">void</span> {
+    <span class="k">echo</span> <span class="s">&quot;Billing: mark order #{$event-&gt;orderId} as paid\n&quot;</span>;
+});
+
+<span class="c">// Analytics listens to BOTH senders without knowing either of them:</span>
+<span class="v">$track</span> = <span class="k">function</span> (<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span> {
+    <span class="k">echo</span> <span class="s">'Analytics: '</span> . <span class="f">get_class</span>(<span class="v">$event</span>) . <span class="s">&quot;\n&quot;</span>;
+};
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">OrderPlaced</span>::class, <span class="v">$track</span>);
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="v">$track</span>);
+
+<span class="v">$orders</span> = <span class="k">new</span> <span class="f">OrderService</span>(<span class="v">$events</span>);
+<span class="v">$payments</span> = <span class="k">new</span> <span class="f">PaymentService</span>(<span class="v">$events</span>);
+
+<span class="v">$orders</span>-&gt;<span class="f">place</span>(<span class="n">12</span>);
+<span class="v">$payments</span>-&gt;<span class="f">receive</span>(<span class="n">12</span>, <span class="n">15750</span>);</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/event-dispatcher.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/event-dispatcher.php" data-umami-event="View example" data-umami-event-pattern="event-dispatcher">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Kitchen: start order #12
 Analytics: OrderPlaced
@@ -188,41 +188,41 @@ Analytics: PaymentReceived</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">EventDispatcher</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;class-string, list&lt;string|callable&gt;&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$listeners</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Psr</span>\<span class="t">Container</span>\<span class="t">ContainerInterface</span> <span class="v">$container</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">listen</span>(<span class="k">string</span> <span class="v">$eventClass</span>, <span class="k">string</span>|<span class="k">callable</span> <span class="v">$listener</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// by event TYPE</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>][] = <span class="v">$listener</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span> <span class="al"> </span><span class="c">// one door for every sender</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$event</span>::class] ?? [] <span class="k">as</span> <span class="v">$listener</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="v">$handler</span> = <span class="f">is_string</span>(<span class="v">$listener</span>)</span><span class="nl">
-</span><span class="ln" style="--i:16">                ? [<span class="k">$this</span>-&gt;<span class="p">container</span>-&gt;<span class="f">get</span>(<span class="v">$listener</span>), <span class="s">'handle'</span>] <span class="al">                   </span><span class="c">// built only when needed</span></span><span class="nl">
-</span><span class="ln" style="--i:16">                : <span class="v">$listener</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="v">$handler</span>(<span class="v">$event</span>); <span class="al">                                                    </span><span class="c">// exceptions are never swallowed</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">PaymentReceived</span> <span class="al">                                 </span><span class="c">// an event: just data</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$invoiceId</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// PaymentService knows only the dispatcher:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">PaymentReceived</span>(<span class="v">$invoice</span>-&gt;<span class="p">id</span>, <span class="v">$amount</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// Listeners never see PaymentService:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="t">MarkInvoicePaid</span>::class);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="t">SendReceipt</span>::class);</span></code></pre>
+    <pre><code><span class="k">final</span> <span class="k">class</span> <span class="t">EventDispatcher</span>
+{
+    <span class="c">/** @var array&lt;class-string, list&lt;string|callable&gt;&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$listeners</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Psr</span>\<span class="t">Container</span>\<span class="t">ContainerInterface</span> <span class="v">$container</span>) {}
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">listen</span>(<span class="k">string</span> <span class="v">$eventClass</span>, <span class="k">string</span>|<span class="k">callable</span> <span class="v">$listener</span>): <span class="k">void</span>  <span class="c">// by event TYPE</span></span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$eventClass</span>][] = <span class="v">$listener</span>;
+    }
+
+<span class="h">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$event</span>): <span class="k">void</span>  <span class="c">// one door for every sender</span></span>
+    {
+        <span class="k">foreach</span> (<span class="k">$this</span>-&gt;<span class="p">listeners</span>[<span class="v">$event</span>::class] ?? [] <span class="k">as</span> <span class="v">$listener</span>) {
+            <span class="v">$handler</span> = <span class="f">is_string</span>(<span class="v">$listener</span>)
+                ? [<span class="k">$this</span>-&gt;<span class="p">container</span>-&gt;<span class="f">get</span>(<span class="v">$listener</span>), <span class="s">'handle'</span>]                    <span class="c">// built only when needed</span>
+                : <span class="v">$listener</span>;
+
+            <span class="v">$handler</span>(<span class="v">$event</span>);                                                     <span class="c">// exceptions are never swallowed</span>
+        }
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">PaymentReceived</span>                                  <span class="c">// an event: just data</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$invoiceId</span>, <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$amount</span>) {}
+}
+
+<span class="c">// PaymentService knows only the dispatcher:</span>
+<span class="v">$events</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">PaymentReceived</span>(<span class="v">$invoice</span>-&gt;<span class="p">id</span>, <span class="v">$amount</span>));
+
+<span class="c">// Listeners never see PaymentService:</span>
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="t">MarkInvoicePaid</span>::class);
+<span class="v">$events</span>-&gt;<span class="f">listen</span>(<span class="t">PaymentReceived</span>::class, <span class="t">SendReceipt</span>::class);</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's event Dispatcher: listen() stores listeners under the event's class name, dispatch() finds and calls them. Listener classes are built by the container, and listeners that implement ShouldQueue are pushed onto the queue instead of running now.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel event() + Event::listen()</span><span>Symfony EventDispatcher</span><span>PSR-14</span></div></div>
@@ -234,6 +234,6 @@ Analytics: PaymentReceived</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

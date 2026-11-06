@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Abstract Factory Pattern in PHP & Laravel, with Real Code","description":"Abstract Factory explained for PHP and Laravel developers. Several objects must come from the same family - one factory creates the whole family, so they can…","url":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/abstract-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Abstract Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Abstract Factory pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/abstract-factory.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Abstract Factory","item":"https://sha-hin.github.io/pattern-playbook/abstract-factory/"}]}]}</script>
 </head>
@@ -69,9 +69,9 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>Several new X() calls that must &quot;go together&quot;</li><li>Bugs from mixing a production piece with a dev piece</li><li>The same if ($env) repeated for 3+ related objects</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>Production runs on AWS (S3, SQS, SES). Local dev uses disk, database queue and log mailer.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="v">$storage</span> = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">S3Storage</span>(...)  : <span class="k">new</span> <span class="f">DiskStorage</span>(...);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$queue</span>   = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">SqsQueue</span>(...)   : <span class="k">new</span> <span class="f">DatabaseQueue</span>(...);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$mailer</span>  = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">LogMailer</span>(...)  : <span class="k">new</span> <span class="f">SesMailer</span>(...); <span class="al">  </span><span class="c">// ← swapped by mistake</span></span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="v">$storage</span> = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">S3Storage</span>(...)  : <span class="k">new</span> <span class="f">DiskStorage</span>(...);
+<span class="v">$queue</span>   = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">SqsQueue</span>(...)   : <span class="k">new</span> <span class="f">DatabaseQueue</span>(...);
+<span class="v">$mailer</span>  = <span class="f">app</span>()-&gt;<span class="f">isProduction</span>() ? <span class="k">new</span> <span class="f">LogMailer</span>(...)  : <span class="k">new</span> <span class="f">SesMailer</span>(...);   <span class="c">// ← swapped by mistake</span></code></pre></div>
   <section class="scratch" aria-labelledby="build-abstract-factory">
     <h2 class="g" id="build-abstract-factory">Build it yourself: the full Abstract Factory pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -79,111 +79,111 @@
       <div class="role" role="row"><span role="rowheader">Abstract products</span><span role="cell"><code>FileStorage, MessageQueue</code> <small>the things a family contains</small></span></div><div class="role" role="row"><span role="rowheader">Concrete products</span><span role="cell"><code>CloudStorage + CloudQueue</code> <small>cloud family), DiskStorage + MemoryQueue (local family</small></span></div><div class="role" role="row"><span role="rowheader">Abstract factory</span><span role="cell"><code>InfrastructureKit</code> <small>one create method per product</small></span></div><div class="role" role="row"><span role="rowheader">Concrete factories</span><span role="cell"><code>CloudKit, LocalKit</code> <small>each makes a whole matching family</small></span></div><div class="role" role="row"><span role="rowheader">Client</span><span role="cell"><code>ReportPublisher</code> <small>uses one kit, so it can never mix families</small></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the abstract products ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">FileStorage</span> <span class="al"> </span><span class="c">// Abstract product A</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span>; <span class="al">            </span><span class="c">// returns where the file is</span></span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">MessageQueue</span> <span class="al"> </span><span class="c">// Abstract product B</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the cloud family ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;https://reports.cloud.example.com/{$name}&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;  [cloud queue] {$message}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the local family ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">DiskStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">&quot;/var/app/storage/{$name}&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">MemoryQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;  [memory queue] {$message}\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 4: the abstract factory and one concrete factory per family ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Abstract factory</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: cloud family only</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CloudStorage</span>();</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">CloudQueue</span>();</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span> <span class="al"> </span><span class="c">// Concrete factory: local family only</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">DiskStorage</span>();</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">new</span> <span class="f">MemoryQueue</span>();</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 5: the client. It only knows the kit. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">ReportPublisher</span> <span class="al"> </span><span class="c">// Client</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">InfrastructureKit</span> <span class="v">$kit</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">publish</span>(<span class="k">int</span> <span class="v">$reportId</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="v">$location</span> = <span class="k">$this</span>-&gt;<span class="p">kit</span>-&gt;<span class="f">storage</span>()-&gt;<span class="f">put</span>(<span class="s">&quot;report-{$reportId}.pdf&quot;</span>); <span class="al"> </span><span class="c">// both products...</span></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">kit</span>-&gt;<span class="f">queue</span>()-&gt;<span class="f">push</span>(<span class="s">&quot;Report {$reportId} is ready at {$location}&quot;</span>); <span class="al"> </span><span class="c">// ...from the SAME family</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it: ONE decision picks the whole family ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;Local development:\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$publisher</span> = <span class="k">new</span> <span class="f">ReportPublisher</span>(<span class="k">new</span> <span class="f">LocalKit</span>());</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$publisher</span>-&gt;<span class="f">publish</span>(<span class="n">42</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;Production:\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$publisher</span> = <span class="k">new</span> <span class="f">ReportPublisher</span>(<span class="k">new</span> <span class="f">CloudKit</span>());</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$publisher</span>-&gt;<span class="f">publish</span>(<span class="n">42</span>);</span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── Step 1: the abstract products ──</span>
+<span class="h"><span class="k">interface</span> <span class="t">FileStorage</span>  <span class="c">// Abstract product A</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span>;             <span class="c">// returns where the file is</span>
+}
+
+<span class="h"><span class="k">interface</span> <span class="t">MessageQueue</span>  <span class="c">// Abstract product B</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span>;
+}
+
+<span class="c">// ── Step 2: the cloud family ──</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">CloudStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">&quot;https://reports.cloud.example.com/{$name}&quot;</span>;
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CloudQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;  [cloud queue] {$message}\n&quot;</span>;
+    }
+}
+
+<span class="c">// ── Step 3: the local family ──</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">DiskStorage</span> <span class="k">implements</span> <span class="t">FileStorage</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$name</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">&quot;/var/app/storage/{$name}&quot;</span>;
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">MemoryQueue</span> <span class="k">implements</span> <span class="t">MessageQueue</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">push</span>(<span class="k">string</span> <span class="v">$message</span>): <span class="k">void</span>
+    {
+        <span class="k">echo</span> <span class="s">&quot;  [memory queue] {$message}\n&quot;</span>;
+    }
+}
+
+<span class="c">// ── Step 4: the abstract factory and one concrete factory per family ──</span>
+<span class="h"><span class="k">interface</span> <span class="t">InfrastructureKit</span>  <span class="c">// Abstract factory</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>;
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">CloudKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span>  <span class="c">// Concrete factory: cloud family only</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">CloudStorage</span>();
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">CloudQueue</span>();
+    }
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">InfrastructureKit</span>  <span class="c">// Concrete factory: local family only</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">DiskStorage</span>();
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">MemoryQueue</span>();
+    }
+}
+
+<span class="c">// ── Step 5: the client. It only knows the kit. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">ReportPublisher</span>  <span class="c">// Client</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">InfrastructureKit</span> <span class="v">$kit</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">publish</span>(<span class="k">int</span> <span class="v">$reportId</span>): <span class="k">void</span>
+    {
+<span class="h">        <span class="v">$location</span> = <span class="k">$this</span>-&gt;<span class="p">kit</span>-&gt;<span class="f">storage</span>()-&gt;<span class="f">put</span>(<span class="s">&quot;report-{$reportId}.pdf&quot;</span>);  <span class="c">// both products...</span></span>
+<span class="h">        <span class="k">$this</span>-&gt;<span class="p">kit</span>-&gt;<span class="f">queue</span>()-&gt;<span class="f">push</span>(<span class="s">&quot;Report {$reportId} is ready at {$location}&quot;</span>);  <span class="c">// ...from the SAME family</span></span>
+    }
+}
+
+<span class="c">// ── Using it: ONE decision picks the whole family ──</span>
+<span class="k">echo</span> <span class="s">&quot;Local development:\n&quot;</span>;
+<span class="v">$publisher</span> = <span class="k">new</span> <span class="f">ReportPublisher</span>(<span class="k">new</span> <span class="f">LocalKit</span>());
+<span class="v">$publisher</span>-&gt;<span class="f">publish</span>(<span class="n">42</span>);
+
+<span class="k">echo</span> <span class="s">&quot;Production:\n&quot;</span>;
+<span class="v">$publisher</span> = <span class="k">new</span> <span class="f">ReportPublisher</span>(<span class="k">new</span> <span class="f">CloudKit</span>());
+<span class="v">$publisher</span>-&gt;<span class="f">publish</span>(<span class="n">42</span>);</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/abstract-factory.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/abstract-factory.php" data-umami-event="View example" data-umami-event-pattern="abstract-factory">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Local development:
   [memory queue] Report 42 is ready at /var/app/storage/report-42.pdf
@@ -192,37 +192,37 @@ Production:
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">interface</span> <span class="t">CloudKit</span> <span class="al"> </span><span class="c">// one method per family member</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">AwsKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Aws</span>\<span class="t">Sdk</span> <span class="v">$aws</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">S3Storage</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createS3</span>()); }</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>  { <span class="k">return</span> <span class="k">new</span> <span class="f">SqsQueue</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createSqs</span>()); }</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>       { <span class="k">return</span> <span class="k">new</span> <span class="f">SesMailer</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createSesV2</span>()); }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">CloudKit</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">DiskStorage</span>(<span class="f">storage_path</span>(<span class="s">'app'</span>)); }</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>  { <span class="k">return</span> <span class="k">new</span> <span class="f">DatabaseQueue</span>(<span class="t">DB</span>::<span class="f">connection</span>()); }</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>       { <span class="k">return</span> <span class="k">new</span> <span class="f">LogMailer</span>(<span class="t">Log</span>::<span class="f">channel</span>(<span class="s">'mail'</span>)); }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// AppServiceProvider: the ONE decision</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">singleton</span>(<span class="t">CloudKit</span>::class, <span class="k">fn</span> (<span class="v">$app</span>) =&gt; <span class="v">$app</span>-&gt;<span class="f">isProduction</span>()</span><span class="nl">
-</span><span class="ln" style="--i:4">    ? <span class="k">new</span> <span class="f">AwsKit</span>(<span class="k">new</span> \<span class="t">Aws</span>\<span class="f">Sdk</span>([<span class="s">'region'</span> =&gt; <span class="f">config</span>(<span class="s">'services.aws.region'</span>), <span class="s">'version'</span> =&gt; <span class="s">'latest'</span>]))</span><span class="nl">
-</span><span class="ln h" style="--i:4">    : <span class="k">new</span> <span class="f">LocalKit</span>()); <span class="al"> </span><span class="c">// everything below matches</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$kit</span> = <span class="f">app</span>(<span class="t">CloudKit</span>::class);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$kit</span>-&gt;<span class="f">storage</span>()-&gt;<span class="f">put</span>(<span class="s">'reports/42.pdf'</span>, <span class="v">$pdf</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$kit</span>-&gt;<span class="f">queue</span>()-&gt;<span class="f">push</span>(<span class="k">new</span> <span class="f">ReportReady</span>(<span class="n">42</span>));</span></code></pre>
+    <pre><code><span class="h"><span class="k">interface</span> <span class="t">CloudKit</span>  <span class="c">// one method per family member</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span>;
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>;
+    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>;
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">AwsKit</span> <span class="k">implements</span> <span class="t">CloudKit</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> \<span class="t">Aws</span>\<span class="t">Sdk</span> <span class="v">$aws</span>) {}
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">S3Storage</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createS3</span>()); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>  { <span class="k">return</span> <span class="k">new</span> <span class="f">SqsQueue</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createSqs</span>()); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>       { <span class="k">return</span> <span class="k">new</span> <span class="f">SesMailer</span>(<span class="k">$this</span>-&gt;<span class="p">aws</span>-&gt;<span class="f">createSesV2</span>()); }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">LocalKit</span> <span class="k">implements</span> <span class="t">CloudKit</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">storage</span>(): <span class="t">FileStorage</span> { <span class="k">return</span> <span class="k">new</span> <span class="f">DiskStorage</span>(<span class="f">storage_path</span>(<span class="s">'app'</span>)); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">queue</span>(): <span class="t">MessageQueue</span>  { <span class="k">return</span> <span class="k">new</span> <span class="f">DatabaseQueue</span>(<span class="t">DB</span>::<span class="f">connection</span>()); }
+    <span class="k">public</span> <span class="k">function</span> <span class="f">mailer</span>(): <span class="t">Mailer</span>       { <span class="k">return</span> <span class="k">new</span> <span class="f">LogMailer</span>(<span class="t">Log</span>::<span class="f">channel</span>(<span class="s">'mail'</span>)); }
+}
+
+<span class="c">// AppServiceProvider: the ONE decision</span>
+<span class="k">$this</span>-&gt;<span class="p">app</span>-&gt;<span class="f">singleton</span>(<span class="t">CloudKit</span>::class, <span class="k">fn</span> (<span class="v">$app</span>) =&gt; <span class="v">$app</span>-&gt;<span class="f">isProduction</span>()
+    ? <span class="k">new</span> <span class="f">AwsKit</span>(<span class="k">new</span> \<span class="t">Aws</span>\<span class="f">Sdk</span>([<span class="s">'region'</span> =&gt; <span class="f">config</span>(<span class="s">'services.aws.region'</span>), <span class="s">'version'</span> =&gt; <span class="s">'latest'</span>]))
+<span class="h">    : <span class="k">new</span> <span class="f">LocalKit</span>());  <span class="c">// everything below matches</span></span>
+
+<span class="v">$kit</span> = <span class="f">app</span>(<span class="t">CloudKit</span>::class);
+<span class="v">$kit</span>-&gt;<span class="f">storage</span>()-&gt;<span class="f">put</span>(<span class="s">'reports/42.pdf'</span>, <span class="v">$pdf</span>);
+<span class="v">$kit</span>-&gt;<span class="f">queue</span>()-&gt;<span class="f">push</span>(<span class="k">new</span> <span class="f">ReportReady</span>(<span class="n">42</span>));</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Database connections. Each connection class creates its own matching family: a MySQL connection always comes with the MySQL query grammar, schema grammar and result processor, an SQLite connection with the SQLite ones. SQL for one database never reaches another.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Database connection + its SQL grammar + schema builder</span><span>Cloud provider SDK kits</span><span>UI themes (button + input + dialog)</span></div></div>
@@ -234,6 +234,6 @@ Production:
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

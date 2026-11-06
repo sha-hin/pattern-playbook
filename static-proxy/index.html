@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Laravel Facades Explained: a Static Proxy, Not the GoF Facade","description":"Laravel Facade (static proxy) explained for PHP and Laravel developers. Cache::get() is a static shortcut that FORWARDS to one object in the container. It is…","url":"https://sha-hin.github.io/pattern-playbook/static-proxy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/static-proxy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel Facade (static proxy) design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Laravel Facade (static proxy) pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/static-proxy.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Laravel Facade (static proxy)","item":"https://sha-hin.github.io/pattern-playbook/static-proxy/"}]}]}</script>
 </head>
@@ -69,8 +69,8 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>You want a short global shortcut for a service (routes, Blade, scripts)</li><li>Someone calls Cache:: &quot;the Facade pattern&quot;</li><li>A domain class full of static calls that tests can’t see</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>You built an AiManager and want a short Ai:: shortcut in Blade views and Artisan commands.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="c">// repeated in every Blade view, route file and Artisan command:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="f">app</span>(<span class="t">AiManager</span>::class)-&gt;<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>);</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// repeated in every Blade view, route file and Artisan command:</span>
+<span class="f">app</span>(<span class="t">AiManager</span>::class)-&gt;<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>);</code></pre></div>
   <section class="scratch" aria-labelledby="build-static-proxy">
     <h2 class="g" id="build-static-proxy">Build it yourself: the full Laravel Facade (static proxy) pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -78,105 +78,105 @@
       <div class="role" role="row"><span role="rowheader">Real object</span><span role="cell"><code>ArrayCache</code> <small>the actual service that does the work</small></span></div><div class="role" role="row"><span role="rowheader">Container</span><span role="cell"><code>Services</code> <small>where the one real object is kept</small></span></div><div class="role" role="row"><span role="rowheader">Proxy base</span><span role="cell"><code>Facade</code> <small>turns a static call into a normal method call</small></span></div><div class="role" role="row"><span role="rowheader">Concrete proxy</span><span role="cell"><code>Cache</code> <small>says which service it stands for</small></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the real object ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">ArrayCache</span> <span class="al"> </span><span class="c">// Real object</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;string, mixed&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$items</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">items</span>[<span class="v">$key</span>] = <span class="v">$value</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="k">string</span> <span class="v">$key</span>): <span class="k">mixed</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">items</span>[<span class="v">$key</span>] ?? <span class="k">null</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: a tiny container that keeps one object per name ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Services</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;string, object&gt; */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">array</span> <span class="v">$objects</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the proxy base. Turns Cache::get() into $realObject-&gt;get(). ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">Facade</span> <span class="al"> </span><span class="c">// Proxy base</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span>; <span class="c">// which service am I a shortcut for?</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @param list&lt;mixed&gt; $arguments */</span></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">__callStatic</span>(<span class="k">string</span> <span class="v">$method</span>, <span class="k">array</span> <span class="v">$arguments</span>): <span class="k">mixed</span> <span class="al"> </span><span class="c">// PHP calls this for Cache::anything()</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$name</span> = <span class="k">static</span>::<span class="f">accessor</span>();</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">isset</span>(<span class="t">Services</span>::<span class="v">$objects</span>[<span class="v">$name</span>])) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;No service called [{$name}].&quot;</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="v">$realObject</span> = <span class="t">Services</span>::<span class="v">$objects</span>[<span class="v">$name</span>]; <span class="al"> </span><span class="c">// find the ONE real object</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="v">$realObject</span>-&gt;<span class="v">$method</span>(...<span class="v">$arguments</span>); <span class="al"> </span><span class="c">// forward the call, unchanged</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 4: a concrete proxy. It only names its service. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Cache</span> <span class="k">extends</span> <span class="t">Facade</span> <span class="al"> </span><span class="c">// Concrete proxy</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="s">'cache'</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Using it ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Services</span>::<span class="v">$objects</span>[<span class="s">'cache'</span>] = <span class="k">new</span> <span class="f">ArrayCache</span>(); <span class="al">            </span><span class="c">// the framework does this at startup</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Cache</span>::<span class="f">put</span>(<span class="s">'menu'</span>, <span class="s">'Margherita, Pepperoni'</span>); <span class="al">               </span><span class="c">// looks static...</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="t">Cache</span>::<span class="f">get</span>(<span class="s">'menu'</span>) . <span class="s">&quot;\n&quot;</span>; <span class="al">                            </span><span class="c">// ...but is a normal call on one object</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// In a test, replace the real object. No static code to fight with:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Services</span>::<span class="v">$objects</span>[<span class="s">'cache'</span>] = <span class="k">new</span> <span class="f">ArrayCache</span>();</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">'After swapping in a fresh cache: '</span> . <span class="f">var_export</span>(<span class="t">Cache</span>::<span class="f">get</span>(<span class="s">'menu'</span>), <span class="k">true</span>) . <span class="s">&quot;\n&quot;</span>;</span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── Step 1: the real object ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">ArrayCache</span>  <span class="c">// Real object</span></span>
+{
+    <span class="c">/** @var array&lt;string, mixed&gt; */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$items</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">put</span>(<span class="k">string</span> <span class="v">$key</span>, <span class="k">mixed</span> <span class="v">$value</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">items</span>[<span class="v">$key</span>] = <span class="v">$value</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">get</span>(<span class="k">string</span> <span class="v">$key</span>): <span class="k">mixed</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="p">items</span>[<span class="v">$key</span>] ?? <span class="k">null</span>;
+    }
+}
+
+<span class="c">// ── Step 2: a tiny container that keeps one object per name ──</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">Services</span>
+{
+    <span class="c">/** @var array&lt;string, object&gt; */</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="k">array</span> <span class="v">$objects</span> = [];
+}
+
+<span class="c">// ── Step 3: the proxy base. Turns Cache::get() into $realObject-&gt;get(). ──</span>
+<span class="h"><span class="k">abstract</span> <span class="k">class</span> <span class="t">Facade</span>  <span class="c">// Proxy base</span></span>
+{
+    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span>; <span class="c">// which service am I a shortcut for?</span>
+
+    <span class="c">/** @param list&lt;mixed&gt; $arguments */</span>
+<span class="h">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">__callStatic</span>(<span class="k">string</span> <span class="v">$method</span>, <span class="k">array</span> <span class="v">$arguments</span>): <span class="k">mixed</span>  <span class="c">// PHP calls this for Cache::anything()</span></span>
+    {
+        <span class="v">$name</span> = <span class="k">static</span>::<span class="f">accessor</span>();
+
+        <span class="k">if</span> (!<span class="f">isset</span>(<span class="t">Services</span>::<span class="v">$objects</span>[<span class="v">$name</span>])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="s">&quot;No service called [{$name}].&quot;</span>);
+        }
+
+<span class="h">        <span class="v">$realObject</span> = <span class="t">Services</span>::<span class="v">$objects</span>[<span class="v">$name</span>];  <span class="c">// find the ONE real object</span></span>
+
+<span class="h">        <span class="k">return</span> <span class="v">$realObject</span>-&gt;<span class="v">$method</span>(...<span class="v">$arguments</span>);  <span class="c">// forward the call, unchanged</span></span>
+    }
+}
+
+<span class="c">// ── Step 4: a concrete proxy. It only names its service. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">Cache</span> <span class="k">extends</span> <span class="t">Facade</span>  <span class="c">// Concrete proxy</span></span>
+{
+    <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">'cache'</span>;
+    }
+}
+
+<span class="c">// ── Using it ──</span>
+<span class="t">Services</span>::<span class="v">$objects</span>[<span class="s">'cache'</span>] = <span class="k">new</span> <span class="f">ArrayCache</span>();             <span class="c">// the framework does this at startup</span>
+
+<span class="t">Cache</span>::<span class="f">put</span>(<span class="s">'menu'</span>, <span class="s">'Margherita, Pepperoni'</span>);                <span class="c">// looks static...</span>
+<span class="k">echo</span> <span class="t">Cache</span>::<span class="f">get</span>(<span class="s">'menu'</span>) . <span class="s">&quot;\n&quot;</span>;                             <span class="c">// ...but is a normal call on one object</span>
+
+<span class="c">// In a test, replace the real object. No static code to fight with:</span>
+<span class="t">Services</span>::<span class="v">$objects</span>[<span class="s">'cache'</span>] = <span class="k">new</span> <span class="f">ArrayCache</span>();
+<span class="k">echo</span> <span class="s">'After swapping in a fresh cache: '</span> . <span class="f">var_export</span>(<span class="t">Cache</span>::<span class="f">get</span>(<span class="s">'menu'</span>), <span class="k">true</span>) . <span class="s">&quot;\n&quot;</span>;</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/static-proxy.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/static-proxy.php" data-umami-event="View example" data-umami-event-pattern="static-proxy">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>Margherita, Pepperoni
 After swapping in a fresh cache: NULL</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln" style="--i:0"><span class="c">// How it works (simplified):</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">abstract</span> <span class="k">class</span> <span class="t">Facade</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:4">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">__callStatic</span>(<span class="k">string</span> <span class="v">$method</span>, <span class="k">array</span> <span class="v">$args</span>): <span class="k">mixed</span> <span class="al"> </span><span class="c">// PHP calls this for Ai::anything()</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="f">app</span>(<span class="k">static</span>::<span class="f">accessor</span>())-&gt;{<span class="v">$method</span>}(...<span class="v">$args</span>); <span class="al"> </span><span class="c">// forward to the ONE real object</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// The Laravel way, for your own service:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">Ai</span> <span class="k">extends</span> \<span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Facade</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">getFacadeAccessor</span>(): <span class="k">string</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="t">AiManager</span>::class;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Ai</span>::<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>); <span class="al">         </span><span class="c">// = app(AiManager::class)-&gt;driver()-&gt;summarize($text)</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// In tests:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="t">Ai</span>::<span class="f">shouldReceive</span>(<span class="s">'driver-&gt;summarize'</span>)-&gt;<span class="f">andReturn</span>(<span class="s">'short summary'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// In your OWN service classes, prefer the visible dependency:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">AiManager</span> <span class="v">$ai</span>) {}</span></code></pre>
+    <pre><code><span class="c">// How it works (simplified):</span>
+<span class="k">abstract</span> <span class="k">class</span> <span class="t">Facade</span>
+{
+    <span class="k">abstract</span> <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">accessor</span>(): <span class="k">string</span>;
+
+<span class="h">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">__callStatic</span>(<span class="k">string</span> <span class="v">$method</span>, <span class="k">array</span> <span class="v">$args</span>): <span class="k">mixed</span>  <span class="c">// PHP calls this for Ai::anything()</span></span>
+    {
+<span class="h">        <span class="k">return</span> <span class="f">app</span>(<span class="k">static</span>::<span class="f">accessor</span>())-&gt;{<span class="v">$method</span>}(...<span class="v">$args</span>);  <span class="c">// forward to the ONE real object</span></span>
+    }
+}
+
+<span class="c">// The Laravel way, for your own service:</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">Ai</span> <span class="k">extends</span> \<span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Facade</span>
+{
+    <span class="k">protected</span> <span class="k">static</span> <span class="k">function</span> <span class="f">getFacadeAccessor</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="t">AiManager</span>::class;
+    }
+}
+
+<span class="t">Ai</span>::<span class="f">driver</span>()-&gt;<span class="f">summarize</span>(<span class="v">$text</span>);          <span class="c">// = app(AiManager::class)-&gt;driver()-&gt;summarize($text)</span>
+
+<span class="c">// In tests:</span>
+<span class="t">Ai</span>::<span class="f">shouldReceive</span>(<span class="s">'driver-&gt;summarize'</span>)-&gt;<span class="f">andReturn</span>(<span class="s">'short summary'</span>);
+
+<span class="c">// In your OWN service classes, prefer the visible dependency:</span>
+<span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">AiManager</span> <span class="v">$ai</span>) {}</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> The Facade base class has a __callStatic() method. It asks the container for the object named by getFacadeAccessor() (for Cache that is 'cache'), remembers it, and forwards the call. Cache::shouldReceive() in tests swaps that object for a mock.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Cache::, DB::, Log::, Storage::</span><span>Cache::fake(), Ai::shouldReceive() in tests</span><span>Real-time facades: Facades\App\…</span></div></div>
@@ -188,6 +188,6 @@ After swapping in a fresh cache: NULL</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>

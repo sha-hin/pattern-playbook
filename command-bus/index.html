@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=ebf59e3acd">
+<link rel="stylesheet" href="../assets/style.css?v=02a94d381f">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Bus Pattern in PHP & Laravel, with Real Code","description":"Command Bus explained for PHP and Laravel developers. Split \"what to do\" (a data object) from \"how\" (a handler) - the same action runs from web, CLI or…","url":"https://sha-hin.github.io/pattern-playbook/command-bus/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command-bus/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command Bus design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"SoftwareSourceCode","name":"Command Bus pattern in plain PHP","programmingLanguage":"PHP","codeRepository":"https://github.com/sha-hin/pattern-playbook","url":"https://github.com/sha-hin/pattern-playbook/blob/main/examples/command-bus.php","runtimePlatform":"PHP 8.2+"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command Bus","item":"https://sha-hin.github.io/pattern-playbook/command-bus/"}]}]}</script>
 </head>
@@ -69,14 +69,14 @@
     <div class="box"><h2>Reach for it when you see</h2><ul><li>The same business action needed from HTTP, CLI and queue</li><li>Fat controllers full of business logic</li><li>You want one place for transactions / logging around every action</li></ul></div>
     <div class="box"><h2>Real job where it fits</h2><p>&quot;Recalculate school statistics&quot; runs from an admin button, a nightly schedule, and after every import.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">StatsController</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">recalculate</span>(<span class="t">School</span> <span class="v">$school</span>, <span class="t">StatsCalculator</span> <span class="v">$calc</span>, <span class="t">StatsRepository</span> <span class="v">$stats</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$stats</span>-&gt;<span class="f">save</span>(<span class="v">$school</span>-&gt;<span class="p">id</span>, <span class="v">$calc</span>-&gt;<span class="f">forSchool</span>(<span class="v">$school</span>-&gt;<span class="p">id</span>)); <span class="al">  </span><span class="c">// the scheduler and the importer</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="f">back</span>(); <span class="al">                                              </span><span class="c">// need this too... copy it?</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span></code></pre></div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="k">final</span> <span class="k">class</span> <span class="t">StatsController</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">recalculate</span>(<span class="t">School</span> <span class="v">$school</span>, <span class="t">StatsCalculator</span> <span class="v">$calc</span>, <span class="t">StatsRepository</span> <span class="v">$stats</span>)
+    {
+        <span class="v">$stats</span>-&gt;<span class="f">save</span>(<span class="v">$school</span>-&gt;<span class="p">id</span>, <span class="v">$calc</span>-&gt;<span class="f">forSchool</span>(<span class="v">$school</span>-&gt;<span class="p">id</span>));   <span class="c">// the scheduler and the importer</span>
+        <span class="k">return</span> <span class="f">back</span>();                                               <span class="c">// need this too... copy it?</span>
+    }
+}</code></pre></div>
   <section class="scratch" aria-labelledby="build-command-bus">
     <h2 class="g" id="build-command-bus">Build it yourself: the full Command Bus pattern in plain PHP</h2>
     <p class="sub2">No framework. Every part of the pattern is here, labelled with its role. Copy it, run it, change it.</p>
@@ -84,93 +84,93 @@
       <div class="role" role="row"><span role="rowheader">Command</span><span role="cell"><code>RecalculateSchoolStats</code> <small>only data: WHAT should happen</small></span></div><div class="role" role="row"><span role="rowheader">Handler</span><span role="cell"><code>RecalculateSchoolStatsHandler</code> <small>the logic: HOW it happens</small></span></div><div class="role" role="row"><span role="rowheader">Bus</span><span role="cell"><code>CommandBus</code> <small>finds the right handler and runs it</small></span></div><div class="role" role="row"><span role="rowheader">Shared rules</span><span role="cell"><code>logging and a database transaction, written once inside the bus</code></span></div>
     </div>
     
-    <pre><code><span class="ln" style="--i:0">&lt;?php</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">declare</span>(strict_types=<span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 1: the command. Only data. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStats</span> <span class="al"> </span><span class="c">// Command</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$schoolId</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 2: the handler. The logic, with what it needs. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStatsHandler</span> <span class="al"> </span><span class="c">// Handler</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">RecalculateSchoolStats</span> <span class="v">$command</span>): <span class="k">float</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$query</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'SELECT AVG(score) FROM evaluations WHERE school_id = ?'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$query</span>-&gt;<span class="f">execute</span>([<span class="v">$command</span>-&gt;<span class="p">schoolId</span>]);</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$average</span> = <span class="f">round</span>((<span class="k">float</span>) <span class="v">$query</span>-&gt;<span class="f">fetchColumn</span>(), <span class="n">1</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$save</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'REPLACE INTO school_stats (school_id, average) VALUES (?, ?)'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$save</span>-&gt;<span class="f">execute</span>([<span class="v">$command</span>-&gt;<span class="p">schoolId</span>, <span class="v">$average</span>]);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$average</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Step 3: the bus. Finds the handler, and applies the shared rules to EVERY command. ──</span></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CommandBus</span> <span class="al"> </span><span class="c">// Bus</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @var array&lt;class-string, object&gt; command class =&gt; its handler */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">private</span> <span class="k">array</span> <span class="v">$handlers</span> = [];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>)</span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">string</span> <span class="v">$commandClass</span>, <span class="k">object</span> <span class="v">$handler</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$commandClass</span>] = <span class="v">$handler</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$command</span>): <span class="k">mixed</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$class</span> = <span class="f">get_class</span>(<span class="v">$command</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$class</span>])) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;No handler registered for {$class}.&quot;</span>);</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="v">$handler</span> = <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$class</span>]; <span class="al"> </span><span class="c">// find the handler</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;-&gt; {$class}\n&quot;</span>; <span class="al">                              </span><span class="c">// shared rule 1: log every command</span></span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">beginTransaction</span>(); <span class="al">                     </span><span class="c">// shared rule 2: all or nothing</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">try</span> {</span><span class="nl">
-</span><span class="ln h" style="--i:12">            <span class="v">$result</span> = <span class="v">$handler</span>-&gt;<span class="f">handle</span>(<span class="v">$command</span>); <span class="al"> </span><span class="c">// run it</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">commit</span>();</span><span class="nl">
-</span><span class="ln" style="--i:8">        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">rollBack</span>();</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="v">$e</span>;</span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">echo</span> <span class="s">&quot;&lt;- done\n&quot;</span>;</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">return</span> <span class="v">$result</span>;</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── Setup: an in-memory SQLite database ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite::memory:'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE evaluations (school_id INTEGER, score INTEGER)'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE school_stats (school_id INTEGER PRIMARY KEY, average REAL)'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'INSERT INTO evaluations VALUES (7, 80), (7, 91), (7, 74)'</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$bus</span> = <span class="k">new</span> <span class="f">CommandBus</span>(<span class="v">$db</span>);</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$bus</span>-&gt;<span class="f">register</span>(<span class="t">RecalculateSchoolStats</span>::class, <span class="k">new</span> <span class="f">RecalculateSchoolStatsHandler</span>(<span class="v">$db</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// ── The admin button, the nightly schedule and the importer all use this one line ──</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$average</span> = <span class="v">$bus</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">RecalculateSchoolStats</span>(<span class="n">7</span>));</span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">echo</span> <span class="s">&quot;Average: {$average}\n&quot;</span>;</span></code></pre>
+    <pre><code>&lt;?php
+
+<span class="k">declare</span>(strict_types=<span class="n">1</span>);
+
+<span class="c">// ── Step 1: the command. Only data. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStats</span>  <span class="c">// Command</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$schoolId</span>)
+    {
+    }
+}
+
+<span class="c">// ── Step 2: the handler. The logic, with what it needs. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStatsHandler</span>  <span class="c">// Handler</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">RecalculateSchoolStats</span> <span class="v">$command</span>): <span class="k">float</span>
+    {
+        <span class="v">$query</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'SELECT AVG(score) FROM evaluations WHERE school_id = ?'</span>);
+        <span class="v">$query</span>-&gt;<span class="f">execute</span>([<span class="v">$command</span>-&gt;<span class="p">schoolId</span>]);
+        <span class="v">$average</span> = <span class="f">round</span>((<span class="k">float</span>) <span class="v">$query</span>-&gt;<span class="f">fetchColumn</span>(), <span class="n">1</span>);
+
+        <span class="v">$save</span> = <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">prepare</span>(<span class="s">'REPLACE INTO school_stats (school_id, average) VALUES (?, ?)'</span>);
+        <span class="v">$save</span>-&gt;<span class="f">execute</span>([<span class="v">$command</span>-&gt;<span class="p">schoolId</span>, <span class="v">$average</span>]);
+
+        <span class="k">return</span> <span class="v">$average</span>;
+    }
+}
+
+<span class="c">// ── Step 3: the bus. Finds the handler, and applies the shared rules to EVERY command. ──</span>
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">CommandBus</span>  <span class="c">// Bus</span></span>
+{
+    <span class="c">/** @var array&lt;class-string, object&gt; command class =&gt; its handler */</span>
+    <span class="k">private</span> <span class="k">array</span> <span class="v">$handlers</span> = [];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">readonly</span> <span class="t">PDO</span> <span class="v">$db</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(<span class="k">string</span> <span class="v">$commandClass</span>, <span class="k">object</span> <span class="v">$handler</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$commandClass</span>] = <span class="v">$handler</span>;
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$command</span>): <span class="k">mixed</span>
+    {
+        <span class="v">$class</span> = <span class="f">get_class</span>(<span class="v">$command</span>);
+
+        <span class="k">if</span> (!<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$class</span>])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;No handler registered for {$class}.&quot;</span>);
+        }
+
+<span class="h">        <span class="v">$handler</span> = <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$class</span>];  <span class="c">// find the handler</span></span>
+
+        <span class="k">echo</span> <span class="s">&quot;-&gt; {$class}\n&quot;</span>;                               <span class="c">// shared rule 1: log every command</span>
+
+        <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">beginTransaction</span>();                      <span class="c">// shared rule 2: all or nothing</span>
+        <span class="k">try</span> {
+<span class="h">            <span class="v">$result</span> = <span class="v">$handler</span>-&gt;<span class="f">handle</span>(<span class="v">$command</span>);  <span class="c">// run it</span></span>
+            <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">commit</span>();
+        } <span class="k">catch</span> (<span class="t">Exception</span> <span class="v">$e</span>) {
+            <span class="k">$this</span>-&gt;<span class="p">db</span>-&gt;<span class="f">rollBack</span>();
+            <span class="k">throw</span> <span class="v">$e</span>;
+        }
+
+        <span class="k">echo</span> <span class="s">&quot;&lt;- done\n&quot;</span>;
+
+        <span class="k">return</span> <span class="v">$result</span>;
+    }
+}
+
+<span class="c">// ── Setup: an in-memory SQLite database ──</span>
+<span class="v">$db</span> = <span class="k">new</span> <span class="f">PDO</span>(<span class="s">'sqlite::memory:'</span>);
+<span class="v">$db</span>-&gt;<span class="f">setAttribute</span>(<span class="t">PDO</span>::<span class="t">ATTR_ERRMODE</span>, <span class="t">PDO</span>::<span class="t">ERRMODE_EXCEPTION</span>);
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE evaluations (school_id INTEGER, score INTEGER)'</span>);
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'CREATE TABLE school_stats (school_id INTEGER PRIMARY KEY, average REAL)'</span>);
+<span class="v">$db</span>-&gt;<span class="f">exec</span>(<span class="s">'INSERT INTO evaluations VALUES (7, 80), (7, 91), (7, 74)'</span>);
+
+<span class="v">$bus</span> = <span class="k">new</span> <span class="f">CommandBus</span>(<span class="v">$db</span>);
+<span class="v">$bus</span>-&gt;<span class="f">register</span>(<span class="t">RecalculateSchoolStats</span>::class, <span class="k">new</span> <span class="f">RecalculateSchoolStatsHandler</span>(<span class="v">$db</span>));
+
+<span class="c">// ── The admin button, the nightly schedule and the importer all use this one line ──</span>
+<span class="v">$average</span> = <span class="v">$bus</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">RecalculateSchoolStats</span>(<span class="n">7</span>));
+<span class="k">echo</span> <span class="s">&quot;Average: {$average}\n&quot;</span>;</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern. Run it: <code>php examples/command-bus.php</code> · <a href="https://github.com/sha-hin/pattern-playbook/blob/main/examples/command-bus.php" data-umami-event="View example" data-umami-event-pattern="command-bus">Open the file on GitHub</a></p>
     <div class="output"><span>Output</span><pre><code>-&gt; RecalculateSchoolStats
 &lt;- done
@@ -178,44 +178,44 @@ Average: 81.7</code></pre></div>
   </section>
   <div class="code"><h2 class="lv">In a real Laravel project</h2>
     <p class="sub2">The same pattern the way you would write it at work, using what the framework already gives you.</p>
-    <pre><code><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStats</span> <span class="al"> </span><span class="c">// the command: only data</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$schoolId</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStatsHandler</span> <span class="al"> </span><span class="c">// the handler: logic + dependencies</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">StatsCalculator</span> <span class="v">$calc</span>, <span class="k">private</span> <span class="t">StatsRepository</span> <span class="v">$stats</span>) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">RecalculateSchoolStats</span> <span class="v">$command</span>): <span class="k">void</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">$this</span>-&gt;<span class="p">stats</span>-&gt;<span class="f">save</span>(<span class="v">$command</span>-&gt;<span class="p">schoolId</span>, <span class="k">$this</span>-&gt;<span class="p">calc</span>-&gt;<span class="f">forSchool</span>(<span class="v">$command</span>-&gt;<span class="p">schoolId</span>));</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="k">final</span> <span class="k">class</span> <span class="t">CommandBus</span></span><span class="nl">
-</span><span class="ln" style="--i:0">{</span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="c">/** @param array&lt;class-string, class-string&gt; $handlers */</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> \<span class="t">Psr</span>\<span class="t">Container</span>\<span class="t">ContainerInterface</span> <span class="v">$container</span>,</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">private</span> <span class="k">array</span> <span class="v">$handlers</span>,</span><span class="nl">
-</span><span class="ln" style="--i:4">    ) {}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:4">    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$command</span>): <span class="k">mixed</span></span><span class="nl">
-</span><span class="ln" style="--i:4">    {</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="k">if</span> (!<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$command</span>::class])) {</span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'No handler for '</span> . <span class="v">$command</span>::class); <span class="al">  </span><span class="c">// wiring bugs fail loudly</span></span><span class="nl">
-</span><span class="ln" style="--i:8">        }</span><span class="nl">
-</span><span class="ln" style="--i:8">        <span class="v">$handler</span> = <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$command</span>::class];</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln h" style="--i:8">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>( <span class="al"> </span><span class="c">// one place for shared rules</span></span><span class="nl">
-</span><span class="ln" style="--i:12">            <span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;<span class="p">container</span>-&gt;<span class="f">get</span>(<span class="v">$handler</span>)-&gt;<span class="f">handle</span>(<span class="v">$command</span>)</span><span class="nl">
-</span><span class="ln" style="--i:8">        );</span><span class="nl">
-</span><span class="ln" style="--i:4">    }</span><span class="nl">
-</span><span class="ln" style="--i:0">}</span><span class="nl">
-</span><span class="ln" style="--i:0"></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="c">// Admin button, nightly schedule, after an import — the same line:</span></span><span class="nl">
-</span><span class="ln" style="--i:0"><span class="v">$bus</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">RecalculateSchoolStats</span>(<span class="v">$schoolId</span>));</span></code></pre>
+    <pre><code><span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStats</span>  <span class="c">// the command: only data</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$schoolId</span>) {}
+}
+
+<span class="h"><span class="k">final</span> <span class="k">class</span> <span class="t">RecalculateSchoolStatsHandler</span>  <span class="c">// the handler: logic + dependencies</span></span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">StatsCalculator</span> <span class="v">$calc</span>, <span class="k">private</span> <span class="t">StatsRepository</span> <span class="v">$stats</span>) {}
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">RecalculateSchoolStats</span> <span class="v">$command</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="p">stats</span>-&gt;<span class="f">save</span>(<span class="v">$command</span>-&gt;<span class="p">schoolId</span>, <span class="k">$this</span>-&gt;<span class="p">calc</span>-&gt;<span class="f">forSchool</span>(<span class="v">$command</span>-&gt;<span class="p">schoolId</span>));
+    }
+}
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CommandBus</span>
+{
+    <span class="c">/** @param array&lt;class-string, class-string&gt; $handlers */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> \<span class="t">Psr</span>\<span class="t">Container</span>\<span class="t">ContainerInterface</span> <span class="v">$container</span>,
+        <span class="k">private</span> <span class="k">array</span> <span class="v">$handlers</span>,
+    ) {}
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">dispatch</span>(<span class="k">object</span> <span class="v">$command</span>): <span class="k">mixed</span>
+    {
+        <span class="k">if</span> (!<span class="f">isset</span>(<span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$command</span>::class])) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'No handler for '</span> . <span class="v">$command</span>::class);   <span class="c">// wiring bugs fail loudly</span>
+        }
+        <span class="v">$handler</span> = <span class="k">$this</span>-&gt;<span class="p">handlers</span>[<span class="v">$command</span>::class];
+
+<span class="h">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(  <span class="c">// one place for shared rules</span></span>
+            <span class="k">fn</span> () =&gt; <span class="k">$this</span>-&gt;<span class="p">container</span>-&gt;<span class="f">get</span>(<span class="v">$handler</span>)-&gt;<span class="f">handle</span>(<span class="v">$command</span>)
+        );
+    }
+}
+
+<span class="c">// Admin button, nightly schedule, after an import — the same line:</span>
+<span class="v">$bus</span>-&gt;<span class="f">dispatch</span>(<span class="k">new</span> <span class="f">RecalculateSchoolStats</span>(<span class="v">$schoolId</span>));</code></pre>
     <p class="howlaravel"><b>How Laravel builds it inside:</b> Laravel's Bus Dispatcher: dispatch() puts a job on the queue if it implements ShouldQueue, otherwise runs it now. Every job passes through the same middleware first (rate limits, &quot;don't run twice at once&quot;), which is the &quot;shared rules&quot; idea below.</p></div>
   
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Jobs + dispatch()</span><span>Symfony Messenger</span><span>league/tactician</span></div></div>
@@ -227,6 +227,6 @@ Average: 81.7</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=9960e3e5f1" defer></script>
+<script src="../assets/app.js?v=096e3b420e" defer></script>
 </body>
 </html>
