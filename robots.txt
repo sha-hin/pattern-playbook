@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sha-hin.github.io/pattern-playbook/sitemap.xml

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Prototype explained for PHP and Laravel developers. You need &quot;the same as this one, with small changes&quot; - copy an existing object, deep-copy what it owns…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/prototype/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prototype Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Prototype explained for PHP and Laravel developers. You need &quot;the same as this one, with small changes&quot; - copy an existing object, deep-copy what it owns…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/prototype/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Prototype Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Prototype explained for PHP and Laravel developers. You need &quot;the same as this one, with small changes&quot; - copy an existing object, deep-copy what it owns…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Prototype Pattern in PHP & Laravel, with Real Code","description":"Prototype explained for PHP and Laravel developers. You need \"the same as this one, with small changes\" - copy an existing object, deep-copy what it owns…","url":"https://sha-hin.github.io/pattern-playbook/prototype/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/prototype/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Prototype design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Prototype","item":"https://sha-hin.github.io/pattern-playbook/prototype/"}]}]}</script>
+</head>
+<body data-page="prototype" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Creation › Prototype</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/" aria-current="page"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card cre">
+  <div class="head"><span class="count">23 / 25</span><h1 class="name">Prototype</h1><span class="fam">Creation</span><span class="book">GoF book</span></div>
+  <p class="hook">&quot;Make a copy&quot; of a Google Doc: start from a full copy, then change the title.</p>
+  <p class="rule"><span>The rule to remember</span>You need &quot;the same as this one, with small changes&quot; → copy an existing object, deep-copy what it owns, share what it only points to.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Prototype: Rebuilding a 40-question survey by hand, or a copy that shares questions so editing the copy changes the original."><rect class="bn" x="10" y="30" width="120" height="110" rx="7"/><text x="70" y="50" class="s" text-anchor="middle">original</text><rect class="bx" x="22" y="60" width="96" height="28" rx="7"/><text x="70" y="78" text-anchor="middle" class="kx">questions</text><rect class="bn" x="170" y="30" width="120" height="110" rx="7"/><text x="230" y="50" class="s" text-anchor="middle">copy</text><line class="lx" x1="170" y1="74" x2="120" y2="74" marker-end="url(#arx)"/><text x="150" y="124" class="kx" text-anchor="middle">shared! edit one = both</text></svg><p>Rebuilding a 40-question survey by hand, or a copy that shares questions so editing the copy changes the original.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Prototype: Copy the survey row, deep-copy its questions and options, keep pointing to the same school and author."><rect class="bn" x="4" y="20" width="118" height="100" rx="7"/><text x="63" y="38" class="s" text-anchor="middle">original</text><rect class="bv" x="16" y="48" width="94" height="26" rx="7"/><text x="63" y="65" text-anchor="middle" class="kv">questions</text><rect class="bn" x="178" y="20" width="118" height="100" rx="7"/><text x="237" y="38" class="s" text-anchor="middle">copy</text><rect class="bv" x="190" y="48" width="94" height="26" rx="7"/><text x="237" y="65" text-anchor="middle" class="kv">own questions</text><line class="lk" x1="122" y1="61" x2="176" y2="61" marker-end="url(#ar)"/><text x="150" y="52" class="kv" text-anchor="middle">replicate</text><rect class="bn" x="96" y="136" width="108" height="26" rx="7"/><text x="150" y="153" text-anchor="middle" class="">School</text><line class="ld" x1="63" y1="120" x2="120" y2="136" marker-end="url(#ar)"/><line class="ld" x1="237" y1="120" x2="180" y2="136" marker-end="url(#ar)"/><text x="150" y="130" class="s" text-anchor="middle">shared</text></svg><p>Copy the survey row, deep-copy its questions and options, keep pointing to the same school and author.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>&quot;Duplicate&quot;, &quot;copy from last term&quot;, &quot;use as template&quot; buttons</li><li>Copies that accidentally change the original</li><li>Rebuilding big objects field by field</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Schools duplicate last term’s survey (40 questions, 160 options) and change the dates.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$copy = $original-&gt;replicate();
+$copy-&gt;save();
+<span class="c">// $copy has NO questions: replicate() copies the row only.</span>
+<span class="c">// Or worse: pointing the copy at the same question rows → editing one edits both.</span></code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Prototype pattern in PHP</h2><pre><code>public function duplicate(Survey $original, string $newTitle): Survey
+{
+    return DB::transaction(function () use ($original, $newTitle) {    <span class="c">// all or nothing</span>
+<span class="h">        $copy = $original-&gt;replicate(['published_at']);  <span class="c">// copy the row (not its relations)</span></span>
+        $copy-&gt;title = $newTitle;
+        $copy-&gt;save();                                        <span class="c">// school_id, author_id: shared on purpose</span>
+
+        foreach ($original-&gt;questions()-&gt;with('options')-&gt;get() as $question) {
+<span class="h">            $newQuestion = $copy-&gt;questions()-&gt;save($question-&gt;replicate());  <span class="c">// deep copy owned children</span></span>
+            $newQuestion-&gt;options()-&gt;saveMany(
+                $question-&gt;options-&gt;map(fn (Option $o) =&gt; $o-&gt;replicate()),
+            );
+        }
+
+        return $copy;
+    });
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Eloquent $model-&gt;replicate()</span><span>PHP clone + __clone()</span><span>&quot;Duplicate&quot; buttons in any admin panel</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../manager/"><small>← Previous</small>Manager / Driver</a>
+    <a class="navbtn" rel="next" href="../bridge/"><small>Next →</small>Bridge</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

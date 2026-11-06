@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/strategy/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Strategy Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/strategy/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Strategy Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Strategy Pattern in PHP & Laravel, with Real Code","description":"Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.","url":"https://sha-hin.github.io/pattern-playbook/strategy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/strategy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Strategy design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Strategy","item":"https://sha-hin.github.io/pattern-playbook/strategy/"}]}]}</script>
+</head>
+<body data-page="strategy" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Strategy</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/" aria-current="page"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">1 / 25</span><h1 class="name">Strategy</h1><span class="fam">Behaviour</span><span class="book">GoF book</span></div>
+  <p class="hook">Google Maps: same trip, you pick Car, Walk or Bike.</p>
+  <p class="rule"><span>The rule to remember</span>Same job, several ways to do it → one class per way, all behind one interface.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Strategy: One method with a growing switch. Adding JSON means editing (and risking) the CSV, Excel and PDF code."><rect class="bx" x="30" y="14" width="240" height="142" rx="7"/><text x="48" y="40" class="m">export($rows, $format)</text><text x="58" y="66" class="m">case &quot;csv&quot;:   …30 lines</text><text x="58" y="88" class="m">case &quot;excel&quot;: …40 lines</text><text x="58" y="110" class="m">case &quot;pdf&quot;:   …50 lines</text><text x="58" y="134" class="kx">case &quot;json&quot;:  ← edit again</text></svg><p>One method with a growing switch. Adding JSON means editing (and risking) the CSV, Excel and PDF code.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Strategy: Each format is its own class. The controller picks one; adding JSON is one new class."><rect class="bn" x="6" y="66" width="74" height="38" rx="7"/><text x="43" y="89" text-anchor="middle" class="">Controller</text><line class="ln" x1="80" y1="85" x2="104" y2="85" marker-end="url(#ar)"/><rect class="bi" x="106" y="62" width="84" height="46" rx="7"/><text x="148" y="89" text-anchor="middle" class="">Exporter</text><line class="lk" x1="190" y1="74" x2="214" y2="32" marker-end="url(#ar)"/><line class="lk" x1="190" y1="85" x2="214" y2="85" marker-end="url(#ar)"/><line class="ln" x1="190" y1="96" x2="214" y2="138" marker-end="url(#ar)"/><rect class="bv" x="216" y="16" width="78" height="32" rx="7"/><text x="255" y="36" text-anchor="middle" class="kv">CSV</text><rect class="bv" x="216" y="69" width="78" height="32" rx="7"/><text x="255" y="89" text-anchor="middle" class="kv">Excel</text><rect class="bv" x="216" y="122" width="78" height="32" rx="7"/><text x="255" y="142" text-anchor="middle" class="kv">PDF</text><text x="148" y="128" class="s" text-anchor="middle">+ JSON = 1 class</text></svg><p>Each format is its own class. The controller picks one; adding JSON is one new class.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>A switch / if-else on a &quot;type&quot; or &quot;format&quot; that keeps growing</li><li>Every branch does the same job in a different way</li><li>You fear touching one branch because it could break another</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Users download a report as CSV, Excel or PDF from a dropdown. Next month: JSON.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>public function export(array $rows, string $format): string
+{
+    switch ($format) {
+        case 'csv':   /* 30 lines */ break;
+        case 'excel': /* 40 lines */ break;
+        case 'pdf':   /* 50 lines */ break;   <span class="c">// JSON next month = edit this again</span>
+    }
+}</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Strategy pattern in PHP</h2><pre><code>interface Exporter
+{
+    public function export(iterable $rows): string;   <span class="c">// returns the file path</span>
+    public function extension(): string;
+}
+
+final class CsvExporter implements Exporter
+{
+    public function export(iterable $rows): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'report');
+        $out = fopen($path, 'w') ?: throw new RuntimeException(&quot;Cannot write {$path}&quot;);
+        foreach ($rows as $row) {
+            fputcsv($out, $row);
+        }
+        fclose($out);
+        return $path;
+    }
+
+    public function extension(): string { return 'csv'; }
+}
+
+final class PdfExporter implements Exporter { /* same two methods, uses Dompdf */ }
+
+final class ReportController
+{
+    public function download(Request $request, ReportRepository $reports)
+    {
+<span class="h">        $exporter = match ($request-&gt;input('format')) {  <span class="c">// pick the strategy once</span></span>
+            'csv'   =&gt; new CsvExporter(),
+            'pdf'   =&gt; new PdfExporter(),
+            default =&gt; abort(422, 'Unsupported format.'),
+        };
+
+<span class="h">        $path = $exporter-&gt;export($reports-&gt;rows());  <span class="c">// same call, any format</span></span>
+
+        return response()
+            -&gt;download($path, &quot;report.{$exporter-&gt;extension()}&quot;)
+            -&gt;deleteFileAfterSend();
+    }
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel hashing drivers (bcrypt, argon)</span><span>Cache stores</span><span>Socialite providers</span><span>Payment methods at checkout</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <span></span>
+    <a class="navbtn" rel="next" href="../simple-factory/"><small>Next →</small>Simple Factory</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

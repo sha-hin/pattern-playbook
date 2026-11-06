@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Null Object Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Null Object explained for PHP and Laravel developers. &quot;Nothing&quot; is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/null-object/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Null Object Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Null Object explained for PHP and Laravel developers. &quot;Nothing&quot; is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/null-object/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Null Object Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Null Object explained for PHP and Laravel developers. &quot;Nothing&quot; is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Null Object Pattern in PHP & Laravel, with Real Code","description":"Null Object explained for PHP and Laravel developers. \"Nothing\" is a NORMAL case (no coupon, no logger) - pass an object that safely does nothing, instead of…","url":"https://sha-hin.github.io/pattern-playbook/null-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/null-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Null Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Null Object","item":"https://sha-hin.github.io/pattern-playbook/null-object/"}]}]}</script>
+</head>
+<body data-page="null-object" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Null Object</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/" aria-current="page"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">3 / 25</span><h1 class="name">Null Object</h1><span class="fam">Behaviour</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">A muted microphone: the meeting runs normally, your mic just sends nothing.</p>
+  <p class="rule"><span>The rule to remember</span>&quot;Nothing&quot; is a NORMAL case (no coupon, no logger) → pass an object that safely does nothing, instead of null.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Null Object: if ($coupon !== null) is copied in the order, invoice, receipt and report. One place forgot: &quot;Call to a member function on null&quot;."><rect class="bn" x="10" y="14" width="135" height="40" rx="7"/><text x="20" y="38" class="m">Order: if !== null</text><rect class="bn" x="155" y="14" width="135" height="40" rx="7"/><text x="165" y="38" class="m">Invoice: if !== null</text><rect class="bn" x="10" y="64" width="135" height="40" rx="7"/><text x="20" y="88" class="m">Receipt: if !== null</text><rect class="bx" x="155" y="64" width="135" height="40" rx="7"/><text x="165" y="88" class="kx">Report: forgot!</text><text x="150" y="138" class="kx" text-anchor="middle">Call to apply() on null</text></svg><p>if ($coupon !== null) is copied in the order, invoice, receipt and report. One place forgot: &quot;Call to a member function on null&quot;.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Null Object: NoDiscount returns the total unchanged. Everyone just calls apply(). There is nothing to forget."><rect class="bn" x="4" y="14" width="70" height="24" rx="7"/><text x="39" y="30" text-anchor="middle" class="">Order</text><rect class="bn" x="4" y="52" width="70" height="24" rx="7"/><text x="39" y="68" text-anchor="middle" class="">Invoice</text><rect class="bn" x="4" y="90" width="70" height="24" rx="7"/><text x="39" y="106" text-anchor="middle" class="">Receipt</text><rect class="bn" x="4" y="128" width="70" height="24" rx="7"/><text x="39" y="144" text-anchor="middle" class="">Report</text><line class="ln" x1="74" y1="26" x2="110" y2="74" marker-end="url(#ar)"/><line class="ln" x1="74" y1="64" x2="110" y2="80" marker-end="url(#ar)"/><line class="ln" x1="74" y1="102" x2="110" y2="88" marker-end="url(#ar)"/><line class="ln" x1="74" y1="140" x2="110" y2="94" marker-end="url(#ar)"/><rect class="bi" x="112" y="62" width="80" height="40" rx="7"/><text x="152" y="86" text-anchor="middle" class="">Discount</text><line class="ln" x1="192" y1="74" x2="214" y2="34" marker-end="url(#ar)"/><line class="lk" x1="192" y1="90" x2="214" y2="122" marker-end="url(#ar)"/><rect class="bn" x="216" y="18" width="80" height="30" rx="7"/><text x="256" y="37" text-anchor="middle" class="">Coupon</text><rect class="bv" x="216" y="108" width="80" height="30" rx="7"/><text x="256" y="127" text-anchor="middle" class="kv">NoDiscount</text><text x="256" y="160" class="s" text-anchor="middle">does nothing, safely</text></svg><p>NoDiscount returns the total unchanged. Everyone just calls apply(). There is nothing to forget.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>The same null check in many places</li><li>&quot;Call to a member function … on null&quot; in your logs</li><li>An optional collaborator (logger, discount, notifier)</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Checkout with an optional coupon. The discount is used by the order, the invoice, the receipt and the reports.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// copied in Order, Invoice, Receipt, MonthlyReport:</span>
+$total = $coupon !== null ? $coupon-&gt;apply($subtotal) : $subtotal;
+
+<span class="c">// MonthlyReport forgot the check:</span>
+$total = $coupon-&gt;apply($subtotal);   <span class="c">// Error: Call to a member function apply() on null</span></code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Null Object pattern in PHP</h2><pre><code>interface Discount
+{
+    public function apply(Money $subtotal): Money;
+}
+
+final class NoDiscount implements Discount
+{
+    public function apply(Money $subtotal): Money
+    {
+<span class="h">        return $subtotal;  <span class="c">// does nothing, safely</span></span>
+    }
+}
+
+final class CouponDiscount implements Discount { /* percentage, expiry, limits */ }
+
+<span class="c">// Decided ONCE, where the request is read:</span>
+$discount = $request-&gt;filled('coupon')
+    ? $coupons-&gt;findValidOrFail($request-&gt;input('coupon'))   <span class="c">// a wrong coupon = 422, never ignored</span>
+<span class="h">    : new NoDiscount();  <span class="c">// &quot;no coupon&quot; is normal</span></span>
+
+<span class="c">// Order, Invoice, Receipt, Report — no null checks anywhere:</span>
+$total = $discount-&gt;apply($cart-&gt;subtotal());
+
+<span class="c">// ✗ Never use it for something whose absence is a BUG:</span>
+<span class="c">//   no payment method → throw, don't pass a &quot;NoPayment&quot; that charges nothing.</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Psr\Log\NullLogger</span><span>Laravel &quot;null&quot; cache store, log channel, broadcaster</span><span>Symfony Console NullOutput</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../simple-factory/"><small>← Previous</small>Simple Factory</a>
+    <a class="navbtn" rel="next" href="../adapter/"><small>Next →</small>Adapter</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

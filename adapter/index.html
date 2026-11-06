@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adapter Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/adapter/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Adapter Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/adapter/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Adapter Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Adapter Pattern in PHP & Laravel, with Real Code","description":"Adapter explained for PHP and Laravel developers. A third-party class has the wrong shape and you can't edit it - wrap it in a class that speaks YOUR…","url":"https://sha-hin.github.io/pattern-playbook/adapter/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/adapter/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Adapter","item":"https://sha-hin.github.io/pattern-playbook/adapter/"}]}]}</script>
+</head>
+<body data-page="adapter" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Structure › Adapter</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/" aria-current="page"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card str">
+  <div class="head"><span class="count">4 / 25</span><h1 class="name">Adapter</h1><span class="fam">Structure</span><span class="book">GoF book</span></div>
+  <p class="hook">A travel plug: your charger, their wall socket.</p>
+  <p class="rule"><span>The rule to remember</span>A third-party class has the wrong shape and you can't edit it → wrap it in a class that speaks YOUR interface.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Adapter: The SMS provider SDK is called directly in 12 places. Switching provider means editing 12 files."><rect class="bn" x="6" y="14" width="80" height="26" rx="7"/><text x="46" y="31" text-anchor="middle" class="">Controller</text><rect class="bn" x="6" y="72" width="80" height="26" rx="7"/><text x="46" y="89" text-anchor="middle" class="">Job</text><rect class="bn" x="6" y="130" width="80" height="26" rx="7"/><text x="46" y="147" text-anchor="middle" class="">Command</text><line class="lx" x1="86" y1="27" x2="200" y2="78" marker-end="url(#arx)"/><line class="lx" x1="86" y1="85" x2="200" y2="85" marker-end="url(#arx)"/><line class="lx" x1="86" y1="143" x2="200" y2="92" marker-end="url(#arx)"/><rect class="bx" x="202" y="62" width="92" height="46" rx="7"/><text x="248" y="89" text-anchor="middle" class="kx">Twilio SDK</text><text x="150" y="160" class="kx" text-anchor="middle">switch = edit everywhere</text></svg><p>The SMS provider SDK is called directly in 12 places. Switching provider means editing 12 files.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Adapter: Your app only knows SmsSender. One adapter class talks to the SDK. Switching = one new adapter."><rect class="bn" x="6" y="64" width="62" height="40" rx="7"/><text x="37" y="88" text-anchor="middle" class="">Your code</text><line class="ln" x1="68" y1="84" x2="84" y2="84" marker-end="url(#ar)"/><rect class="bi" x="86" y="62" width="70" height="44" rx="7"/><text x="121" y="88" text-anchor="middle" class="">SmsSender</text><line class="lk" x1="156" y1="84" x2="170" y2="84" marker-end="url(#ar)"/><rect class="bv" x="172" y="60" width="64" height="48" rx="7"/><text x="204" y="88" text-anchor="middle" class="kv">Adapter</text><line class="ln" x1="236" y1="84" x2="248" y2="84" marker-end="url(#ar)"/><rect class="bn" x="250" y="62" width="46" height="44" rx="7"/><text x="273" y="88" text-anchor="middle" class="">SDK</text><text x="204" y="128" class="kv" text-anchor="middle">translates</text><text x="273" y="128" class="s" text-anchor="middle">can't edit</text></svg><p>Your app only knows SmsSender. One adapter class talks to the SDK. Switching = one new adapter.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>A vendor SDK is called directly all over your code</li><li>&quot;We might switch provider&quot; is said in a meeting</li><li>The SDK returns false / status arrays instead of throwing</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>You send SMS through Twilio today. Management wants to try Vonage next quarter.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in 12 different controllers and jobs:</span>
+$twilio = new \Twilio\Rest\Client(config('services.twilio.sid'), config('services.twilio.token'));
+$twilio-&gt;messages-&gt;create($phone, ['from' =&gt; '+1555...', 'body' =&gt; $text]);</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Adapter pattern in PHP</h2><pre><code>interface SmsSender                                  <span class="c">// YOUR shape</span>
+{
+    public function send(string $to, string $text): void;
+}
+
+<span class="h">final class TwilioSmsSender implements SmsSender  <span class="c">// the adapter</span></span>
+{
+    public function __construct(
+        private \Twilio\Rest\Client $twilio,
+        private string $from,
+    ) {}
+
+    public function send(string $to, string $text): void
+    {
+<span class="h">        $message = $this-&gt;twilio-&gt;messages-&gt;create($to, [  <span class="c">// translate the call</span></span>
+            'from' =&gt; $this-&gt;from,
+            'body' =&gt; $text,
+        ]);
+
+<span class="h">        if ($message-&gt;status === 'failed') {  <span class="c">// translate failure into an exception</span></span>
+            throw new SmsFailed(&quot;SMS to {$to} failed: {$message-&gt;errorMessage}&quot;);
+        }
+    }
+}
+
+<span class="c">// AppServiceProvider: switching provider later = change this one binding</span>
+$this-&gt;app-&gt;bind(SmsSender::class, fn () =&gt; new TwilioSmsSender(
+    new \Twilio\Rest\Client(config('services.twilio.sid'), config('services.twilio.token')),
+    config('services.twilio.from'),
+));
+
+<span class="c">// Everywhere else:</span>
+public function __construct(private SmsSender $sms) {}
+$this-&gt;sms-&gt;send($user-&gt;phone, 'Your report is ready.');</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Storage over Flysystem adapters (S3, local, FTP)</span><span>Mail transports</span><span>Your own payment / SMS gateways</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../null-object/"><small>← Previous</small>Null Object</a>
+    <a class="navbtn" rel="next" href="../decorator/"><small>Next →</small>Decorator</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Builder Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/builder/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Builder Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/builder/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Builder Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Builder Pattern in PHP & Laravel, with Real Code","description":"Builder explained for PHP and Laravel developers. An object with many optional parts and rules that involve several parts - set parts step by step, check…","url":"https://sha-hin.github.io/pattern-playbook/builder/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/builder/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Builder","item":"https://sha-hin.github.io/pattern-playbook/builder/"}]}]}</script>
+</head>
+<body data-page="builder" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Creation › Builder</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/" aria-current="page"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card cre">
+  <div class="head"><span class="count">11 / 25</span><h1 class="name">Builder</h1><span class="fam">Creation</span><span class="book">GoF book</span></div>
+  <p class="hook">Ordering at Subway: bread, then fillings, then sauce; the cashier checks it at the end.</p>
+  <p class="rule"><span>The rule to remember</span>An object with many optional parts and rules that involve several parts → set parts step by step, check everything once in build().</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Builder: A constructor with 7 arguments, half of them null. Nobody knows what the 4th one is."><rect class="bx" x="14" y="50" width="272" height="70" rx="7"/><text x="28" y="78" class="m">new Search(12, null, null,</text><text x="28" y="100" class="m">  'math', null, 25, true)</text><text x="150" y="146" class="kx" text-anchor="middle">what is the 4th argument?</text></svg><p>A constructor with 7 arguments, half of them null. Nobody knows what the 4th one is.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Builder: Named steps in any order. build() checks the rules that need several fields, then creates a locked object."><rect class="bn" x="6" y="12" width="96" height="24" rx="7"/><text x="54" y="28" text-anchor="middle" class="">school(12)</text><rect class="bn" x="6" y="44" width="96" height="24" rx="7"/><text x="54" y="60" text-anchor="middle" class="">subjects(…)</text><rect class="bn" x="6" y="76" width="96" height="24" rx="7"/><text x="54" y="92" text-anchor="middle" class="">between(…)</text><rect class="bn" x="6" y="108" width="96" height="24" rx="7"/><text x="54" y="124" text-anchor="middle" class="">perPage(25)</text><text x="54" y="150" class="s" text-anchor="middle">any order</text><line class="ln" x1="102" y1="72" x2="128" y2="72" marker-end="url(#ar)"/><rect class="bv" x="130" y="48" width="72" height="48" rx="7"/><text x="166" y="76" text-anchor="middle" class="kv">build()</text><text x="166" y="112" class="s" text-anchor="middle">checks all</text><line class="ln" x1="202" y1="62" x2="224" y2="34" marker-end="url(#ar)"/><line class="lk" x1="202" y1="82" x2="224" y2="112" marker-end="url(#ar)"/><rect class="bx" x="226" y="18" width="70" height="30" rx="7"/><text x="261" y="37" text-anchor="middle" class="kx">error</text><rect class="bv" x="226" y="96" width="70" height="34" rx="7"/><text x="261" y="117" text-anchor="middle" class="kv">Search</text></svg><p>Named steps in any order. build() checks the rules that need several fields, then creates a locked object.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>Constructor with 5+ parameters, many nullable</li><li>Rules like &quot;if A is set, B must be…&quot;</li><li>The object is filled in over several screens or steps</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>A search API with optional filters: school, subjects, date range, page size. &quot;from&quot; must be before &quot;to&quot;.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$search = new EvaluationSearch(12, null, null, ['math'], null, 25, true);
+<span class="c">// which argument is &quot;from&quot;? which is &quot;to&quot;? is from &lt; to? nobody checks</span></code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Builder pattern in PHP</h2><pre><code>final class EvaluationSearchBuilder
+{
+    private ?int $schoolId = null;
+    private array $subjects = [];
+    private ?string $from = null;
+    private ?string $to = null;
+    private int $perPage = 25;
+
+    public function school(int $id): self              { $this-&gt;schoolId = $id; return $this; }
+    public function subjects(string ...$s): self       { $this-&gt;subjects = $s; return $this; }
+    public function between(string $from, string $to): self { $this-&gt;from = $from; $this-&gt;to = $to; return $this; }
+    public function perPage(int $n): self              { $this-&gt;perPage = $n; return $this; }
+
+<span class="h">    public function build(): EvaluationSearch  <span class="c">// every rule checked here, once</span></span>
+    {
+        if ($this-&gt;from !== null &amp;&amp; $this-&gt;from &gt; $this-&gt;to) {
+            throw new InvalidArgumentException('&quot;from&quot; must be before &quot;to&quot;.');
+        }
+        if ($this-&gt;perPage &lt; 1 || $this-&gt;perPage &gt; 100) {
+            throw new InvalidArgumentException('perPage must be between 1 and 100.');
+        }
+
+        return new EvaluationSearch(                    <span class="c">// readonly: can't become invalid later</span>
+            $this-&gt;schoolId, $this-&gt;subjects, $this-&gt;from, $this-&gt;to, $this-&gt;perPage,
+        );
+    }
+}
+
+<span class="h">$search = (new EvaluationSearchBuilder())  <span class="c">// readable, any order</span></span>
+    -&gt;school(12)
+    -&gt;subjects('math', 'science')
+    -&gt;between('2026-09-01', '2026-10-31')
+    -&gt;build();</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Query Builder (-&gt;where()-&gt;get())</span><span>MailMessage (-&gt;line()-&gt;action())</span><span>Http::withToken()-&gt;timeout()-&gt;post()</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../template/"><small>← Previous</small>Template Method</a>
+    <a class="navbtn" rel="next" href="../value-object/"><small>Next →</small>Value Object</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

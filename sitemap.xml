@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://sha-hin.github.io/pattern-playbook/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/strategy/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/simple-factory/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/null-object/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/adapter/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/decorator/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/observer/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/event-dispatcher/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/facade/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/static-proxy/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/template/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/builder/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/value-object/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/state/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/command/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/command-bus/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/outbox/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/iterator/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/generators/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/composite/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/container/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/factory-method/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/manager/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/prototype/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/bridge/</loc><lastmod>2026-11-06</lastmod></url>
+  <url><loc>https://sha-hin.github.io/pattern-playbook/abstract-factory/</loc><lastmod>2026-11-06</lastmod></url>
+</urlset>

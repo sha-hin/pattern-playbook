@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Value Objects in PHP &amp; Laravel (Money Example), with Real Code</title>
+<meta name="description" content="Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/value-object/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Value Objects in PHP &amp; Laravel (Money Example), with Real Code">
+<meta property="og:description" content="Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/value-object/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Value Objects in PHP &amp; Laravel (Money Example), with Real Code">
+<meta name="twitter:description" content="Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Value Objects in PHP & Laravel (Money Example), with Real Code","description":"Value Object explained for PHP and Laravel developers. A value with rules (money, email, date range) - a small immutable class that checks itself and is…","url":"https://sha-hin.github.io/pattern-playbook/value-object/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/value-object/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Value Object","item":"https://sha-hin.github.io/pattern-playbook/value-object/"}]}]}</script>
+</head>
+<body data-page="value-object" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Creation › Value Object</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/" aria-current="page"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card cre">
+  <div class="head"><span class="count">12 / 25</span><h1 class="name">Value Object</h1><span class="fam">Creation</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">A banknote: any 100-pound note equals any other, and nobody can edit what’s printed on it.</p>
+  <p class="rule"><span>The rule to remember</span>A value with rules (money, email, date range) → a small immutable class that checks itself and is compared by value.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Value Object: Money as float: 0.1 + 0.2 ≠ 0.3, EGP added to USD, negative totals, and the same checks copied everywhere."><rect class="bx" x="14" y="20" width="272" height="120" rx="7"/><text x="30" y="50" class="m">0.1 + 0.2 = 0.30000000000000004</text><text x="30" y="78" class="kx">100 EGP + 5 USD = 105 ???</text><text x="30" y="106" class="kx">$total = -20  (nobody checked)</text></svg><p>Money as float: 0.1 + 0.2 ≠ 0.3, EGP added to USD, negative totals, and the same checks copied everywhere.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Value Object: Money stores integer piastres, refuses bad input, and add() returns a NEW Money. It can never be invalid."><rect class="bv" x="6" y="24" width="82" height="36" rx="7"/><text x="47" y="46" text-anchor="middle" class="kv">100 EGP</text><text x="100" y="47" class="" text-anchor="middle">+</text><rect class="bv" x="112" y="24" width="82" height="36" rx="7"/><text x="153" y="46" text-anchor="middle" class="kv">20 EGP</text><line class="lk" x1="194" y1="42" x2="212" y2="42" marker-end="url(#ar)"/><rect class="bv" x="214" y="20" width="82" height="44" rx="7"/><text x="255" y="46" text-anchor="middle" class="kv">120 EGP</text><text x="255" y="80" class="s" text-anchor="middle">a NEW object</text><rect class="bi" x="30" y="104" width="240" height="40" rx="7"/><text x="150" y="128" class="s" text-anchor="middle">readonly · checks itself · equal by value</text></svg><p>Money stores integer piastres, refuses bad input, and add() returns a NEW Money. It can never be invalid.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>float for money</li><li>The same validation of a value (email, phone, range) in many places</li><li>Arrays like ['amount' =&gt; …, 'currency' =&gt; …] passed around</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Invoices with prices, shipping and discounts, in more than one currency.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$total = $price + $shipping;           <span class="c">// 0.1 + 0.2 = 0.30000000000000004</span>
+$total = $priceEgp + $feeUsd;          <span class="c">// EGP + USD, no error</span>
+if ($total &lt; 0) { /* this check is copied in 6 places, and missing in 2 */ }</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Value Object pattern in PHP</h2><pre><code>final class Money
+{
+    public function __construct(
+<span class="h">        public readonly int $amount,  <span class="c">// smallest unit (piastres): exact math</span></span>
+        public readonly string $currency,
+    ) {
+        if ($amount &lt; 0) {
+<span class="h">            throw new InvalidArgumentException('Money cannot be negative.');  <span class="c">// can't exist invalid</span></span>
+        }
+        if (! preg_match('/^[A-Z]{3}$/', $currency)) {
+            throw new InvalidArgumentException(&quot;Invalid currency [{$currency}].&quot;);
+        }
+    }
+
+    public function add(Money $other): self
+    {
+        if ($other-&gt;currency !== $this-&gt;currency) {
+            throw new LogicException(&quot;Cannot add {$other-&gt;currency} to {$this-&gt;currency}.&quot;);
+        }
+
+<span class="h">        return new self($this-&gt;amount + $other-&gt;amount, $this-&gt;currency);  <span class="c">// a NEW object</span></span>
+    }
+
+    public function equals(Money $other): bool
+    {
+        return $this-&gt;amount === $other-&gt;amount &amp;&amp; $this-&gt;currency === $other-&gt;currency;
+    }
+}
+
+<span class="c">// Eloquent cast: the column stays an integer, your code only ever sees Money</span>
+final class MoneyCast implements \Illuminate\Contracts\Database\Eloquent\CastsAttributes
+{
+    public function get(Model $model, string $key, mixed $value, array $attributes): Money
+    {
+        return new Money((int) $value, $attributes['currency']);
+    }
+
+    public function set(Model $model, string $key, mixed $value, array $attributes): array
+    {
+        return [$key =&gt; $value-&gt;amount, 'currency' =&gt; $value-&gt;currency];
+    }
+}
+
+<span class="h">$total = $total-&gt;add($shipping);  <span class="c">// always keep the return value</span></span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>CarbonImmutable</span><span>Laravel custom casts</span><span>brick/money, ramsey/uuid</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../builder/"><small>← Previous</small>Builder</a>
+    <a class="navbtn" rel="next" href="../state/"><small>Next →</small>State</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command Bus Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Command Bus explained for PHP and Laravel developers. Split &quot;what to do&quot; (a data object) from &quot;how&quot; (a handler) - the same action runs from web, CLI or…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/command-bus/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Command Bus Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Command Bus explained for PHP and Laravel developers. Split &quot;what to do&quot; (a data object) from &quot;how&quot; (a handler) - the same action runs from web, CLI or…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/command-bus/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Command Bus Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Command Bus explained for PHP and Laravel developers. Split &quot;what to do&quot; (a data object) from &quot;how&quot; (a handler) - the same action runs from web, CLI or…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Bus Pattern in PHP & Laravel, with Real Code","description":"Command Bus explained for PHP and Laravel developers. Split \"what to do\" (a data object) from \"how\" (a handler) - the same action runs from web, CLI or…","url":"https://sha-hin.github.io/pattern-playbook/command-bus/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command-bus/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command Bus design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command Bus","item":"https://sha-hin.github.io/pattern-playbook/command-bus/"}]}]}</script>
+</head>
+<body data-page="command-bus" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Command Bus</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/" aria-current="page"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">15 / 25</span><h1 class="name">Command Bus</h1><span class="fam">Behaviour</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">A dispatch desk: you hand in a form, and the desk knows which department handles it.</p>
+  <p class="rule"><span>The rule to remember</span>Split &quot;what to do&quot; (a data object) from &quot;how&quot; (a handler) → the same action runs from web, CLI or queue, with shared rules around it.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Command Bus: The business logic lives in a controller. The scheduler and the import need it too, so it gets copied or called through HTTP."><rect class="bx" x="10" y="20" width="280" height="100" rx="7"/><text x="24" y="46" class="m">StatsController::recalculate()</text><text x="24" y="70" class="m">  …all the business logic…</text><text x="24" y="96" class="kx">  scheduler? import? → copy it</text></svg><p>The business logic lives in a controller. The scheduler and the import need it too, so it gets copied or called through HTTP.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Command Bus: RecalculateSchoolStats is data; its handler holds the logic. Any entry point dispatches the same command."><rect class="bn" x="4" y="14" width="62" height="24" rx="7"/><text x="35" y="30" text-anchor="middle" class="">Button</text><rect class="bn" x="4" y="72" width="62" height="24" rx="7"/><text x="35" y="88" text-anchor="middle" class="">Schedule</text><rect class="bn" x="4" y="130" width="62" height="24" rx="7"/><text x="35" y="146" text-anchor="middle" class="">Import</text><line class="ln" x1="66" y1="26" x2="90" y2="74" marker-end="url(#ar)"/><line class="ln" x1="66" y1="84" x2="90" y2="84" marker-end="url(#ar)"/><line class="ln" x1="66" y1="142" x2="90" y2="94" marker-end="url(#ar)"/><rect class="bv" x="92" y="62" width="92" height="44" rx="7"/><text x="138" y="88" text-anchor="middle" class="kv">Recalculate…</text><text x="138" y="124" class="s" text-anchor="middle">just data</text><line class="lk" x1="184" y1="84" x2="204" y2="84" marker-end="url(#ar)"/><rect class="bn" x="206" y="66" width="32" height="36" rx="7"/><text x="222" y="88" text-anchor="middle" class="">Bus</text><line class="lk" x1="238" y1="84" x2="250" y2="84" marker-end="url(#ar)"/><rect class="bn" x="252" y="62" width="44" height="44" rx="7"/><text x="274" y="88" text-anchor="middle" class="">Handler</text></svg><p>RecalculateSchoolStats is data; its handler holds the logic. Any entry point dispatches the same command.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>The same business action needed from HTTP, CLI and queue</li><li>Fat controllers full of business logic</li><li>You want one place for transactions / logging around every action</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>&quot;Recalculate school statistics&quot; runs from an admin button, a nightly schedule, and after every import.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>final class StatsController
+{
+    public function recalculate(School $school, StatsCalculator $calc, StatsRepository $stats)
+    {
+        $stats-&gt;save($school-&gt;id, $calc-&gt;forSchool($school-&gt;id));   <span class="c">// the scheduler and the importer</span>
+        return back();                                               <span class="c">// need this too... copy it?</span>
+    }
+}</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Command Bus pattern in PHP</h2><pre><code><span class="h">final class RecalculateSchoolStats  <span class="c">// the command: only data</span></span>
+{
+    public function __construct(public readonly int $schoolId) {}
+}
+
+<span class="h">final class RecalculateSchoolStatsHandler  <span class="c">// the handler: logic + dependencies</span></span>
+{
+    public function __construct(private StatsCalculator $calc, private StatsRepository $stats) {}
+
+    public function handle(RecalculateSchoolStats $command): void
+    {
+        $this-&gt;stats-&gt;save($command-&gt;schoolId, $this-&gt;calc-&gt;forSchool($command-&gt;schoolId));
+    }
+}
+
+final class CommandBus
+{
+    /** @param array&lt;class-string, class-string&gt; $handlers */
+    public function __construct(
+        private \Psr\Container\ContainerInterface $container,
+        private array $handlers,
+    ) {}
+
+    public function dispatch(object $command): mixed
+    {
+        $handler = $this-&gt;handlers[$command::class]
+            ?? throw new LogicException('No handler for ' . $command::class);   <span class="c">// wiring bugs fail loudly</span>
+
+<span class="h">        return DB::transaction(  <span class="c">// one place for shared rules</span></span>
+            fn () =&gt; $this-&gt;container-&gt;get($handler)-&gt;handle($command)
+        );
+    }
+}
+
+<span class="c">// Admin button, nightly schedule, after an import — the same line:</span>
+$bus-&gt;dispatch(new RecalculateSchoolStats($schoolId));</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Jobs + dispatch()</span><span>Symfony Messenger</span><span>league/tactician</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../command/"><small>← Previous</small>Command</a>
+    <a class="navbtn" rel="next" href="../outbox/"><small>Next →</small>Transactional Outbox</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

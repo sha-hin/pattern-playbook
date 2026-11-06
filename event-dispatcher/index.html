@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Dispatcher Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/event-dispatcher/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Event Dispatcher Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/event-dispatcher/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Event Dispatcher Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Event Dispatcher Pattern in PHP & Laravel, with Real Code","description":"Event Dispatcher explained for PHP and Laravel developers. Many parts of the app send events and many listen - one shared middleman; events are small data…","url":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Event Dispatcher design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Event Dispatcher","item":"https://sha-hin.github.io/pattern-playbook/event-dispatcher/"}]}]}</script>
+</head>
+<body data-page="event-dispatcher" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Event Dispatcher</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/" aria-current="page"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">7 / 25</span><h1 class="name">Event Dispatcher</h1><span class="fam">Behaviour</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">A post office: senders drop letters at one counter, and never meet the people who receive them.</p>
+  <p class="rule"><span>The rule to remember</span>Many parts of the app send events and many listen → one shared middleman; events are small data classes.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Event Dispatcher: Plain Observer: every service keeps its own listener list and subscribe() method, and listeners must hold a reference to each sender."><rect class="bn" x="6" y="14" width="110" height="40" rx="7"/><text x="16" y="30" class="m">OrderService</text><text x="16" y="46" class="kx">+ own list</text><rect class="bn" x="6" y="104" width="110" height="40" rx="7"/><text x="16" y="120" class="m">PaymentService</text><text x="16" y="136" class="kx">+ own list</text><line class="lx" x1="116" y1="34" x2="190" y2="70" marker-end="url(#arx)"/><line class="lx" x1="116" y1="124" x2="190" y2="92" marker-end="url(#arx)"/><rect class="bn" x="192" y="58" width="100" height="44" rx="7"/><text x="242" y="84" text-anchor="middle" class="">Billing</text><text x="242" y="124" class="kx" text-anchor="middle">wired to each</text></svg><p>Plain Observer: every service keeps its own listener list and subscribe() method, and listeners must hold a reference to each sender.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Event Dispatcher: One dispatcher. Any service dispatches; listeners register by event class. Queues and after-commit live in one place."><rect class="bn" x="4" y="20" width="82" height="26" rx="7"/><text x="45" y="37" text-anchor="middle" class="">Orders</text><rect class="bn" x="4" y="70" width="82" height="26" rx="7"/><text x="45" y="87" text-anchor="middle" class="">Payments</text><rect class="bn" x="4" y="120" width="82" height="26" rx="7"/><text x="45" y="137" text-anchor="middle" class="">Users</text><line class="ln" x1="86" y1="33" x2="108" y2="74" marker-end="url(#ar)"/><line class="ln" x1="86" y1="83" x2="108" y2="83" marker-end="url(#ar)"/><line class="ln" x1="86" y1="133" x2="108" y2="92" marker-end="url(#ar)"/><rect class="bv" x="110" y="58" width="84" height="50" rx="7"/><text x="152" y="87" text-anchor="middle" class="kv">Dispatcher</text><line class="lk" x1="194" y1="72" x2="214" y2="30" marker-end="url(#ar)"/><line class="lk" x1="194" y1="83" x2="214" y2="83" marker-end="url(#ar)"/><line class="lk" x1="194" y1="94" x2="214" y2="136" marker-end="url(#ar)"/><rect class="bn" x="216" y="16" width="80" height="28" rx="7"/><text x="256" y="34" text-anchor="middle" class="">Billing</text><rect class="bn" x="216" y="69" width="80" height="28" rx="7"/><text x="256" y="87" text-anchor="middle" class="">Analytics</text><rect class="bn" x="216" y="122" width="80" height="28" rx="7"/><text x="256" y="140" text-anchor="middle" class="">Receipts</text></svg><p>One dispatcher. Any service dispatches; listeners register by event class. Queues and after-commit live in one place.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>subscribe() / notify() code duplicated in several services</li><li>A listener needs a reference to the exact service object</li><li>You want some listeners queued, some after commit</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Orders, Payments and Users all emit events. Billing listens to orders AND payments. Analytics listens to everything.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>final class PaymentService
+{
+    private array $observers = [];                     <span class="c">// the same code lives in OrderService,</span>
+    public function subscribe(PaymentObserver $o) {...} <span class="c">// UserService, RefundService...</span>
+    private function notify(Payment $p) {...}
+}
+
+$orders-&gt;subscribe($billing);                         <span class="c">// Billing must know every sender</span>
+$payments-&gt;subscribe($billing);</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Event Dispatcher pattern in PHP</h2><pre><code>final class EventDispatcher
+{
+    /** @var array&lt;class-string, list&lt;string|callable&gt;&gt; */
+    private array $listeners = [];
+
+    public function __construct(private \Psr\Container\ContainerInterface $container) {}
+
+<span class="h">    public function listen(string $eventClass, string|callable $listener): void  <span class="c">// by event TYPE</span></span>
+    {
+        $this-&gt;listeners[$eventClass][] = $listener;
+    }
+
+<span class="h">    public function dispatch(object $event): void  <span class="c">// one door for every sender</span></span>
+    {
+        foreach ($this-&gt;listeners[$event::class] ?? [] as $listener) {
+            $handler = is_string($listener)
+                ? [$this-&gt;container-&gt;get($listener), 'handle']                    <span class="c">// built only when needed</span>
+                : $listener;
+
+            $handler($event);                                                     <span class="c">// exceptions are never swallowed</span>
+        }
+    }
+}
+
+final class PaymentReceived                                  <span class="c">// an event: just data</span>
+{
+    public function __construct(public readonly int $invoiceId, public readonly int $amount) {}
+}
+
+<span class="c">// PaymentService knows only the dispatcher:</span>
+$events-&gt;dispatch(new PaymentReceived($invoice-&gt;id, $amount));
+
+<span class="c">// Listeners never see PaymentService:</span>
+$events-&gt;listen(PaymentReceived::class, MarkInvoicePaid::class);
+$events-&gt;listen(PaymentReceived::class, SendReceipt::class);</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel event() + Event::listen()</span><span>Symfony EventDispatcher</span><span>PSR-14</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../observer/"><small>← Previous</small>Observer</a>
+    <a class="navbtn" rel="next" href="../facade/"><small>Next →</small>Facade</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

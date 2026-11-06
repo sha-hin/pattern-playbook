@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>State Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/state/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="State Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/state/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="State Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"State Pattern in PHP & Laravel, with Real Code","description":"State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…","url":"https://sha-hin.github.io/pattern-playbook/state/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/state/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["State design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"State","item":"https://sha-hin.github.io/pattern-playbook/state/"}]}]}</script>
+</head>
+<body data-page="state" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › State</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/" aria-current="page"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">13 / 25</span><h1 class="name">State</h1><span class="fam">Behaviour</span><span class="book">GoF book</span></div>
+  <p class="hook">A traffic light: what you may do depends on the colour, and the light changes itself.</p>
+  <p class="rule"><span>The rule to remember</span>What an object is allowed to do depends on its status → one class per status; each knows its allowed moves.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without State: submit(), approve(), reject(), publish() each start with the same if ($status === …) ladder."><rect class="bx" x="10" y="14" width="135" height="64" rx="7"/><text x="20" y="36" class="m">submit()</text><text x="20" y="58" class="kx"> if status ==…</text><rect class="bx" x="155" y="14" width="135" height="64" rx="7"/><text x="165" y="36" class="m">approve()</text><text x="165" y="58" class="kx"> if status ==…</text><rect class="bx" x="10" y="90" width="135" height="64" rx="7"/><text x="20" y="112" class="m">reject()</text><text x="20" y="134" class="kx"> if status ==…</text><rect class="bx" x="155" y="90" width="135" height="64" rx="7"/><text x="165" y="112" class="m">publish()</text><text x="165" y="134" class="kx"> if status ==…</text></svg><p>submit(), approve(), reject(), publish() each start with the same if ($status === …) ladder.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With State: Draft, Submitted, Approved are classes. The report asks its current state; no ifs anywhere."><rect class="bv" x="4" y="16" width="82" height="30" rx="7"/><text x="45" y="35" text-anchor="middle" class="kv">Draft</text><rect class="bv2" x="109" y="16" width="82" height="30" rx="7"/><text x="150" y="35" text-anchor="middle" class="kv">Submitted</text><rect class="bv" x="214" y="16" width="82" height="30" rx="7"/><text x="255" y="35" text-anchor="middle" class="kv">Approved</text><line class="lk" x1="86" y1="31" x2="107" y2="31" marker-end="url(#ar)"/><line class="lk" x1="191" y1="31" x2="212" y2="31" marker-end="url(#ar)"/><text x="96" y="60" class="s" text-anchor="middle">submit</text><text x="202" y="60" class="s" text-anchor="middle">approve</text><rect class="bn" x="109" y="104" width="82" height="36" rx="7"/><text x="150" y="126" text-anchor="middle" class="">Report</text><line class="ln" x1="150" y1="104" x2="150" y2="50" marker-end="url(#ar)"/><text x="158" y="82" class="s">current</text><path class="ld" d="M150 46 C 110 92, 60 92, 45 50" marker-end="url(#ar)"/><text x="60" y="98" class="s" text-anchor="middle">reject</text></svg><p>Draft, Submitted, Approved are classes. The report asks its current state; no ifs anywhere.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>if ($this-&gt;status === …) repeated in many methods</li><li>Bugs like &quot;approved a draft&quot; or &quot;edited a published report&quot;</li><li>A status flow diagram exists on a whiteboard</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>A report goes Draft → Submitted → Approved, or back to Draft when rejected with a reason.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>public function approve(): void
+{
+    if ($this-&gt;status === 'draft')     { throw new LogicException('Submit it first.'); }
+    if ($this-&gt;status === 'approved')  { throw new LogicException('Already approved.'); }
+    if ($this-&gt;status === 'submitted') { $this-&gt;status = 'approved'; }
+    <span class="c">// ...and the same ladder in submit(), reject(), publish()</span>
+}</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the State pattern in PHP</h2><pre><code>abstract class ReportState                          <span class="c">// default: everything forbidden</span>
+{
+    abstract public function name(): string;
+    public function submit(Report $r): void              { $this-&gt;deny('submit'); }
+    public function approve(Report $r): void             { $this-&gt;deny('approve'); }
+    public function reject(Report $r, string $why): void { $this-&gt;deny('reject'); }
+
+    private function deny(string $action): never
+    {
+        throw new IllegalTransition(&quot;Cannot {$action} a {$this-&gt;name()} report.&quot;);
+    }
+}
+
+final class Draft extends ReportState
+{
+    public function name(): string { return 'draft'; }
+<span class="h">    public function submit(Report $r): void { $r-&gt;moveTo(new Submitted()); }  <span class="c">// allowed here</span></span>
+}
+
+final class Submitted extends ReportState
+{
+    public function name(): string { return 'submitted'; }
+    public function approve(Report $r): void { $r-&gt;moveTo(new Approved()); }
+    public function reject(Report $r, string $why): void
+    {
+        $r-&gt;rejectionReason = $why;
+        $r-&gt;moveTo(new Draft());
+    }
+}
+
+final class Approved extends ReportState { public function name(): string { return 'approved'; } }
+
+final class Report
+{
+    public ?string $rejectionReason = null;
+    public function __construct(private ReportState $state = new Draft()) {}
+
+<span class="h">    public function submit(): void  { $this-&gt;state-&gt;submit($this); }  <span class="c">// no if anywhere</span></span>
+    public function approve(): void { $this-&gt;state-&gt;approve($this); }
+    public function reject(string $why): void { $this-&gt;state-&gt;reject($this, $why); }
+    public function moveTo(ReportState $s): void { $this-&gt;state = $s; }
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>spatie/laravel-model-states</span><span>Order / payment / subscription lifecycles</span><span>Approval workflows</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../value-object/"><small>← Previous</small>Value Object</a>
+    <a class="navbtn" rel="next" href="../command/"><small>Next →</small>Command</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

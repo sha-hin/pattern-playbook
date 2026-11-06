@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/command/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Command Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/command/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Command Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Command Pattern in PHP & Laravel, with Real Code","description":"Command explained for PHP and Laravel developers. An action you want to run later, queue, retry, log or undo - turn the action into an object. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/command/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/command/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Command","item":"https://sha-hin.github.io/pattern-playbook/command/"}]}]}</script>
+</head>
+<body data-page="command" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Command</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/" aria-current="page"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">14 / 25</span><h1 class="name">Command</h1><span class="fam">Behaviour</span><span class="book">GoF book</span></div>
+  <p class="hook">A restaurant ticket: the order is written down, so it can wait in line, be retried, or be torn up.</p>
+  <p class="rule"><span>The rule to remember</span>An action you want to run later, queue, retry, log or undo → turn the action into an object.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Command: The controller runs a 40-second AI analysis. The user waits, the request times out, the work is lost."><rect class="bn" x="8" y="62" width="76" height="44" rx="7"/><text x="46" y="88" text-anchor="middle" class="">Controller</text><line class="ln" x1="84" y1="84" x2="116" y2="84" marker-end="url(#ar)"/><rect class="bx" x="118" y="58" width="90" height="52" rx="7"/><text x="163" y="88" text-anchor="middle" class="kx">AI: 40 sec</text><line class="lx" x1="208" y1="84" x2="226" y2="84" marker-end="url(#arx)"/><rect class="bx" x="228" y="62" width="66" height="44" rx="7"/><text x="261" y="88" text-anchor="middle" class="kx">timeout</text><text x="150" y="140" class="kx" text-anchor="middle">user waits, work is lost</text></svg><p>The controller runs a 40-second AI analysis. The user waits, the request times out, the work is lost.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Command: The action becomes a job object. The controller queues it and answers instantly; a worker runs and retries it."><rect class="bn" x="4" y="62" width="68" height="40" rx="7"/><text x="38" y="86" text-anchor="middle" class="">Controller</text><line class="lk" x1="72" y1="82" x2="96" y2="82" marker-end="url(#ar)"/><rect class="bv" x="98" y="62" width="72" height="40" rx="7"/><text x="134" y="86" text-anchor="middle" class="kv">AnalyzeJob</text><line class="ln" x1="170" y1="82" x2="192" y2="82" marker-end="url(#ar)"/><rect class="bn" x="194" y="62" width="46" height="40" rx="7"/><text x="217" y="86" text-anchor="middle" class="">Queue</text><line class="ln" x1="240" y1="82" x2="252" y2="82" marker-end="url(#ar)"/><rect class="bn" x="254" y="62" width="42" height="40" rx="7"/><text x="275" y="86" text-anchor="middle" class="">Worker</text><text x="38" y="124" class="s" text-anchor="middle">202 at once</text><text x="230" y="124" class="s" text-anchor="middle">retries x3</text></svg><p>The action becomes a job object. The controller queues it and answers instantly; a worker runs and retries it.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>Slow work inside an HTTP request</li><li>&quot;Retry it if the API fails&quot; requirements</li><li>Undo / redo, or an audit trail of actions</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>After a survey closes, send all responses to an AI service for analysis (slow, can fail).</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>public function close(Survey $survey, AiAnalyzer $ai)
+{
+    $survey-&gt;close();
+    $analysis = $ai-&gt;analyze($survey-&gt;responses);   <span class="c">// 40 seconds; timeout = lost</span>
+    $survey-&gt;saveAnalysis($analysis);
+    return back();
+}</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Command pattern in PHP</h2><pre><code><span class="h">final class AnalyzeSurveyResponses implements ShouldQueue  <span class="c">// the action as an object</span></span>
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 3;
+    public array $backoff = [30, 120, 600];                     <span class="c">// wait longer after each failure</span>
+
+<span class="h">    public function __construct(public readonly int $surveyId) {}  <span class="c">// only data, so it can travel</span></span>
+
+    public function handle(AiAnalyzer $ai, SurveyRepository $surveys): void   <span class="c">// dependencies at run time</span>
+    {
+        $survey = $surveys-&gt;findOrFail($this-&gt;surveyId);
+        $surveys-&gt;saveAnalysis($survey, $ai-&gt;analyze($survey-&gt;responses()));
+    }
+
+    public function failed(Throwable $e): void                  <span class="c">// after the last retry: never silent</span>
+    {
+        Log::error('survey.analysis.failed', ['survey' =&gt; $this-&gt;surveyId, 'error' =&gt; $e-&gt;getMessage()]);
+    }
+}
+
+public function close(Survey $survey)
+{
+    DB::transaction(function () use ($survey) {
+        $survey-&gt;close();
+<span class="h">        AnalyzeSurveyResponses::dispatch($survey-&gt;id)-&gt;afterCommit();  <span class="c">// queue it, answer now</span></span>
+    });
+
+    return back()-&gt;with('status', 'Analysis started.');
+}</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel Jobs (dispatch(), queues)</span><span>Artisan commands</span><span>Editor undo / redo</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../state/"><small>← Previous</small>State</a>
+    <a class="navbtn" rel="next" href="../command-bus/"><small>Next →</small>Command Bus</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

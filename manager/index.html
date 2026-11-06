@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manager / Driver Pattern in Laravel: Backends Chosen by Config</title>
+<meta name="description" content="Manager / Driver explained for PHP and Laravel developers. One service with interchangeable backends chosen by config - a manager builds the configured…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/manager/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Manager / Driver Pattern in Laravel: Backends Chosen by Config">
+<meta property="og:description" content="Manager / Driver explained for PHP and Laravel developers. One service with interchangeable backends chosen by config - a manager builds the configured…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/manager/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Manager / Driver Pattern in Laravel: Backends Chosen by Config">
+<meta name="twitter:description" content="Manager / Driver explained for PHP and Laravel developers. One service with interchangeable backends chosen by config - a manager builds the configured…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Manager / Driver Pattern in Laravel: Backends Chosen by Config","description":"Manager / Driver explained for PHP and Laravel developers. One service with interchangeable backends chosen by config - a manager builds the configured…","url":"https://sha-hin.github.io/pattern-playbook/manager/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/manager/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Manager / Driver design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Manager / Driver","item":"https://sha-hin.github.io/pattern-playbook/manager/"}]}]}</script>
+</head>
+<body data-page="manager" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Creation › Manager / Driver</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/" aria-current="page"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card cre">
+  <div class="head"><span class="count">22 / 25</span><h1 class="name">Manager / Driver</h1><span class="fam">Creation</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">Phone settings: pick Wi-Fi calling once, and every call uses it.</p>
+  <p class="rule"><span>The rule to remember</span>One service with interchangeable backends chosen by config → a manager builds the configured driver once and reuses it.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Manager / Driver: if (app()-&gt;isLocal()) new Ollama… else new Anthropic… is copied in every place that needs AI."><rect class="bx" x="14" y="20" width="272" height="130" rx="7"/><text x="30" y="46" class="m">if (app()-&gt;isLocal())</text><text x="30" y="68" class="m">  new OllamaClient(…)</text><text x="30" y="90" class="m">else</text><text x="30" y="112" class="m">  new AnthropicClient(…)</text><text x="30" y="138" class="kx">copied in 6 places</text></svg><p>if (app()-&gt;isLocal()) new Ollama… else new Anthropic… is copied in every place that needs AI.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Manager / Driver: config('ai.default') names the driver. The manager builds it once. Code just asks for driver()."><rect class="bn" x="4" y="62" width="70" height="40" rx="7"/><text x="39" y="86" text-anchor="middle" class="">config</text><text x="39" y="118" class="s" text-anchor="middle">'ollama'</text><line class="ln" x1="74" y1="82" x2="96" y2="82" marker-end="url(#ar)"/><rect class="bv" x="98" y="58" width="82" height="48" rx="7"/><text x="139" y="86" text-anchor="middle" class="kv">AiManager</text><line class="lk" x1="180" y1="82" x2="212" y2="82" marker-end="url(#ar)"/><rect class="bv" x="214" y="66" width="82" height="32" rx="7"/><text x="255" y="86" text-anchor="middle" class="kv">Ollama</text><rect class="bi" x="214" y="18" width="82" height="28" rx="7"/><text x="255" y="36" text-anchor="middle" class="">Anthropic</text><rect class="bi" x="214" y="118" width="82" height="28" rx="7"/><text x="255" y="136" text-anchor="middle" class="">OpenAI</text><text x="139" y="128" class="s" text-anchor="middle">built once</text></svg><p>config('ai.default') names the driver. The manager builds it once. Code just asks for driver().</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>if ($env === …) new X else new Y in several places</li><li>A service with a &quot;provider&quot; setting in .env</li><li>Different backends in local, staging and production</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Local development uses a local LLM (Ollama). Production uses a hosted API. Same code everywhere.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in 6 different services:</span>
+$ai = app()-&gt;isLocal()
+    ? new OllamaClient('http://localhost:11434')
+    : new AnthropicClient(config('services.anthropic.key'));</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Manager / Driver pattern in PHP</h2><pre><code>final class AiManager extends \Illuminate\Support\Manager   <span class="c">// Laravel's own base class</span>
+{
+    public function getDefaultDriver(): string
+    {
+<span class="h">        return $this-&gt;config-&gt;get('ai.default');  <span class="c">// .env: AI_DRIVER=ollama</span></span>
+    }
+
+<span class="h">    protected function createOllamaDriver(): AiClient  <span class="c">// one method per driver</span></span>
+    {
+        return new OllamaClient($this-&gt;config-&gt;get('ai.ollama.url'));
+    }
+
+    protected function createAnthropicDriver(): AiClient
+    {
+        return new AnthropicClient($this-&gt;config-&gt;get('ai.anthropic.key'));
+    }
+}
+
+<span class="c">// AppServiceProvider</span>
+$this-&gt;app-&gt;singleton(AiManager::class, fn ($app) =&gt; new AiManager($app));
+
+<span class="c">// Anywhere:</span>
+<span class="h">$summary = app(AiManager::class)-&gt;driver()-&gt;summarize($text);  <span class="c">// config decides, built once</span></span>
+$check   = app(AiManager::class)-&gt;driver('anthropic')-&gt;summarize($text);   <span class="c">// or by name</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Cache::driver(), Mail::mailer(), Storage::disk()</span><span>Queue connections</span><span>Laravel's Illuminate\Support\Manager</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../factory-method/"><small>← Previous</small>Factory Method</a>
+    <a class="navbtn" rel="next" href="../prototype/"><small>Next →</small>Prototype</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

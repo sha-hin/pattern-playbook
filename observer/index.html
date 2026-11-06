@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observer Pattern in PHP &amp; Laravel, with Real Code</title>
+<meta name="description" content="Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/observer/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Observer Pattern in PHP &amp; Laravel, with Real Code">
+<meta property="og:description" content="Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/observer/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Observer Pattern in PHP &amp; Laravel, with Real Code">
+<meta name="twitter:description" content="Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Observer Pattern in PHP & Laravel, with Real Code","description":"Observer explained for PHP and Laravel developers. When one thing happens and many things must react - fire an event; each reaction is its own listener…","url":"https://sha-hin.github.io/pattern-playbook/observer/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/observer/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Observer design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Observer","item":"https://sha-hin.github.io/pattern-playbook/observer/"}]}]}</script>
+</head>
+<body data-page="observer" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Observer</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/" aria-current="page"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">6 / 25</span><h1 class="name">Observer</h1><span class="fam">Behaviour</span><span class="book">GoF book</span></div>
+  <p class="hook">YouTube subscribe: the channel uploads once, every subscriber gets notified.</p>
+  <p class="rule"><span>The rule to remember</span>When one thing happens and many things must react → fire an event; each reaction is its own listener.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Observer: register() calls the mailer, billing, CRM and analytics. Every new reaction means editing register()."><rect class="bx" x="10" y="62" width="96" height="44" rx="7"/><text x="58" y="88" text-anchor="middle" class="kx">register()</text><line class="lx" x1="106" y1="74" x2="196" y2="24" marker-end="url(#arx)"/><line class="lx" x1="106" y1="80" x2="196" y2="64" marker-end="url(#arx)"/><line class="lx" x1="106" y1="88" x2="196" y2="104" marker-end="url(#arx)"/><line class="lx" x1="106" y1="96" x2="196" y2="144" marker-end="url(#arx)"/><rect class="bn" x="198" y="10" width="96" height="26" rx="7"/><text x="246" y="27" text-anchor="middle" class="">Mailer</text><rect class="bn" x="198" y="51" width="96" height="26" rx="7"/><text x="246" y="68" text-anchor="middle" class="">Billing</text><rect class="bn" x="198" y="91" width="96" height="26" rx="7"/><text x="246" y="108" text-anchor="middle" class="">CRM</text><rect class="bn" x="198" y="131" width="96" height="26" rx="7"/><text x="246" y="148" text-anchor="middle" class="">Analytics</text><text x="58" y="130" class="kx" text-anchor="middle">knows everyone</text></svg><p>register() calls the mailer, billing, CRM and analytics. Every new reaction means editing register().</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Observer: register() fires UserRegistered and knows nobody. A new reaction = a new listener."><rect class="bn" x="4" y="66" width="70" height="36" rx="7"/><text x="39" y="88" text-anchor="middle" class="">register()</text><line class="ln" x1="74" y1="84" x2="92" y2="84" marker-end="url(#ar)"/><rect class="bv" x="94" y="62" width="90" height="44" rx="7"/><text x="139" y="88" text-anchor="middle" class="kv">UserRegistered</text><line class="lk" x1="184" y1="76" x2="206" y2="28" marker-end="url(#ar)"/><line class="lk" x1="184" y1="84" x2="206" y2="84" marker-end="url(#ar)"/><line class="ld" x1="184" y1="92" x2="206" y2="140" marker-end="url(#ar)"/><rect class="bn" x="208" y="14" width="88" height="28" rx="7"/><text x="252" y="32" text-anchor="middle" class="">SendWelcome</text><rect class="bn" x="208" y="70" width="88" height="28" rx="7"/><text x="252" y="88" text-anchor="middle" class="">StartTrial</text><rect class="bi" x="208" y="126" width="88" height="28" rx="7"/><text x="252" y="144" text-anchor="middle" class="">+ new one</text><text x="39" y="124" class="s" text-anchor="middle">knows nobody</text></svg><p>register() fires UserRegistered and knows nobody. A new reaction = a new listener.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>One method calls 4+ unrelated services after the main work</li><li>&quot;Also, when X happens, we should…&quot; keeps coming</li><li>The core action fails because a side-effect (email) failed</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>After sign-up: welcome email, start trial, sync CRM, track analytics. More coming.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>public function register(array $data): User
+{
+    $user = User::create($data);
+    Mail::to($user)-&gt;send(new WelcomeMail());     <span class="c">// if the mail server is down,</span>
+    $this-&gt;billing-&gt;startTrial($user);            <span class="c">// registration fails too</span>
+    $this-&gt;crm-&gt;sync($user);
+    $this-&gt;analytics-&gt;track('signup', $user-&gt;id); <span class="c">// + 2 more next month</span>
+    return $user;
+}</code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Observer pattern in PHP</h2><pre><code>final class UserRegistered                                 <span class="c">// the event: just data</span>
+{
+    public function __construct(public readonly int $userId) {}
+}
+
+public function register(array $data): User
+{
+    return DB::transaction(function () use ($data) {
+        $user = User::create($data);
+<span class="h">        event(new UserRegistered($user-&gt;id));  <span class="c">// ring the bell, know nobody</span></span>
+        return $user;
+    });
+}
+
+<span class="h">final class SendWelcomeEmail implements ShouldQueue  <span class="c">// one reaction = one listener</span></span>
+{
+    public bool $afterCommit = true;                     <span class="c">// never email a user that was rolled back</span>
+    public int $tries = 5;
+
+    public function handle(UserRegistered $event): void
+    {
+        Mail::to(User::findOrFail($event-&gt;userId))-&gt;send(new WelcomeMail());
+    }
+}
+
+<span class="c">// AppServiceProvider::boot() — a new reaction is one new line here</span>
+Event::listen(UserRegistered::class, SendWelcomeEmail::class);
+Event::listen(UserRegistered::class, StartFreeTrial::class);
+Event::listen(UserRegistered::class, SyncToCrm::class);</code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel events + listeners</span><span>Eloquent model observers (created, updated)</span><span>Webhooks</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../decorator/"><small>← Previous</small>Decorator</a>
+    <a class="navbtn" rel="next" href="../event-dispatcher/"><small>Next →</small>Event Dispatcher</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

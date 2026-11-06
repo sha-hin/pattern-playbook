@@ -17,3 +17,14 @@ Command Bus, Transactional Outbox, Manager/Driver, Laravel's static-proxy "Facad
 A single static `index.html`, no build step.
 
 By [Mohammed Shahin](https://sha-hin.github.io).
+
+## Editing
+
+All content lives in `assets/app.js` (the `BASE` and `EXTRA` arrays). After editing it, regenerate the pages:
+
+```bash
+node build/build.mjs
+```
+
+This writes `index.html`, one folder per pattern (`strategy/index.html`, …), `sitemap.xml`, `robots.txt` and `404.html`.
+Every page is complete static HTML, so search engines index each pattern under its own URL.

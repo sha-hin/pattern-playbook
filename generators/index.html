@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PHP Generators (yield) for Large Data, with Real Code</title>
+<meta name="description" content="Generators explained for PHP and Laravel developers. Big data you loop over once - yield one item at a time; memory stays flat no matter the size. Real-world…">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/generators/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="PHP Generators (yield) for Large Data, with Real Code">
+<meta property="og:description" content="Generators explained for PHP and Laravel developers. Big data you loop over once - yield one item at a time; memory stays flat no matter the size. Real-world…">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/generators/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: design patterns for PHP and Laravel">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PHP Generators (yield) for Large Data, with Real Code">
+<meta name="twitter:description" content="Generators explained for PHP and Laravel developers. Big data you loop over once - yield one item at a time; memory stays flat no matter the size. Real-world…">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"PHP Generators (yield) for Large Data, with Real Code","description":"Generators explained for PHP and Laravel developers. Big data you loop over once - yield one item at a time; memory stays flat no matter the size. Real-world…","url":"https://sha-hin.github.io/pattern-playbook/generators/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/generators/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Generators design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Generators","item":"https://sha-hin.github.io/pattern-playbook/generators/"}]}]}</script>
+</head>
+<body data-page="generators" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<header>
+<div>
+<a class="brand" href="../">Pattern Playbook</a>
+<p class="crumbs"><a href="../">All patterns</a> › Behaviour › Generators</p>
+</div>
+<div class="modes" role="group" aria-label="Mode">
+<button id="m-learn" aria-pressed="true">Learn</button>
+<button id="m-test" aria-pressed="false">Test me</button>
+</div>
+</header>
+<nav class="chips" aria-label="All patterns"><a class="beh" href="../strategy/"><i></i>Strategy</a><a class="cre ext" href="../simple-factory/"><i></i>Simple Factory</a><a class="beh ext" href="../null-object/"><i></i>Null Object</a><a class="str" href="../adapter/"><i></i>Adapter</a><a class="str" href="../decorator/"><i></i>Decorator</a><a class="beh" href="../observer/"><i></i>Observer</a><a class="beh ext" href="../event-dispatcher/"><i></i>Event Dispatcher</a><a class="str" href="../facade/"><i></i>Facade</a><a class="str ext" href="../static-proxy/"><i></i>Laravel Facade (static proxy)</a><a class="beh" href="../template/"><i></i>Template Method</a><a class="cre" href="../builder/"><i></i>Builder</a><a class="cre ext" href="../value-object/"><i></i>Value Object</a><a class="beh" href="../state/"><i></i>State</a><a class="beh" href="../command/"><i></i>Command</a><a class="beh ext" href="../command-bus/"><i></i>Command Bus</a><a class="beh ext" href="../outbox/"><i></i>Transactional Outbox</a><a class="beh" href="../iterator/"><i></i>Iterator</a><a class="beh ext" href="../generators/" aria-current="page"><i></i>Generators</a><a class="str" href="../composite/"><i></i>Composite</a><a class="cre ext" href="../container/"><i></i>DI Container</a><a class="cre" href="../factory-method/"><i></i>Factory Method</a><a class="cre ext" href="../manager/"><i></i>Manager / Driver</a><a class="cre" href="../prototype/"><i></i>Prototype</a><a class="str" href="../bridge/"><i></i>Bridge</a><a class="cre" href="../abstract-factory/"><i></i>Abstract Factory</a></nav>
+<main id="view">
+<article class="card beh">
+  <div class="head"><span class="count">18 / 25</span><h1 class="name">Generators</h1><span class="fam">Behaviour</span><span class="book ext">Not in the book</span></div>
+  <p class="hook">A water tap: you get water as you need it, not a 10,000-litre tank delivered at once.</p>
+  <p class="rule"><span>The rule to remember</span>Big data you loop over once → yield one item at a time; memory stays flat no matter the size.</p>
+  <div class="panels">
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Generators: -&gt;get() loads 2 million rows into an array. The export dies at 60% with &quot;Allowed memory size exhausted&quot;."><rect class="bx" x="20" y="14" width="180" height="100" rx="7"/><text x="110" y="56" class="kx" text-anchor="middle">2,000,000 rows</text><text x="110" y="78" class="s" text-anchor="middle">in memory at once</text><line class="lx" x1="200" y1="64" x2="226" y2="64" marker-end="url(#arx)"/><rect class="bx" x="228" y="44" width="66" height="40" rx="7"/><text x="261" y="68" text-anchor="middle" class="kx">fatal</text><text x="150" y="146" class="kx" text-anchor="middle">dies at 60%</text></svg><p>-&gt;get() loads 2 million rows into an array. The export dies at 60% with &quot;Allowed memory size exhausted&quot;.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Generators: A generator reads 1,000 rows at a time and yields them one by one. The loop looks the same; memory stays flat."><rect class="bn" x="4" y="58" width="74" height="48" rx="7"/><text x="41" y="86" text-anchor="middle" class="">DB</text><text x="41" y="124" class="s" text-anchor="middle">1,000 per read</text><line class="ln" x1="78" y1="82" x2="104" y2="82" marker-end="url(#ar)"/><rect class="bv" x="106" y="66" width="30" height="30" rx="7"/><text x="121" y="85" text-anchor="middle" class="kv">1</text><rect class="bi" x="140" y="66" width="30" height="30" rx="7"/><text x="155" y="85" text-anchor="middle" class="">2</text><rect class="bi" x="174" y="66" width="30" height="30" rx="7"/><text x="189" y="85" text-anchor="middle" class="">3</text><line class="ln" x1="204" y1="82" x2="222" y2="82" marker-end="url(#ar)"/><rect class="bn" x="224" y="60" width="72" height="44" rx="7"/><text x="260" y="86" text-anchor="middle" class="">fputcsv</text><text x="155" y="46" class="s" text-anchor="middle">yield, pause, resume</text><text x="155" y="124" class="kv" text-anchor="middle">memory stays flat</text></svg><p>A generator reads 1,000 rows at a time and yields them one by one. The loop looks the same; memory stays flat.</p></div>
+  </div>
+  <div class="when">
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>&quot;Allowed memory size … exhausted&quot;</li><li>-&gt;get() / fetchAll() on a huge table just to loop once</li><li>Building a giant array only to pass it to a loop</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>Every night, export 2 million evaluations to CSV.</p></div>
+  </div>
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>$rows = DB::table('evaluations')-&gt;get();     <span class="c">// 2,000,000 rows into memory</span>
+foreach ($rows as $row) {
+    fputcsv($out, (array) $row);
+}
+<span class="c">// PHP Fatal error: Allowed memory size of 536870912 bytes exhausted</span></code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Generators pattern in PHP</h2><pre><code>function evaluations(PDO $pdo, int $chunk = 1000): Generator
+{
+    $lastId = 0;
+    $query = $pdo-&gt;prepare(
+        'SELECT id, school_id, score FROM evaluations WHERE id &gt; :id ORDER BY id LIMIT :n'
+    );
+
+    do {
+        $query-&gt;bindValue(':id', $lastId, PDO::PARAM_INT);
+        $query-&gt;bindValue(':n', $chunk, PDO::PARAM_INT);
+        $query-&gt;execute();
+        $rows = $query-&gt;fetchAll(PDO::FETCH_ASSOC);        <span class="c">// at most 1,000 rows in memory</span>
+
+        foreach ($rows as $row) {
+<span class="h">            yield $row;  <span class="c">// hand out one, pause here</span></span>
+            $lastId = $row['id'];
+        }
+    } while (count($rows) === $chunk);                      <span class="c">// WHERE id &gt; ? stays fast at row 2,000,000</span>
+}
+
+$out = fopen($path, 'w') ?: throw new RuntimeException(&quot;Cannot write {$path}&quot;);
+<span class="h">foreach (evaluations($pdo) as $row) {  <span class="c">// looks like a normal loop</span></span>
+    fputcsv($out, $row);
+}
+fclose($out);
+
+<span class="c">// The Laravel one-liner for the same thing:</span>
+<span class="c">// Evaluation::lazyById(1000)-&gt;each(fn ($e) =&gt; fputcsv($out, $e-&gt;only('id', 'school_id', 'score')));</span></code></pre>
+    <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel LazyCollection, lazyById(), cursor()</span><span>Iterator pattern: a generator IS an iterator</span><span>Streaming downloads</span></div></div>
+  <nav class="nav" aria-label="Previous and next pattern">
+    <a class="navbtn" rel="prev" href="../iterator/"><small>← Previous</small>Iterator</a>
+    <a class="navbtn" rel="next" href="../composite/"><small>Next →</small>Composite</a>
+  </nav>
+</article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook">Source on GitHub</a></footer>
+</div>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>
