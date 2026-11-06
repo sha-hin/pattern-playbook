@@ -1,2 +1,0 @@
-CSV imported: 2
-JSON imported: 1

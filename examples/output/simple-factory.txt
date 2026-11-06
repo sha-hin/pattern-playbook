@@ -1,4 +1,0 @@
-Payment pay_1 succeeded: 157.50 EGP
-Payment pay_2 failed: card declined
-Rejected: Unknown webhook type [payment.teleported].
-Rejected: Field [id] is missing or not text.

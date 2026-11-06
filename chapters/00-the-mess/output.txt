@@ -1,0 +1,15 @@
+TERM REPORT
+Hany Mostafa   average 49.67
+Nadia Fawzy    average 1.50
+Karim Adel     average 3.00
+
+EMAILS
+To: <hany@smouha.edu.eg> Your average this term is 49.67
+To: <> Your average this term is 1.50
+To: <karim@miami.edu.eg> Your average this term is 3.00
+
+MINISTRY CSV
+teacher,school,responses,average
+Hany Mostafa,Smouha,3,49.67
+Nadia Fawzy,Smouha,2,1.5
+Karim Adel,Miami,2,3

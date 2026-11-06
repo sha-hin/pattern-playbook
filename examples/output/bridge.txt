@@ -1,5 +1,0 @@
-EMAIL to school@example.com
-  Subject: Invoice INV-114 paid
-  Thank you, invoice INV-114 is paid.
-SMS to +201001234567: Thank you, invoice INV-114 is paid.
-SMS to +201001234567: Sorry, order #42 is about 15 minutes late.

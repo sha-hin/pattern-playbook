@@ -1,5 +1,0 @@
-bool(false)
-100.00 EGP
-120.00 EGP
-bool(true)
-Cannot add USD to EGP.

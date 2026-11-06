@@ -1,9 +1,0 @@
-0: ali@x.com
-1: mona@x.com
-2: omar@x.com
-3: laila@x.com
-4: sara@x.com
-5: adam@x.com
-6: nour@x.com
-API requests: 3
-Stopped at Mona after 1 request

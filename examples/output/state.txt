@@ -1,6 +1,0 @@
-draft -> submitted
-submitted -> draft
-draft -> submitted
-submitted -> approved
-Status: approved
-Refused: Cannot submit a report that is approved.

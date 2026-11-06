@@ -1,4 +1,0 @@
-Local development:
-  [memory queue] Report 42 is ready at /var/app/storage/report-42.pdf
-Production:
-  [cloud queue] Report 42 is ready at https://reports.cloud.example.com/report-42.pdf

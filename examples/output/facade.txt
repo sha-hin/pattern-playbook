@@ -1,5 +1,0 @@
-Welcome email sent to Mona
-Welcome email sent to Sara
-Import row rejected: Unknown plan [weekly].
-Billing closed for student 1
-Students: Sara | assigned to a class: 1

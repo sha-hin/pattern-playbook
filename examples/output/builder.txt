@@ -1,8 +1,0 @@
-school 12, subjects math + science, from 2026-09-01 to 2026-10-31, 25 per page
-Refused: "from" must be before "to".
-<h1>Term 1 evaluation</h1>
-<p>Mona: <b>88</b></p>
-<p>Omar: <b>74</b></p>
-teacher,score
-Mona,88
-Omar,74

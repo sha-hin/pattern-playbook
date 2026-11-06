@@ -1,4 +1,0 @@
-Kitchen: start order #12
-Analytics: OrderPlaced
-Billing: mark order #12 as paid
-Analytics: PaymentReceived

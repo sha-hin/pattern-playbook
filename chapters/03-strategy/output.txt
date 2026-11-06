@@ -1,0 +1,21 @@
+REJECTED ANSWERS
+Row 15: A score must be between 1 and 5, got 140.
+
+TERM REPORT 2026-T1
+Hany Mostafa  Smouha    weighted  4.13
+Nadia Fawzy   Smouha    weighted  2.75
+Karim Adel    Miami     median    4.00
+Laila Samir   Victoria  average   3.50
+
+EMAILS
+To: <hany@smouha.edu.eg> Your weighted score this term is 4.13
+Not sent to Nadia Fawzy: no email address on file.
+To: <karim@miami.edu.eg> Your median score this term is 4.00
+To: <laila@victoria.edu.eg> Your average score this term is 3.50
+
+MINISTRY CSV
+teacher,school,responses,method,score
+Hany Mostafa,Smouha,5,weighted,4.13
+Nadia Fawzy,Smouha,4,weighted,2.75
+Karim Adel,Miami,4,median,4
+Laila Samir,Victoria,2,average,3.5

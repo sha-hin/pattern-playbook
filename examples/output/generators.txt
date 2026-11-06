@@ -1,3 +1,0 @@
-Exported 100000 rows
-Generator: about 0.9 MB
-fetchAll:  about 47.8 MB

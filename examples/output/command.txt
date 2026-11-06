@@ -1,3 +1,0 @@
-HTTP 202: analysis started
-Attempt 1 failed: AI service timeout
-Survey 42: teachers rate classroom time highest
