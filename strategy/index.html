@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=0ac04e784a">
+<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Strategy Pattern in PHP & Laravel, with Real Code","description":"Strategy explained for PHP and Laravel developers. Same job, several ways to do it - one class per way, all behind one interface. Real-world example and code.","url":"https://sha-hin.github.io/pattern-playbook/strategy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/strategy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Strategy design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Strategy","item":"https://sha-hin.github.io/pattern-playbook/strategy/"}]}]}</script>
 </head>
@@ -63,7 +63,7 @@
   <p class="rule"><span>The rule to remember</span>Same job, several ways to do it → one class per way, all behind one interface.</p>
   <div class="panels">
     <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Strategy: One method with a growing switch. Adding JSON means editing (and risking) the CSV, Excel and PDF code."><rect class="bx" x="30" y="14" width="240" height="142" rx="7"/><text x="48" y="40" class="m">export($rows, $format)</text><text x="58" y="66" class="m">case &quot;csv&quot;:   …30 lines</text><text x="58" y="88" class="m">case &quot;excel&quot;: …40 lines</text><text x="58" y="110" class="m">case &quot;pdf&quot;:   …50 lines</text><text x="58" y="134" class="kx">case &quot;json&quot;:  ← edit again</text></svg><p>One method with a growing switch. Adding JSON means editing (and risking) the CSV, Excel and PDF code.</p></div>
-    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Strategy: Each format is its own class. The controller picks one; adding JSON is one new class."><rect class="bn" x="6" y="66" width="74" height="38" rx="7"/><text x="43" y="89" text-anchor="middle" class="">Controller</text><line class="ln" x1="80" y1="85" x2="104" y2="85" marker-end="url(#ar)"/><rect class="bi" x="106" y="62" width="84" height="46" rx="7"/><text x="148" y="89" text-anchor="middle" class="">Exporter</text><line class="lk" x1="190" y1="74" x2="214" y2="32" marker-end="url(#ar)"/><line class="lk" x1="190" y1="85" x2="214" y2="85" marker-end="url(#ar)"/><line class="ln" x1="190" y1="96" x2="214" y2="138" marker-end="url(#ar)"/><rect class="bv" x="216" y="16" width="78" height="32" rx="7"/><text x="255" y="36" text-anchor="middle" class="kv">CSV</text><rect class="bv" x="216" y="69" width="78" height="32" rx="7"/><text x="255" y="89" text-anchor="middle" class="kv">Excel</text><rect class="bv" x="216" y="122" width="78" height="32" rx="7"/><text x="255" y="142" text-anchor="middle" class="kv">PDF</text><text x="148" y="128" class="s" text-anchor="middle">+ JSON = 1 class</text></svg><p>Each format is its own class. The controller picks one; adding JSON is one new class.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Strategy: Each format is its own class behind one interface. The code that uses it gets one and never asks which. Adding JSON is one new class."><rect class="bn" x="6" y="66" width="74" height="38" rx="7"/><text x="43" y="89" text-anchor="middle" class="">Controller</text><line class="ln" x1="80" y1="85" x2="104" y2="85" marker-end="url(#ar)"/><rect class="bi" x="106" y="62" width="84" height="46" rx="7"/><text x="148" y="89" text-anchor="middle" class="">Exporter</text><line class="lk" x1="190" y1="74" x2="214" y2="32" marker-end="url(#ar)"/><line class="lk" x1="190" y1="85" x2="214" y2="85" marker-end="url(#ar)"/><line class="ln" x1="190" y1="96" x2="214" y2="138" marker-end="url(#ar)"/><rect class="bv" x="216" y="16" width="78" height="32" rx="7"/><text x="255" y="36" text-anchor="middle" class="kv">CSV</text><rect class="bv" x="216" y="69" width="78" height="32" rx="7"/><text x="255" y="89" text-anchor="middle" class="kv">Excel</text><rect class="bv" x="216" y="122" width="78" height="32" rx="7"/><text x="255" y="142" text-anchor="middle" class="kv">PDF</text><text x="148" y="128" class="s" text-anchor="middle">+ JSON = 1 class</text></svg><p>Each format is its own class behind one interface. The code that uses it gets one and never asks which. Adding JSON is one new class.</p></div>
   </div>
   <div class="when">
     <div class="box"><h2>Reach for it when you see</h2><ul><li>A switch / if-else on a &quot;type&quot; or &quot;format&quot; that keeps growing</li><li>Every branch does the same job in a different way</li><li>You fear touching one branch because it could break another</li></ul></div>
@@ -101,24 +101,32 @@ final class CsvExporter implements Exporter
 
 final class PdfExporter implements Exporter { /* same two methods, uses Dompdf */ }
 
-final class ReportController
+final class ReportService
 {
-    public function download(Request $request, ReportRepository $reports)
+    public function __construct(private ReportRepository $reports) {}
+
+<span class="h">    public function export(Exporter $exporter): string  <span class="c">// receives ANY strategy</span></span>
     {
-<span class="h">        $exporter = match ($request-&gt;input('format')) {  <span class="c">// pick the strategy once</span></span>
-            'csv'   =&gt; new CsvExporter(),
-            'pdf'   =&gt; new PdfExporter(),
-            default =&gt; abort(422, 'Unsupported format.'),
-        };
-
-<span class="h">        $path = $exporter-&gt;export($reports-&gt;rows());  <span class="c">// same call, any format</span></span>
-
-        return response()
-            -&gt;download($path, &quot;report.{$exporter-&gt;extension()}&quot;)
-            -&gt;deleteFileAfterSend();
+<span class="h">        return $exporter-&gt;export($this-&gt;reports-&gt;rows());  <span class="c">// never asks which one it got</span></span>
     }
-}</code></pre>
+}
+
+<span class="c">// The strategies are swappable: ReportService never changes.</span>
+$service-&gt;export(new CsvExporter());
+$service-&gt;export(new PdfExporter());
+$service-&gt;export(new JsonExporter());   <span class="c">// next month: one new class, zero edits</span>
+
+<span class="c">// In a test: no real files at all</span>
+$service-&gt;export(new InMemoryExporter());
+
+<span class="c">// Note what is NOT here: deciding which exporter matches the user's &quot;pdf&quot; string.</span>
+<span class="c">// That is a different job, with its own pattern: see Simple Factory.</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  <div class="vsbox"><h2>Don't confuse it with <a href="../simple-factory/" data-umami-event="Open pattern" data-umami-event-pattern="simple-factory" data-umami-event-from="compare">Simple Factory</a></h2>
+    <div class="vstable" role="table" aria-label="Strategy compared with Simple Factory">
+      <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Strategy</span><span role="columnheader">Simple Factory</span></div>
+      <div class="vsrow" role="row"><span role="rowheader">Answers</span><span role="cell">How is the job done?</span><span role="cell">Which object do I build from this input?</span></div><div class="vsrow" role="row"><span role="rowheader">Looks like</span><span role="cell">Several classes behind one interface</span><span role="cell">One class with one match</span></div><div class="vsrow" role="row"><span role="rowheader">Add an option</span><span role="cell">One new class, no edits</span><span role="cell">One new line in the match</span></div><div class="vsrow" role="row"><span role="rowheader">Together</span><span role="cell">The strategy does the work…</span><span role="cell">…the factory picks which one</span></div>
+    </div></div>
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel hashing drivers (bcrypt, argon)</span><span>Cache stores</span><span>Socialite providers</span><span>Payment methods at checkout</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <span></span>
@@ -128,6 +136,6 @@ final class ReportController
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=2848f67bee" defer></script>
+<script src="../assets/app.js?v=368a41253f" defer></script>
 </body>
 </html>

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=0ac04e784a">
+<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"State Pattern in PHP & Laravel, with Real Code","description":"State explained for PHP and Laravel developers. What an object is allowed to do depends on its status - one class per status; each knows its allowed moves…","url":"https://sha-hin.github.io/pattern-playbook/state/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/state/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["State design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"State","item":"https://sha-hin.github.io/pattern-playbook/state/"}]}]}</script>
 </head>
@@ -119,6 +119,7 @@ final class Report
     public function moveTo(ReportState $s): void { $this-&gt;state = $s; }
 }</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>spatie/laravel-model-states</span><span>Order / payment / subscription lifecycles</span><span>Approval workflows</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../value-object/" data-umami-event="Open pattern" data-umami-event-pattern="value-object" data-umami-event-from="previous"><small>← Previous</small>Value Object</a>
@@ -128,6 +129,6 @@ final class Report
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=2848f67bee" defer></script>
+<script src="../assets/app.js?v=368a41253f" defer></script>
 </body>
 </html>

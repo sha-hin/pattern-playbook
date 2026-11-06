@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=0ac04e784a">
+<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Facade Pattern in PHP & Laravel, with Real Code","description":"Facade explained for PHP and Laravel developers. A multi-step job that touches many services, needed from many places - one class with one method that runs…","url":"https://sha-hin.github.io/pattern-playbook/facade/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/facade/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Facade","item":"https://sha-hin.github.io/pattern-playbook/facade/"}]}]}</script>
 </head>
@@ -100,6 +100,7 @@ $mailer-&gt;welcome($user);</code></pre></div>
 <span class="c">// WebController, ApiController, ImportStudentsJob — all the same single line:</span>
 <span class="h">$student = $enrollStudent-&gt;handle($data);  <span class="c">// can't forget a step</span></span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Laravel &quot;action&quot; / service classes</span><span>Application::handle() in frameworks</span><span>Not Laravel’s Cache:: (that’s a Proxy)</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../event-dispatcher/" data-umami-event="Open pattern" data-umami-event-pattern="event-dispatcher" data-umami-event-from="previous"><small>← Previous</small>Event Dispatcher</a>
@@ -109,6 +110,6 @@ $mailer-&gt;welcome($user);</code></pre></div>
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=2848f67bee" defer></script>
+<script src="../assets/app.js?v=368a41253f" defer></script>
 </body>
 </html>

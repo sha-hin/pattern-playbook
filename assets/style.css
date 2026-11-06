@@ -166,3 +166,14 @@ pre.before{border-color:var(--bad)}
 .topbar .tools{flex-wrap:nowrap}
 header{align-items:end}
 @media (max-width:600px){.searchbtn span:not(.keys){display:none}.searchbtn{width:40px;padding:0;justify-content:center}}
+
+/* ===== "Don't confuse it with" comparison ===== */
+.vsbox{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--well)}
+.vsbox h2{margin:0 0 10px;font-family:var(--display);font-size:18px}
+.vsbox h2 a{color:var(--fam)}
+.vstable{display:grid;gap:0;font-size:14px}
+.vsrow{display:grid;grid-template-columns:minmax(90px,.7fr) 1fr 1fr;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.vsrow span:first-child{color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.vshead{border-top:0;font-weight:500}
+.vshead span:nth-child(2){color:var(--fam)}
+@media (max-width:520px){.vsrow{grid-template-columns:1fr 1fr}.vsrow span:first-child{grid-column:1 / -1;padding:0}}

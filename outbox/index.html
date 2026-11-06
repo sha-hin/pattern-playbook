@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=0ac04e784a">
+<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Transactional Outbox Pattern in PHP & Laravel, with Real Code","description":"Transactional Outbox explained for PHP and Laravel developers. Saving data AND calling an outside system must never get out of sync - write the message in…","url":"https://sha-hin.github.io/pattern-playbook/outbox/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/outbox/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Transactional Outbox design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Transactional Outbox","item":"https://sha-hin.github.io/pattern-playbook/outbox/"}]}]}</script>
 </head>
@@ -97,6 +97,7 @@ DB::table('outbox')-&gt;whereNull('sent_at')-&gt;where('attempts', '&lt;', 10)-&
         }
     });</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  
   <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Symfony Messenger doctrine transport</span><span>Laravel afterCommit (closes half the gap)</span><span>Debezium / change data capture</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../command-bus/" data-umami-event="Open pattern" data-umami-event-pattern="command-bus" data-umami-event-from="previous"><small>← Previous</small>Command Bus</a>
@@ -106,6 +107,6 @@ DB::table('outbox')-&gt;whereNull('sent_at')-&gt;where('attempts', '&lt;', 10)-&
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=2848f67bee" defer></script>
+<script src="../assets/app.js?v=368a41253f" defer></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <title>Simple Factory Pattern in PHP &amp; Laravel, with Real Code</title>
-<meta name="description" content="Simple Factory explained for PHP and Laravel developers. The decision &quot;which class do I create for this value?&quot; is copied around - put it in ONE class with…">
+<meta name="description" content="Simple Factory explained for PHP and Laravel developers. Turning raw input (a string, a payload) into the right object is copied around - put that decision…">
 <link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/simple-factory/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="author" content="Mohammed Shahin">
@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="Pattern Playbook">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Simple Factory Pattern in PHP &amp; Laravel, with Real Code">
-<meta property="og:description" content="Simple Factory explained for PHP and Laravel developers. The decision &quot;which class do I create for this value?&quot; is copied around - put it in ONE class with…">
+<meta property="og:description" content="Simple Factory explained for PHP and Laravel developers. Turning raw input (a string, a payload) into the right object is copied around - put that decision…">
 <meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/simple-factory/">
 <meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
 <meta property="og:image:width" content="1200">
@@ -23,15 +23,15 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Simple Factory Pattern in PHP &amp; Laravel, with Real Code">
-<meta name="twitter:description" content="Simple Factory explained for PHP and Laravel developers. The decision &quot;which class do I create for this value?&quot; is copied around - put it in ONE class with…">
+<meta name="twitter:description" content="Simple Factory explained for PHP and Laravel developers. Turning raw input (a string, a payload) into the right object is copied around - put that decision…">
 <meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
 <link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=0ac04e784a">
+<link rel="stylesheet" href="../assets/style.css?v=626602b3aa">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Simple Factory Pattern in PHP & Laravel, with Real Code","description":"Simple Factory explained for PHP and Laravel developers. The decision \"which class do I create for this value?\" is copied around - put it in ONE class with…","url":"https://sha-hin.github.io/pattern-playbook/simple-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/simple-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Simple Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Simple Factory","item":"https://sha-hin.github.io/pattern-playbook/simple-factory/"}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Simple Factory Pattern in PHP & Laravel, with Real Code","description":"Simple Factory explained for PHP and Laravel developers. Turning raw input (a string, a payload) into the right object is copied around - put that decision…","url":"https://sha-hin.github.io/pattern-playbook/simple-factory/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/simple-factory/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-06","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Simple Factory design pattern","PHP","Laravel"],"proficiencyLevel":"Beginner"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Simple Factory","item":"https://sha-hin.github.io/pattern-playbook/simple-factory/"}]}]}</script>
 </head>
 <body data-page="simple-factory" data-prefix="../">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -60,42 +60,62 @@
 <article class="card cre">
   <div class="head"><span class="count">2 / 25</span><h1 class="name">Simple Factory</h1><span class="fam">Creation</span><span class="book ext">Not in the book</span></div>
   <p class="hook">A vending machine: press B4 and it hands you the right snack.</p>
-  <p class="rule"><span>The rule to remember</span>The decision &quot;which class do I create for this value?&quot; is copied around → put it in ONE class with ONE match.</p>
+  <p class="rule"><span>The rule to remember</span>Turning raw input (a string, a payload) into the right object is copied around → put that decision and the building in ONE place.</p>
   <div class="panels">
-    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Simple Factory: The same match on $format is copied in the controller, the API and the scheduled job. One copy silently falls back to CSV."><rect class="bx" x="6" y="14" width="140" height="40" rx="7"/><text x="16" y="38" class="m">Web: match($f)…</text><rect class="bx" x="6" y="64" width="140" height="40" rx="7"/><text x="16" y="88" class="m">API: match($f)…</text><rect class="bx" x="6" y="114" width="140" height="40" rx="7"/><text x="16" y="138" class="kx">Job: default→csv ✗</text><text x="226" y="84" class="kx" text-anchor="middle">3 copies</text><text x="226" y="104" class="kx" text-anchor="middle">drift apart</text></svg><p>The same match on $format is copied in the controller, the API and the scheduled job. One copy silently falls back to CSV.</p></div>
-    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Simple Factory: ExporterFactory::for($format) is the only place that decides. An unknown value throws instead of guessing."><rect class="bn" x="4" y="14" width="56" height="24" rx="7"/><text x="32" y="30" text-anchor="middle" class="">Web</text><rect class="bn" x="4" y="72" width="56" height="24" rx="7"/><text x="32" y="88" text-anchor="middle" class="">API</text><rect class="bn" x="4" y="130" width="56" height="24" rx="7"/><text x="32" y="146" text-anchor="middle" class="">Job</text><line class="ln" x1="60" y1="26" x2="100" y2="72" marker-end="url(#ar)"/><line class="ln" x1="60" y1="84" x2="100" y2="84" marker-end="url(#ar)"/><line class="ln" x1="60" y1="142" x2="100" y2="96" marker-end="url(#ar)"/><rect class="bv" x="102" y="60" width="92" height="48" rx="7"/><text x="148" y="88" text-anchor="middle" class="kv">Factory::for()</text><line class="lk" x1="194" y1="72" x2="214" y2="30" marker-end="url(#ar)"/><line class="lk" x1="194" y1="84" x2="214" y2="84" marker-end="url(#ar)"/><line class="ln" x1="194" y1="96" x2="214" y2="136" marker-end="url(#ar)"/><rect class="bn" x="216" y="16" width="80" height="28" rx="7"/><text x="256" y="34" text-anchor="middle" class="">CsvExporter</text><rect class="bn" x="216" y="70" width="80" height="28" rx="7"/><text x="256" y="88" text-anchor="middle" class="">PdfExporter</text><rect class="bx" x="216" y="122" width="80" height="28" rx="7"/><text x="256" y="140" text-anchor="middle" class="kx">throws</text></svg><p>ExporterFactory::for($format) is the only place that decides. An unknown value throws instead of guessing.</p></div>
+    <div class="panel bad"><h2>Without it: the pain</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="Without Simple Factory: The if/else that turns a webhook &quot;type&quot; into an event object is copied in the controller and a replay command. The copy forgot refunds, so they were silently skipped."><rect class="bx" x="6" y="14" width="150" height="40" rx="7"/><text x="16" y="38" class="m">Controller: if type…</text><rect class="bx" x="6" y="64" width="150" height="40" rx="7"/><text x="16" y="88" class="m">Replay: if type…</text><rect class="bx" x="6" y="114" width="150" height="40" rx="7"/><text x="16" y="138" class="kx">forgot refund ✗</text><text x="230" y="84" class="kx" text-anchor="middle">copies drift</text><text x="230" y="104" class="kx" text-anchor="middle">refunds skipped</text></svg><p>The if/else that turns a webhook &quot;type&quot; into an event object is copied in the controller and a replay command. The copy forgot refunds, so they were silently skipped.</p></div>
+    <div class="panel good"><h2>With it: the fix</h2><svg class="d" viewBox="0 0 300 166" role="img" aria-label="With Simple Factory: WebhookEventFactory::fromPayload() is the only place that reads the type and builds the event. An unknown type throws instead of being ignored."><rect class="bn" x="4" y="14" width="62" height="24" rx="7"/><text x="35" y="30" text-anchor="middle" class="">Controller</text><rect class="bn" x="4" y="72" width="62" height="24" rx="7"/><text x="35" y="88" text-anchor="middle" class="">Replay</text><rect class="bn" x="4" y="130" width="62" height="24" rx="7"/><text x="35" y="146" text-anchor="middle" class="">Tests</text><line class="ln" x1="66" y1="26" x2="98" y2="72" marker-end="url(#ar)"/><line class="ln" x1="66" y1="84" x2="98" y2="84" marker-end="url(#ar)"/><line class="ln" x1="66" y1="142" x2="98" y2="96" marker-end="url(#ar)"/><rect class="bv" x="100" y="60" width="96" height="48" rx="7"/><text x="148" y="88" text-anchor="middle" class="kv">fromPayload()</text><line class="lk" x1="196" y1="72" x2="214" y2="30" marker-end="url(#ar)"/><line class="lk" x1="196" y1="84" x2="214" y2="84" marker-end="url(#ar)"/><line class="ln" x1="196" y1="96" x2="214" y2="136" marker-end="url(#ar)"/><rect class="bn" x="216" y="16" width="80" height="28" rx="7"/><text x="256" y="34" text-anchor="middle" class="">Succeeded</text><rect class="bn" x="216" y="70" width="80" height="28" rx="7"/><text x="256" y="88" text-anchor="middle" class="">Failed</text><rect class="bx" x="216" y="122" width="80" height="28" rx="7"/><text x="256" y="140" text-anchor="middle" class="kx">throws</text></svg><p>WebhookEventFactory::fromPayload() is the only place that reads the type and builds the event. An unknown type throws instead of being ignored.</p></div>
   </div>
   <div class="when">
-    <div class="box"><h2>Reach for it when you see</h2><ul><li>The same switch / match that creates objects appears in 2+ places</li><li>Adding a type means hunting for every copy</li><li>A &quot;default&quot; branch that silently picks something</li></ul></div>
-    <div class="box"><h2>Real job where it fits</h2><p>The export format comes from the web form, the API, and a scheduled email. All three must create the same exporter.</p></div>
+    <div class="box"><h2>Reach for it when you see</h2><ul><li>The same if / match that CREATES objects appears in 2+ places</li><li>Objects built from raw arrays, with the field names repeated everywhere</li><li>A default branch that silently ignores or guesses</li></ul></div>
+    <div class="box"><h2>Real job where it fits</h2><p>A payment provider sends webhooks: payment succeeded, payment failed, refund created. A controller, a replay command and the tests all turn them into event objects.</p></div>
   </div>
-  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// in ReportController, Api\ReportController and SendWeeklyReport job:</span>
-$exporter = match ($format) {
-    'csv' =&gt; new CsvExporter(),
-    'pdf' =&gt; new PdfExporter(),
-    default =&gt; new CsvExporter(),   <span class="c">// ← silent guess: a typo gives the wrong file</span>
-};</code></pre></div>
-  <div class="code"><h2 class="g">After: how you implement the Simple Factory pattern in PHP</h2><pre><code>final class ExporterFactory
+  <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code><span class="c">// WebhookController:</span>
+if ($payload['type'] === 'payment.succeeded') {
+    $event = new PaymentSucceeded($payload['data']['id'], $payload['data']['amount']);
+} elseif ($payload['type'] === 'payment.failed') {
+    $event = new PaymentFailed($payload['data']['id'], $payload['data']['failure_message']);
+}
+<span class="c">// ReplayWebhooksCommand: the same if/else, copied... and it forgot 'refund.created',</span>
+<span class="c">// so replayed refunds were silently skipped.</span></code></pre></div>
+  <div class="code"><h2 class="g">After: how you implement the Simple Factory pattern in PHP</h2><pre><code>final class WebhookEventFactory
 {
-    public static function for(string $format): Exporter
+    public static function fromPayload(array $payload): WebhookEvent
     {
-<span class="h">        return match (strtolower(trim($format))) {  <span class="c">// the ONLY place that decides</span></span>
-            'csv'  =&gt; new CsvExporter(),
-            'xlsx' =&gt; new ExcelExporter(),
-            'pdf'  =&gt; new PdfExporter(),
-<span class="h">            default =&gt; throw new UnsupportedFormat(  <span class="c">// never a silent fallback</span></span>
-                &quot;No exporter for [{$format}]. Use csv, xlsx or pdf.&quot;
+        $data = $payload['data'] ?? throw new InvalidWebhook('Payload has no data.');
+
+<span class="h">        return match ($payload['type'] ?? null) {  <span class="c">// the ONE place that decides</span></span>
+<span class="h">            'payment.succeeded' =&gt; new PaymentSucceeded(  <span class="c">// and knows how to build each one</span></span>
+                paymentId: $data['id'],
+                amount: new Money((int) $data['amount'], strtoupper($data['currency'])),
+            ),
+            'payment.failed' =&gt; new PaymentFailed(
+                paymentId: $data['id'],
+                reason: $data['failure_message'] ?? 'unknown',
+            ),
+            'refund.created' =&gt; new RefundCreated(
+                refundId: $data['id'],
+                paymentId: $data['payment_id'],
+            ),
+<span class="h">            default =&gt; throw new UnknownWebhookType(  <span class="c">// never silently ignored</span></span>
+                'Unknown webhook type [' . ($payload['type'] ?? 'missing') . '].'
             ),
         };
     }
 }
 
-<span class="c">// ReportController, Api\ReportController, SendWeeklyReport job — the same line:</span>
-$path = ExporterFactory::for($format)-&gt;export($rows);
+<span class="c">// WebhookController, ReplayWebhooksCommand and the tests: the same line</span>
+$event = WebhookEventFactory::fromPayload($request-&gt;json()-&gt;all());
+event($event);
 
-<span class="c">// Adding JSON = one new line in the match + one JsonExporter class.</span></code></pre>
+<span class="c">// Note: PaymentSucceeded and RefundCreated are NOT interchangeable strategies.</span>
+<span class="c">// They hold different data. The pattern here is only about building the right one.</span></code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
-  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Named constructors: Response::json(), Carbon::parse()</span><span>Money::egp(), Request::create()</span><span>Pairs with Strategy: the factory picks the strategy</span></div></div>
+  <div class="vsbox"><h2>Don't confuse it with <a href="../strategy/" data-umami-event="Open pattern" data-umami-event-pattern="strategy" data-umami-event-from="compare">Strategy</a></h2>
+    <div class="vstable" role="table" aria-label="Simple Factory compared with Strategy">
+      <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">Simple Factory</span><span role="columnheader">Strategy</span></div>
+      <div class="vsrow" role="row"><span role="rowheader">Answers</span><span role="cell">Which object do I build from this input?</span><span role="cell">How is the job done?</span></div><div class="vsrow" role="row"><span role="rowheader">Looks like</span><span role="cell">One class with one match</span><span role="cell">Several classes behind one interface</span></div><div class="vsrow" role="row"><span role="rowheader">Add an option</span><span role="cell">One new line in the match</span><span role="cell">One new class, no edits</span></div><div class="vsrow" role="row"><span role="rowheader">Together</span><span role="cell">The factory picks…</span><span role="cell">…the strategy that does the work</span></div>
+    </div></div>
+  <div><h2 class="seenh">You already use it in</h2><div class="seen"><span>Response::json(), Carbon::parse()</span><span>Request::create(), Money::egp()</span><span>Often picks a Strategy: the factory chooses, the strategy works</span></div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     <a class="navbtn" rel="prev" href="../strategy/" data-umami-event="Open pattern" data-umami-event-pattern="strategy" data-umami-event-from="previous"><small>← Previous</small>Strategy</a>
     <a class="navbtn" rel="next" href="../null-object/" data-umami-event="Open pattern" data-umami-event-pattern="null-object" data-umami-event-from="next"><small>Next →</small>Null Object</a>
@@ -104,6 +124,6 @@ $path = ExporterFactory::for($format)-&gt;export($rows);
 </main>
 <footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
 </div>
-<script src="../assets/app.js?v=2848f67bee" defer></script>
+<script src="../assets/app.js?v=368a41253f" defer></script>
 </body>
 </html>

@@ -5,11 +5,17 @@ id:'strategy', name:'Strategy', fam:'beh', famName:'Behaviour',
 hook:'Google Maps: same trip, you pick Car, Walk or Bike.',
 rule:'Same job, several ways to do it → one class per way, all behind one interface.',
 pain:'One method with a growing switch. Adding JSON means editing (and risking) the CSV, Excel and PDF code.',
-fix:'Each format is its own class. The controller picks one; adding JSON is one new class.',
+fix:'Each format is its own class behind one interface. The code that uses it gets one and never asks which. Adding JSON is one new class.',
 smells:['A switch / if-else on a "type" or "format" that keeps growing','Every branch does the same job in a different way','You fear touching one branch because it could break another'],
 job:'Users download a report as CSV, Excel or PDF from a dropdown. Next month: JSON.',
 seen:['Laravel hashing drivers (bcrypt, argon)','Cache stores','Socialite providers','Payment methods at checkout'],
 test:'A report can be downloaded as CSV, Excel or PDF. The export() method is a 200-line switch, and JSON is coming next.',
+vs:{id:'simple-factory', name:'Simple Factory', rows:[
+  ['Answers','How is the job done?','Which object do I build from this input?'],
+  ['Looks like','Several classes behind one interface','One class with one match'],
+  ['Add an option','One new class, no edits','One new line in the match'],
+  ['Together','The strategy does the work…','…the factory picks which one'],
+]},
 diagram:{bad:[['b',30,14,240,142,'','x'],['t',48,40,'export($rows, $format)','m'],['t',58,66,'case "csv":   …30 lines','m'],['t',58,88,'case "excel": …40 lines','m'],['t',58,110,'case "pdf":   …50 lines','m'],['t',58,134,'case "json":  ← edit again','kx']],
 good:[['b',6,66,74,38,'Controller','n'],['a',80,85,104,85],['b',106,62,84,46,'Exporter','i'],['a',190,74,214,32,'','k'],['a',190,85,214,85,'','k'],['a',190,96,214,138],['b',216,16,78,32,'CSV','v'],['b',216,69,78,32,'Excel','v'],['b',216,122,78,32,'PDF','v'],['t',148,128,'+ JSON = 1 class','s','middle']]},
 before:String.raw`public function export(array $rows, string $format): string
@@ -44,23 +50,26 @@ final class CsvExporter implements Exporter
 
 final class PdfExporter implements Exporter { /* same two methods, uses Dompdf */ }
 
-final class ReportController
+final class ReportService
 {
-    public function download(Request $request, ReportRepository $reports)
+    public function __construct(private ReportRepository $reports) {}
+
+    public function export(Exporter $exporter): string     // ★ receives ANY strategy
     {
-        $exporter = match ($request->input('format')) {   // ★ pick the strategy once
-            'csv'   => new CsvExporter(),
-            'pdf'   => new PdfExporter(),
-            default => abort(422, 'Unsupported format.'),
-        };
-
-        $path = $exporter->export($reports->rows());       // ★ same call, any format
-
-        return response()
-            ->download($path, "report.{$exporter->extension()}")
-            ->deleteFileAfterSend();
+        return $exporter->export($this->reports->rows());   // ★ never asks which one it got
     }
-}`},
+}
+
+// The strategies are swappable: ReportService never changes.
+$service->export(new CsvExporter());
+$service->export(new PdfExporter());
+$service->export(new JsonExporter());   // next month: one new class, zero edits
+
+// In a test: no real files at all
+$service->export(new InMemoryExporter());
+
+// Note what is NOT here: deciding which exporter matches the user's "pdf" string.
+// That is a different job, with its own pattern: see Simple Factory.`},
 {
 id:'adapter', name:'Adapter', fam:'str', famName:'Structure',
 hook:'A travel plug: your charger, their wall socket.',
@@ -827,40 +836,61 @@ const EXTRA = [
 {
 id:'simple-factory', name:'Simple Factory', fam:'cre', famName:'Creation',
 hook:'A vending machine: press B4 and it hands you the right snack.',
-rule:'The decision "which class do I create for this value?" is copied around → put it in ONE class with ONE match.',
-pain:'The same match on $format is copied in the controller, the API and the scheduled job. One copy silently falls back to CSV.',
-fix:'ExporterFactory::for($format) is the only place that decides. An unknown value throws instead of guessing.',
-smells:['The same switch / match that creates objects appears in 2+ places','Adding a type means hunting for every copy','A "default" branch that silently picks something'],
-job:'The export format comes from the web form, the API, and a scheduled email. All three must create the same exporter.',
-seen:['Named constructors: Response::json(), Carbon::parse()','Money::egp(), Request::create()','Pairs with Strategy: the factory picks the strategy'],
-test:'The same match ($format) { "csv" => new CsvExporter(), … } is copied in a controller, an API endpoint and a scheduled job.',
-diagram:{bad:[['b',6,14,140,40,'','x'],['t',16,38,'Web: match($f)…','m'],['b',6,64,140,40,'','x'],['t',16,88,'API: match($f)…','m'],['b',6,114,140,40,'','x'],['t',16,138,'Job: default→csv ✗','kx'],['t',226,84,'3 copies','kx','middle'],['t',226,104,'drift apart','kx','middle']],
-good:[['b',4,14,56,24,'Web','n'],['b',4,72,56,24,'API','n'],['b',4,130,56,24,'Job','n'],['a',60,26,100,72],['a',60,84,100,84],['a',60,142,100,96],['b',102,60,92,48,'Factory::for()','v'],['a',194,72,214,30,'','k'],['a',194,84,214,84,'','k'],['a',194,96,214,136],['b',216,16,80,28,'CsvExporter','n'],['b',216,70,80,28,'PdfExporter','n'],['b',216,122,80,28,'throws','x']]},
-before:String.raw`// in ReportController, Api\ReportController and SendWeeklyReport job:
-$exporter = match ($format) {
-    'csv' => new CsvExporter(),
-    'pdf' => new PdfExporter(),
-    default => new CsvExporter(),   // ← silent guess: a typo gives the wrong file
-};`,
-after:String.raw`final class ExporterFactory
+rule:'Turning raw input (a string, a payload) into the right object is copied around → put that decision and the building in ONE place.',
+pain:'The if/else that turns a webhook "type" into an event object is copied in the controller and a replay command. The copy forgot refunds, so they were silently skipped.',
+fix:'WebhookEventFactory::fromPayload() is the only place that reads the type and builds the event. An unknown type throws instead of being ignored.',
+smells:['The same if / match that CREATES objects appears in 2+ places','Objects built from raw arrays, with the field names repeated everywhere','A default branch that silently ignores or guesses'],
+job:'A payment provider sends webhooks: payment succeeded, payment failed, refund created. A controller, a replay command and the tests all turn them into event objects.',
+seen:['Response::json(), Carbon::parse()','Request::create(), Money::egp()','Often picks a Strategy: the factory chooses, the strategy works'],
+test:'Payment webhooks arrive with a "type" field. The if/else that turns each type into the right event object is copied in the controller and a replay command, and one copy forgot refunds.',
+vs:{id:'strategy', name:'Strategy', rows:[
+  ['Answers','Which object do I build from this input?','How is the job done?'],
+  ['Looks like','One class with one match','Several classes behind one interface'],
+  ['Add an option','One new line in the match','One new class, no edits'],
+  ['Together','The factory picks…','…the strategy that does the work'],
+]},
+diagram:{bad:[['b',6,14,150,40,'','x'],['t',16,38,'Controller: if type…','m'],['b',6,64,150,40,'','x'],['t',16,88,'Replay: if type…','m'],['b',6,114,150,40,'','x'],['t',16,138,'forgot refund ✗','kx'],['t',230,84,'copies drift','kx','middle'],['t',230,104,'refunds skipped','kx','middle']],
+good:[['b',4,14,62,24,'Controller','n'],['b',4,72,62,24,'Replay','n'],['b',4,130,62,24,'Tests','n'],['a',66,26,98,72],['a',66,84,98,84],['a',66,142,98,96],['b',100,60,96,48,'fromPayload()','v'],['a',196,72,214,30,'','k'],['a',196,84,214,84,'','k'],['a',196,96,214,136],['b',216,16,80,28,'Succeeded','n'],['b',216,70,80,28,'Failed','n'],['b',216,122,80,28,'throws','x']]},
+before:String.raw`// WebhookController:
+if ($payload['type'] === 'payment.succeeded') {
+    $event = new PaymentSucceeded($payload['data']['id'], $payload['data']['amount']);
+} elseif ($payload['type'] === 'payment.failed') {
+    $event = new PaymentFailed($payload['data']['id'], $payload['data']['failure_message']);
+}
+// ReplayWebhooksCommand: the same if/else, copied... and it forgot 'refund.created',
+// so replayed refunds were silently skipped.`,
+after:String.raw`final class WebhookEventFactory
 {
-    public static function for(string $format): Exporter
+    public static function fromPayload(array $payload): WebhookEvent
     {
-        return match (strtolower(trim($format))) {        // ★ the ONLY place that decides
-            'csv'  => new CsvExporter(),
-            'xlsx' => new ExcelExporter(),
-            'pdf'  => new PdfExporter(),
-            default => throw new UnsupportedFormat(       // ★ never a silent fallback
-                "No exporter for [{$format}]. Use csv, xlsx or pdf."
+        $data = $payload['data'] ?? throw new InvalidWebhook('Payload has no data.');
+
+        return match ($payload['type'] ?? null) {            // ★ the ONE place that decides
+            'payment.succeeded' => new PaymentSucceeded(       // ★ and knows how to build each one
+                paymentId: $data['id'],
+                amount: new Money((int) $data['amount'], strtoupper($data['currency'])),
+            ),
+            'payment.failed' => new PaymentFailed(
+                paymentId: $data['id'],
+                reason: $data['failure_message'] ?? 'unknown',
+            ),
+            'refund.created' => new RefundCreated(
+                refundId: $data['id'],
+                paymentId: $data['payment_id'],
+            ),
+            default => throw new UnknownWebhookType(          // ★ never silently ignored
+                'Unknown webhook type [' . ($payload['type'] ?? 'missing') . '].'
             ),
         };
     }
 }
 
-// ReportController, Api\ReportController, SendWeeklyReport job — the same line:
-$path = ExporterFactory::for($format)->export($rows);
+// WebhookController, ReplayWebhooksCommand and the tests: the same line
+$event = WebhookEventFactory::fromPayload($request->json()->all());
+event($event);
 
-// Adding JSON = one new line in the match + one JsonExporter class.`},
+// Note: PaymentSucceeded and RefundCreated are NOT interchangeable strategies.
+// They hold different data. The pattern here is only about building the right one.`},
 {
 id:'null-object', name:'Null Object', fam:'beh', famName:'Behaviour',
 hook:'A muted microphone: the meeting runs normally, your mic just sends nothing.',
@@ -1275,6 +1305,11 @@ function cardHtml(p, prefix) {
   <div class="code"><h2 class="b">Before: the code that hurts</h2><pre class="before"><code>${codeHtml(p.before)}</code></pre></div>
   <div class="code"><h2 class="g">After: how you implement the ${esc(p.name)} pattern in PHP</h2><pre><code>${codeHtml(p.after)}</code></pre>
     <p class="legend"><mark>Highlighted lines</mark> are the ones that make it this pattern.</p></div>
+  ${p.vs ? `<div class="vsbox"><h2>Don't confuse it with <a href="${prefix}${p.vs.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${p.vs.id}" data-umami-event-from="compare">${esc(p.vs.name)}</a></h2>
+    <div class="vstable" role="table" aria-label="${esc(p.name)} compared with ${esc(p.vs.name)}">
+      <div class="vsrow vshead" role="row"><span role="columnheader"></span><span role="columnheader">${esc(p.name)}</span><span role="columnheader">${esc(p.vs.name)}</span></div>
+      ${p.vs.rows.map(r => `<div class="vsrow" role="row"><span role="rowheader">${esc(r[0])}</span><span role="cell">${esc(r[1])}</span><span role="cell">${esc(r[2])}</span></div>`).join('')}
+    </div></div>` : ''}
   <div><h2 class="seenh">You already use it in</h2><div class="seen">${p.seen.map(s => `<span>${esc(s)}</span>`).join('')}</div></div>
   <nav class="nav" aria-label="Previous and next pattern">
     ${prev ? `<a class="navbtn" rel="prev" href="${prefix}${prev.id}/" data-umami-event="Open pattern" data-umami-event-pattern="${prev.id}" data-umami-event-from="previous"><small>← Previous</small>${esc(prev.name)}</a>` : '<span></span>'}
