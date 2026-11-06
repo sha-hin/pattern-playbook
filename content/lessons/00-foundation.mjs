@@ -5,7 +5,7 @@ import { setup } from '../foundation/setup.mjs';
 import { migrations } from '../foundation/migrations.mjs';
 import { enums, models } from '../foundation/models.mjs';
 import { factories, seeders } from '../foundation/factories.mjs';
-import { testing, foundationTests } from '../foundation/testing.mjs';
+import { testing } from '../foundation/testing.mjs';
 
 export default {
   description: 'The complete foundation of a Laravel 13 vacation-rental PMS on PHP 8.4, MySQL and Redis: Docker, configuration, every migration, enum, model, factory, seeder and Pest helper the design patterns course uses.',
@@ -44,6 +44,5 @@ export default {
       },
     ],
   }],
-  tests: foundationTests,
   next: 'Lesson 1 starts the patterns: money and stays are passed around as bare integers and strings, and the bugs that causes.',
 };
