@@ -47,9 +47,9 @@ export const SCENES = [
   { n: 25, day: 4, slug: '25-channels', incident: 'SMS guests got an email instead', patterns: ['Bridge'], learn: 'Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices', ready: true },
 
   // Day 5 · Operations and pricing
-  { n: 26, day: 5, slug: '26-turnovers', incident: 'The cleaner arrived while guests were still inside', patterns: [], learn: 'Cleaning tasks between stays, due times in the property timezone, review requests' },
-  { n: 27, day: 5, slug: '27-duplicate-listing', incident: 'Changed the copy’s prices, the original’s changed too', patterns: ['Prototype'], learn: 'Eloquent replicate(), deep vs shallow copies' },
-  { n: 28, day: 5, slug: '28-rate-plans', incident: 'Summer prices ignored the weekend rule', patterns: ['Composite'], learn: 'Rate plans as a tree of rules; the calendar_days table' },
+  { n: 26, day: 5, slug: '26-turnovers', incident: 'The cleaner arrived while guests were still inside', patterns: [], learn: 'Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner', ready: true },
+  { n: 27, day: 5, slug: '27-rate-plans', incident: 'Summer prices ignored the weekend rule', patterns: ['Composite'], learn: 'Rate plans as a tree of rules; the calendar_days table' },
+  { n: 28, day: 5, slug: '28-duplicate-listing', incident: 'Changed the copy’s prices, the original’s changed too', patterns: ['Prototype'], learn: 'Eloquent replicate(), deep vs shallow copies' },
   { n: 29, day: 5, slug: '29-acceptance-rules', incident: 'A 1-night Booking.com stay on a 3-night-minimum cabin', patterns: ['Pipeline', 'Chain of Responsibility'], learn: 'Booking rules and price stages; Laravel’s middleware pipeline inside' },
   { n: 30, day: 5, slug: '30-search', incident: 'Search said free, the booking said taken', patterns: ['Specification', 'Repository'], learn: 'Availability search on SQL, then Meilisearch behind the same interface' },
   { n: 31, day: 5, slug: '31-real-time', incident: 'The calendar didn’t update when Airbnb booked', patterns: [], learn: 'Reverb, broadcasting after commit, channels scoped to the account, presence, scaling' },

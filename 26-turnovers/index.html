@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>The cleaner arrived while guests were still inside · Laravel: Cleaning tasks that follow the calendar | Pattern Playbook</title>
+<meta name="description" content="A cleaner let herself in while the guests were still asleep: they had extended by a night, and the cleaning task was created once at confirmation and never moved. Fix it in Laravel by planning the cleaning from the calendar coordinator, sending the date change through that coordinator too, and telling the cleaner when her task moves.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/26-turnovers/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The cleaner arrived while guests were still inside · Laravel: Cleaning tasks that follow the calendar | Pattern Playbook">
+<meta property="og:description" content="A cleaner let herself in while the guests were still asleep: they had extended by a night, and the cleaning task was created once at confirmation and never moved. Fix it in Laravel by planning the cleaning from the calendar coordinator, sending the date change through that coordinator too, and telling the cleaner when her task moves.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/26-turnovers/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The cleaner arrived while guests were still inside · Laravel: Cleaning tasks that follow the calendar | Pattern Playbook">
+<meta name="twitter:description" content="A cleaner let herself in while the guests were still asleep: they had extended by a night, and the cleaning task was created once at confirmation and never moved. Fix it in Laravel by planning the cleaning from the calendar coordinator, sending the date change through that coordinator too, and telling the cleaner when her task moves.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 26: The cleaner arrived while guests were still inside","description":"A cleaner let herself in while the guests were still asleep: they had extended by a night, and the cleaning task was created once at confirmation and never moved. Fix it in Laravel by planning the cleaning from the calendar coordinator, sending the date change through that coordinator too, and telling the cleaner when her task moves.","url":"https://sha-hin.github.io/pattern-playbook/26-turnovers/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/26-turnovers/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 26: The cleaner arrived while guests were still inside","item":"https://sha-hin.github.io/pattern-playbook/26-turnovers/"}]}]}</script>
+</head>
+<body data-page="26-turnovers" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 5 · Operations and pricing › Scene 26 of 42</p>
+<h1>The cleaner arrived while guests were still inside</h1>
+<p class="subtitle">Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner</p>
+
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#ops<span class="inc-when">Wednesday 11:10</span></p>
+<p class="inc-msg"><span class="inc-who">Sara · cleaner</span>I let myself into the Nyhavn flat at 11:00, like the app said. The guests were <b>asleep</b>. They say they’re staying until tomorrow.</p><p class="inc-msg"><span class="inc-who">Mona · support</span>They extended by one night on Monday and paid for it. Their booking says check-out <b>14 July</b>. Sara’s task still says <b>13 July, 11:00</b>.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Cleaning tasks are created once, when a booking is confirmed. Nothing moves them after that. And I just checked Airbnb: it still shows the 13th as free.</p>
+</section>
+<section><h2>Last week’s feature</h2><p>Last week Nordic Stays started planning cleanings. Every stay gets one task, starting at the property’s check-out time on the check-out day, and a host assigns it to one of the account’s cleaners (<code>assigned_to</code>, a member with the Cleaner role from scene 20).</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_04_16_000001_create_cleaning_tasks_table.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
+
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">create</span>(<span class="s">'cleaning_tasks'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">id</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'property_id'</span>)-&gt;<span class="f">constrained</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'booking_id'</span>)-&gt;<span class="f">unique</span>()-&gt;<span class="f">constrained</span>();      <span class="c">// one cleaning after each stay</span>
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'assigned_to'</span>)-&gt;<span class="f">nullable</span>()-&gt;<span class="f">constrained</span>(<span class="s">'users'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">dateTime</span>(<span class="s">'starts_at'</span>);                                  <span class="c">// UTC, like every moment we store</span>
+            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'status'</span>)-&gt;<span class="f">default</span>(<span class="s">'pending'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">timestamps</span>();
+
+            <span class="v">$table</span>-&gt;<span class="f">index</span>([<span class="s">'assigned_to'</span>, <span class="s">'starts_at'</span>]);                   <span class="c">// a cleaner's list, in order</span>
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Enums/CleaningTaskStatus.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
+
+<span class="k">enum</span> <span class="t">CleaningTaskStatus</span>: <span class="k">string</span>
+{
+    <span class="k">case</span> <span class="t">Pending</span> = <span class="s">'pending'</span>;
+    <span class="k">case</span> <span class="t">Done</span> = <span class="s">'done'</span>;
+}</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Models/CleaningTask.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">CleaningTask</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [
+            <span class="s">'starts_at'</span> =&gt; <span class="s">'datetime'</span>,
+            <span class="s">'status'</span> =&gt; <span class="t">CleaningTaskStatus</span>::class,
+        ];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">booking</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Booking</span>::class);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaner</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">User</span>::class, <span class="s">'assigned_to'</span>);
+    }
+}</code></pre>
+</div><p>No <code>$fillable</code>: tasks are written by our own code with <code>forceCreate()</code> and <code>forceFill()</code>, never from a request.</p></div></div></section>
+<section><h2>The broken code</h2><p>The task is created in <code>BookingConfirmation</code>, the one place a booking is confirmed (scene 6):</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">ScheduleGuestMessages</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,
+        <span class="k">private</span> <span class="t">ScheduleGuestMessages</span> <span class="v">$scheduleMessages</span>,
+    ) {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span>
+    {
+        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {
+            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span>
+
+            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span>
+                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span>
+            }
+
+            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span>
+            <span class="v">$payment</span>-&gt;<span class="f">save</span>();
+
+            <span class="k">$this</span>-&gt;scheduleMessages-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);                 <span class="c">// the guest's messages, at their local times</span>
+
+            <span class="t">CleaningTask</span>::<span class="f">forceCreate</span>([                                <span class="c">// the bug: created once, from the dates as they are today</span>
+                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,
+                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,
+                <span class="s">'starts_at'</span> =&gt; <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(
+                    <span class="s">&quot;{$booking-&gt;stay-&gt;checkOut-&gt;toDateString()} {$booking-&gt;property-&gt;check_out_time}&quot;</span>,
+                    <span class="v">$booking</span>-&gt;property-&gt;timezone,
+                )-&gt;<span class="f">utc</span>(),
+            ]);
+
+            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span>
+                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());
+
+            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// step 4: the coordinator decides what follows</span>
+        });
+    }
+}</code></pre>
+</div><p>A task is a consequence of the calendar, but it was created from <b>one event</b>: the confirmation. A date change (scene 23), a cancellation (scene 10), an expired hold (scene 9) or a booking imported from a channel (scene 15) never touches it.</p><p>And the date change has a second gap. Scene 18 built <code>CalendarSync</code> as the one place every calendar change goes through, so the channels learn about it. <code>ChangeBookingDates</code> never calls it, which is why Airbnb still shows the 13th as free.</p></div></div></section>
+<section><h2>The fix, part 1: one class keeps the cleaning in line with the booking</h2><p>Instead of reacting to one event, the cleaning is <b>planned from the booking as it is now</b>, every time the booking changes. Called twice, it changes nothing the second time; called after any change, it fixes whatever the change made wrong.</p><p>The start time is a calendar date plus a wall-clock time in the property’s timezone, turned into UTC once (the same rule as the guest messages in scene 21). A cancelled task stays in the table as <code>cancelled</code>, so the cleaner can be told about it.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Enums/CleaningTaskStatus.php</span><span class="badge">changed since the version above: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Enums;
+
+enum CleaningTaskStatus: string
+{
+    case Pending = 'pending';
+    case Done = 'done';
+    case Cancelled = 'cancelled';                                   // the stay is gone; kept so the cleaner can be told
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;</span><span class="ln"> </span><span class="ln"><span class="k">enum</span> <span class="t">CleaningTaskStatus</span>: <span class="k">string</span></span><span class="ln">{</span><span class="ln">    <span class="k">case</span> <span class="t">Pending</span> = <span class="s">'pending'</span>;</span><span class="ln">    <span class="k">case</span> <span class="t">Done</span> = <span class="s">'done'</span>;</span><span class="ln add">    <span class="k">case</span> <span class="t">Cancelled</span> = <span class="s">'cancelled'</span>;                                   <span class="c">// the stay is gone; kept so the cleaner can be told</span></span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Operations/PlanTurnover.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Operations</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">TurnoverChanged</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">PlanTurnover</span>
+{
+    <span class="c">/** Make the cleaning after $booking match the booking as it is now. Safe to call any number of times. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">forBooking</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span>
+    {
+        <span class="v">$task</span> = <span class="t">CleaningTask</span>::<span class="f">firstWhere</span>(<span class="s">'booking_id'</span>, <span class="v">$booking</span>-&gt;id);
+
+        <span class="k">if</span> (<span class="v">$task</span>?-&gt;status === <span class="t">CleaningTaskStatus</span>::<span class="t">Done</span>) {
+            <span class="k">return</span>;                                                     <span class="c">// already cleaned: history, not a plan</span>
+        }
+
+        <span class="k">if</span> (! <span class="f">in_array</span>(<span class="v">$booking</span>-&gt;status, <span class="t">BookingStatus</span>::<span class="f">blocking</span>(), <span class="k">true</span>)) {   <span class="c">// cancelled or expired</span>
+            <span class="k">if</span> (<span class="v">$task</span>?-&gt;status === <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>) {
+                <span class="v">$task</span>-&gt;<span class="f">forceFill</span>([<span class="s">'status'</span> =&gt; <span class="t">CleaningTaskStatus</span>::<span class="t">Cancelled</span>])-&gt;<span class="f">save</span>();
+                <span class="k">$this</span>-&gt;<span class="f">tellCleaner</span>(<span class="v">$task</span>);
+            }
+
+            <span class="k">return</span>;
+        }
+
+        <span class="v">$startsAt</span> = <span class="k">$this</span>-&gt;<span class="f">checkOutMoment</span>(<span class="v">$booking</span>);
+
+        <span class="k">if</span> (<span class="v">$task</span> === <span class="k">null</span>) {
+            <span class="t">CleaningTask</span>::<span class="f">forceCreate</span>([
+                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,
+                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,
+                <span class="s">'starts_at'</span> =&gt; <span class="v">$startsAt</span>,
+                <span class="s">'status'</span> =&gt; <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>,
+            ]);
+
+            <span class="k">return</span>;                                                     <span class="c">// nobody is assigned yet: nobody to tell</span>
+        }
+
+        <span class="k">if</span> (<span class="v">$task</span>-&gt;status === <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span> &amp;&amp; <span class="v">$task</span>-&gt;starts_at-&gt;<span class="f">equalTo</span>(<span class="v">$startsAt</span>)) {
+            <span class="k">return</span>;                                                     <span class="c">// nothing moved: no message</span>
+        }
+
+        <span class="v">$task</span>-&gt;<span class="f">forceFill</span>([<span class="s">'starts_at'</span> =&gt; <span class="v">$startsAt</span>, <span class="s">'status'</span> =&gt; <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>])-&gt;<span class="f">save</span>();
+        <span class="k">$this</span>-&gt;<span class="f">tellCleaner</span>(<span class="v">$task</span>);
+    }
+
+    <span class="c">/** 14 July at 11:00 in Copenhagen → 2027-07-14 09:00 UTC. */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">checkOutMoment</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">CarbonImmutable</span>
+    {
+        <span class="v">$property</span> = <span class="v">$booking</span>-&gt;property;
+
+        <span class="k">return</span> <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$booking-&gt;stay-&gt;checkOut-&gt;toDateString()} {$property-&gt;check_out_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone)
+            -&gt;<span class="f">utc</span>();
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">tellCleaner</span>(<span class="t">CleaningTask</span> <span class="v">$task</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="v">$task</span>-&gt;cleaner !== <span class="k">null</span>) {
+            <span class="v">$task</span>-&gt;cleaner-&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">TurnoverChanged</span>(<span class="v">$task</span>))-&gt;<span class="f">afterCommit</span>());   <span class="c">// never about a change that rolled back</span>
+        }
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The message the cleaner gets</h3><p>Cleaners are users, so they choose email or SMS the same way hosts do (scene 25). The time is shown in the property’s timezone: the cleaner stands at the door in Copenhagen, not in UTC.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Notifications/TurnoverChanged.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">Channels</span>\<span class="t">SmsChannel</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;
+
+<span class="k">class</span> <span class="t">TurnoverChanged</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>
+{
+    <span class="k">use</span> <span class="t">Queueable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">CleaningTask</span> <span class="v">$task</span>)
+    {
+    }
+
+    <span class="c">/** @return list&lt;string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span>
+    {
+        <span class="v">$allowed</span> = [<span class="s">'mail'</span> =&gt; <span class="s">'mail'</span>, <span class="s">'sms'</span> =&gt; <span class="t">SmsChannel</span>::class];
+
+        <span class="k">return</span> <span class="f">array_values</span>(<span class="f">array_intersect_key</span>(<span class="v">$allowed</span>, <span class="f">array_flip</span>(<span class="v">$notifiable</span>-&gt;notification_channels ?? [<span class="s">'mail'</span>])));
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span>
+    {
+        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())
+            -&gt;<span class="f">subject</span>(<span class="k">$this</span>-&gt;<span class="f">cancelled</span>() ? <span class="s">&quot;Cleaning cancelled: {$this-&gt;task-&gt;property-&gt;name}&quot;</span> : <span class="s">&quot;Cleaning moved: {$this-&gt;task-&gt;property-&gt;name}&quot;</span>)
+            -&gt;<span class="f">line</span>(<span class="k">$this</span>-&gt;<span class="f">summary</span>());
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toSms</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">&quot;Nordic Stays: {$this-&gt;summary()}&quot;</span>;
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">summary</span>(): <span class="k">string</span>
+    {
+        <span class="v">$property</span> = <span class="k">$this</span>-&gt;task-&gt;property;
+
+        <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="f">cancelled</span>()) {
+            <span class="k">return</span> <span class="s">&quot;The cleaning at {$property-&gt;name} is cancelled. The guests’ stay was cancelled.&quot;</span>;
+        }
+
+        <span class="v">$local</span> = <span class="k">$this</span>-&gt;task-&gt;starts_at-&gt;<span class="f">setTimezone</span>(<span class="v">$property</span>-&gt;timezone)-&gt;<span class="f">format</span>(<span class="s">'l j F, H:i'</span>);   <span class="c">// Wednesday 14 July, 11:00</span>
+
+        <span class="k">return</span> <span class="s">&quot;The cleaning at {$property-&gt;name} now starts {$local}. Please don’t go in before then.&quot;</span>;
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">cancelled</span>(): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;task-&gt;status === <span class="t">CleaningTaskStatus</span>::<span class="t">Cancelled</span>;
+    }
+}</code></pre>
+</div><p>The notification is queued, so it reloads the task when it is sent: the cleaner always reads the latest time.</p></div></div></section>
+<section><h2>The fix, part 2: the coordinator plans the cleaning</h2><p><code>CalendarSync</code> already hears about every booking that is created, confirmed, imported, cancelled or expired. The cleaning becomes one more thing it decides, next to the overbooking check and the channel push.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/CalendarSync.php</span><span class="badge">changed since scene 18: <span class="plus">+8</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Enums\MembershipRole;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\Overbooking;
+use App\Models\Property;
+use App\Notifications\OverbookingDetected;
+use App\Operations\PlanTurnover;
+use Illuminate\Support\Facades\Notification;
+
+final class CalendarSync
+{
+    public function __construct(private PlanTurnover $turnover)
+    {
+    }
+
+    /** A booking was created, confirmed, imported, cancelled, expired or moved to other dates. */
+    public function bookingChanged(Booking $booking): void
+    {
+        if (in_array($booking-&gt;status, BookingStatus::blocking(), true)) {
+            $this-&gt;recordClashes($booking);
+        }
+
+        $this-&gt;turnover-&gt;forBooking($booking);                          // the cleaning follows the booking
+
+        PushAvailability::forProperty($booking-&gt;property);           // every channel learns the new state (scene 17)
+    }
+
+    /** An iCal sync changed the blocks of a property (scene 12). */
+    public function blocksChanged(Property $property): void
+    {
+        PushAvailability::forProperty($property);
+    }
+
+    private function recordClashes(Booking $booking): void
+    {
+        $clashes = $booking-&gt;property-&gt;bookings()
+            -&gt;overlapping($booking-&gt;stay)
+            -&gt;whereKeyNot($booking-&gt;id)
+            -&gt;where('id', '&lt;', $booking-&gt;id)                               // earlier bookings only: each clash is recorded once, on the later one
+            -&gt;get();
+
+        foreach ($clashes as $earlier) {
+            $overbooking = Overbooking::createOrFirst([
+                'property_id' =&gt; $booking-&gt;property_id,
+                'booking_id' =&gt; $booking-&gt;id,
+                'conflicting_booking_id' =&gt; $earlier-&gt;id,
+            ]);
+
+            if ($overbooking-&gt;wasRecentlyCreated) {
+                $owners = $booking-&gt;property-&gt;account-&gt;users()-&gt;wherePivot('role', MembershipRole::Owner-&gt;value)-&gt;get();
+                Notification::send($owners, (new OverbookingDetected($overbooking))-&gt;afterCommit());
+            }
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">OverbookingDetected</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Operations</span>\<span class="t">PlanTurnover</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CalendarSync</span></span><span class="ln">{</span><span class="ln del">    <span class="c">/** A booking was created, confirmed, imported, cancelled or expired. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PlanTurnover</span> <span class="v">$turnover</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** A booking was created, confirmed, imported, cancelled, expired or moved to other dates. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookingChanged</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">if</span> (<span class="f">in_array</span>(<span class="v">$booking</span>-&gt;status, <span class="t">BookingStatus</span>::<span class="f">blocking</span>(), <span class="k">true</span>)) {</span><span class="ln">            <span class="k">$this</span>-&gt;<span class="f">recordClashes</span>(<span class="v">$booking</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln add">        <span class="k">$this</span>-&gt;turnover-&gt;<span class="f">forBooking</span>(<span class="v">$booking</span>);                          <span class="c">// the cleaning follows the booking</span></span><span class="ln add"> </span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);           <span class="c">// every channel learns the new state (scene 17)</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** An iCal sync changed the blocks of a property (scene 12). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">blocksChanged</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$property</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">recordClashes</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$clashes</span> = <span class="v">$booking</span>-&gt;property-&gt;<span class="f">bookings</span>()</span><span class="ln">            -&gt;<span class="f">overlapping</span>(<span class="v">$booking</span>-&gt;stay)</span><span class="ln">            -&gt;<span class="f">whereKeyNot</span>(<span class="v">$booking</span>-&gt;id)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'id'</span>, <span class="s">'&lt;'</span>, <span class="v">$booking</span>-&gt;id)                               <span class="c">// earlier bookings only: each clash is recorded once, on the later one</span></span><span class="ln">            -&gt;<span class="f">get</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">foreach</span> (<span class="v">$clashes</span> <span class="k">as</span> <span class="v">$earlier</span>) {</span><span class="ln">            <span class="v">$overbooking</span> = <span class="t">Overbooking</span>::<span class="f">createOrFirst</span>([</span><span class="ln">                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,</span><span class="ln">                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,</span><span class="ln">                <span class="s">'conflicting_booking_id'</span> =&gt; <span class="v">$earlier</span>-&gt;id,</span><span class="ln">            ]);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$overbooking</span>-&gt;wasRecentlyCreated) {</span><span class="ln">                <span class="v">$owners</span> = <span class="v">$booking</span>-&gt;property-&gt;account-&gt;<span class="f">users</span>()-&gt;<span class="f">wherePivot</span>(<span class="s">'role'</span>, <span class="t">MembershipRole</span>::<span class="t">Owner</span>-&gt;value)-&gt;<span class="f">get</span>();</span><span class="ln">                <span class="t">Notification</span>::<span class="f">send</span>(<span class="v">$owners</span>, (<span class="k">new</span> <span class="f">OverbookingDetected</span>(<span class="v">$overbooking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln">            }</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Confirmation stops creating the task itself</h3><p>Step 4 already calls <code>CalendarSync</code>, which now plans the cleaning, so the code from last week goes.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">changed since the version above: <span class="plus">+1</span> <span class="minus">−12</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Messaging\ScheduleGuestMessages;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function __construct(
+        private CalendarSync $calendar,
+        private ScheduleGuestMessages $scheduleMessages,
+    ) {
+    }
+
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // fresh, and locked
+
+            if (! $booking-&gt;state()-&gt;confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment-&gt;status = PaymentStatus::Succeeded;               // step 2
+            $payment-&gt;save();
+
+            $this-&gt;scheduleMessages-&gt;handle($booking);                 // the guest's messages, at their local times
+
+            Notification::route('mail', $booking-&gt;guest_email)         // step 3, after the commit
+                -&gt;notify((new BookingConfirmed($booking))-&gt;afterCommit());
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // step 4: channels, overbookings and the cleaning
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">ScheduleGuestMessages</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,</span><span class="ln">        <span class="k">private</span> <span class="t">ScheduleGuestMessages</span> <span class="v">$scheduleMessages</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span></span><span class="ln">                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span></span><span class="ln">            <span class="v">$payment</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">$this</span>-&gt;scheduleMessages-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);                 <span class="c">// the guest's messages, at their local times</span></span><span class="ln"> </span><span class="ln del">            <span class="t">CleaningTask</span>::<span class="f">forceCreate</span>([                                <span class="c">// the bug: created once, from the dates as they are today</span></span><span class="ln del">                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,</span><span class="ln del">                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,</span><span class="ln del">                <span class="s">'starts_at'</span> =&gt; <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(</span><span class="ln del">                    <span class="s">&quot;{$booking-&gt;stay-&gt;checkOut-&gt;toDateString()} {$booking-&gt;property-&gt;check_out_time}&quot;</span>,</span><span class="ln del">                    <span class="v">$booking</span>-&gt;property-&gt;timezone,</span><span class="ln del">                )-&gt;<span class="f">utc</span>(),</span><span class="ln del">            ]);</span><span class="ln del"> </span><span class="ln">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span></span><span class="ln">                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln"> </span><span class="ln del">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// step 4: the coordinator decides what follows</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// step 4: channels, overbookings and the cleaning</span></span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 3: a date change goes through the coordinator too</h2><p>This is the line the incident needed. A date change, and the revert when its payment fails, now tell <code>CalendarSync</code>, so the cleaning moves and every channel gets the new nights.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/ChangeBookingDates.php</span><span class="badge">changed since scene 23: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Messaging\RescheduleGuestMessages;
+use App\Models\Booking;
+use App\Models\BookingChange;
+use App\Models\Property;
+use App\Payments\PaymentGateway;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final readonly class ChangeBookingDates
+{
+    public function __construct(
+        private PriceQuoter $quoter,
+        private PaymentGateway $gateway,
+        private RescheduleGuestMessages $reschedule,
+        private CalendarSync $calendar,
+    ) {
+    }
+
+    /** @return string|null the client secret for the extra payment, or null when nothing more is owed */
+    public function handle(Booking $booking, Stay $newStay): ?string
+    {
+        return DB::transaction(function () use ($booking, $newStay): ?string {
+            Property::whereKey($booking-&gt;property_id)-&gt;lockForUpdate()-&gt;firstOrFail();
+
+            $taken = $booking-&gt;property-&gt;bookings()-&gt;overlapping($newStay)-&gt;whereKeyNot($booking-&gt;id)-&gt;exists()
+                || $booking-&gt;property-&gt;externalBlocks()-&gt;overlapping($newStay)-&gt;exists();
+            if ($taken) {
+                throw BookingConflict::for($newStay);                   // 409, nothing changed
+            }
+
+            $change = BookingChange::forceCreate(['booking_id' =&gt; $booking-&gt;id, 'snapshot' =&gt; $booking-&gt;snapshot()-&gt;toArray()]);
+
+            $quote = $this-&gt;quoter-&gt;quote($booking-&gt;property, $newStay);
+            $difference = $quote-&gt;total()-&gt;add($booking-&gt;total-&gt;negate());
+
+            $booking-&gt;stay = $newStay;                                  // the nights are ours from now on
+            $booking-&gt;total = $quote-&gt;total();
+            $booking-&gt;save();
+            $booking-&gt;lineItems()-&gt;delete();
+            $booking-&gt;lineItems()-&gt;createMany(array_map(fn (LineItem $line): array =&gt; [
+                'type' =&gt; $line-&gt;type, 'description' =&gt; $line-&gt;description, 'amount' =&gt; $line-&gt;amount,
+            ], $quote-&gt;lines));
+
+            $this-&gt;reschedule-&gt;handle($booking);                        // messages follow the new dates
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // the fix: channels and the cleaning follow too
+
+            if ($difference-&gt;amount &lt;= 0) {
+                $change-&gt;forceFill(['status' =&gt; 'settled'])-&gt;save();    // a shorter stay: refunds go through scene 10's job
+                return null;
+            }
+
+            $intent = $this-&gt;gateway-&gt;createPaymentIntent($difference, ['booking_id' =&gt; (string) $booking-&gt;id], &quot;booking-change-{$change-&gt;id}&quot;);
+            $booking-&gt;payments()-&gt;create([
+                'amount_cents' =&gt; $difference-&gt;amount, 'currency' =&gt; $difference-&gt;currency-&gt;value,
+                'status' =&gt; PaymentStatus::Pending, 'provider_payment_id' =&gt; $intent['id'], 'booking_change_id' =&gt; $change-&gt;id,
+            ]);
+
+            return $intent['client_secret'];
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">RescheduleGuestMessages</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">BookingChange</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">ChangeBookingDates</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>,</span><span class="ln">        <span class="k">private</span> <span class="t">PaymentGateway</span> <span class="v">$gateway</span>,</span><span class="ln">        <span class="k">private</span> <span class="t">RescheduleGuestMessages</span> <span class="v">$reschedule</span>,</span><span class="ln add">        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return string|null the client secret for the extra payment, or null when nothing more is owed */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Stay</span> <span class="v">$newStay</span>): ?<span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$newStay</span>): ?<span class="k">string</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;property_id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">            <span class="v">$taken</span> = <span class="v">$booking</span>-&gt;property-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$newStay</span>)-&gt;<span class="f">whereKeyNot</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">exists</span>()</span><span class="ln">                || <span class="v">$booking</span>-&gt;property-&gt;<span class="f">externalBlocks</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$newStay</span>)-&gt;<span class="f">exists</span>();</span><span class="ln">            <span class="k">if</span> (<span class="v">$taken</span>) {</span><span class="ln">                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$newStay</span>);                   <span class="c">// 409, nothing changed</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$change</span> = <span class="t">BookingChange</span>::<span class="f">forceCreate</span>([<span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id, <span class="s">'snapshot'</span> =&gt; <span class="v">$booking</span>-&gt;<span class="f">snapshot</span>()-&gt;<span class="f">toArray</span>()]);</span><span class="ln"> </span><span class="ln">            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$booking</span>-&gt;property, <span class="v">$newStay</span>);</span><span class="ln">            <span class="v">$difference</span> = <span class="v">$quote</span>-&gt;<span class="f">total</span>()-&gt;<span class="f">add</span>(<span class="v">$booking</span>-&gt;total-&gt;<span class="f">negate</span>());</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;stay = <span class="v">$newStay</span>;                                  <span class="c">// the nights are ours from now on</span></span><span class="ln">            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">save</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">delete</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type, <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description, <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,</span><span class="ln">            ], <span class="v">$quote</span>-&gt;lines));</span><span class="ln"> </span><span class="ln">            <span class="k">$this</span>-&gt;reschedule-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);                        <span class="c">// messages follow the new dates</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// the fix: channels and the cleaning follow too</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$difference</span>-&gt;amount &lt;= <span class="n">0</span>) {</span><span class="ln">                <span class="v">$change</span>-&gt;<span class="f">forceFill</span>([<span class="s">'status'</span> =&gt; <span class="s">'settled'</span>])-&gt;<span class="f">save</span>();    <span class="c">// a shorter stay: refunds go through scene 10's job</span></span><span class="ln">                <span class="k">return</span> <span class="k">null</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$intent</span> = <span class="k">$this</span>-&gt;gateway-&gt;<span class="f">createPaymentIntent</span>(<span class="v">$difference</span>, [<span class="s">'booking_id'</span> =&gt; (<span class="k">string</span>) <span class="v">$booking</span>-&gt;id], <span class="s">&quot;booking-change-{$change-&gt;id}&quot;</span>);</span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([</span><span class="ln">                <span class="s">'amount_cents'</span> =&gt; <span class="v">$difference</span>-&gt;amount, <span class="s">'currency'</span> =&gt; <span class="v">$difference</span>-&gt;currency-&gt;value,</span><span class="ln">                <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>, <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>[<span class="s">'id'</span>], <span class="s">'booking_change_id'</span> =&gt; <span class="v">$change</span>-&gt;id,</span><span class="ln">            ]);</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$intent</span>[<span class="s">'client_secret'</span>];</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/RevertBookingChange.php</span><span class="badge">changed since scene 23: <span class="plus">+6</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Messaging\RescheduleGuestMessages;
+use App\Models\Booking;
+use App\Models\BookingChange;
+use Illuminate\Support\Facades\DB;
+
+final readonly class RevertBookingChange
+{
+    public function __construct(
+        private RescheduleGuestMessages $reschedule,
+        private CalendarSync $calendar,
+    ) {
+    }
+
+    public function handle(BookingChange $change): void
+    {
+        DB::transaction(function () use ($change): void {
+            $change = BookingChange::whereKey($change-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+
+            if ($change-&gt;status !== 'pending') {
+                return;                                                 // already settled or reverted: a repeated webhook
+            }
+
+            $booking = Booking::whereKey($change-&gt;booking_id)-&gt;lockForUpdate()-&gt;firstOrFail();
+            $booking-&gt;restore(BookingSnapshot::fromArray($change-&gt;snapshot));
+            $this-&gt;reschedule-&gt;handle($booking);
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // the old dates go back to the channels and the cleaner
+
+            $change-&gt;forceFill(['status' =&gt; 'reverted'])-&gt;save();
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">RescheduleGuestMessages</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">BookingChange</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">RevertBookingChange</span></span><span class="ln">{</span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">RescheduleGuestMessages</span> <span class="v">$reschedule</span>)</span><span class="ln del">    {</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln add">        <span class="k">private</span> <span class="t">RescheduleGuestMessages</span> <span class="v">$reschedule</span>,</span><span class="ln add">        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,</span><span class="ln add">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">BookingChange</span> <span class="v">$change</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$change</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$change</span> = <span class="t">BookingChange</span>::<span class="f">whereKey</span>(<span class="v">$change</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$change</span>-&gt;status !== <span class="s">'pending'</span>) {</span><span class="ln">                <span class="k">return</span>;                                                 <span class="c">// already settled or reverted: a repeated webhook</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$change</span>-&gt;booking_id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">restore</span>(<span class="t">BookingSnapshot</span>::<span class="f">fromArray</span>(<span class="v">$change</span>-&gt;snapshot));</span><span class="ln">            <span class="k">$this</span>-&gt;reschedule-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);</span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// the old dates go back to the channels and the cleaner</span></span><span class="ln"> </span><span class="ln">            <span class="v">$change</span>-&gt;<span class="f">forceFill</span>([<span class="s">'status'</span> =&gt; <span class="s">'reverted'</span>])-&gt;<span class="f">save</span>();</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Every other path that changes a booking already calls <code>CalendarSync</code>: confirmation, cancellation, expired holds and channel imports. Each of them now plans the cleaning without any change of its own.</p></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The incident, the property’s time, cancellations, reverts, and no message when nothing moved</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/TurnoverTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CancelBooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">ChangeBookingDates</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">RevertBookingChange</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">BookingChange</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">TurnoverChanged</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;
+<span class="k">use</span> <span class="t">Tests</span>\<span class="t">Fakes</span>\<span class="t">FakePaymentGateway</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">instance</span>(<span class="t">PaymentGateway</span>::class, <span class="k">new</span> <span class="f">FakePaymentGateway</span>());
+    <span class="t">Notification</span>::<span class="f">fake</span>();
+
+    <span class="k">$this</span>-&gt;property = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Nyhavn flat'</span>]);   <span class="c">// Copenhagen, check-out 11:00</span>
+    <span class="k">$this</span>-&gt;booking = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;property)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-10'</span>, <span class="n">3</span>)-&gt;<span class="f">create</span>();
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="k">$this</span>-&gt;booking);                  <span class="c">// as at confirmation</span>
+
+    <span class="k">$this</span>-&gt;cleaner = <span class="f">hostOf</span>(<span class="k">$this</span>-&gt;property, <span class="t">MembershipRole</span>::<span class="t">Cleaner</span>);
+    <span class="t">CleaningTask</span>::<span class="f">sole</span>()-&gt;<span class="f">forceFill</span>([<span class="s">'assigned_to'</span> =&gt; <span class="k">$this</span>-&gt;cleaner-&gt;id])-&gt;<span class="f">save</span>();
+});
+
+<span class="f">it</span>(<span class="s">'moves the cleaning when the guests extend, and tells the cleaner'</span>, <span class="k">function</span> () {
+    <span class="f">app</span>(<span class="t">ChangeBookingDates</span>::class)-&gt;<span class="f">handle</span>(<span class="k">$this</span>-&gt;booking, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-14'</span>));
+
+    <span class="f">expect</span>(<span class="t">CleaningTask</span>::<span class="f">sole</span>()-&gt;starts_at-&gt;<span class="f">toDateTimeString</span>())-&gt;<span class="f">toBe</span>(<span class="s">'2027-07-14 09:00:00'</span>);   <span class="c">// 11:00 in Copenhagen, summer</span>
+    <span class="t">Notification</span>::<span class="f">assertSentTo</span>(<span class="k">$this</span>-&gt;cleaner, <span class="t">TurnoverChanged</span>::class);
+});
+
+<span class="f">it</span>(<span class="s">'starts at the check-out time of the property’s own timezone'</span>, <span class="k">function</span> () {
+    <span class="v">$queenstown</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">in</span>(<span class="s">'Queenstown'</span>, <span class="s">'NZ'</span>, <span class="s">'Pacific/Auckland'</span>)-&gt;<span class="f">create</span>([<span class="s">'check_out_time'</span> =&gt; <span class="s">'10:00'</span>]);
+    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="v">$queenstown</span>)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-10'</span>, <span class="n">3</span>)-&gt;<span class="f">create</span>();
+
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+
+    <span class="f">expect</span>(<span class="t">CleaningTask</span>::<span class="f">where</span>(<span class="s">'booking_id'</span>, <span class="v">$booking</span>-&gt;id)-&gt;<span class="f">sole</span>()-&gt;starts_at-&gt;<span class="f">toDateTimeString</span>())
+        -&gt;<span class="f">toBe</span>(<span class="s">'2027-07-12 22:00:00'</span>);                                          <span class="c">// 13 July 10:00 in New Zealand winter</span>
+});
+
+<span class="f">it</span>(<span class="s">'cancels the cleaning with the stay, and tells the cleaner'</span>, <span class="k">function</span> () {
+    <span class="f">app</span>(<span class="t">CancelBooking</span>::class)-&gt;<span class="f">handle</span>(<span class="k">$this</span>-&gt;booking);
+
+    <span class="f">expect</span>(<span class="t">CleaningTask</span>::<span class="f">sole</span>()-&gt;status)-&gt;<span class="f">toBe</span>(<span class="t">CleaningTaskStatus</span>::<span class="t">Cancelled</span>);
+    <span class="t">Notification</span>::<span class="f">assertSentTo</span>(<span class="k">$this</span>-&gt;cleaner, <span class="t">TurnoverChanged</span>::class);
+});
+
+<span class="f">it</span>(<span class="s">'puts the cleaning back when the extra payment fails'</span>, <span class="k">function</span> () {
+    <span class="f">app</span>(<span class="t">ChangeBookingDates</span>::class)-&gt;<span class="f">handle</span>(<span class="k">$this</span>-&gt;booking, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-14'</span>));
+
+    <span class="f">app</span>(<span class="t">RevertBookingChange</span>::class)-&gt;<span class="f">handle</span>(<span class="t">BookingChange</span>::<span class="f">sole</span>());
+
+    <span class="f">expect</span>(<span class="t">CleaningTask</span>::<span class="f">sole</span>()-&gt;starts_at-&gt;<span class="f">toDateTimeString</span>())-&gt;<span class="f">toBe</span>(<span class="s">'2027-07-13 09:00:00'</span>);
+    <span class="t">Notification</span>::<span class="f">assertSentToTimes</span>(<span class="k">$this</span>-&gt;cleaner, <span class="t">TurnoverChanged</span>::class, <span class="n">2</span>);   <span class="c">// moved, then moved back</span>
+});
+
+<span class="f">it</span>(<span class="s">'says nothing when nothing moved'</span>, <span class="k">function</span> () {
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="k">$this</span>-&gt;booking);
+    <span class="f">app</span>(<span class="t">CalendarSync</span>::class)-&gt;<span class="f">bookingChanged</span>(<span class="k">$this</span>-&gt;booking);
+
+    <span class="f">expect</span>(<span class="t">CleaningTask</span>::<span class="f">count</span>())-&gt;<span class="f">toBe</span>(<span class="n">1</span>);
+    <span class="t">Notification</span>::<span class="f">assertNotSentTo</span>(<span class="k">$this</span>-&gt;cleaner, <span class="t">TurnoverChanged</span>::class);
+});</code></pre>
+</div><p><code>hostOf()</code> is the Foundation helper: it adds a member with the given role to the property’s account.</p></div></div></div></details></section>
+<section class="nextup"><p>The cleaning now follows the calendar. Next, the summer prices go live, and every Saturday in July gets cheaper than in May.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../25-channels/"><small>← Scene 25</small>SMS guests got an email instead</a>
+<span class="soon"><small>Scene 27, coming soon</small>Summer prices ignored the weekend rule</span>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans as a tree of rules; the calendar_days table"],"slug":"27-rate-plans","ready":false,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), deep vs shallow copies"],"slug":"28-duplicate-listing","ready":false,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Booking rules and price stages; Laravel’s middleware pipeline inside"],"slug":"29-acceptance-rules","ready":false,"label":"Day 5 · Scene 29"},{"n":30,"title":"Search said free, the booking said taken","patterns":["Availability search on SQL, then Meilisearch behind the same interface"],"slug":"30-search","ready":false,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":false,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Composite","chapter":27,"chapterTitle":"Summer prices ignored the weekend rule","slug":"27-rate-plans","ready":false},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":false},{"name":"Pipeline","chapter":29,"chapterTitle":"A 1-night Booking.com stay on a 3-night-minimum cabin","slug":"29-acceptance-rules","ready":false},{"name":"Chain of Responsibility","chapter":29,"chapterTitle":"A 1-night Booking.com stay on a 3-night-minimum cabin","slug":"29-acceptance-rules","ready":false},{"name":"Specification","chapter":30,"chapterTitle":"Search said free, the booking said taken","slug":"30-search","ready":false},{"name":"Repository","chapter":30,"chapterTitle":"Search said free, the booking said taken","slug":"30-search","ready":false},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Template Method","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Factory Method","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Six patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

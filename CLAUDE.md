@@ -15,9 +15,9 @@
 ## Planned bugs for the upcoming scenes
 | Scene | Incident | The real cause |
 |---|---|---|
-| 26 | The cleaner arrived while guests were still inside | The guests extended by a night; the date change never moved the cleaning task |
-| 27 | Changed the copy’s prices, the original’s changed too | `replicate()` copies `rate_plan_id`, so both listings share one rate plan |
-| 28 | Summer prices ignored the weekend rule | A season replaces the base rules instead of combining with them |
+| 26 | The cleaner arrived while guests were still inside | The guests extended by a night; the task was created once at confirmation, and date changes skipped `CalendarSync` |
+| 27 | Summer prices ignored the weekend rule | A season replaces the base rules instead of combining with them |
+| 28 | Changed the copy’s prices, the original’s changed too | `replicate()` copies `rate_plan_id`, so both listings share one rate plan |
 | 29 | A 1-night Booking.com stay on a 3-night-minimum cabin | Minimum stay is checked only in the website’s Form Request; channel imports skip it |
 | 30 | Search said free, the booking said taken | Search wrote its own overlap query and ignores pending holds; booking counts them |
 | 31 | The calendar didn’t update when Airbnb booked | Broadcast fired only from the website’s controller, not from channel imports, and before commit |
