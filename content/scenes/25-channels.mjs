@@ -919,6 +919,206 @@ it('sends WhatsApp through the approved template, with the rendered text in it',
         && $request['template']['components'][0]['parameters'][0]['text'] === 'Hi Søren');
 });`,
       },
+      {
+        title: 'Older tests send the new required field',
+        text: ['The booking form now requires `contact_channel` (part 1). Three earlier test files post a booking without it, so they now send `\'contact_channel\' => \'email\'`; nothing else in them changes.'],
+        path: 'tests/Feature/CreateBookingTest.php',
+        code: String.raw`<?php
+
+use App\Enums\MembershipRole;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+
+// The clock is frozen at 2027-06-01 for every test (tests/Pest.php).
+beforeEach(function () {
+    $this->property = Property::factory()->create();               // €150.00 a night, up to 4 guests
+    $this->host = hostOf($this->property);
+});
+
+function bookingInput(array $overrides = []): array
+{
+    return [
+        'check_in' => '2027-07-01', 'check_out' => '2027-07-04', 'guests' => 2,
+        'guest_name' => 'Mona Adel', 'guest_email' => 'mona@example.com', 'contact_channel' => 'email', ...$overrides,
+    ];
+}
+
+it('creates a pending booking priced per night', function () {
+    $this->actingAs($this->host)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput())
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('data.nights', 3)
+        ->assertJsonPath('data.total.amount', 45_000);
+});
+
+it('rejects invalid input', function (array $input, string $field) {
+    $this->actingAs($this->host)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput($input))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'check-out before check-in' => [['check_out' => '2027-06-30'], 'check_out'],
+    'in the past' => [['check_in' => '2027-05-30'], 'check_in'],
+    'too many guests' => [['guests' => 5], 'guests'],
+    'bad email' => [['guest_email' => 'not-an-email'], 'guest_email'],
+]);
+
+it('forbids users of another account, and cleaners', function (?MembershipRole $role) {
+    $user = $role ? hostOf($this->property, $role) : User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput())
+        ->assertForbidden();
+})->with(['another account' => [null], 'a cleaner' => [MembershipRole::Cleaner]]);
+
+it('refuses overlapping nights with 409', function () {
+    Booking::factory()->for($this->property)->forStay('2027-07-03', 2)->create();
+
+    $this->actingAs($this->host)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput())
+        ->assertConflict();
+});
+
+// Trap 1: green with no overlap check at all; red with the naive "<=" rule.
+it('allows a stay that starts on the day the previous one ends', function () {
+    Booking::factory()->for($this->property)->forStay('2027-06-28', 3)->create();   // leaves 2027-07-01
+
+    $this->actingAs($this->host)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput())
+        ->assertCreated();
+});
+
+// Trap 2: green with no overlap check at all; red when the rule forgets the status.
+it('ignores cancelled bookings', function () {
+    Booking::factory()->for($this->property)->forStay('2027-07-01', 3)->cancelled()->create();
+
+    $this->actingAs($this->host)
+        ->postJson("/api/v1/properties/{$this->property->id}/bookings", bookingInput())
+        ->assertCreated();
+});`,
+      },
+      {
+        path: 'tests/Feature/PriceQuoterTest.php',
+        code: String.raw`<?php
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Money\Money;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+
+beforeEach(function () {
+    $this->property = Property::factory()->create([
+        'nightly_rate_cents' => 15_000, 'cleaning_fee_cents' => 6_000, 'weekly_discount_bps' => 1_000, 'tax_rate_bps' => 1_000,
+    ]);
+    $this->host = hostOf($this->property);
+});
+
+it('gives the weekly discount from 7 nights, not before', function (string $checkOut, int $total) {
+    $this->getJson("/api/v1/properties/{$this->property->id}/quote?check_in=2027-07-01&check_out={$checkOut}")
+        ->assertOk()
+        ->assertJsonPath('total.amount', $total);
+})->with([
+    '6 nights' => ['2027-07-07', 105_600],      // (90000 + 6000) + 10% tax
+    '7 nights' => ['2027-07-08', 110_550],
+]);
+
+it('charges exactly what the price page showed', function () {
+    $shown = $this->getJson("/api/v1/properties/{$this->property->id}/quote?check_in=2027-07-01&check_out=2027-07-08")->json('total.amount');
+
+    $this->actingAs($this->host)->postJson("/api/v1/properties/{$this->property->id}/bookings", [
+        'check_in' => '2027-07-01', 'check_out' => '2027-07-08', 'guests' => 2,
+        'guest_name' => 'Mona Adel', 'guest_email' => 'mona@example.com', 'contact_channel' => 'email',
+    ])->assertCreated()->assertJsonPath('data.total.amount', $shown);
+});
+
+it('builds a host’s custom offer with the same order and the same tax', function () {
+    $quote = app(PriceQuoter::class)->customOffer($this->property, Stay::fromDates('2027-07-01', '2027-07-08'), Money::of(13_000, 'EUR'), discountBps: 500);
+
+    expect(array_map(fn (LineItem $line): int => $line->amount->amount, $quote->lines))->toBe([91_000, -4_550, 6_000, 9_245])
+        ->and($quote->total()->amount)->toBe(101_695);               // no weekly discount on top of the host's own
+});
+
+it('stores every line with the booking', function () {
+    $this->actingAs($this->host)->postJson("/api/v1/properties/{$this->property->id}/bookings", [
+        'check_in' => '2027-07-01', 'check_out' => '2027-07-08', 'guests' => 2,
+        'guest_name' => 'Mona Adel', 'guest_email' => 'mona@example.com', 'contact_channel' => 'email',
+    ]);
+
+    expect($this->property->bookings()->sole()->lineItems()->orderBy('id')->pluck('amount_cents')->all())->toBe([105_000, -10_500, 6_000, 10_050]);
+});`,
+      },
+      {
+        path: 'tests/Feature/IcalSyncTest.php',
+        code: String.raw`<?php
+
+use App\Channels\Ical\IcalImporter;
+use App\Enums\Channel;
+use App\Models\ExternalBlock;
+use App\Models\IcalFeed;
+use App\Models\Property;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
+
+function ics(string ...$events): string
+{
+    return "BEGIN:VCALENDAR\r\n" . implode('', $events) . "END:VCALENDAR\r\n";
+}
+
+function vevent(string $uid, string $start, string $end, string $summary = 'Reserved'): string
+{
+    return "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:{$start}\r\nDTEND;VALUE=DATE:{$end}\r\nUID:{$uid}\r\nSUMMARY:{$summary}\r\nEND:VEVENT\r\n";
+}
+
+beforeEach(function () {
+    $this->property = Property::factory()->create();
+    $this->airbnb = IcalFeed::forceCreate(['property_id' => $this->property->id, 'source' => Channel::Airbnb, 'url' => 'https://airbnb.test/1.ics']);
+    $this->bookingCom = IcalFeed::forceCreate(['property_id' => $this->property->id, 'source' => Channel::BookingCom, 'url' => 'https://booking.test/1.ics']);
+});
+
+it('saves each event once, by UID, however often it syncs', function () {
+    Http::fake(['airbnb.test/*' => Http::response(ics(vevent('a1', '20270710', '20270713'), vevent('a2', '20270801', '20270804', 'Airbnb (Not available)')))]);
+
+    app(IcalImporter::class)->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->airbnb);
+
+    expect(ExternalBlock::orderBy('uid')->pluck('kind', 'uid')->all())->toBe(['a1' => 'reservation', 'a2' => 'blocked']);
+});
+
+it('removes a cancelled event, and never touches another channel’s blocks', function () {
+    Http::fake([
+        'booking.test/*' => Http::response(ics(vevent('b1', '20270720', '20270722', 'CLOSED - Not available'))),
+        'airbnb.test/*' => Http::sequence()
+            ->push(ics(vevent('a1', '20270710', '20270713'), vevent('a2', '20270801', '20270804')))
+            ->push(ics(vevent('a1', '20270710', '20270713'))),                   // a2 was cancelled on Airbnb
+    ]);
+
+    app(IcalImporter::class)->sync($this->bookingCom);
+    app(IcalImporter::class)->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->airbnb);
+
+    expect(ExternalBlock::orderBy('uid')->pluck('uid')->all())->toBe(['a1', 'b1']);
+});
+
+it('keeps every block when the channel fails', function () {
+    ExternalBlock::create(['property_id' => $this->property->id, 'source' => Channel::Airbnb, 'uid' => 'a1', 'kind' => 'reservation', 'starts_on' => '2027-07-10', 'ends_on' => '2027-07-13']);
+    Http::fake(['airbnb.test/*' => Http::response('Service Unavailable', 503)]);
+
+    expect(fn () => app(IcalImporter::class)->sync($this->airbnb))->toThrow(RequestException::class)
+        ->and(ExternalBlock::count())->toBe(1);                                  // the incident: nothing deleted
+});
+
+it('refuses a direct booking over a channel block', function () {
+    ExternalBlock::create(['property_id' => $this->property->id, 'source' => Channel::Airbnb, 'uid' => 'a1', 'kind' => 'reservation', 'starts_on' => '2027-07-10', 'ends_on' => '2027-07-13']);
+
+    $this->actingAs(hostOf($this->property))->postJson("/api/v1/properties/{$this->property->id}/bookings", [
+        'check_in' => '2027-07-12', 'check_out' => '2027-07-15', 'guests' => 2,
+        'guest_name' => 'Mona Adel', 'guest_email' => 'mona@example.com', 'contact_channel' => 'email',
+    ])->assertConflict();
+});`,
+      },
     ],
   },
   next: 'Day 4 is done: accounts and roles, send times, messages sent once and stopped on cancellation, date changes that undo themselves, safe variables and every channel. Day 5 starts on Wednesday, when a cleaner walks in while the guests are still asleep.',
