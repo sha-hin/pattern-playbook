@@ -643,7 +643,7 @@ it('queues the due messages and nothing else', function () {
     $booking = Booking::factory()->create();
     $template = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Hi', 'trigger' => 'booking_confirmed', 'subject' => 'Hi', 'body' => 'Hi']);
     $due = ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $template->id, 'send_at' => now()->subMinute()]);
-    $later = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Review request', 'trigger' => 'after_check_out', 'days_offset' => 1, 'send_time' => '10:00', 'subject' => 'How was your stay?', 'body' => 'How was your stay at {property_name}?']);
+    $later = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Review request', 'trigger' => 'after_check_out', 'days_offset' => 1, 'send_time' => '10:00', 'subject' => 'How was your stay?', 'body' => 'How was your stay at {property_name}? We would love to hear.']);
     ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $later->id, 'send_at' => now()->addDay()]);
 
     $this->artisan('messages:send-due')->assertSuccessful();

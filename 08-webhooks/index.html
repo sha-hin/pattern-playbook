@@ -147,7 +147,7 @@
     <span class="k">case</span> <span class="t">Processed</span> = <span class="s">'processed'</span>;
     <span class="k">case</span> <span class="t">Failed</span> = <span class="s">'failed'</span>;
 }</code></pre>
-</div></div><div class="block"><h3>The endpoint</h3><p><code>Webhook::constructEvent()</code> from Stripe’s SDK checks the <code>Stripe-Signature</code> header: an HMAC of the raw body with our webhook secret, plus a timestamp it rejects if older than 5 minutes, so a captured request can’t be replayed later. Anything that fails gets a 400 and is never stored.</p><p><code>createOrFirst()</code> inserts the row, or returns the existing one when the unique index refuses a duplicate (see how below). Only a new row dispatches the job.</p><div class="codebox">
+</div></div><div class="block"><h3>The endpoint</h3><p><code>Webhook::constructEvent()</code> from Stripe’s SDK checks the <code>Stripe-Signature</code> header: an HMAC of the raw body with our webhook secret, plus a timestamp it rejects if older than 5 minutes. The signature proves the request came from Stripe; the timestamp limits a captured request to that 5-minute window. Inside the window a replay is still possible, and that is what the unique <code>(provider, event_id)</code> key stops: the second copy is never stored or processed. Anything that fails the check gets a 400 and is never stored.</p><p><code>createOrFirst()</code> inserts the row, or returns the existing one when the unique index refuses a duplicate (see how below). Only a new row dispatches the job.</p><div class="codebox">
 <div class="filehead"><span class="path">app/Http/Controllers/StripeWebhookController.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 

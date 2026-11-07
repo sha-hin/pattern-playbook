@@ -40,16 +40,50 @@ export default {
 
 namespace App\Channels;
 
+use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
+
 final class ChannelRateLimited extends ChannelRequestFailed
 {
-    public int $retryAfter = 60;                           // seconds
+    public const DEFAULT_SECONDS = 60;                     // when the channel doesn't say
+
+    public int $retryAfter = self::DEFAULT_SECONDS;        // seconds
 
     public static function wait(string $channel, int $seconds): self
     {
         $exception = new self("{$channel} is rate limiting us; retry in {$seconds}s.");
-        $exception->retryAfter = max(1, $seconds);
+        $exception->retryAfter = max(1, $seconds);         // a date in the past still waits a second
 
         return $exception;
+    }
+
+    /** Retry-After is either seconds ("120") or an HTTP date ("Wed, 02 Jun 2027 10:15:00 GMT"): RFC 9110 allows both. */
+    public static function fromRetryAfter(string $channel, string $header): self
+    {
+        $header = trim($header);
+
+        $seconds = match (true) {
+            $header === '' => self::DEFAULT_SECONDS,
+            ctype_digit($header) => (int) $header,
+            default => self::secondsUntil($header),
+        };
+
+        return self::wait($channel, $seconds);
+    }
+
+    private static function secondsUntil(string $httpDate): int
+    {
+        try {
+            $at = CarbonImmutable::createFromFormat(DATE_RFC7231, $httpDate, 'UTC');
+        } catch (InvalidFormatException) {
+            $at = null;
+        }
+
+        if ($at === null) {
+            return self::DEFAULT_SECONDS;                  // unreadable: wait the default, never 0
+        }
+
+        return (int) ceil(now()->diffInSeconds($at, absolute: false));   // negative if the date has passed
     }
 }`,
         },
@@ -71,7 +105,7 @@ class ChannelRequestFailed extends RuntimeException                     // not f
     public static function from(Channel $channel, Response $response): self
     {
         if ($response->status() === 429) {
-            return ChannelRateLimited::wait($channel->value, (int) ($response->header('Retry-After') ?: 60));
+            return ChannelRateLimited::fromRetryAfter($channel->value, $response->header('Retry-After'));   // seconds or a date
         }
 
         return new self("{$channel->value} answered {$response->status()}: " . mb_substr($response->body(), 0, 500));
@@ -538,6 +572,7 @@ use App\Enums\Channel;
 use App\Models\ChannelConnection;
 use App\Models\ChannelListing;
 use App\Models\Property;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -564,6 +599,18 @@ it('never retries a 429 or a 400', function (int $status, string $exception) {
 })->with([
     'rate limited' => [429, ChannelRateLimited::class],
     'bad request' => [400, ChannelRequestFailed::class],
+]);
+
+it('reads Retry-After as seconds or as an HTTP date', function (string $header, int $seconds) {
+    $this->travelTo(CarbonImmutable::parse('2027-06-01 10:00:00', 'UTC'));
+
+    expect(ChannelRateLimited::fromRetryAfter('airbnb', $header)->retryAfter)->toBe($seconds);
+})->with([
+    'seconds' => ['120', 120],
+    'a date' => ['Tue, 01 Jun 2027 10:02:30 GMT', 150],                  // the form that used to become 0
+    'a date in the past' => ['Tue, 01 Jun 2027 09:00:00 GMT', 1],
+    'missing' => ['', 60],
+    'unreadable' => ['soon', 60],
 ]);`,
       },
       {

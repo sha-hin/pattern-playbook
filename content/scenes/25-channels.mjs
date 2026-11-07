@@ -575,18 +575,391 @@ class SmsChannel
       ],
     },
     {
-      title: 'The fix, part 5: WhatsApp, without touching a single message',
+      title: 'The fix, part 5: WhatsApp, with templates Meta approves',
       text: [
-        'WhatsApp needs one more class of the same shape, posting to Meta’s WhatsApp Cloud API. One rule of WhatsApp shapes the request:',
+        'WhatsApp needs one more channel class, posting to Meta’s WhatsApp Cloud API. Unlike SMS, WhatsApp decides what a business may send, and its rules shape the design more than the code does:',
       ],
       blocks: [
         {
           table: [
-            ['Step', 'What it means here'],
-            ['1. A business may only **start** a conversation with a template Meta has approved', 'Our arrival message is sent before the guest ever writes to us, so it must be a template'],
-            ['2. We register one template, `guest_message`, whose whole body is one placeholder', 'Meta approves it once, in the Meta business dashboard'],
-            ['3. Each message’s text goes into that placeholder', 'The hosts’ own templates (scene 24) keep working unchanged'],
+            ['WhatsApp’s rule', 'What it means here'],
+            ['A business may only **start** a conversation with a **template** Meta has approved', 'Our arrival message goes out before the guest ever writes to us, so it must be an approved template'],
+            ['A template is fixed text with numbered variables, `{{1}}`, `{{2}}`; it may not start or end with a variable, and a variable’s value may not contain a line break', 'Arbitrary text can’t be squeezed into one variable: a "template" that is only `{{1}}` is rejected, and our messages have line breaks'],
+            ['Approval takes minutes to a day, and can be refused', 'A message needs a plan for the time before approval'],
           ],
+          after: [
+            'So every host template is submitted to Meta **as its own template**. The host’s text becomes the fixed text, and scene 24’s variables become WhatsApp’s numbered ones: `Hi {guest_name}, your code is {door_code}.` is registered as `Hi {{1}}, your code is {{2}}.`, and each send fills in the values. The values are short and single-line by nature (a name, a date, a code), which is what WhatsApp allows.',
+            'Until Meta has approved a template, guests who chose WhatsApp get that message **by email**. A guest always gets the message; WhatsApp is how, once it is allowed.',
+          ],
+        },
+        {
+          title: 'The template remembers its WhatsApp twin',
+          path: 'database/migrations/2026_04_14_000002_add_whatsapp_to_message_templates_table.php',
+          code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('message_templates', function (Blueprint $table) {
+            $table->string('whatsapp_name')->nullable();                  // the name Meta knows it by, e.g. nordic_812
+            $table->string('whatsapp_status')->nullable();                // null: not submitted · pending · approved · rejected
+        });
+    }
+};`,
+        },
+        {
+          path: 'app/Models/MessageTemplate.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\MessageTrigger;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class MessageTemplate extends Model
+{
+    protected $fillable = ['name', 'trigger', 'days_offset', 'send_time', 'subject', 'body', 'active'];
+
+    protected function casts(): array
+    {
+        return ['trigger' => MessageTrigger::class, 'active' => 'boolean'];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    /** Meta has approved this template, so it may be sent on WhatsApp. */
+    public function sendableOnWhatsApp(): bool
+    {
+        return $this->whatsapp_status === 'approved';
+    }
+}`,
+          after: ['The two new columns are not fillable: only the job below writes them, never a request.'],
+        },
+        {
+          title: 'The host’s text, in WhatsApp’s format',
+          path: 'app/Messaging/WhatsAppTemplate.php',
+          code: String.raw`<?php
+
+namespace App\Messaging;
+
+final class WhatsAppTemplate
+{
+    /** An example value per variable: Meta asks for one per {{n}} when a template is submitted. */
+    private const SAMPLES = [
+        'guest_name' => 'Anna',
+        'property_name' => 'Skagen cottage',
+        'check_in' => 'Friday 2 July 2027',
+        'check_out' => 'Monday 5 July 2027',
+        'check_in_time' => '15:00',
+        'door_code' => '4821',
+    ];
+
+    /** "Hi {guest_name}, see you {check_in}." → "Hi {{1}}, see you {{2}}.": every occurrence gets the next number. */
+    public static function body(string $template): string
+    {
+        $n = 0;
+
+        return preg_replace_callback('/\{[a-z_]+\}/', function () use (&$n): string {
+            return '{{' . ++$n . '}}';
+        }, $template);
+    }
+
+    /** @return list<string> the variable names in the order WhatsApp numbers them, repeats included */
+    public static function variables(string $template): array
+    {
+        preg_match_all('/\{([a-z_]+)\}/', $template, $matches);
+
+        return $matches[1];
+    }
+
+    /** @return list<string> */
+    public static function samples(string $template): array
+    {
+        return array_map(fn (string $name): string => self::SAMPLES[$name], self::variables($template));
+    }
+
+    /** WhatsApp refuses a template that starts or ends with a variable. */
+    public static function problem(string $template): ?string
+    {
+        $text = trim($template);
+
+        return preg_match('/^\{[a-z_]+\}|\{[a-z_]+\}[.!?]?$/', $text) === 1
+            ? 'WhatsApp needs a word before the first variable and after the last one, e.g. “Hi {guest_name}, welcome.”'
+            : null;
+    }
+}`,
+          after: ['The rule is checked when the host saves the template, below, because any guest may choose WhatsApp. A variable followed only by a full stop or a question mark counts as the end too: Meta’s review is strict about variables at the edges, and a word after the last one is the safe form.'],
+        },
+        {
+          title: 'The values, in the same order',
+          path: 'app/Messaging/TemplateRenderer.php',
+          code: String.raw`<?php
+
+namespace App\Messaging;
+
+use App\Models\Booking;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
+use LogicException;
+
+final class TemplateRenderer
+{
+    /** The host's Markdown as HTML, with every value escaped. */
+    public function html(string $template, Booking $booking, CarbonImmutable $sentAt): string
+    {
+        $html = Str::markdown($template, ['html_input' => 'escape', 'allow_unsafe_links' => false]);   // the host's own markup
+
+        return $this->fill($html, $booking, $sentAt, fn (string $value): string => e($value));         // values: never markup
+    }
+
+    /** For SMS: no markup at all. */
+    public function text(string $template, Booking $booking, CarbonImmutable $sentAt): string
+    {
+        return $this->fill($template, $booking, $sentAt, fn (string $value): string => $value);
+    }
+
+    /** For WhatsApp: only the values, in the order of WhatsAppTemplate::body()'s numbers, each on one line. @return list<string> */
+    public function values(string $template, Booking $booking, CarbonImmutable $sentAt): array
+    {
+        return array_map(
+            fn (string $name): string => trim(preg_replace('/\s+/u', ' ', $this->value($name, $booking, $sentAt))),   // WhatsApp refuses line breaks in a value
+            WhatsAppTemplate::variables($template),
+        );
+    }
+
+    /** @param callable(string): string $escape */
+    private function fill(string $text, Booking $booking, CarbonImmutable $sentAt, callable $escape): string
+    {
+        return preg_replace_callback('/\{([a-z_]+)\}/', fn (array $m): string => $escape($this->value($m[1], $booking, $sentAt)), $text);
+    }
+
+    private function value(string $name, Booking $booking, CarbonImmutable $sentAt): string
+    {
+        $property = $booking->property;
+
+        return match ($name) {
+            'guest_name' => $booking->guest_name,
+            'property_name' => $property->name,
+            'check_in' => $booking->stay->checkIn->format('l j F Y'),
+            'check_out' => $booking->stay->checkOut->format('l j F Y'),
+            'check_in_time' => substr($property->check_in_time, 0, 5),
+            'door_code' => $this->doorCode($booking, $sentAt),
+            default => throw new LogicException("Unknown template variable {{$name}}."),   // never sent as text
+        };
+    }
+
+    private function doorCode(Booking $booking, CarbonImmutable $sentAt): string
+    {
+        $hoursBefore = $sentAt->diffInHours($booking->stay->checkInAt($booking->property), false);
+
+        if ($hoursBefore > TemplateVariables::SENSITIVE_HOURS_BEFORE_CHECK_IN || $booking->door_code === null) {
+            return 'sent to you the day before arrival';           // too early, or not set yet: never the code
+        }
+
+        return $booking->door_code;
+    }
+}`,
+          after: ['The door-code rule from scene 24 holds on WhatsApp too: `values()` asks `value()`, the one place that decides what the code variable may show.'],
+        },
+        {
+          title: 'Saving a template checks the rule, and submits it',
+          path: 'app/Http/Requests/StoreMessageTemplateRequest.php',
+          code: String.raw`<?php
+
+namespace App\Http\Requests;
+
+use App\Enums\MessageTrigger;
+use App\Messaging\TemplateVariables;
+use App\Messaging\WhatsAppTemplate;
+use Closure;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreMessageTemplateRequest extends FormRequest
+{
+    /** @return array<string, list<mixed>> */
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:100'],
+            'trigger' => ['required', Rule::enum(MessageTrigger::class)],
+            'days_offset' => ['required', 'integer', 'between:-30,30'],
+            'send_time' => ['nullable', 'date_format:H:i'],
+            'subject' => ['required', 'string', 'max:150', $this->knownVariables(...)],
+            'body' => ['required', 'string', 'max:1024', $this->knownVariables(...), $this->doorCodeOnlyNearArrival(...), $this->sendableOnWhatsApp(...)],   // 1,024: WhatsApp's limit for a template body
+        ];
+    }
+
+    private function knownVariables(string $attribute, mixed $value, Closure $fail): void
+    {
+        $unknown = array_diff(TemplateVariables::in((string) $value), TemplateVariables::NAMES);
+
+        if ($unknown !== []) {
+            $fail('Unknown variable: {' . implode('}, {', $unknown) . '}. Use one of: {' . implode('}, {', TemplateVariables::NAMES) . '}.');
+        }
+    }
+
+    private function doorCodeOnlyNearArrival(string $attribute, mixed $value, Closure $fail): void
+    {
+        $usesSecret = array_intersect(TemplateVariables::in((string) $value), TemplateVariables::SENSITIVE) !== [];
+        $nearArrival = $this->input('trigger') === MessageTrigger::BeforeCheckIn->value && in_array((int) $this->input('days_offset'), [-2, -1, 0], true);
+
+        if ($usesSecret && ! $nearArrival) {
+            $fail('{door_code} can only be used in messages sent at most 2 days before check-in.');
+        }
+    }
+
+    private function sendableOnWhatsApp(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (($problem = WhatsAppTemplate::problem((string) $value)) !== null) {
+            $fail($problem);                                            // any guest may choose WhatsApp
+        }
+    }
+}`,
+          after: ['The body limit drops from 5,000 to 1,024 characters, WhatsApp’s limit for a template body. No host template so far was longer than 900.'],
+        },
+        {
+          path: 'app/Http/Controllers/MessageTemplateController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreMessageTemplateRequest;
+use App\Jobs\SyncWhatsAppTemplate;
+use App\Models\Account;
+use App\Models\MessageTemplate;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
+
+class MessageTemplateController extends Controller
+{
+    public function store(StoreMessageTemplateRequest $request, Account $account): JsonResponse
+    {
+        Gate::authorize('create', [MessageTemplate::class, $account]);
+
+        $template = $account->messageTemplates()->create($request->validated());   // only validated fields
+
+        SyncWhatsAppTemplate::dispatch($template)->afterCommit();       // submit it to Meta, then follow it to approval
+
+        return response()->json(['id' => $template->id], 201);
+    }
+}`,
+        },
+        {
+          title: 'Submitting, and waiting for Meta’s answer',
+          text: ['One job does both: if the template hasn’t been submitted, it submits it; if Meta is still reviewing it, it checks again in ten minutes, for up to three days.'],
+          path: 'app/Jobs/SyncWhatsAppTemplate.php',
+          code: String.raw`<?php
+
+namespace App\Jobs;
+
+use App\Messaging\WhatsAppTemplate;
+use App\Models\MessageTemplate;
+use DateTimeInterface;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
+
+class SyncWhatsAppTemplate implements ShouldQueue
+{
+    use Queueable;
+
+    public const RECHECK_SECONDS = 600;
+
+    public function __construct(public MessageTemplate $template)
+    {
+    }
+
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addDays(3);                                       // Meta usually answers within a day
+    }
+
+    public function handle(): void
+    {
+        if ($this->template->whatsapp_name === null) {
+            $this->submit();
+        } elseif ($this->template->whatsapp_status === 'pending') {
+            $this->refreshStatus();
+        }
+
+        if ($this->template->whatsapp_status === 'pending') {
+            $this->release(self::RECHECK_SECONDS);                      // not a failure: Meta is still reviewing
+        }
+    }
+
+    private function submit(): void
+    {
+        $name = "nordic_{$this->template->id}";                         // lowercase, digits and underscores, as Meta requires
+        $body = ['type' => 'BODY', 'text' => WhatsAppTemplate::body($this->template->body)];
+        if (($samples = WhatsAppTemplate::samples($this->template->body)) !== []) {
+            $body['example'] = ['body_text' => [$samples]];
+        }
+
+        $response = $this->graph()->post('/message_templates', [
+            'name' => $name,
+            'language' => 'en',
+            'category' => 'UTILITY',                                    // about a stay the guest booked: not marketing
+            'components' => [$body],
+        ])->throw();
+
+        $this->template->forceFill(['whatsapp_name' => $name, 'whatsapp_status' => strtolower($response->json('status'))])->save();
+    }
+
+    private function refreshStatus(): void
+    {
+        $status = $this->graph()->get('/message_templates', ['name' => $this->template->whatsapp_name])
+            ->throw()
+            ->json('data.0.status');
+
+        $this->template->forceFill(['whatsapp_status' => strtolower((string) $status)])->save();
+    }
+
+    /** The WhatsApp Business Account's endpoints, where templates live. */
+    private function graph(): PendingRequest
+    {
+        $config = config('services.whatsapp');
+
+        return Http::withToken($config['token'])
+            ->timeout(10)
+            ->baseUrl("https://graph.facebook.com/{$config['api_version']}/{$config['business_account_id']}");
+    }
+}`,
+          after: ['A **rejected** template stops the job and stays rejected: the template page shows the host Meta’s answer, and the messages keep going out by email. Meta also offers a webhook for template status changes; checking every ten minutes is simpler and enough for templates a host creates a few times a year.'],
+        },
+        {
+          title: 'The message and the channel',
+          path: 'app/Notifications/Channels/WhatsAppMessage.php',
+          code: String.raw`<?php
+
+namespace App\Notifications\Channels;
+
+/** What a notification hands the WhatsApp channel. */
+final readonly class WhatsAppMessage
+{
+    /** @param list<string> $parameters */
+    private function __construct(
+        public string $template,
+        public array $parameters,
+    ) {
+    }
+
+    /** An approved template and its values in order: the only kind a business may send first. @param list<string> $parameters */
+    public static function template(string $name, array $parameters): self
+    {
+        return new self($name, $parameters);
+    }
+}`,
         },
         {
           path: 'app/Notifications/Channels/WhatsAppChannel.php',
@@ -605,6 +978,8 @@ class WhatsAppChannel
         $to = $notifiable->routeNotificationFor('whatsapp', $notification)
             ?? throw new LogicException('No WhatsApp number for this recipient.');
 
+        /** @var WhatsAppMessage $message */
+        $message = $notification->toWhatsApp($notifiable);
         $config = config('services.whatsapp');                                 // token, api_version, phone_number_id
 
         Http::withToken($config['token'])
@@ -614,18 +989,80 @@ class WhatsAppChannel
                 'to' => ltrim($to, '+'),                                       // WhatsApp wants the number without "+"
                 'type' => 'template',
                 'template' => [
-                    'name' => 'guest_message',
+                    'name' => $message->template,
                     'language' => ['code' => 'en'],
-                    'components' => [[
+                    'components' => $message->parameters === [] ? [] : [[
                         'type' => 'body',
-                        'parameters' => [['type' => 'text', 'text' => $notification->toWhatsApp($notifiable)]],
+                        'parameters' => array_map(fn (string $value): array => ['type' => 'text', 'text' => $value], $message->parameters),
                     ]],
                 ],
             ])
             ->throw();
     }
 }`,
-          after: ['Adding WhatsApp took this one class and the `toWhatsApp()` method on the messages that support it. No existing message, and no other channel, changed.'],
+        },
+        {
+          title: 'The guest message: WhatsApp once approved, email until then',
+          path: 'app/Notifications/GuestMessage.php',
+          code: String.raw`<?php
+
+namespace App\Notifications;
+
+use App\Enums\GuestChannel;
+use App\Messaging\TemplateRenderer;
+use App\Models\ScheduledMessage;
+use App\Notifications\Channels\WhatsAppMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class GuestMessage extends Notification
+{
+    use Queueable;
+
+    public function __construct(public ScheduledMessage $message)
+    {
+    }
+
+    /** @return list<string> */
+    public function via(object $notifiable): array
+    {
+        $choice = $this->message->booking->guest_channel;
+
+        if ($choice === GuestChannel::WhatsApp && ! $this->message->template->sendableOnWhatsApp()) {
+            return ['mail'];                                            // not approved yet: the guest still gets the message
+        }
+
+        return [$choice->notificationChannel()];                        // the fix for the incident
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $template = $this->message->template;
+        $booking = $this->message->booking;
+        $renderer = app(TemplateRenderer::class);                         // resolved here, so the notification stays small
+
+        return (new MailMessage())
+            ->subject($renderer->text($template->subject, $booking, now()))               // a subject is plain text
+            ->view('mail.guest', ['html' => $renderer->html($template->body, $booking, now())]);
+    }
+
+    public function toSms(object $notifiable): string
+    {
+        return app(TemplateRenderer::class)->text($this->message->template->body, $this->message->booking, now());   // scene 24
+    }
+
+    public function toWhatsApp(object $notifiable): WhatsAppMessage
+    {
+        $template = $this->message->template;
+
+        return WhatsAppMessage::template(
+            $template->whatsapp_name,
+            app(TemplateRenderer::class)->values($template->body, $this->message->booking, now()),
+        );
+    }
+}`,
+          after: ['Adding WhatsApp took a channel class and a `toWhatsApp()` method, as the Bridge promises. What made it bigger than SMS is not the code but the provider: WhatsApp approves the words before it delivers them.'],
         },
         {
           title: 'Configuration',
@@ -669,6 +1106,7 @@ return [
         'token' => env('WHATSAPP_TOKEN'),
         'api_version' => env('WHATSAPP_API_VERSION', 'v21.0'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),   // the business number, from Meta's dashboard
+        'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),   // where templates are submitted and approved
     ],
 
 ];`,
@@ -683,7 +1121,8 @@ SMS_API_TOKEN=
 SMS_FROM=NordicStays
 WHATSAPP_TOKEN=
 WHATSAPP_API_VERSION=v21.0
-WHATSAPP_PHONE_NUMBER_ID=`,
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_BUSINESS_ACCOUNT_ID=`,
         },
       ],
     },
@@ -859,8 +1298,10 @@ class OverbookingDetected extends Notification implements ShouldQueue
 
 use App\Enums\GuestChannel;
 use App\Jobs\SendScheduledMessage;
+use App\Jobs\SyncWhatsAppTemplate;
 use App\Models\Booking;
 use App\Models\MessageTemplate;
+use App\Models\Property;
 use App\Models\ScheduledMessage;
 use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Channels\WhatsAppChannel;
@@ -868,11 +1309,16 @@ use App\Notifications\GuestMessage;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 
-function messageFor(GuestChannel $channel): ScheduledMessage
+function messageFor(GuestChannel $channel, ?string $whatsappStatus = 'approved'): ScheduledMessage
 {
     $booking = Booking::factory()->create(['guest_channel' => $channel, 'guest_phone' => '+4512345678', 'guest_name' => 'Søren']);
-    $template = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Hi', 'trigger' => 'booking_confirmed', 'subject' => 'Hi', 'body' => 'Hi {guest_name}']);
+    $template = MessageTemplate::forceCreate([
+        'account_id' => $booking->property->account_id, 'name' => 'Hi', 'trigger' => 'booking_confirmed', 'subject' => 'Hi',
+        'body' => 'Hi {guest_name}, welcome to {property_name}. See you soon!',
+        'whatsapp_name' => $whatsappStatus === null ? null : 'nordic_1', 'whatsapp_status' => $whatsappStatus,
+    ]);
 
     return ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $template->id, 'send_at' => now()]);
 }
@@ -897,27 +1343,65 @@ it('delivers by the channel the guest chose', function (GuestChannel $choice, st
     [GuestChannel::WhatsApp, WhatsAppChannel::class],
 ]);
 
+it('emails a WhatsApp guest until Meta has approved the template', function (?string $status) {
+    Notification::fake();
+
+    app()->call([new SendScheduledMessage(messageFor(GuestChannel::WhatsApp, $status)), 'handle']);
+
+    Notification::assertSentOnDemand(GuestMessage::class, fn (GuestMessage $n, array $channels): bool => $channels === ['mail']);
+})->with(['not submitted' => [null], 'pending' => ['pending'], 'rejected' => ['rejected']]);
+
 it('sends the rendered text to the guest’s number by SMS', function () {
     config(['services.sms' => ['url' => 'https://sms.test/messages', 'token' => 't', 'from' => 'NordicStays']]);
     Http::fake(['sms.test/*' => Http::response(['id' => 'm1'])]);
 
-    app()->call([new SendScheduledMessage(messageFor(GuestChannel::Sms)), 'handle']);
+    $message = messageFor(GuestChannel::Sms);
+    app()->call([new SendScheduledMessage($message), 'handle']);
 
     Http::assertSent(fn (Request $request): bool => $request['to'] === '+4512345678'
         && $request['from'] === 'NordicStays'
-        && $request['text'] === 'Hi Søren');
+        && $request['text'] === "Hi Søren, welcome to {$message->booking->property->name}. See you soon!");
 });
 
-it('sends WhatsApp through the approved template, with the rendered text in it', function () {
-    config(['services.whatsapp' => ['token' => 't', 'api_version' => 'v21.0', 'phone_number_id' => '10987']]);
+it('sends WhatsApp as the approved template, with the values in order', function () {
+    config(['services.whatsapp' => ['token' => 't', 'api_version' => 'v21.0', 'phone_number_id' => '10987', 'business_account_id' => '55501']]);
     Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.1']]])]);
 
-    app()->call([new SendScheduledMessage(messageFor(GuestChannel::WhatsApp)), 'handle']);
+    $message = messageFor(GuestChannel::WhatsApp);
+    app()->call([new SendScheduledMessage($message), 'handle']);
 
     Http::assertSent(fn (Request $request): bool => $request['to'] === '4512345678'
-        && $request['template']['name'] === 'guest_message'
-        && $request['template']['components'][0]['parameters'][0]['text'] === 'Hi Søren');
-});`,
+        && $request['template']['name'] === 'nordic_1'
+        && array_column($request['template']['components'][0]['parameters'], 'text') === ['Søren', $message->booking->property->name]);
+});
+
+it('submits a new template to Meta in WhatsApp’s format, and checks again while it is pending', function () {
+    config(['services.whatsapp' => ['token' => 't', 'api_version' => 'v21.0', 'phone_number_id' => '10987', 'business_account_id' => '55501']]);
+    Http::fake(['graph.facebook.com/v21.0/55501/message_templates' => Http::response(['id' => '9001', 'status' => 'PENDING', 'category' => 'UTILITY'])]);
+    $template = MessageTemplate::forceCreate(['account_id' => Property::factory()->create()->account_id, 'name' => 'Arrival', 'trigger' => 'before_check_in', 'days_offset' => -1, 'subject' => 'Tomorrow', 'body' => "Hi {guest_name},\n\nYour door code is {door_code}. See you!"]);
+
+    $job = (new SyncWhatsAppTemplate($template))->withFakeQueueInteractions();
+    $job->handle();
+
+    Http::assertSent(fn (Request $request): bool => $request['name'] === "nordic_{$template->id}"
+        && $request['components'][0]['text'] === "Hi {{1}},\n\nYour door code is {{2}}. See you!"   // line breaks are fine in the fixed text
+        && $request['components'][0]['example']['body_text'] === [['Anna', '4821']]);
+    expect($template->fresh()->whatsapp_status)->toBe('pending');
+    $job->assertReleased(SyncWhatsAppTemplate::RECHECK_SECONDS);
+});
+
+it('refuses a template that starts or ends with a variable', function (string $body) {
+    Queue::fake();
+    $property = Property::factory()->create();
+
+    $this->actingAs(hostOf($property))->postJson('/api/v1/message-templates', [
+        'name' => 'Welcome', 'trigger' => 'booking_confirmed', 'days_offset' => 0, 'subject' => 'Welcome', 'body' => $body,
+    ])->assertUnprocessable()->assertJsonValidationErrors('body');
+})->with([
+    'starts with one' => ['{guest_name}, welcome!'],
+    'ends with one' => ['Welcome to {property_name}'],
+    'ends with one and a full stop' => ['Welcome to {property_name}.'],
+]);`,
       },
       {
         title: 'Older tests send the new required field',

@@ -257,7 +257,7 @@ class AppServiceProvider extends ServiceProvider
     {
       id: 'enums',
       title: 'Enums',
-      text: ['Every status and role is a backed enum, cast on its model, so `$booking->status` is a `BookingStatus` and a typo can’t be stored.'],
+      text: ['Every status and role is a backed enum, cast on its model, so `$booking->status` is a `BookingStatus` and a typo can’t be stored through the model. A raw query or `upsert()` bypasses the cast; if a column must reject bad values whatever writes to it, that takes a database `CHECK` constraint.'],
       blocks: [
         {
           id: 'enum-booking-status',

@@ -30,7 +30,7 @@ php artisan config:cache
 sudo systemctl reload php8.4-fpm
 # the bug: nothing tells the queue workers that the code changed`,
           after: [
-            'A PHP-FPM worker reads the code fresh for every request (through OPcache, which the reload clears). A **queue worker** is one PHP process that started once and loops for hours, taking job after job (scene 17). Every class it has already loaded, and the config it read at start, stay in its memory. New files on disk change nothing for it until it restarts.',
+            'A PHP-FPM worker runs whatever OPcache holds; in production OPcache never checks the files (below), so the reload is what makes FPM pick up a new release. A **queue worker** is one PHP process that started once and loops for hours, taking job after job (scene 17). Every class it has already loaded, and the config it read at start, stay in its memory. New files on disk change nothing for it until it restarts.',
             'Three more problems sit in the same script. `git pull` changes files under the running site, so a request in the middle of a deploy can load half old, half new code. A failed `composer install` leaves the site broken. And there is no way back but a second deploy.',
           ],
         },

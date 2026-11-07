@@ -184,9 +184,108 @@ DB_READ_HOST=pms-replica-1.internal`,
             ['The availability check in `CreateBooking`, `ChangeBookingDates`, `MoveBooking`', '**primary**', 'They run inside `DB::transaction()`: Laravel uses the write connection for every query of an open transaction'],
             ['`lockForUpdate()` reads', '**primary**', 'Always inside those transactions; a lock on a replica would lock nothing'],
             ['A read in the same request after a write', '**primary**', '`sticky: true`: the host who just saved a price sees it at once'],
-            ['Queue jobs (webhooks, imports, sends)', 'replica, unless in a transaction', 'Every job here that decides something locks a row inside a transaction first (scenes 8, 15, 22)'],
+            ['Queue jobs (webhooks, imports, sends)', '**primary**', 'A job runs seconds after another process wrote the row it needs: a Stripe webhook looks up the payment before any transaction (scene 8). On a lagging replica that row is missing or old. Workers read from the primary, set below'],
           ],
-          after: ['For the rare read that must be fresh outside a transaction, ask for it: `Booking::query()->useWritePdo()->find($id)`.'],
+          after: ['For the rare read in a web request that must be fresh outside a transaction, ask for it: `Booking::query()->useWritePdo()->find($id)`.'],
+        },
+        {
+          title: 'Queue workers read from the primary',
+          text: ['`sticky` only helps the process that wrote. A worker is another process, so it gets no help from it. The workers’ reads are a small share of the load, so they simply skip the replica:'],
+          path: 'app/Providers/AppServiceProvider.php',
+          code: String.raw`<?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Http\Controllers\QuoteController;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use App\Pricing\CachedNightlyRates;
+use App\Pricing\NightlyPrices;
+use App\Pricing\NightlyRates;
+use App\Pricing\PriceQuoter;
+use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\PersonalAccessToken;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        // Workers decide right after another process wrote (a payment, a reservation): a replica may not have that
+        // row yet, so queue workers read from the primary. Web requests keep the replica (scene 42).
+        if ($this->app->runningConsoleCommand('horizon:work', 'queue:work')) {
+            config(['database.connections.mysql.read' => config('database.connections.mysql.write')]);
+        }
+
+        $this->app->singleton(StripeClient::class, fn (): StripeClient => new StripeClient([
+            'api_key' => config('services.stripe.secret'),
+            'stripe_version' => config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' => 2,
+        ]));
+
+        $this->app->bind(PaymentGateway::class, StripeGateway::class);
+
+        $this->app->singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+
+        $this->app->bind(NightlyPrices::class, NightlyRates::class);    // the truth, from the database: bookings, changes, refunds
+
+        $this->app->when(QuoteController::class)                         // the one place that may show a cached price
+            ->needs(PriceQuoter::class)
+            ->give(fn (Application $app): PriceQuoter => new PriceQuoter($app->make(CachedNightlyRates::class)));
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this->app->isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        if ($this->app->isProduction()) {
+            Model::preventLazyLoading();                          // detect it in production too, but don't throw:
+            Model::handleLazyLoadingViolationUsing(function (Model $model, string $relation): void {
+                Log::warning('Lazy loading', ['model' => $model::class, 'relation' => $relation, 'url' => request()->fullUrl()]);
+            });
+        }
+
+        // An account's owner may do everything in that account. null = "no opinion, ask the policy".
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking => $arguments[0]->property->account_id,
+                ($arguments[0] ?? null) instanceof Property => $arguments[0]->account_id,
+                ($arguments[0] ?? null) instanceof Account => $arguments[0]->id,
+                default => null,
+            };
+
+            return $accountId !== null && $user->roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+
+        // throttle:api. An integration token has its own budget; our web and mobile apps share one per user.
+        RateLimiter::for('api', function (Request $request): Limit {
+            $token = $request->user()?->currentAccessToken();
+
+            if ($token instanceof PersonalAccessToken && ! $token->can('*')) {
+                return Limit::perMinute(60)->by("token:{$token->id}");
+            }
+
+            return Limit::perMinute(300)->by((string) ($request->user()?->id ?? $request->ip()));
+        });
+    }
+}`,
+          after: ['`register()` runs before the first query opens a connection, so the change applies to the whole worker process. With `config:cache` the `.env` can’t be overridden per process, which is why this lives in code. Horizon starts each worker as `horizon:work`; a plain `queue:work` is covered too.'],
         },
         {
           table: [
@@ -758,6 +857,7 @@ return [
         'token' => env('WHATSAPP_TOKEN'),
         'api_version' => env('WHATSAPP_API_VERSION', 'v21.0'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),   // the business number, from Meta's dashboard
+        'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),   // where templates are submitted and approved
     ],
 
     'cdn' => [

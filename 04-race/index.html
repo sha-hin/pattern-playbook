@@ -122,7 +122,7 @@ final class CreateBooking
 
     <span class="k">return</span> <span class="v">$value</span>;
 }</code></pre>
-</div></div><div class="block"><h3>DB::transaction() retries deadlocks</h3><p>With <code>attempts: 3</code>, a transaction that fails because of a deadlock or a lost connection is rolled back and run again from the start. Any other exception is rolled back and rethrown at once.</p><div class="codebox">
+</div></div><div class="block"><h3>DB::transaction() retries deadlocks</h3><p>With <code>attempts: 3</code>, a transaction that fails because of a deadlock (or another error the database reports as a concurrency conflict) is rolled back and run again from the start. Anything else is rolled back and rethrown at once, <b>including a lost connection</b>: if the connection drops during the commit, the commit may already have happened, and running the closure again could book the nights twice. That case is handled by the unique key and the idempotency of the caller, not by a retry.</p><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Database/Concerns/ManagesTransactions.php (simplified)</span></div>
 <pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">transaction</span>(<span class="t">Closure</span> <span class="v">$callback</span>, <span class="v">$attempts</span> = <span class="n">1</span>)
 {

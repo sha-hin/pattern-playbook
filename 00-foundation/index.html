@@ -285,7 +285,7 @@
     }
 };</code></pre>
 </div></div></div></section>
-<section id="enums"><h2>Enums</h2><p>Every status and role is a backed enum, cast on its model, so <code>$booking-&gt;status</code> is a <code>BookingStatus</code> and a typo can’t be stored.</p><div class="blocks"><div class="block" id="enum-booking-status"><h3>BookingStatus</h3><div class="codebox">
+<section id="enums"><h2>Enums</h2><p>Every status and role is a backed enum, cast on its model, so <code>$booking-&gt;status</code> is a <code>BookingStatus</code> and a typo can’t be stored through the model. A raw query or <code>upsert()</code> bypasses the cast; if a column must reject bad values whatever writes to it, that takes a database <code>CHECK</code> constraint.</p><div class="blocks"><div class="block" id="enum-booking-status"><h3>BookingStatus</h3><div class="codebox">
 <div class="filehead"><span class="path">app/Enums/BookingStatus.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 

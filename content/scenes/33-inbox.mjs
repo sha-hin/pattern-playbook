@@ -101,7 +101,10 @@ class ConversationMessage extends Model
 
 namespace App\Notifications;
 
+use App\Enums\GuestChannel;
+use App\Enums\MessageAuthor;
 use App\Models\ConversationMessage;
+use App\Notifications\Channels\WhatsAppMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -111,6 +114,9 @@ class HostReply extends Notification implements ShouldQueue
 {
     use Queueable;
 
+    /** WhatsApp lets a business send free text only this long after the guest's last message. */
+    public const WHATSAPP_WINDOW_HOURS = 24;
+
     public function __construct(public ConversationMessage $message)
     {
         $this->afterCommit();                                            // never send a reply that was rolled back
@@ -119,7 +125,13 @@ class HostReply extends Notification implements ShouldQueue
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return [$this->message->booking->guest_channel->notificationChannel()];   // the guest's choice (scene 25)
+        $choice = $this->message->booking->guest_channel;
+
+        if ($choice === GuestChannel::WhatsApp && ! $this->guestWroteRecently()) {
+            return ['mail'];                                            // outside the window only approved templates may go out
+        }
+
+        return [$choice->notificationChannel()];                        // the guest's choice (scene 25)
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -134,9 +146,93 @@ class HostReply extends Notification implements ShouldQueue
         return $this->message->body;
     }
 
-    public function toWhatsApp(object $notifiable): string
+    public function toWhatsApp(object $notifiable): WhatsAppMessage
     {
-        return $this->message->body;
+        return WhatsAppMessage::text($this->message->body);             // a reply in an open conversation: free text is allowed
+    }
+
+    private function guestWroteRecently(): bool
+    {
+        return ConversationMessage::query()
+            ->whereBelongsTo($this->message->booking)
+            ->where('author', MessageAuthor::Guest)
+            ->where('created_at', '>=', now()->subHours(self::WHATSAPP_WINDOW_HOURS))
+            ->exists();
+    }
+}`,
+          after: ['A reply is the host’s own words, not a template Meta has approved, so WhatsApp only takes it while the conversation is open: within 24 hours of the guest’s last message. Outside that window the reply goes by email instead of failing.'],
+        },
+        {
+          title: 'WhatsApp learns to send free text (scene 25 only sent templates)',
+          path: 'app/Notifications/Channels/WhatsAppMessage.php',
+          code: String.raw`<?php
+
+namespace App\Notifications\Channels;
+
+/** What a notification hands the WhatsApp channel. */
+final readonly class WhatsAppMessage
+{
+    /** @param list<string> $parameters */
+    private function __construct(
+        public ?string $template,
+        public array $parameters,
+        public ?string $text,
+    ) {
+    }
+
+    /** An approved template and its values in order: the only kind a business may send first. @param list<string> $parameters */
+    public static function template(string $name, array $parameters): self
+    {
+        return new self($name, $parameters, null);
+    }
+
+    /** Free text: allowed only within 24 hours of the guest's last message to us. */
+    public static function text(string $body): self
+    {
+        return new self(null, [], $body);
+    }
+}`,
+        },
+        {
+          path: 'app/Notifications/Channels/WhatsAppChannel.php',
+          code: String.raw`<?php
+
+namespace App\Notifications\Channels;
+
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Http;
+use LogicException;
+
+class WhatsAppChannel
+{
+    public function send(object $notifiable, Notification $notification): void
+    {
+        $to = $notifiable->routeNotificationFor('whatsapp', $notification)
+            ?? throw new LogicException('No WhatsApp number for this recipient.');
+
+        /** @var WhatsAppMessage $message */
+        $message = $notification->toWhatsApp($notifiable);
+        $config = config('services.whatsapp');                                 // token, api_version, phone_number_id
+
+        $content = $message->text !== null
+            ? ['type' => 'text', 'text' => ['body' => $message->text]]
+            : ['type' => 'template', 'template' => [
+                'name' => $message->template,
+                'language' => ['code' => 'en'],
+                'components' => $message->parameters === [] ? [] : [[
+                    'type' => 'body',
+                    'parameters' => array_map(fn (string $value): array => ['type' => 'text', 'text' => $value], $message->parameters),
+                ]],
+            ]];
+
+        Http::withToken($config['token'])
+            ->timeout(10)
+            ->post("https://graph.facebook.com/{$config['api_version']}/{$config['phone_number_id']}/messages", [
+                'messaging_product' => 'whatsapp',
+                'to' => ltrim($to, '+'),                                       // WhatsApp wants the number without "+"
+                ...$content,
+            ])
+            ->throw();
     }
 }`,
         },
@@ -474,12 +570,14 @@ window.Echo.connector.pusher.connection.bind('connected', () => inbox.load(booki
         path: 'tests/Feature/ConversationTest.php',
         code: String.raw`<?php
 
+use App\Enums\GuestChannel;
 use App\Enums\MembershipRole;
 use App\Enums\MessageAuthor;
 use App\Events\MessagePosted;
 use App\Models\Booking;
 use App\Models\ConversationMessage;
 use App\Models\Property;
+use App\Notifications\Channels\WhatsAppChannel;
 use App\Notifications\HostReply;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Support\Facades\Event;
@@ -558,6 +656,19 @@ it('lets the account’s owners and co-hosts join the conversation, by name', fu
     'co-host' => [MembershipRole::CoHost, 200],
     'cleaner' => [MembershipRole::Cleaner, 403],
     'another account’s owner' => [null, 403],
+]);
+
+it('replies on WhatsApp only while the guest’s 24-hour window is open', function (int $hoursAgo, string $channel) {
+    Notification::fake();
+    $this->booking->forceFill(['guest_channel' => GuestChannel::WhatsApp, 'guest_phone' => '+4512345678'])->save();
+    $this->question->forceFill(['created_at' => now()->subHours($hoursAgo)])->save();
+
+    replyAs($this, $this->sofie, 'Check-in from 15:00.', $this->question->id)->assertCreated();
+
+    Notification::assertSentOnDemand(HostReply::class, fn (HostReply $n, array $channels): bool => $channels === [$channel]);
+})->with([
+    'wrote 2 hours ago' => [2, WhatsAppChannel::class],
+    'wrote 2 days ago' => [48, 'mail'],
 ]);
 
 it('keeps the thread from cleaners', function () {

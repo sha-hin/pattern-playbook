@@ -521,6 +521,12 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Workers decide right after another process wrote (a payment, a reservation): a replica may not have that
+        // row yet, so queue workers read from the primary. Web requests keep the replica (scene 42).
+        if ($this->app->runningConsoleCommand('horizon:work', 'queue:work')) {
+            config(['database.connections.mysql.read' => config('database.connections.mysql.write')]);
+        }
+
         $this->app->singleton(StripeClient::class, fn (): StripeClient => new StripeClient([
             'api_key' => config('services.stripe.secret'),
             'stripe_version' => config('services.stripe.version'),    // pinned: a Stripe release can't change responses

@@ -71,16 +71,50 @@
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
 
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">Exceptions</span>\<span class="t">InvalidFormatException</span>;
+
 <span class="k">final</span> <span class="k">class</span> <span class="t">ChannelRateLimited</span> <span class="k">extends</span> <span class="t">ChannelRequestFailed</span>
 {
-    <span class="k">public</span> <span class="k">int</span> <span class="v">$retryAfter</span> = <span class="n">60</span>;                           <span class="c">// seconds</span>
+    <span class="k">public</span> <span class="k">const</span> <span class="t">DEFAULT_SECONDS</span> = <span class="n">60</span>;                     <span class="c">// when the channel doesn't say</span>
+
+    <span class="k">public</span> <span class="k">int</span> <span class="v">$retryAfter</span> = <span class="k">self</span>::<span class="t">DEFAULT_SECONDS</span>;        <span class="c">// seconds</span>
 
     <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">wait</span>(<span class="k">string</span> <span class="v">$channel</span>, <span class="k">int</span> <span class="v">$seconds</span>): <span class="k">self</span>
     {
         <span class="v">$exception</span> = <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel} is rate limiting us; retry in {$seconds}s.&quot;</span>);
-        <span class="v">$exception</span>-&gt;retryAfter = <span class="f">max</span>(<span class="n">1</span>, <span class="v">$seconds</span>);
+        <span class="v">$exception</span>-&gt;retryAfter = <span class="f">max</span>(<span class="n">1</span>, <span class="v">$seconds</span>);         <span class="c">// a date in the past still waits a second</span>
 
         <span class="k">return</span> <span class="v">$exception</span>;
+    }
+
+    <span class="c">/** Retry-After is either seconds (&quot;120&quot;) or an HTTP date (&quot;Wed, 02 Jun 2027 10:15:00 GMT&quot;): RFC 9110 allows both. */</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromRetryAfter</span>(<span class="k">string</span> <span class="v">$channel</span>, <span class="k">string</span> <span class="v">$header</span>): <span class="k">self</span>
+    {
+        <span class="v">$header</span> = <span class="f">trim</span>(<span class="v">$header</span>);
+
+        <span class="v">$seconds</span> = <span class="k">match</span> (<span class="k">true</span>) {
+            <span class="v">$header</span> === <span class="s">''</span> =&gt; <span class="k">self</span>::<span class="t">DEFAULT_SECONDS</span>,
+            <span class="f">ctype_digit</span>(<span class="v">$header</span>) =&gt; (<span class="k">int</span>) <span class="v">$header</span>,
+            <span class="k">default</span> =&gt; <span class="k">self</span>::<span class="f">secondsUntil</span>(<span class="v">$header</span>),
+        };
+
+        <span class="k">return</span> <span class="k">self</span>::<span class="f">wait</span>(<span class="v">$channel</span>, <span class="v">$seconds</span>);
+    }
+
+    <span class="k">private</span> <span class="k">static</span> <span class="k">function</span> <span class="f">secondsUntil</span>(<span class="k">string</span> <span class="v">$httpDate</span>): <span class="k">int</span>
+    {
+        <span class="k">try</span> {
+            <span class="v">$at</span> = <span class="t">CarbonImmutable</span>::<span class="f">createFromFormat</span>(<span class="t">DATE_RFC7231</span>, <span class="v">$httpDate</span>, <span class="s">'UTC'</span>);
+        } <span class="k">catch</span> (<span class="t">InvalidFormatException</span>) {
+            <span class="v">$at</span> = <span class="k">null</span>;
+        }
+
+        <span class="k">if</span> (<span class="v">$at</span> === <span class="k">null</span>) {
+            <span class="k">return</span> <span class="k">self</span>::<span class="t">DEFAULT_SECONDS</span>;                  <span class="c">// unreadable: wait the default, never 0</span>
+        }
+
+        <span class="k">return</span> (<span class="k">int</span>) <span class="f">ceil</span>(<span class="f">now</span>()-&gt;<span class="f">diffInSeconds</span>(<span class="v">$at</span>, absolute: <span class="k">false</span>));   <span class="c">// negative if the date has passed</span>
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox changed">
@@ -101,7 +135,7 @@ class ChannelRequestFailed extends RuntimeException                     // not f
     public static function from(Channel $channel, Response $response): self
     {
         if ($response-&gt;status() === 429) {
-            return ChannelRateLimited::wait($channel-&gt;value, (int) ($response-&gt;header('Retry-After') ?: 60));
+            return ChannelRateLimited::fromRetryAfter($channel-&gt;value, $response-&gt;header('Retry-After'));   // seconds or a date
         }
 
         return new self(&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot; . mb_substr($response-&gt;body(), 0, 500));
@@ -113,7 +147,7 @@ class ChannelRequestFailed extends RuntimeException                     // not f
         return $e instanceof ConnectionException
             || ($e instanceof RequestException &amp;&amp; $e-&gt;response-&gt;serverError());
     }
-}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">ConnectionException</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">RequestException</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">Response</span>;</span><span class="ln"><span class="k">use</span> <span class="t">RuntimeException</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">final</span> <span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span></span><span class="ln add"><span class="k">use</span> <span class="t">Throwable</span>;</span><span class="ln add"> </span><span class="ln add"><span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span>                     <span class="c">// not final: ChannelRateLimited extends it</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">from</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">Response</span> <span class="v">$response</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln add">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">status</span>() === <span class="n">429</span>) {</span><span class="ln add">            <span class="k">return</span> <span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="v">$channel</span>-&gt;value, (<span class="k">int</span>) (<span class="v">$response</span>-&gt;<span class="f">header</span>(<span class="s">'Retry-After'</span>) ?: <span class="n">60</span>));</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot;</span> . <span class="f">mb_substr</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="n">0</span>, <span class="n">500</span>));</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">worthRetrying</span>(<span class="t">Throwable</span> <span class="v">$e</span>): <span class="k">bool</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ConnectionException</span></span><span class="ln add">            || (<span class="v">$e</span> <span class="k">instanceof</span> <span class="t">RequestException</span> &amp;&amp; <span class="v">$e</span>-&gt;response-&gt;<span class="f">serverError</span>());</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">ConnectionException</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">RequestException</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">Response</span>;</span><span class="ln"><span class="k">use</span> <span class="t">RuntimeException</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">final</span> <span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span></span><span class="ln add"><span class="k">use</span> <span class="t">Throwable</span>;</span><span class="ln add"> </span><span class="ln add"><span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span>                     <span class="c">// not final: ChannelRateLimited extends it</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">from</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">Response</span> <span class="v">$response</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln add">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">status</span>() === <span class="n">429</span>) {</span><span class="ln add">            <span class="k">return</span> <span class="t">ChannelRateLimited</span>::<span class="f">fromRetryAfter</span>(<span class="v">$channel</span>-&gt;value, <span class="v">$response</span>-&gt;<span class="f">header</span>(<span class="s">'Retry-After'</span>));   <span class="c">// seconds or a date</span></span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot;</span> . <span class="f">mb_substr</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="n">0</span>, <span class="n">500</span>));</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">worthRetrying</span>(<span class="t">Throwable</span> <span class="v">$e</span>): <span class="k">bool</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ConnectionException</span></span><span class="ln add">            || (<span class="v">$e</span> <span class="k">instanceof</span> <span class="t">RequestException</span> &amp;&amp; <span class="v">$e</span>-&gt;response-&gt;<span class="f">serverError</span>());</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div><p>The class is no longer <code>final</code>, because <code>ChannelRateLimited</code> extends it. <code>worthRetrying()</code> is used in part 2.</p></div></div></section>
 <section><h2>The fix, part 2: retry only real blips</h2><p>Laravel’s HTTP client already retries, and its <code>retry()</code> takes a third argument the broken code never used: a <code>when</code> callback that decides, per failure, whether another attempt is worth it. One rule, written once, used by both adapters:</p><div class="blocks"><div class="block"><p>One rule, <code>ChannelRequestFailed::worthRetrying()</code> from part 1, used by both adapters. Airbnb:</p><div class="codebox changed">
 <div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php</span><span class="badge">changed since scene 15: <span class="plus">+1</span></span></div>
@@ -512,6 +546,7 @@ class CloseChannelDates implements ShouldQueue
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelConnection</span>;
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;
 
 <span class="f">beforeEach</span>(<span class="k">function</span> () {
@@ -538,6 +573,18 @@ class CloseChannelDates implements ShouldQueue
 })-&gt;<span class="f">with</span>([
     <span class="s">'rate limited'</span> =&gt; [<span class="n">429</span>, <span class="t">ChannelRateLimited</span>::class],
     <span class="s">'bad request'</span> =&gt; [<span class="n">400</span>, <span class="t">ChannelRequestFailed</span>::class],
+]);
+
+<span class="f">it</span>(<span class="s">'reads Retry-After as seconds or as an HTTP date'</span>, <span class="k">function</span> (<span class="k">string</span> <span class="v">$header</span>, <span class="k">int</span> <span class="v">$seconds</span>) {
+    <span class="k">$this</span>-&gt;<span class="f">travelTo</span>(<span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">'2027-06-01 10:00:00'</span>, <span class="s">'UTC'</span>));
+
+    <span class="f">expect</span>(<span class="t">ChannelRateLimited</span>::<span class="f">fromRetryAfter</span>(<span class="s">'airbnb'</span>, <span class="v">$header</span>)-&gt;retryAfter)-&gt;<span class="f">toBe</span>(<span class="v">$seconds</span>);
+})-&gt;<span class="f">with</span>([
+    <span class="s">'seconds'</span> =&gt; [<span class="s">'120'</span>, <span class="n">120</span>],
+    <span class="s">'a date'</span> =&gt; [<span class="s">'Tue, 01 Jun 2027 10:02:30 GMT'</span>, <span class="n">150</span>],                  <span class="c">// the form that used to become 0</span>
+    <span class="s">'a date in the past'</span> =&gt; [<span class="s">'Tue, 01 Jun 2027 09:00:00 GMT'</span>, <span class="n">1</span>],
+    <span class="s">'missing'</span> =&gt; [<span class="s">''</span>, <span class="n">60</span>],
+    <span class="s">'unreadable'</span> =&gt; [<span class="s">'soon'</span>, <span class="n">60</span>],
 ]);</code></pre>
 </div></div><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">tests/Unit/ThrottledChannelApiTest.php</span><span class="badge new">new file</span></div>

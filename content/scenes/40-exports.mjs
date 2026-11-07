@@ -7,7 +7,7 @@ export default {
     when: 'Friday 08:45',
     messages: [
       ['Jonas · Hygge Homes', 'Our accountant opened the **2026 tax report** from your Exports page. It has **2,140 rows** for properties that aren’t ours, with other hosts’ guest names.'],
-      ['Sara · tech lead', 'That is a personal data breach: other hosts’ guests’ names, sent to the wrong company. The export is switched off. We have **72 hours** to report it to the data protection authority, and I’m starting the report now.'],
+      ['Sara · tech lead', 'That is a personal data breach: other hosts’ guests’ names, sent to the wrong company. The export is switched off. Names of guests in the hands of another company is a risk to them, so GDPR says we notify the data protection authority without undue delay and within **72 hours** of finding out. I’m starting the report now.'],
       ['Karim · developer', 'The tax export shipped last week, copied from the payouts export. Payouts starts from `$account->bookings()`. Tax starts from the line items table, and nothing limits it to the account.'],
     ],
   },

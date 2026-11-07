@@ -292,7 +292,7 @@ Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverla
     points: [
       'Three different sources (Stripe’s pages, our table in batches, plain arrays in the tests) all reach the comparison as one `iterable`. It loops; it never paginates.',
       'Nothing runs until someone loops: a generator is **lazy**. A command that stopped at the first difference would never fetch the rest of Stripe’s pages.',
-      'Memory stays flat: one Stripe page, one batch of rows, and the small id-to-amount array, whether the day has 50 refunds or 50,000.',
+      'Memory holds one Stripe page, one batch of rows, and the id-to-amount map. The map does grow with the day’s refunds, a few dozen bytes each: a couple of MB at 50,000, instead of 50,000 models. If that ever matters, compare the two sorted streams side by side instead of building the map.',
     ],
     whenNot: [
       'Small, bounded data (the 12 months of a year, a property’s 5 rate rules): a plain array or `get()` is simpler.',

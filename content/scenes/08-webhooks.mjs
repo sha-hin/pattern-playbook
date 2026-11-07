@@ -123,7 +123,7 @@ enum WebhookStatus: string
         {
           title: 'The endpoint',
           text: [
-            '`Webhook::constructEvent()` from Stripe’s SDK checks the `Stripe-Signature` header: an HMAC of the raw body with our webhook secret, plus a timestamp it rejects if older than 5 minutes, so a captured request can’t be replayed later. Anything that fails gets a 400 and is never stored.',
+            '`Webhook::constructEvent()` from Stripe’s SDK checks the `Stripe-Signature` header: an HMAC of the raw body with our webhook secret, plus a timestamp it rejects if older than 5 minutes. The signature proves the request came from Stripe; the timestamp limits a captured request to that 5-minute window. Inside the window a replay is still possible, and that is what the unique `(provider, event_id)` key stops: the second copy is never stored or processed. Anything that fails the check gets a 400 and is never stored.',
             '`createOrFirst()` inserts the row, or returns the existing one when the unique index refuses a duplicate (see how below). Only a new row dispatches the job.',
           ],
           path: 'app/Http/Controllers/StripeWebhookController.php',
