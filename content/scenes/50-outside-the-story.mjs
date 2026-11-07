@@ -1,9 +1,9 @@
-// After the story · Five patterns a Laravel PMS doesn't need, each built for a job where it does fit.
+// After the story · Four patterns a Laravel PMS doesn't need, each built for a job where it does fit.
 
 export default {
-  description: 'Composite, Data Mapper, Interpreter, Visitor and Flyweight had no honest place in Nordic Stays. Each is built here, from scratch, for a real job where it fits: a permission-aware menu, a plain domain object saved by a mapper, a small rule language for hosts, new operations on that language’s tree, and memory shared by 300,000 amenities. With tests, and where you will meet each one.',
+  description: 'Composite, Data Mapper, Interpreter and Visitor had no honest place in Nordic Stays. Each is built here, from scratch, for a real job where it fits: a permission-aware menu, a plain domain object saved by a mapper, a small rule language for hosts, and new operations on that language’s tree. With tests, and where you will meet each one.',
   intro: [
-    'The story used a pattern only where a real team would write it. These five never came up, because a vacation-rental PMS on Laravel doesn’t need them. You will still meet them: in Symfony and Doctrine codebases, in the tools that check your code, in rule engines, in interviews.',
+    'The story used a pattern only where a real team would write it. These four never came up, because a vacation-rental PMS on Laravel doesn’t need them. You will still meet them: in Symfony and Doctrine codebases, in the tools that check your code, in rule engines, in interviews.',
     'Each one below is a small, complete example: the problem, the code, the tests, and the places it lives in real software. The code sits in `examples/`, outside the Nordic Stays app, so nothing in the story depends on it.',
   ],
   parts: [
@@ -1046,141 +1046,6 @@ it('finds the fact that would make a saved rule fail at send time', function () 
         ],
       },
     },
-    {
-      id: 'flyweight',
-      title: 'Flyweight: 300,000 amenities that are really fifteen',
-      text: [
-        'Every property lists its amenities: sauna, Wi-Fi, sea view, fifteen kinds in all, each with a code, a label, an icon and a category. A search result page of 20,000 properties that builds a new object for every amenity of every property holds **300,000** objects that are copies of **fifteen**.',
-        'A flyweight is an object that is immutable and shared: instead of creating a copy, every user gets the same instance. In PHP, enum cases are exactly that, built into the language.',
-      ],
-      sections: [
-        {
-          title: 'The code',
-          blocks: [
-            {
-              title: 'The shared objects: one per amenity, for the whole process',
-              path: 'examples/flyweight/Amenity.php',
-              code: String.raw`<?php
-
-namespace Examples\Flyweight;
-
-enum Amenity: string
-{
-    case Sauna = 'sauna';
-    case Wifi = 'wifi';
-    case SeaView = 'sea_view';
-    case Parking = 'parking';
-    case PetsAllowed = 'pets';
-    case Fireplace = 'fireplace';
-    case HotTub = 'hot_tub';
-    case EvCharger = 'ev_charger';
-    case Kitchen = 'kitchen';
-    case Washer = 'washer';
-    case Barbecue = 'bbq';
-    case AirConditioning = 'air_conditioning';
-    case Crib = 'crib';
-    case Bikes = 'bikes';
-    case Garden = 'garden';
-
-    public function label(): string
-    {
-        return match ($this) {
-            self::Wifi => 'Wi-Fi',
-            self::SeaView => 'Sea view',
-            self::HotTub => 'Hot tub',
-            self::EvCharger => 'EV charger',
-            self::PetsAllowed => 'Pets allowed',
-            self::Barbecue => 'Barbecue',
-            self::AirConditioning => 'Air conditioning',
-            default => ucfirst($this->value),                          // Sauna, Parking, Kitchen …
-        };
-    }
-
-    public function icon(): string
-    {
-        return "icon-{$this->value}";
-    }
-}`,
-            },
-            {
-              title: 'What a property holds: references to the shared ones',
-              path: 'examples/flyweight/PropertyAmenities.php',
-              code: String.raw`<?php
-
-namespace Examples\Flyweight;
-
-final readonly class PropertyAmenities
-{
-    /** @param list<Amenity> $amenities */
-    private function __construct(public array $amenities)
-    {
-    }
-
-    /** @param list<string> $codes as stored, e.g. ["sauna", "wifi"] */
-    public static function fromCodes(array $codes): self
-    {
-        return new self(array_map(fn (string $code): Amenity => Amenity::from($code), $codes));   // no new object: the shared case
-    }
-
-    public function has(Amenity $amenity): bool
-    {
-        return in_array($amenity, $this->amenities, true);              // identity: the same instance
-    }
-}`,
-            },
-            {
-              title: 'Measured, not guessed',
-              table: [
-                ['20,000 properties × 15 amenities', 'Memory (PHP 8.3)'],
-                ['A new object per amenity per property', '66.8 MB'],
-                ['The shared enum cases', '7.7 MB, almost all of it the arrays themselves'],
-              ],
-              after: [
-                'The shared version stores 300,000 references to fifteen objects. It is also faster: no object to build, and `===` compares an address.',
-                'A flyweight must be **immutable**: if one property could change “Sauna”’s label, every property would see it. Enums can’t be changed at all, which is what makes them safe to share.',
-              ],
-            },
-          ],
-        },
-      ],
-      reveal: {
-        names: ['Flyweight'],
-        rules: [['Flyweight', 'Share immutable objects that many users need, instead of giving each user its own copy. What differs per user is kept outside, by the user.']],
-        points: [
-          '**Where you’ll meet it:** PHP enums and interned strings, the glyphs of a text editor, tiles and sprites in games, the shared style objects of a spreadsheet, a font cache.',
-          'In this story the enums were flyweights all along: every `BookingStatus::Confirmed` in every booking is the same object, and scene 43’s `App\\Enums\\Amenity` is exactly this enum, cast onto every property with `AsEnumCollection`. Here it is built outside Laravel, so the sharing can be measured.',
-        ],
-        whenNot: [
-          'When the objects aren’t really the same: sharing objects that differ slightly needs the differences stored elsewhere, which costs more than it saves.',
-          'For a few hundred objects: PHP’s per-request memory makes the savings invisible, and a plain object is clearer.',
-        ],
-      },
-      tests: {
-        summary: 'One shared instance per amenity, whatever the number of properties',
-        blocks: [
-          {
-            path: 'tests/Unit/Examples/FlyweightTest.php',
-            code: String.raw`<?php
-
-use Examples\Flyweight\Amenity;
-use Examples\Flyweight\PropertyAmenities;
-
-it('shares one instance per amenity across every property', function () {
-    $cottage = PropertyAmenities::fromCodes(['sauna', 'wifi']);
-    $loft = PropertyAmenities::fromCodes(['wifi', 'sea_view']);
-
-    expect($cottage->amenities[1])->toBe($loft->amenities[0])              // the very same object
-        ->and($loft->has(Amenity::SeaView))->toBeTrue()
-        ->and($cottage->has(Amenity::SeaView))->toBeFalse();
-});
-
-it('refuses an amenity that doesn’t exist, instead of creating one', function () {
-    expect(fn () => PropertyAmenities::fromCodes(['helipad']))->toThrow(ValueError::class);
-});`,
-          },
-        ],
-      },
-    },
   ],
-  next: 'That is every pattern in the course: the ones the story needed, written where a real team would write them, and these five, built where they belong.',
+  next: 'That is every pattern in the course: the ones the story needed, written where a real team would write them, and these four, built where they belong.',
 };

@@ -68,7 +68,7 @@ export const SCENES = [
   // Day 7 · Production
   { n: 41, day: 7, slug: '41-ical-at-scale', incident: 'iCal calendars are three hours out of date', patterns: ['Unit of Work'], learn: 'Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written; Part 2: deadlocks, REPEATABLE READ, gap and next-key locks', ready: true },
   { n: 42, day: 7, slug: '42-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary; Part 2: Cache::flexible() against a stampede; Part 3: a CDN with Cache-Control, ETag and purging', ready: true },
-  { n: 43, day: 7, slug: '43-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: an amenities filter (an enum: PHP’s own Flyweight) and reindexing without downtime by swapping indexes', ready: true },
+  { n: 43, day: 7, slug: '43-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository', 'Flyweight'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: an amenities filter (an enum: PHP’s own Flyweight) and reindexing without downtime by swapping indexes', ready: true },
   { n: 44, day: 7, slug: '44-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost; Part 2: retention with MassPrunable, archiving, and why not partitioning', ready: true },
   { n: 45, day: 7, slug: '45-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane; Part 2: Reverb on two servers through Redis', ready: true },
   { n: 46, day: 7, slug: '46-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts', ready: true },
@@ -80,9 +80,9 @@ export const SCENES = [
 // After the story: patterns that have no honest place in this PMS, each built for real outside the app.
 export const OUTSIDE = {
   slug: '50-outside-the-story',
-  title: 'Five patterns outside the story',
-  learn: 'Composite, Data Mapper, Interpreter, Visitor and Flyweight, each built from scratch for a job where it fits, with tests',
-  patterns: ['Composite', 'Data Mapper', 'Interpreter', 'Visitor', 'Flyweight'],
+  title: 'Four patterns outside the story',
+  learn: 'Composite, Data Mapper, Interpreter and Visitor, each built from scratch for a job where it fits, with tests',
+  patterns: ['Composite', 'Data Mapper', 'Interpreter', 'Visitor'],
   ready: true,
 };
 

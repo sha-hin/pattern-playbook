@@ -547,5 +547,5 @@ it('is for the account’s owners only, and needs a real month', function () {
       },
     ],
   },
-  next: 'That is the course: one rental platform, from launch week to an interview, through 52 incidents a real team ships and fixes. The page after this one builds the five patterns that had no honest place in the story.',
+  next: 'That is the course: one rental platform, from launch week to an interview, through 52 incidents a real team ships and fixes. The page after this one builds the four patterns that had no honest place in the story.',
 };
