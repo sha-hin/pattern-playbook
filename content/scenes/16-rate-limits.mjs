@@ -1,7 +1,7 @@
-// Scene 16 · Decorator: retries and rate limits wrapped around any channel API.
+// Scene 16 · Decorator: a shared rate limit wrapped around any channel API; retries only for real blips.
 
 export default {
-  description: 'Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel with Decorators around the channel API: one that retries only real blips, one that stays under the rate limit with Redis, and jobs that wait for Retry-After.',
+  description: 'Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel: the HTTP client retries only real blips, a Decorator around every channel API stays under the rate limit with Redis, and jobs wait for Retry-After.',
   incident: {
     channel: '#incidents',
     when: 'Friday 09:40',
@@ -62,87 +62,54 @@ final class ChannelRateLimited extends ChannelRequestFailed
         return ChannelRateLimited::wait($channel->value, (int) ($response->header('Retry-After') ?: 60));
     }
 
-    $exception = new self("{$channel->value} answered {$response->status()}: " . mb_substr($response->body(), 0, 500));
-    $exception->status = $response->status();                // the retry decorator reads it
-
-    return $exception;
+    return new self("{$channel->value} answered {$response->status()}: " . mb_substr($response->body(), 0, 500));
 }
 
-// The class is no longer final (ChannelRateLimited extends it), and gains: public ?int $status = null;`,
+// The class is no longer final: ChannelRateLimited extends it.`,
         },
       ],
     },
     {
-      title: 'The fix, part 2: wrap the API instead of changing it',
+      title: 'The fix, part 2: retry only real blips',
       text: [
-        'Retrying and rate limiting have nothing to do with how Airbnb or Booking.com work, and every channel needs them the same way. So they don’t go **into** the adapters. They go **around** them: a class that implements the same `ChannelApi` interface, holds another `ChannelApi`, adds one behaviour, and passes the call on.',
-        'Code that receives a `ChannelApi` can’t tell whether it got the plain adapter or one wrapped twice. That is what lets the layers stack.',
+        'Laravel’s HTTP client already retries, and its `retry()` takes a third argument the broken code never used: a `when` callback that decides, per failure, whether another attempt is worth it. One rule, written once, used by both adapters:',
       ],
       blocks: [
         {
-          title: 'Retry real blips, nothing else',
-          text: ['Two more attempts, 200 ms and 600 ms apart, only for connection errors and 5xx. Laravel’s `Sleep` is used instead of `usleep()` so tests can fake the waiting.'],
-          path: 'app/Channels/RetryingChannelApi.php',
-          code: String.raw`<?php
-
-namespace App\Channels;
-
-use App\Bookings\Stay;
-use App\Models\ChannelListing;
-use Carbon\CarbonImmutable;
-use Closure;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Sleep;
-
-final readonly class RetryingChannelApi implements ChannelApi
+          path: 'app/Channels/ChannelRequestFailed.php (added)',
+          fragment: true,
+          code: String.raw`/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */
+public static function worthRetrying(Throwable $e): bool
 {
-    private const PAUSES_MS = [200, 600];
-
-    public function __construct(private ChannelApi $inner)
-    {
-    }
-
-    public function closeDates(ChannelListing $listing, Stay $nights): void
-    {
-        $this->retry(fn () => $this->inner->closeDates($listing, $nights));
-    }
-
-    public function openDates(ChannelListing $listing, Stay $nights): void
-    {
-        $this->retry(fn () => $this->inner->openDates($listing, $nights));
-    }
-
-    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
-    {
-        return $this->inner->reservationsUpdatedSince($listing, $since);   // a half-read page sequence can't be replayed; the next poll retries
-    }
-
-    private function retry(Closure $call): void
-    {
-        foreach ([...self::PAUSES_MS, null] as $pause) {
-            try {
-                $call();
-
-                return;
-            } catch (ConnectionException|ChannelRequestFailed $e) {
-                $transient = $e instanceof ConnectionException
-                    || (! $e instanceof ChannelRateLimited && $e->status >= 500);
-
-                if (! $transient || $pause === null) {
-                    throw $e;                                              // 429, 4xx, or out of attempts
-                }
-
-                Sleep::for($pause)->milliseconds();
-            }
-        }
-    }
+    return $e instanceof ConnectionException
+        || ($e instanceof RequestException && $e->response->serverError());
 }`,
+          after: ['It imports `Illuminate\\Http\\Client\\ConnectionException`, `Illuminate\\Http\\Client\\RequestException` and `Throwable`.'],
         },
         {
-          title: 'Stay under the limit before the channel has to say so',
-          text: [
-            'Each channel publishes a request limit. A Redis counter shared by **every worker** counts our calls per channel per minute; at the limit, the call isn’t made at all, and the caller is told how long to wait, exactly like a 429 from the channel. `RateLimiter::attempt()` is atomic in Redis, so twenty workers can’t all slip through at the same instant.',
-          ],
+          path: 'app/Channels/Airbnb/AirbnbApi.php (after) · the same line in BookingComApi',
+          fragment: true,
+          code: String.raw`$response = Http::withToken($this->tokens->for($listing))
+    ->timeout(10)
+    ->retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
+    ->acceptJson()
+    ->put("{$this->baseUrl}/calendars/{$listing->external_listing_id}", [/* ... */]);
+
+if ($response->failed()) {
+    throw ChannelRequestFailed::from(Channel::Airbnb, $response);   // a 429 becomes ChannelRateLimited (part 1)
+}`,
+          after: ['`throw: false` hands the last response back to the adapter, which turns it into our own exception as before. A dropped connection still throws `ConnectionException` after the last attempt.'],
+        },
+      ],
+    },
+    {
+      title: 'The fix, part 3: one rate limit around every channel',
+      text: [
+        'Waiting for a 429 is already too late: by then the channel is counting us. Each channel publishes a request limit, and every worker must stay under it **together**. That has nothing to do with how Airbnb or Booking.com work, so it doesn’t go **into** the adapters. It goes **around** them: a class that implements the same `ChannelApi` interface, holds another `ChannelApi`, adds one behaviour, and passes the call on.',
+        'A Redis counter shared by every worker counts our calls per channel per minute. At the limit, the call isn’t made at all, and the caller is told how long to wait, exactly like a 429 from the channel. `RateLimiter::attempt()` is atomic in Redis, so twenty workers can’t all slip through at the same instant.',
+      ],
+      blocks: [
+        {
           path: 'app/Channels/ThrottledChannelApi.php',
           code: String.raw`<?php
 
@@ -190,10 +157,8 @@ final readonly class ThrottledChannelApi implements ChannelApi
 }`,
         },
         {
-          title: 'The kits put the layers together',
-          text: [
-            'The order matters. The throttle sits **inside** the retry, so every real HTTP call, retries included, takes a slot from the limit. If it sat outside, one slot would cover up to three calls.',
-          ],
+          title: 'The kits wrap their API',
+          text: ['Code that receives a `ChannelApi` can’t tell whether it got the plain adapter or the wrapped one, so nothing else changes.'],
           path: 'app/Channels/Airbnb/AirbnbKit.php (api() changed) · the same in BookingComKit',
           fragment: true,
           code: String.raw`public function api(): ChannelApi
@@ -203,16 +168,17 @@ final readonly class ThrottledChannelApi implements ChannelApi
         $this->config['base_url'],
     );
 
-    return new RetryingChannelApi(                       // outer: retries blips
-        new ThrottledChannelApi($airbnb, 'airbnb', perMinute: (int) ($this->config['requests_per_minute'] ?? 60)),   // inner: counts every call
-    );
+    return new ThrottledChannelApi($airbnb, 'airbnb', perMinute: (int) ($this->config['requests_per_minute'] ?? 60));
 }`,
-          after: ['`requests_per_minute` goes in `config/services.php` next to each channel’s credentials: the partner’s published limit, with 60 when it isn’t set. The plain adapters lose their `retry()` lines; they only translate again.'],
+          after: [
+            '`requests_per_minute` goes in `config/services.php` next to each channel’s credentials, with 60 when it isn’t set.',
+            'One slot covers one call **with its retries**: at most three requests, and only while the channel is answering 5xx. So the value is set a little under the partner’s published limit, not exactly on it.',
+          ],
         },
       ],
     },
     {
-      title: 'The fix, part 3: jobs wait as long as they’re told',
+      title: 'The fix, part 4: jobs wait as long as they’re told',
       text: [
         'A rate-limited job doesn’t fail and doesn’t retry at once: it goes back on the queue for exactly `Retry-After` seconds with `release()`. Every other failure waits a growing backoff. `retryUntil()` replaces a fixed number of tries, so a long rate limit can’t burn all of a job’s attempts.',
       ],
@@ -261,7 +227,7 @@ class CloseChannelDates implements ShouldQueue
         }
     }
 }`,
-          after: ['A limit of how many of these jobs may **start** per minute is also built in: the `RateLimited` job middleware with a `RateLimiter::for()` definition. The decorator is the stricter guard because it counts actual HTTP calls, wherever they come from.'],
+          after: ['A limit of how many of these jobs may **start** per minute is also built in: the `RateLimited` job middleware with a `RateLimiter::for()` definition. The decorator is the stricter guard because it counts actual calls to the channel, from jobs, commands and requests alike.'],
         },
       ],
     },
@@ -270,13 +236,13 @@ class CloseChannelDates implements ShouldQueue
     names: ['Decorator'],
     rules: [['Decorator', 'A class that implements the same interface as the object it wraps, adds one behaviour, and passes every call on. Decorators can be stacked.']],
     points: [
-      'The adapters only translate; retrying and throttling each live in one small class. Adding logging or metrics to every channel would be one more decorator, and no adapter would change.',
-      'The order of the layers is a decision you can see, in one place: the kit.',
-      'Each decorator is tested on its own, around a fake `ChannelApi`.',
+      'The adapters only translate; the shared limit lives in one small class around all of them. Adding metrics for every channel would be one more decorator, and no adapter would change.',
+      'Where the wrapping happens is a decision you can see, in one place: the kit.',
+      'The decorator is tested on its own, around a fake `ChannelApi`.',
     ],
     whenNot: [
+      'A behaviour the library already has. Retries were one argument away in `Http::retry()`; wrapping them in a decorator would rebuild Laravel.',
       'A behaviour only one class needs: put it in that class.',
-      'Many layers that depend on each other’s order in subtle ways are hard to follow. Two or three, built in one visible place, is the comfortable range.',
     ],
   },
   laravel: {
@@ -313,36 +279,63 @@ class CloseChannelDates implements ShouldQueue
     summary: 'What is retried and what isn’t, the shared limit, and a job that waits',
     blocks: [
       {
-        path: 'tests/Unit/ChannelDecoratorsTest.php',
+        path: 'tests/Feature/ChannelRetriesTest.php',
+        code: String.raw`<?php
+
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Channels\ChannelRateLimited;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelConnection;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\Http;
+
+beforeEach(function () {
+    config(['services.airbnb' => ['base_url' => 'https://airbnb.test/v2', 'token_url' => 'https://airbnb.test/oauth/token', 'client_id' => 'id', 'client_secret' => 'secret', 'webhook_secret' => 's', 'requests_per_minute' => 300]]);
+    $property = Property::factory()->create();
+    ChannelConnection::forceCreate(['account_id' => $property->account_id, 'channel' => Channel::Airbnb, 'access_token' => 'a', 'refresh_token' => 'r', 'expires_at' => now()->addHour()]);
+    $this->listing = ChannelListing::forceCreate(['property_id' => $property->id, 'channel' => Channel::Airbnb, 'external_listing_id' => '41793625']);
+    $this->close = fn () => app(ChannelManager::class)->for(Channel::Airbnb)->api()->closeDates($this->listing, Stay::fromDates('2027-07-10', '2027-07-13'));
+});
+
+it('retries a 503 and succeeds on the third attempt', function () {
+    Http::fake(['airbnb.test/v2/*' => Http::sequence()->push('Unavailable', 503)->push('Unavailable', 503)->push(['ok' => true])]);
+
+    ($this->close)();
+
+    Http::assertSentCount(3);
+});
+
+it('never retries a 429 or a 400', function (int $status, string $exception) {
+    Http::fake(['airbnb.test/v2/*' => Http::response('No', $status, ['Retry-After' => '30'])]);
+
+    expect($this->close)->toThrow($exception);
+    Http::assertSentCount(1);                                              // the incident: no burst of retries
+})->with([
+    'rate limited' => [429, ChannelRateLimited::class],
+    'bad request' => [400, ChannelRequestFailed::class],
+]);`,
+      },
+      {
+        path: 'tests/Unit/ThrottledChannelApiTest.php',
         code: String.raw`<?php
 
 use App\Bookings\Stay;
 use App\Channels\ChannelApi;
 use App\Channels\ChannelRateLimited;
-use App\Channels\ChannelRequestFailed;
-use App\Channels\RetryingChannelApi;
 use App\Channels\ThrottledChannelApi;
 use App\Models\ChannelListing;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Sleep;
 
-/** A ChannelApi that fails with the given errors, in order, then succeeds. */
-function flaky(Throwable ...$errors): ChannelApi
-{
-    return new class ($errors) implements ChannelApi {
+it('stops calling at the limit and says how long to wait', function () {
+    $inner = new class implements ChannelApi {
         public int $calls = 0;
-
-        /** @param list<Throwable> $errors */
-        public function __construct(private array $errors)
-        {
-        }
 
         public function closeDates(ChannelListing $listing, Stay $nights): void
         {
             $this->calls++;
-            if ($error = array_shift($this->errors)) {
-                throw $error;
-            }
         }
 
         public function openDates(ChannelListing $listing, Stay $nights): void
@@ -354,49 +347,13 @@ function flaky(Throwable ...$errors): ChannelApi
             return [];
         }
     };
-}
-
-function failedWith(int $status): ChannelRequestFailed
-{
-    $e = new ChannelRequestFailed("answered {$status}");
-    $e->status = $status;
-
-    return $e;
-}
-
-beforeEach(function () {
-    Sleep::fake();
-    $this->listing = new ChannelListing();
-    $this->nights = Stay::fromDates('2027-07-10', '2027-07-13');
-});
-
-it('retries a 503 and succeeds, pausing 200 then 600 ms', function () {
-    $inner = flaky(failedWith(503), failedWith(503));
-
-    (new RetryingChannelApi($inner))->closeDates($this->listing, $this->nights);
-
-    expect($inner->calls)->toBe(3);
-    Sleep::assertSequence([Sleep::for(200)->milliseconds(), Sleep::for(600)->milliseconds()]);
-});
-
-it('never retries a 429 or a 400', function (Throwable $error) {
-    $inner = flaky($error);
-
-    expect(fn () => (new RetryingChannelApi($inner))->closeDates($this->listing, $this->nights))->toThrow($error::class)
-        ->and($inner->calls)->toBe(1);
-})->with([
-    'rate limited' => [ChannelRateLimited::wait('airbnb', 30)],
-    'bad request' => [failedWith(400)],
-]);
-
-it('stops calling at the limit and says how long to wait', function () {
-    $inner = flaky();
     $api = new ThrottledChannelApi($inner, 'airbnb', perMinute: 2);
+    $nights = Stay::fromDates('2027-07-10', '2027-07-13');
 
-    $api->closeDates($this->listing, $this->nights);
-    $api->closeDates($this->listing, $this->nights);
+    $api->closeDates(new ChannelListing(), $nights);
+    $api->closeDates(new ChannelListing(), $nights);
 
-    expect(fn () => $api->closeDates($this->listing, $this->nights))->toThrow(ChannelRateLimited::class)
+    expect(fn () => $api->closeDates(new ChannelListing(), $nights))->toThrow(ChannelRateLimited::class)
         ->and($inner->calls)->toBe(2);                                   // the third call never reached the channel
 });`,
         after: ['`ChannelListing` and `Stay` are only passed through here, so an unsaved listing is enough. The limiter uses the test cache (`array`), which is fresh for every test.'],

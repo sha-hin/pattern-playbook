@@ -269,5 +269,5 @@ it('refuses to confirm a cancelled booking', function () {
       },
     ],
   },
-  next: 'Day 1 is done: money, dates, the endpoint, double bookings, payments and confirmation all have one home. Day 2 starts on Monday, when a guest’s quote and invoice disagree by €14.',
+  next: 'Day 1 is done: money, dates, the endpoint, double bookings, payments and confirmation all have one home. Day 2 starts on Monday, when a guest is charged €6.60 more than her quote said.',
 };

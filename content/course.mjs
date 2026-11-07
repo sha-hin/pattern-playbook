@@ -29,7 +29,7 @@ export const SCENES = [
   { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
 
   // Day 3 · Channels
-  { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: ['Template Method', 'Factory Method'], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },
+  { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: [], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },
   { n: 13, day: 3, slug: '13-channel-api', incident: 'Every Airbnb call has failed with 401 for an hour', patterns: ['Adapter', 'Manager / Driver'], learn: 'One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock', ready: true },
   { n: 14, day: 3, slug: '14-channel-kits', incident: 'Two days of Booking.com reservations never arrived', patterns: ['Abstract Factory'], learn: 'One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration', ready: true },
   { n: 15, day: 3, slug: '15-out-of-order', incident: 'A cancellation arrived before the booking', patterns: [], learn: 'Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()', ready: true },
@@ -70,12 +70,12 @@ export const SCENES = [
   { n: 42, day: 7, slug: '42-code-review', incident: 'Review this pull request', patterns: [], learn: 'AI-written code with hidden bugs' },
 ];
 
-// After the story: the four patterns a Laravel PMS doesn't need, each built for real outside the app.
+// After the story: patterns that have no honest place in this PMS, each built for real outside the app.
 export const OUTSIDE = {
   slug: '43-outside-the-story',
-  title: 'Four patterns outside the story',
-  learn: 'Data Mapper, Visitor, Flyweight and Interpreter, each built with real code',
-  patterns: ['Data Mapper', 'Visitor', 'Flyweight', 'Interpreter'],
+  title: 'Six patterns outside the story',
+  learn: 'Template Method, Factory Method, Data Mapper, Visitor, Flyweight and Interpreter, each built with real code',
+  patterns: ['Template Method', 'Factory Method', 'Data Mapper', 'Visitor', 'Flyweight', 'Interpreter'],
   ready: false,
 };
 

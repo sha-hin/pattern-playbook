@@ -51,26 +51,9 @@ namespace App\Bookings\States;
 
 use App\Models\Booking;
 
-interface BookingState
+abstract class BookingState
 {
     /** @return bool true when the booking changed, false when it was already in the target state */
-    public function confirm(Booking $booking): bool;
-
-    public function cancel(Booking $booking): bool;
-
-    public function expire(Booking $booking): bool;
-}`,
-        },
-        {
-          path: 'app/Bookings/States/State.php',
-          code: String.raw`<?php
-
-namespace App\Bookings\States;
-
-use App\Models\Booking;
-
-abstract class State implements BookingState
-{
     public function confirm(Booking $booking): bool
     {
         throw InvalidTransition::from($booking, 'confirm');
@@ -114,7 +97,7 @@ namespace App\Bookings\States;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 
-final class PendingState extends State
+final class PendingState extends BookingState
 {
     public function confirm(Booking $booking): bool
     {
@@ -159,7 +142,7 @@ namespace App\Bookings\States;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 
-final class ConfirmedState extends State
+final class ConfirmedState extends BookingState
 {
     public function confirm(Booking $booking): bool
     {
@@ -188,7 +171,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Property;
 
-final class ExpiredState extends State
+final class ExpiredState extends BookingState
 {
     /** A late payment: re-confirm only if nobody has taken the nights since. */
     public function confirm(Booking $booking): bool
@@ -226,7 +209,7 @@ namespace App\Bookings\States;
 
 use App\Models\Booking;
 
-final class CancelledState extends State
+final class CancelledState extends BookingState
 {
     public function cancel(Booking $booking): bool
     {

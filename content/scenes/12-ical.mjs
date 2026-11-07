@@ -1,7 +1,7 @@
-// Scene 12 · Template Method and Factory Method: syncing iCal feeds from Airbnb and Booking.com.
+// Scene 12 · iCal sync from Airbnb and Booking.com: match by UID, deletes scoped to the source, one transaction.
 
 export default {
-  description: 'Nights booked on Airbnb were sold again on Nordic Stays because the iCal import wiped and rebuilt every block, per channel, in copy-pasted code. Fix it in Laravel with a Template Method for the sync steps and a Factory Method for each channel’s events: match by UID, deletes scoped to the source, one transaction.',
+  description: 'Two families arrived for the same night because the iCal import wiped and rebuilt every block, for every channel, in copy-pasted code. Fix it in Laravel: one importer that saves events by UID, deletes only its own channel’s blocks, and does it all in one transaction',
   incident: {
     channel: '#incidents',
     when: 'Monday 08:20',
@@ -111,22 +111,10 @@ return new class extends Migration
 
 namespace App\Enums;
 
-use App\Channels\Ical\AirbnbIcalImporter;
-use App\Channels\Ical\BookingComIcalImporter;
-use App\Channels\Ical\IcalImporter;
-
 enum Channel: string
 {
     case Airbnb = 'airbnb';
     case BookingCom = 'booking_com';
-
-    public function icalImporter(): IcalImporter
-    {
-        return match ($this) {
-            self::Airbnb => new AirbnbIcalImporter(),
-            self::BookingCom => new BookingComIcalImporter(),
-        };
-    }
 }`,
         },
         {
@@ -198,8 +186,8 @@ class ExternalBlock extends Model
     {
       title: 'The fix, part 2: one sync, written once',
       text: [
-        'The steps are the same for every channel: fetch the feed, read its events, save each one by UID, delete this source’s blocks that are no longer in the feed, all in one transaction. Only one step differs: **how a raw event becomes one of our events**. Airbnb says "Reserved" and "Airbnb (Not available)"; Booking.com says "CLOSED - Not available" for everything.',
-        'So the base class writes the steps once in `sync()`, and leaves that one step to each channel’s subclass.',
+        'The steps are the same for every channel: fetch the feed, read its events, save each one by UID, delete **this source’s** blocks that are no longer in the feed, all in one transaction. So there is one class, not a copy per channel.',
+        'Only one line differs between channels: what an event *is*. Airbnb says "Reserved" for a guest and "Airbnb (Not available)" for the host’s own block; Booking.com says "CLOSED - Not available" for everything. A `match` on the source covers that.',
       ],
       blocks: [
         {
@@ -222,22 +210,25 @@ final readonly class IcalEvent
 }`,
         },
         {
-          title: 'The steps, in a fixed order',
+          title: 'The importer',
           path: 'app/Channels/Ical/IcalImporter.php',
           code: String.raw`<?php
 
 namespace App\Channels\Ical;
 
+use App\Bookings\Stay;
+use App\Channels\Ical\IcalImporter;
+use App\Enums\Channel;
 use App\Models\ExternalBlock;
 use App\Models\IcalFeed;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use UnexpectedValueException;
 
-abstract class IcalImporter
+final class IcalImporter
 {
-    /** The template: every channel syncs with exactly these steps. Final, so no subclass can reorder them. */
-    final public function sync(IcalFeed $feed): int
+    /** @return int the number of events in the feed */
+    public function sync(IcalFeed $feed): int
     {
         $ics = Http::timeout(10)->retry(2, 500)->get($feed->url)->throw()->body();   // a timeout throws; it is not "empty"
 
@@ -247,7 +238,7 @@ abstract class IcalImporter
 
         $events = [];
         foreach ($this->components($ics) as $component) {
-            $event = $this->eventFrom($component);                                   // the one step that differs
+            $event = $this->eventFrom($feed->source, $component);
             if ($event !== null) {
                 $events[$event->uid] = $event;
             }
@@ -273,15 +264,27 @@ abstract class IcalImporter
         return count($events);
     }
 
-    /**
-     * The factory method: each channel decides how a raw VEVENT becomes an IcalEvent, or null to skip it.
-     *
-     * @param array<string, string> $component e.g. ['UID' => '…', 'DTSTART' => '20270710', 'SUMMARY' => 'Reserved']
-     */
-    abstract protected function eventFrom(array $component): ?IcalEvent;
+    /** @param array<string, string> $component e.g. ['UID' => '…', 'DTSTART' => '20270710', 'SUMMARY' => 'Reserved'] */
+    private function eventFrom(Channel $source, array $component): ?IcalEvent
+    {
+        if (! isset($component['UID'], $component['DTSTART'], $component['DTEND'])) {
+            return null;                                                             // not a usable event: skip it
+        }
+
+        $kind = match ($source) {
+            Channel::Airbnb => ($component['SUMMARY'] ?? '') === 'Reserved' ? 'reservation' : 'blocked',
+            Channel::BookingCom => 'blocked',                    // "CLOSED - Not available": the feed doesn't say which it is
+        };
+
+        return new IcalEvent(
+            $component['UID'],
+            Stay::fromDates($this->date($component['DTSTART']), $this->date($component['DTEND'])),
+            $kind,
+        );
+    }
 
     /** "20270710" or "20270710T000000Z" → "2027-07-10" */
-    protected function date(string $value): string
+    private function date(string $value): string
     {
         return substr($value, 0, 4) . '-' . substr($value, 4, 2) . '-' . substr($value, 6, 2);
     }
@@ -308,55 +311,7 @@ abstract class IcalImporter
         return $events;
     }
 }`,
-        },
-        {
-          title: 'Each channel fills in one method',
-          path: 'app/Channels/Ical/AirbnbIcalImporter.php',
-          code: String.raw`<?php
-
-namespace App\Channels\Ical;
-
-use App\Bookings\Stay;
-
-final class AirbnbIcalImporter extends IcalImporter
-{
-    protected function eventFrom(array $component): ?IcalEvent
-    {
-        if (! isset($component['UID'], $component['DTSTART'], $component['DTEND'])) {
-            return null;
-        }
-
-        return new IcalEvent(
-            $component['UID'],
-            Stay::fromDates($this->date($component['DTSTART']), $this->date($component['DTEND'])),
-            ($component['SUMMARY'] ?? '') === 'Reserved' ? 'reservation' : 'blocked',   // "Airbnb (Not available)" = the host's own block
-        );
-    }
-}`,
-        },
-        {
-          path: 'app/Channels/Ical/BookingComIcalImporter.php',
-          code: String.raw`<?php
-
-namespace App\Channels\Ical;
-
-use App\Bookings\Stay;
-
-final class BookingComIcalImporter extends IcalImporter
-{
-    protected function eventFrom(array $component): ?IcalEvent
-    {
-        if (! isset($component['UID'], $component['DTSTART'], $component['DTEND'])) {
-            return null;
-        }
-
-        return new IcalEvent(
-            $component['UID'],
-            Stay::fromDates($this->date($component['DTSTART']), $this->date($component['DTEND'])),
-            'blocked',                                           // "CLOSED - Not available": the feed doesn't say which it is
-        );
-    }
-}`,
+          after: ['Adding Vrbo is one `case` in the enum and one arm in the `match`. Forget the arm and the `match` throws `UnhandledMatchError` on Vrbo’s first event, loudly, instead of guessing.'],
         },
       ],
     },
@@ -370,6 +325,7 @@ final class BookingComIcalImporter extends IcalImporter
 
 namespace App\Jobs;
 
+use App\Channels\Ical\IcalImporter;
 use App\Models\IcalFeed;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -397,9 +353,9 @@ class SyncIcalFeed implements ShouldQueue
         return [(new WithoutOverlapping("ical-feed-{$this->feed->id}"))->expireAfter(120)];
     }
 
-    public function handle(): void
+    public function handle(IcalImporter $importer): void
     {
-        $this->feed->source->icalImporter()->sync($this->feed);
+        $importer->sync($this->feed);
     }
 }`,
         },
@@ -414,50 +370,6 @@ class SyncIcalFeed implements ShouldQueue
       ],
     },
   ],
-  reveal: {
-    names: ['Template Method', 'Factory Method'],
-    rules: [
-      ['Template Method', 'A base class fixes the steps of an algorithm in one method, and leaves some steps to subclasses.'],
-      ['Factory Method', 'A method that creates an object, declared in the base class and implemented by each subclass, so each subclass decides what gets created and how.'],
-    ],
-    points: [
-      '`sync()` is the template: fetch, read, save by UID, delete only this source, in one transaction. It’s `final`, so a new channel can’t skip the transaction or delete another channel’s blocks.',
-      '`eventFrom()` is the factory method: the template calls it, and each channel’s subclass decides how its raw events become `IcalEvent`s.',
-      'Adding Vrbo is one subclass with one method, and one `match` arm in the enum.',
-    ],
-    whenNot: [
-      'When the variants share no steps, separate classes behind an interface (Strategy, scene 10) are simpler than inheritance.',
-      'Don’t build deep hierarchies: one abstract base and a level of subclasses. If a subclass needs to change the order of steps, it’s a different algorithm.',
-    ],
-  },
-  laravel: {
-    title: 'Laravel does the same: every Form Request',
-    text: [
-      'When a Form Request is resolved, Laravel runs one fixed sequence and calls your methods at set points: `prepareForValidation()`, `authorize()`, `rules()`, `passedValidation()`. You never call them yourself; the template does. `getValidatorInstance()` is also a factory method: define `validator()` on your request and you decide how the validator is created.',
-    ],
-    blocks: [
-      {
-        path: 'Illuminate/Validation/ValidatesWhenResolvedTrait.php',
-        fragment: true,
-        code: String.raw`public function validateResolved()
-{
-    $this->prepareForValidation();                        // hook: empty by default
-
-    if (! $this->passesAuthorization()) {                 // calls your authorize()
-        $this->failedAuthorization();                     // 403
-    }
-
-    $instance = $this->getValidatorInstance();            // factory method: uses your validator() if you defined one
-
-    if ($instance->fails()) {
-        $this->failedValidation($instance);               // 422
-    }
-
-    $this->passedValidation();                            // hook: empty by default
-}`,
-      },
-    ],
-  },
   tests: {
     summary: 'Saving by UID, deleting only this channel, failures that change nothing, and bookings refused over blocks',
     text: ['`Http::fake()` answers the feed URLs with recorded feeds; the foundation’s `Http::preventStrayRequests()` makes any other URL fail the test.'],
@@ -466,6 +378,7 @@ class SyncIcalFeed implements ShouldQueue
         path: 'tests/Feature/IcalSyncTest.php',
         code: String.raw`<?php
 
+use App\Channels\Ical\IcalImporter;
 use App\Enums\Channel;
 use App\Models\ExternalBlock;
 use App\Models\IcalFeed;
@@ -492,8 +405,8 @@ beforeEach(function () {
 it('saves each event once, by UID, however often it syncs', function () {
     Http::fake(['airbnb.test/*' => Http::response(ics(vevent('a1', '20270710', '20270713'), vevent('a2', '20270801', '20270804', 'Airbnb (Not available)')))]);
 
-    Channel::Airbnb->icalImporter()->sync($this->airbnb);
-    Channel::Airbnb->icalImporter()->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->airbnb);
 
     expect(ExternalBlock::orderBy('uid')->pluck('kind', 'uid')->all())->toBe(['a1' => 'reservation', 'a2' => 'blocked']);
 });
@@ -506,9 +419,9 @@ it('removes a cancelled event, and never touches another channel’s blocks', fu
             ->push(ics(vevent('a1', '20270710', '20270713'))),                   // a2 was cancelled on Airbnb
     ]);
 
-    Channel::BookingCom->icalImporter()->sync($this->bookingCom);
-    Channel::Airbnb->icalImporter()->sync($this->airbnb);
-    Channel::Airbnb->icalImporter()->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->bookingCom);
+    app(IcalImporter::class)->sync($this->airbnb);
+    app(IcalImporter::class)->sync($this->airbnb);
 
     expect(ExternalBlock::orderBy('uid')->pluck('uid')->all())->toBe(['a1', 'b1']);
 });
@@ -517,7 +430,7 @@ it('keeps every block when the channel fails', function () {
     ExternalBlock::create(['property_id' => $this->property->id, 'source' => Channel::Airbnb, 'uid' => 'a1', 'kind' => 'reservation', 'starts_on' => '2027-07-10', 'ends_on' => '2027-07-13']);
     Http::fake(['airbnb.test/*' => Http::response('Service Unavailable', 503)]);
 
-    expect(fn () => Channel::Airbnb->icalImporter()->sync($this->airbnb))->toThrow(RequestException::class)
+    expect(fn () => app(IcalImporter::class)->sync($this->airbnb))->toThrow(RequestException::class)
         ->and(ExternalBlock::count())->toBe(1);                                  // the incident: nothing deleted
 });
 

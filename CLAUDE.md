@@ -6,6 +6,9 @@
 - The broken code must cause exactly the incident in the chat, and a reader must be able to point at the line.
 - The impact is believable: who noticed, how (support, finance, a host, monitoring), and how many were hit.
 - One problem per scene. The pattern appears only if a real team would write it for this fix; otherwise none.
+- Best practice first: never rebuild what Laravel or PHP already does (`Http::retry()`, job middleware, `match`).
+  A class hierarchy or interface needs a real difference between its members, and a builder or factory needs
+  more than one real caller today.
 - The timeline stays consistent with the scenes before and after it (days, teasers, numbers).
 - Code is production quality, type annotations included, no silent failures.
 

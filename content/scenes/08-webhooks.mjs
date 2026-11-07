@@ -324,7 +324,7 @@ class ProcessStripeWebhook implements ShouldQueue
     points: [
       'The rest of the app never touches the raw array again. The job works with `PaymentSucceeded`, whose `amount` is already a `Money`.',
       'Supporting a new event type is one new class and one new `match` arm, in one file.',
-      'It’s the simplest factory there is: a static method with a `match`. Day 3 meets its bigger relatives, Factory Method and Abstract Factory, where the choice itself needs to vary.',
+      'It’s the simplest factory there is: a static method with a `match`. Day 3 meets its bigger relative, Abstract Factory, where the choice itself needs to vary.',
     ],
     whenNot: [
       'When there is only one possible class. `new PaymentSucceeded(...)` at the one place that needs it is enough.',

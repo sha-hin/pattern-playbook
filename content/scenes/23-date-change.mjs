@@ -6,7 +6,7 @@ export default {
     channel: '#support',
     when: 'Friday 12:20',
     messages: [
-      ['Mona · support', 'A guest extended the Lake Cabin from **3 to 5 nights**. Her card declined the extra **€300.00**. The booking now says 5 nights, shows the old total of €450.00, and the arrival message for her **old** date went out this morning.'],
+      ['Mona · support', 'A guest extended the Lake Cabin from **3 to 5 nights**. Her card declined the extra **€300.00**. The booking now says 5 nights, shows the old total of €450.00, and her checkout reminder still says **13 July**.'],
       ['Ahmed · host', 'So is she staying 5 nights or 3? I turned down a booking for those two nights.'],
     ],
   },

@@ -142,6 +142,7 @@ final readonly class Quote
       title: 'The fix, part 3: the Builder',
       text: [
         'A quote has an order that matters: discounts apply to the nights, the fee comes after, and tax is calculated on everything before it. The builder adds one kind of line per method and **enforces that order**, so a quote can’t be built wrong.',
+        'Two different recipes need it today: the **standard price** every guest sees, and the **custom offer** a host sends one guest (a lower nightly rate for a returning family, say). Both must put lines in the same order and tax last.',
       ],
       blocks: [
         {
@@ -287,8 +288,29 @@ final class PriceQuoter
 
         return $quote->build();
     }
+
+    /** The host's offer to one guest: their own nightly rate and discount. The tax rule is not theirs to change. */
+    public function customOffer(Property $property, Stay $stay, Money $nightlyRate, int $discountBps): Quote
+    {
+        $quote = (new QuoteBuilder())->nights($stay, $nightlyRate);
+
+        if ($discountBps > 0) {
+            $quote->discount('Host discount', $discountBps);                  // instead of the weekly discount, never on top of it
+        }
+
+        if ($property->cleaning_fee_cents !== null) {
+            $quote->cleaningFee(Money::of($property->cleaning_fee_cents, $property->currency));
+        }
+
+        if ($property->tax_rate_bps > 0) {
+            $quote->tax('Accommodation tax', $property->tax_rate_bps);
+        }
+
+        return $quote->build();
+    }
 }`,
-          after: ['For the incident’s stay: 7 × €150.00 = €1,050.00, minus 10% of the nights (€105.00), plus €60.00 cleaning = €1,005.00, plus 10% tax (€100.50) = **€1,105.50**. One answer, for the page and for the card.'],
+          after: ['The host’s offer screen calls `customOffer()`. Two recipes, one builder: neither can put the tax before the fee, or forget it.',
+            'For the incident’s stay: 7 × €150.00 = €1,050.00, minus 10% of the nights (€105.00), plus €60.00 cleaning = €1,005.00, plus 10% tax (€100.50) = **€1,105.50**. One answer, for the page and for the card.'],
         },
       ],
     },
@@ -421,7 +443,7 @@ class QuoteController extends Controller
     rules: [['Builder', 'Builds a complex object step by step through small methods, then hands over the finished object with build(). The steps can vary; the finished object is always valid.']],
     points: [
       '**The builder** (`QuoteBuilder`) knows how to add each kind of line and refuses a wrong order.',
-      '**The director** (`PriceQuoter`) decides which steps this business uses, in which situations. A promotion for a partner site could use the same builder with other steps.',
+      '**The director** (`PriceQuoter`) decides which steps each recipe uses: the standard price and the host’s custom offer are two directors’ methods over one builder.',
       '**The product** (`Quote`) is immutable once built. Code that receives a `Quote` never wonders whether tax has been added yet.',
     ],
     whenNot: [
@@ -502,7 +524,11 @@ it('rounds percentages half up', function () {
         path: 'tests/Feature/PriceQuoterTest.php',
         code: String.raw`<?php
 
+use App\Bookings\Stay;
 use App\Models\Property;
+use App\Money\Money;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
 
 beforeEach(function () {
     $this->property = Property::factory()->create([
@@ -527,6 +553,13 @@ it('charges exactly what the price page showed', function () {
         'check_in' => '2027-07-01', 'check_out' => '2027-07-08', 'guests' => 2,
         'guest_name' => 'Mona Adel', 'guest_email' => 'mona@example.com',
     ])->assertCreated()->assertJsonPath('data.total.amount', $shown);
+});
+
+it('builds a host’s custom offer with the same order and the same tax', function () {
+    $quote = app(PriceQuoter::class)->customOffer($this->property, Stay::fromDates('2027-07-01', '2027-07-08'), Money::of(13_000, 'EUR'), discountBps: 500);
+
+    expect(array_map(fn (LineItem $line): int => $line->amount->amount, $quote->lines))->toBe([91_000, -4_550, 6_000, 9_245])
+        ->and($quote->total()->amount)->toBe(101_695);               // no weekly discount on top of the host's own
 });
 
 it('stores every line with the booking', function () {
