@@ -147,7 +147,9 @@ parameters:
 use Illuminate\Database\Eloquent\Model;
 use Symfony\Component\Finder\Finder;
 
-arch('debugging calls never reach production')->preset()->php();      // dd(), dump(), var_dump(), die() …
+arch('debugging calls never reach production')
+    ->expect(['dd', 'dump', 'var_dump', 'ray'])
+    ->not->toBeUsed();
 
 arch('env() is read in config files only')                           // under config:cache, env() returns null (scene 42)
     ->expect('env')

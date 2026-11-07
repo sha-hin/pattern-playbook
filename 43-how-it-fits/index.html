@@ -120,7 +120,9 @@
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
 <span class="k">use</span> <span class="t">Symfony</span>\<span class="t">Component</span>\<span class="t">Finder</span>\<span class="t">Finder</span>;
 
-<span class="f">arch</span>(<span class="s">'debugging calls never reach production'</span>)-&gt;<span class="f">preset</span>()-&gt;<span class="f">php</span>();      <span class="c">// dd(), dump(), var_dump(), die() …</span>
+<span class="f">arch</span>(<span class="s">'debugging calls never reach production'</span>)
+    -&gt;<span class="f">expect</span>([<span class="s">'dd'</span>, <span class="s">'dump'</span>, <span class="s">'var_dump'</span>, <span class="s">'ray'</span>])
+    -&gt;not-&gt;<span class="f">toBeUsed</span>();
 
 <span class="f">arch</span>(<span class="s">'env() is read in config files only'</span>)                           <span class="c">// under config:cache, env() returns null (scene 42)</span>
     -&gt;<span class="f">expect</span>(<span class="s">'env'</span>)
