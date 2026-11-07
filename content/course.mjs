@@ -66,7 +66,7 @@ export const SCENES = [
 
   // Day 7 · Production
   { n: 40, day: 7, slug: '40-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost', ready: true },
-  { n: 41, day: 7, slug: '41-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers' },
+  { n: 41, day: 7, slug: '41-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane', ready: true },
   { n: 42, day: 7, slug: '42-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs' },
   { n: 43, day: 7, slug: '43-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades' },
   { n: 44, day: 7, slug: '44-interview', incident: 'The interview', patterns: [], learn: 'System design: a PMS, a channel manager, a message scheduler; behavioural answers' },
