@@ -15,6 +15,7 @@ export default {
       title: 'What hosts asked for',
       text: [
         'Hosts send the same messages to every guest: a thank-you when the booking is confirmed, arrival instructions the day before, a goodbye after check-out. Automatic messages are the feature hosts pay a PMS for. Each **template** has a trigger, a number of days before or after it, and a local time to send.',
+        'The one hosts care about most is the **review request**: “How was your stay?” the day after check-out at 10:00, local time. Reviews decide a listing’s rank on Airbnb, so hosts want every guest asked, once, at a decent hour, and never a guest whose stay didn’t happen. It needs nothing special: it is a template with the trigger `after_check_out`, one day after, at 10:00. This scene gets the time right; scene 22 makes sure it is sent once and is cancelled with the booking.',
       ],
       blocks: [
         {
@@ -642,7 +643,7 @@ it('queues the due messages and nothing else', function () {
     $booking = Booking::factory()->create();
     $template = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Hi', 'trigger' => 'booking_confirmed', 'subject' => 'Hi', 'body' => 'Hi']);
     $due = ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $template->id, 'send_at' => now()->subMinute()]);
-    $later = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Bye', 'trigger' => 'after_check_out', 'subject' => 'Bye', 'body' => 'Bye']);
+    $later = MessageTemplate::forceCreate(['account_id' => $booking->property->account_id, 'name' => 'Review request', 'trigger' => 'after_check_out', 'days_offset' => 1, 'send_time' => '10:00', 'subject' => 'How was your stay?', 'body' => 'How was your stay at {property_name}?']);
     ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $later->id, 'send_at' => now()->addDay()]);
 
     $this->artisan('messages:send-due')->assertSuccessful();

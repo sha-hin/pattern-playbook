@@ -880,5 +880,5 @@ it('stops calling at the limit and says how long to wait', function () {
       },
     ],
   },
-  next: 'Every door knows the minimum now. Next, a guest searches for a free cabin, picks one, and is told at checkout that it is taken.',
+  next: 'Every door knows the minimum now, and every channel enforces it. Next, a host who wanted five nights over Christmas finds that nobody can book two nights in July.',
 };

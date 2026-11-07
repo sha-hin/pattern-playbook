@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Prices went up at 09:00, guests paid the old ones until 10:00 · Proxy in Laravel | Pattern Playbook</title>
+<meta name="description" content="A host raised her August prices at 09:00, and for an hour guests booked and paid the old ones: the nightly rates were cached inside the class every booking uses, and a price change never cleared the cache. Fix it in Laravel with a caching Proxy used only for quotes, a version in every key that changes after the price change commits, and bookings that always price from the database.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/35-caching/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prices went up at 09:00, guests paid the old ones until 10:00 · Proxy in Laravel | Pattern Playbook">
+<meta property="og:description" content="A host raised her August prices at 09:00, and for an hour guests booked and paid the old ones: the nightly rates were cached inside the class every booking uses, and a price change never cleared the cache. Fix it in Laravel with a caching Proxy used only for quotes, a version in every key that changes after the price change commits, and bookings that always price from the database.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/35-caching/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 52 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Prices went up at 09:00, guests paid the old ones until 10:00 · Proxy in Laravel | Pattern Playbook">
+<meta name="twitter:description" content="A host raised her August prices at 09:00, and for an hour guests booked and paid the old ones: the nightly rates were cached inside the class every booking uses, and a price change never cleared the cache. Fix it in Laravel with a caching Proxy used only for quotes, a version in every key that changes after the price change commits, and bookings that always price from the database.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=bb7913295a">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 35: Prices went up at 09:00, guests paid the old ones until 10:00","description":"A host raised her August prices at 09:00, and for an hour guests booked and paid the old ones: the nightly rates were cached inside the class every booking uses, and a price change never cleared the cache. Fix it in Laravel with a caching Proxy used only for quotes, a version in every key that changes after the price change commits, and bookings that always price from the database.","url":"https://sha-hin.github.io/pattern-playbook/35-caching/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/35-caching/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Proxy pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 35: Prices went up at 09:00, guests paid the old ones until 10:00","item":"https://sha-hin.github.io/pattern-playbook/35-caching/"}]}]}</script>
+</head>
+<body data-page="35-caching" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 6 · Scale › Scene 35 of 49</p>
+<h1>Prices went up at 09:00, guests paid the old ones until 10:00</h1>
+<p class="subtitle">A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside; Part 2: Redis eviction policies and separate connections</p>
+<p class="tags"><span class="ptag">Proxy</span></p>
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#finance<span class="inc-when">Thursday 10:40</span></p>
+<p class="inc-msg"><span class="inc-who">Ingrid · host, Skagen cottages</span>I raised August from <b>€180 to €220</b> at 09:00. Since then I’ve had <b>23 bookings</b> for August, all at €180. The calendar shows €220 everywhere.</p><p class="inc-msg"><span class="inc-who">Lina · finance</span>That is <b>€1,840</b> less than the prices she set, across those 23 bookings. Same pattern for two other hosts who changed prices this morning.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Last week we cached the nightly rates for an hour to speed up search and quotes. The bookings read the same cache. Nothing clears it when a price changes.</p>
+</section>
+<section><h2>The broken code</h2><p>After search (scene 31) went live, quotes became the busiest endpoint, and pricing every night through the rate plan was most of its time. So the result was cached, in the class that prices every night:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Pricing/NightlyRates.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlanSeason</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">NightlyRates</span>
+{
+    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span>
+    {
+        <span class="v">$key</span> = <span class="s">&quot;nightly-rates:{$property-&gt;id}:{$stay-&gt;checkIn-&gt;toDateString()}:{$stay-&gt;checkOut-&gt;toDateString()}&quot;</span>;
+
+        <span class="k">return</span> <span class="t">Cache</span>::<span class="f">remember</span>(<span class="v">$key</span>, <span class="f">now</span>()-&gt;<span class="f">addHour</span>(), <span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>): <span class="k">array</span> {   <span class="c">// the bug: for quotes *and* bookings,</span>
+            <span class="v">$plan</span> = <span class="v">$property</span>-&gt;ratePlan;                                                               <span class="c">// and nothing clears it</span>
+            <span class="v">$prices</span> = [];
+
+            <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$stay</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$stay</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {
+                <span class="v">$prices</span>[] = <span class="v">$plan</span> === <span class="k">null</span> ? <span class="v">$property</span>-&gt;nightly_rate : <span class="k">$this</span>-&gt;<span class="f">priceOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);
+            }
+
+            <span class="k">return</span> <span class="v">$prices</span>;
+        });
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">priceOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span>
+    {
+        <span class="v">$price</span> = <span class="k">$this</span>-&gt;<span class="f">baseOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);                          <span class="c">// 1. what the night costs before adjustments</span>
+
+        <span class="k">if</span> (<span class="v">$night</span>-&gt;<span class="f">isFriday</span>() || <span class="v">$night</span>-&gt;<span class="f">isSaturday</span>()) {                 <span class="c">// 2. adjustments, on whichever base step 1 chose</span>
+            <span class="v">$price</span> = <span class="v">$price</span>-&gt;<span class="f">add</span>(<span class="v">$price</span>-&gt;<span class="f">percent</span>(<span class="v">$plan</span>-&gt;weekend_uplift_bps));
+        }
+
+        <span class="k">return</span> <span class="v">$price</span>;
+    }
+
+    <span class="c">/** A season replaces the plan's base price for its nights. Only the base. */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">baseOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span>
+    {
+        <span class="v">$season</span> = <span class="v">$plan</span>-&gt;seasons-&gt;<span class="f">first</span>(<span class="k">fn</span> (<span class="t">RatePlanSeason</span> <span class="v">$season</span>): <span class="k">bool</span> =&gt; <span class="v">$season</span>-&gt;<span class="f">covers</span>(<span class="v">$night</span>-&gt;<span class="f">toDateString</span>()));
+
+        <span class="k">return</span> <span class="v">$season</span> === <span class="k">null</span>
+            ? <span class="v">$plan</span>-&gt;<span class="f">baseRate</span>()
+            : <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$season</span>-&gt;nightly_rate_cents, <span class="v">$plan</span>-&gt;currency);
+    }
+}</code></pre>
+</div><p>Two mistakes, one line. <b>What</b> is cached: <code>PriceQuoter</code> uses <code>NightlyRates</code> for the quote page and for <code>CreateBooking</code> alike, so the price a guest <b>pays</b> came from a cache up to an hour old. And <b>when</b> it expires: only after the hour, because nothing in the app removes the entry when a price changes.</p><p>A cached price on a page is a display problem: the guest sees €180 and is charged €220, and the booking flow shows the difference before payment. A cached price at checkout is a money problem, which is this incident.</p></div></div></section>
+<section><h2>Two rules for caching prices</h2><div class="blocks"><div class="block"><div class="tablewrap"><table><thead><tr><th scope="col">Rule</th><th scope="col">Here</th></tr></thead>
+<tbody><tr><th scope="row">1. Never cache the decision</th><td>A booking, a date change and a refund price from the database, every time. The cache only serves the quote page, where speed matters and the booking checks again anyway.</td></tr><tr><th scope="row">2. Change the key, don’t hope for the TTL</th><td>Every key carries a <b>version</b> of the property’s prices. A price change bumps the version, so the old entries are never read again and simply expire. The hour becomes a safety net, not the plan.</td></tr></tbody></table></div></div></div></section>
+<section><h2>The fix, part 1: the real class stops caching</h2><p><code>NightlyRates</code> goes back to what it was in scene 27: it prices every night from the database, with no cache. It now implements an interface, because something else is about to stand in for it.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Pricing/NightlyPrices.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+
+<span class="k">interface</span> <span class="t">NightlyPrices</span>
+{
+    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span>;
+}</code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/NightlyRates.php</span><span class="badge">changed since the version above: <span class="plus">+12</span> <span class="minus">−17</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Models\RatePlan;
+use App\Models\RatePlanSeason;
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+
+final class NightlyRates implements NightlyPrices
+{
+    /** @return list&lt;Money&gt; one price per night of the stay, always from the database */
+    public function for(Property $property, Stay $stay): array
+    {
+        $plan = $property-&gt;ratePlan;
+        $prices = [];
+
+        for ($night = $stay-&gt;checkIn; $night-&gt;lessThan($stay-&gt;checkOut); $night = $night-&gt;addDay()) {
+            $prices[] = $plan === null ? $property-&gt;nightly_rate : $this-&gt;priceOf($plan, $night);
+        }
+
+        return $prices;
+    }
+
+    private function priceOf(RatePlan $plan, CarbonImmutable $night): Money
+    {
+        $price = $this-&gt;baseOf($plan, $night);                          // 1. what the night costs before adjustments
+
+        if ($night-&gt;isFriday() || $night-&gt;isSaturday()) {                 // 2. adjustments, on whichever base step 1 chose
+            $price = $price-&gt;add($price-&gt;percent($plan-&gt;weekend_uplift_bps));
+        }
+
+        return $price;
+    }
+
+    /** A season replaces the plan's base price for its nights. Only the base. */
+    private function baseOf(RatePlan $plan, CarbonImmutable $night): Money
+    {
+        $season = $plan-&gt;seasons-&gt;first(fn (RatePlanSeason $season): bool =&gt; $season-&gt;covers($night-&gt;toDateString()));
+
+        return $season === null
+            ? $plan-&gt;baseRate()
+            : Money::of($season-&gt;nightly_rate_cents, $plan-&gt;currency);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlanSeason</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">final</span> <span class="k">class</span> <span class="t">NightlyRates</span></span><span class="ln del">{</span><span class="ln del">    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay */</span></span><span class="ln add"> </span><span class="ln add"><span class="k">final</span> <span class="k">class</span> <span class="t">NightlyRates</span> <span class="k">implements</span> <span class="t">NightlyPrices</span></span><span class="ln add">{</span><span class="ln add">    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay, always from the database */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln del">        <span class="v">$key</span> = <span class="s">&quot;nightly-rates:{$property-&gt;id}:{$stay-&gt;checkIn-&gt;toDateString()}:{$stay-&gt;checkOut-&gt;toDateString()}&quot;</span>;</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="t">Cache</span>::<span class="f">remember</span>(<span class="v">$key</span>, <span class="f">now</span>()-&gt;<span class="f">addHour</span>(), <span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>): <span class="k">array</span> {   <span class="c">// the bug: for quotes *and* bookings,</span></span><span class="ln del">            <span class="v">$plan</span> = <span class="v">$property</span>-&gt;ratePlan;                                                               <span class="c">// and nothing clears it</span></span><span class="ln del">            <span class="v">$prices</span> = [];</span><span class="ln del"> </span><span class="ln del">            <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$stay</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$stay</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {</span><span class="ln del">                <span class="v">$prices</span>[] = <span class="v">$plan</span> === <span class="k">null</span> ? <span class="v">$property</span>-&gt;nightly_rate : <span class="k">$this</span>-&gt;<span class="f">priceOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);</span><span class="ln del">            }</span><span class="ln del"> </span><span class="ln del">            <span class="k">return</span> <span class="v">$prices</span>;</span><span class="ln del">        });</span><span class="ln add">        <span class="v">$plan</span> = <span class="v">$property</span>-&gt;ratePlan;</span><span class="ln add">        <span class="v">$prices</span> = [];</span><span class="ln add"> </span><span class="ln add">        <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$stay</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$stay</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {</span><span class="ln add">            <span class="v">$prices</span>[] = <span class="v">$plan</span> === <span class="k">null</span> ? <span class="v">$property</span>-&gt;nightly_rate : <span class="k">$this</span>-&gt;<span class="f">priceOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="v">$prices</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">priceOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$price</span> = <span class="k">$this</span>-&gt;<span class="f">baseOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);                          <span class="c">// 1. what the night costs before adjustments</span></span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$night</span>-&gt;<span class="f">isFriday</span>() || <span class="v">$night</span>-&gt;<span class="f">isSaturday</span>()) {                 <span class="c">// 2. adjustments, on whichever base step 1 chose</span></span><span class="ln">            <span class="v">$price</span> = <span class="v">$price</span>-&gt;<span class="f">add</span>(<span class="v">$price</span>-&gt;<span class="f">percent</span>(<span class="v">$plan</span>-&gt;weekend_uplift_bps));</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$price</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** A season replaces the plan's base price for its nights. Only the base. */</span></span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">baseOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$season</span> = <span class="v">$plan</span>-&gt;seasons-&gt;<span class="f">first</span>(<span class="k">fn</span> (<span class="t">RatePlanSeason</span> <span class="v">$season</span>): <span class="k">bool</span> =&gt; <span class="v">$season</span>-&gt;<span class="f">covers</span>(<span class="v">$night</span>-&gt;<span class="f">toDateString</span>()));</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$season</span> === <span class="k">null</span></span><span class="ln">            ? <span class="v">$plan</span>-&gt;<span class="f">baseRate</span>()</span><span class="ln">            : <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$season</span>-&gt;nightly_rate_cents, <span class="v">$plan</span>-&gt;currency);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/PriceQuoter.php</span><span class="badge">changed since scene 27: <span class="plus">+1</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Money\Money;
+
+final class PriceQuoter
+{
+    public const WEEKLY_NIGHTS = 7;
+
+    public function __construct(private NightlyPrices $rates)
+    {
+    }
+
+    public function quote(Property $property, Stay $stay): Quote
+    {
+        $quote = (new QuoteBuilder())-&gt;nightsAt($this-&gt;rates-&gt;for($property, $stay));   // each night at its own price
+
+        if ($stay-&gt;nights() &gt;= self::WEEKLY_NIGHTS &amp;&amp; $property-&gt;weekly_discount_bps &gt; 0) {
+            $quote-&gt;discount('Weekly discount', $property-&gt;weekly_discount_bps);
+        }
+
+        if ($property-&gt;cleaning_fee_cents !== null) {
+            $quote-&gt;cleaningFee(Money::of($property-&gt;cleaning_fee_cents, $property-&gt;currency));
+        }
+
+        if ($property-&gt;tax_rate_bps &gt; 0) {
+            $quote-&gt;tax('Accommodation tax', $property-&gt;tax_rate_bps);
+        }
+
+        return $quote-&gt;build();
+    }
+
+    /** The host's offer to one guest: their own nightly rate and discount. The tax rule is not theirs to change. */
+    public function customOffer(Property $property, Stay $stay, Money $nightlyRate, int $discountBps): Quote
+    {
+        $quote = (new QuoteBuilder())-&gt;nights($stay, $nightlyRate);
+
+        if ($discountBps &gt; 0) {
+            $quote-&gt;discount('Host discount', $discountBps);                  // instead of the weekly discount, never on top of it
+        }
+
+        if ($property-&gt;cleaning_fee_cents !== null) {
+            $quote-&gt;cleaningFee(Money::of($property-&gt;cleaning_fee_cents, $property-&gt;currency));
+        }
+
+        if ($property-&gt;tax_rate_bps &gt; 0) {
+            $quote-&gt;tax('Accommodation tax', $property-&gt;tax_rate_bps);
+        }
+
+        return $quote-&gt;build();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">PriceQuoter</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">WEEKLY_NIGHTS</span> = <span class="n">7</span>;</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">NightlyRates</span> <span class="v">$rates</span>)</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">NightlyPrices</span> <span class="v">$rates</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">quote</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="t">Quote</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nightsAt</span>(<span class="k">$this</span>-&gt;rates-&gt;<span class="f">for</span>(<span class="v">$property</span>, <span class="v">$stay</span>));   <span class="c">// each night at its own price</span></span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$stay</span>-&gt;<span class="f">nights</span>() &gt;= <span class="k">self</span>::<span class="t">WEEKLY_NIGHTS</span> &amp;&amp; <span class="v">$property</span>-&gt;weekly_discount_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">discount</span>(<span class="s">'Weekly discount'</span>, <span class="v">$property</span>-&gt;weekly_discount_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;cleaning_fee_cents !== <span class="k">null</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">cleaningFee</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$property</span>-&gt;cleaning_fee_cents, <span class="v">$property</span>-&gt;currency));</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;tax_rate_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">tax</span>(<span class="s">'Accommodation tax'</span>, <span class="v">$property</span>-&gt;tax_rate_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$quote</span>-&gt;<span class="f">build</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The host's offer to one guest: their own nightly rate and discount. The tax rule is not theirs to change. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">customOffer</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="t">Money</span> <span class="v">$nightlyRate</span>, <span class="k">int</span> <span class="v">$discountBps</span>): <span class="t">Quote</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nights</span>(<span class="v">$stay</span>, <span class="v">$nightlyRate</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$discountBps</span> &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">discount</span>(<span class="s">'Host discount'</span>, <span class="v">$discountBps</span>);                  <span class="c">// instead of the weekly discount, never on top of it</span></span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;cleaning_fee_cents !== <span class="k">null</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">cleaningFee</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$property</span>-&gt;cleaning_fee_cents, <span class="v">$property</span>-&gt;currency));</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;tax_rate_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">tax</span>(<span class="s">'Accommodation tax'</span>, <span class="v">$property</span>-&gt;tax_rate_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$quote</span>-&gt;<span class="f">build</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p><code>PriceQuoter</code> now asks for &quot;something that gives nightly prices&quot;. Which one it gets is decided in one place, in part 3.</p></div></div></section>
+<section><h2>The fix, part 2: a stand-in that caches</h2><p><code>CachedNightlyRates</code> implements the same interface and holds the real <code>NightlyRates</code>. Asked for prices, it looks in the cache first and only asks the real class on a miss. Code that receives a <code>NightlyPrices</code> can’t tell which one it has.</p><p>The key includes the property’s <b>price version</b>. <code>PriceVersion</code> keeps one counter per property in Redis; bumping it makes every old key unreachable at once, without finding and deleting them one by one.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Pricing/PriceVersion.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">PriceVersion</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">of</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">int</span>
+    {
+        <span class="k">return</span> (<span class="k">int</span>) <span class="t">Cache</span>::<span class="f">get</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>), <span class="n">0</span>);
+    }
+
+    <span class="c">/** Every cached price of this property becomes unreachable. Atomic in Redis: two bumps never become one. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">bump</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">void</span>
+    {
+        <span class="t">Cache</span>::<span class="f">increment</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>));
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">key</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">&quot;price-version:{$propertyId}&quot;</span>;
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Pricing/CachedNightlyRates.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;
+
+<span class="c">/** For pages only. Bookings, date changes and refunds use NightlyRates directly. */</span>
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">CachedNightlyRates</span> <span class="k">implements</span> <span class="t">NightlyPrices</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="t">NightlyRates</span> <span class="v">$rates</span>,
+        <span class="k">private</span> <span class="t">PriceVersion</span> <span class="v">$version</span>,
+    ) {
+    }
+
+    <span class="c">/** @return list&lt;Money&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span>
+    {
+        <span class="v">$key</span> = <span class="f">sprintf</span>(
+            <span class="s">'nightly-rates:%d:v%d:%s:%s'</span>,
+            <span class="v">$property</span>-&gt;id,
+            <span class="k">$this</span>-&gt;version-&gt;<span class="f">of</span>(<span class="v">$property</span>-&gt;id),                         <span class="c">// a price change moves every key to a new version</span>
+            <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(),
+            <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>(),
+        );
+
+        <span class="v">$cents</span> = <span class="t">Cache</span>::<span class="f">remember</span>(<span class="v">$key</span>, <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="n">30</span>), <span class="k">fn</span> (): <span class="k">array</span> =&gt; <span class="f">array_map</span>(
+            <span class="k">fn</span> (<span class="t">Money</span> <span class="v">$price</span>): <span class="k">int</span> =&gt; <span class="v">$price</span>-&gt;amount,                   <span class="c">// plain integers in Redis, not serialized objects</span>
+            <span class="k">$this</span>-&gt;rates-&gt;<span class="f">for</span>(<span class="v">$property</span>, <span class="v">$stay</span>),
+        ));
+
+        <span class="k">return</span> <span class="f">array_map</span>(<span class="k">fn</span> (<span class="k">int</span> <span class="v">$amount</span>): <span class="t">Money</span> =&gt; <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$amount</span>, <span class="v">$property</span>-&gt;currency), <span class="v">$cents</span>);
+    }
+}</code></pre>
+</div><p>Integers, not <code>Money</code> objects, go into Redis: a serialized object breaks the day its class changes shape, and a deploy would then read cache entries written by the old code.</p></div></div></section>
+<section><h2>The fix, part 3: only the quote page gets the stand-in</h2><p>By default, anything that needs <code>NightlyPrices</code> gets the real class. The quote controller is the one exception, and the container says so in one line: when <code>QuoteController</code> asks for a <code>PriceQuoter</code>, build it with the cached rates.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge">changed since scene 34: <span class="plus">+12</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Http\Controllers\QuoteController;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use App\Pricing\CachedNightlyRates;
+use App\Pricing\NightlyPrices;
+use App\Pricing\NightlyRates;
+use App\Pricing\PriceQuoter;
+use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
+        ]));
+
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
+
+        $this-&gt;app-&gt;singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+
+        $this-&gt;app-&gt;bind(NightlyPrices::class, NightlyRates::class);    // the truth, from the database: bookings, changes, refunds
+
+        $this-&gt;app-&gt;when(QuoteController::class)                         // the one place that may show a cached price
+            -&gt;needs(PriceQuoter::class)
+            -&gt;give(fn (Application $app): PriceQuoter =&gt; new PriceQuoter($app-&gt;make(CachedNightlyRates::class)));
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        if ($this-&gt;app-&gt;isProduction()) {
+            Model::preventLazyLoading();                          // detect it in production too, but don't throw:
+            Model::handleLazyLoadingViolationUsing(function (Model $model, string $relation): void {
+                Log::warning('Lazy loading', ['model' =&gt; $model::class, 'relation' =&gt; $relation, 'url' =&gt; request()-&gt;fullUrl()]);
+            });
+        }
+
+        // An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking =&gt; $arguments[0]-&gt;property-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Property =&gt; $arguments[0]-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Account =&gt; $arguments[0]-&gt;id,
+                default =&gt; null,
+            };
+
+            return $accountId !== null &amp;&amp; $user-&gt;roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">CachedNightlyRates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">NightlyPrices</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">NightlyRates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Foundation</span>\<span class="t">Application</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Gate</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Log</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln">        ]));</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ChannelManager</span>::class);                  <span class="c">// one manager: each driver is built once per process</span></span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">NightlyPrices</span>::class, <span class="t">NightlyRates</span>::class);    <span class="c">// the truth, from the database: bookings, changes, refunds</span></span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">when</span>(<span class="t">QuoteController</span>::class)                         <span class="c">// the one place that may show a cached price</span></span><span class="ln add">            -&gt;<span class="f">needs</span>(<span class="t">PriceQuoter</span>::class)</span><span class="ln add">            -&gt;<span class="f">give</span>(<span class="k">fn</span> (<span class="t">Application</span> <span class="v">$app</span>): <span class="t">PriceQuoter</span> =&gt; <span class="k">new</span> <span class="f">PriceQuoter</span>(<span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">CachedNightlyRates</span>::class)));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>()) {</span><span class="ln">            <span class="t">Model</span>::<span class="f">preventLazyLoading</span>();                          <span class="c">// detect it in production too, but don't throw:</span></span><span class="ln">            <span class="t">Model</span>::<span class="f">handleLazyLoadingViolationUsing</span>(<span class="k">function</span> (<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$relation</span>): <span class="k">void</span> {</span><span class="ln">                <span class="t">Log</span>::<span class="f">warning</span>(<span class="s">'Lazy loading'</span>, [<span class="s">'model'</span> =&gt; <span class="v">$model</span>::class, <span class="s">'relation'</span> =&gt; <span class="v">$relation</span>, <span class="s">'url'</span> =&gt; <span class="f">request</span>()-&gt;<span class="f">fullUrl</span>()]);</span><span class="ln">            });</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="c">// An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.</span></span><span class="ln">        <span class="t">Gate</span>::<span class="f">before</span>(<span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">string</span> <span class="v">$ability</span>, <span class="k">array</span> <span class="v">$arguments</span>): ?<span class="k">bool</span> {</span><span class="ln">            <span class="v">$accountId</span> = <span class="k">match</span> (<span class="k">true</span>) {</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Booking</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;property-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Property</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Account</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;id,</span><span class="ln">                <span class="k">default</span> =&gt; <span class="k">null</span>,</span><span class="ln">            };</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$accountId</span> !== <span class="k">null</span> &amp;&amp; <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>) === <span class="t">MembershipRole</span>::<span class="t">Owner</span> ? <span class="k">true</span> : <span class="k">null</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p><code>CreateBooking</code>, <code>ChangeBookingDates</code> and everything else keep getting a <code>PriceQuoter</code> with the real <code>NightlyRates</code>, so every price a guest pays is read from the database.</p></div></div></section>
+<section><h2>The fix, part 4: bump the version after the change commits</h2><p>Three things change a property’s nightly prices: its own <code>nightly_rate_cents</code> or <code>rate_plan_id</code>, its plan, and the plan’s seasons. One observer watches all three.</p><p>It runs <b>after the commit</b> (<code>ShouldHandleEventsAfterCommit</code>). Bumping inside the transaction leaves a race: a quote request arrives between the bump and the commit, misses the cache, reads the <b>old</b> prices (the new ones aren’t committed yet) and caches them under the <b>new</b> version, where they stay for 30 minutes.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Observers/PriceChangeObserver.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Observers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlanSeason</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceVersion</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Events</span>\<span class="t">ShouldHandleEventsAfterCommit</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">PriceChangeObserver</span> <span class="k">implements</span> <span class="t">ShouldHandleEventsAfterCommit</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceVersion</span> <span class="v">$version</span>)
+    {
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">saved</span>(<span class="t">Property</span>|<span class="t">RatePlan</span>|<span class="t">RatePlanSeason</span> <span class="v">$model</span>): <span class="k">void</span>
+    {
+        <span class="k">if</span> (<span class="v">$model</span> <span class="k">instanceof</span> <span class="t">Property</span> &amp;&amp; ! <span class="v">$model</span>-&gt;<span class="f">wasChanged</span>([<span class="s">'nightly_rate_cents'</span>, <span class="s">'rate_plan_id'</span>, <span class="s">'currency'</span>])) {
+            <span class="k">return</span>;                                                     <span class="c">// a new name or check-in time: prices are the same</span>
+        }
+
+        <span class="k">$this</span>-&gt;<span class="f">bumpPropertiesOf</span>(<span class="v">$model</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">deleted</span>(<span class="t">RatePlanSeason</span> <span class="v">$season</span>): <span class="k">void</span>
+    {
+        <span class="k">$this</span>-&gt;<span class="f">bumpPropertiesOf</span>(<span class="v">$season</span>);
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">bumpPropertiesOf</span>(<span class="t">Property</span>|<span class="t">RatePlan</span>|<span class="t">RatePlanSeason</span> <span class="v">$model</span>): <span class="k">void</span>
+    {
+        <span class="v">$propertyIds</span> = <span class="k">match</span> (<span class="k">true</span>) {
+            <span class="v">$model</span> <span class="k">instanceof</span> <span class="t">Property</span> =&gt; [<span class="v">$model</span>-&gt;id],
+            <span class="v">$model</span> <span class="k">instanceof</span> <span class="t">RatePlan</span> =&gt; <span class="t">Property</span>::<span class="f">where</span>(<span class="s">'rate_plan_id'</span>, <span class="v">$model</span>-&gt;id)-&gt;<span class="f">pluck</span>(<span class="s">'id'</span>)-&gt;<span class="f">all</span>(),   <span class="c">// a shared plan: every listing on it</span>
+            <span class="v">$model</span> <span class="k">instanceof</span> <span class="t">RatePlanSeason</span> =&gt; <span class="t">Property</span>::<span class="f">where</span>(<span class="s">'rate_plan_id'</span>, <span class="v">$model</span>-&gt;rate_plan_id)-&gt;<span class="f">pluck</span>(<span class="s">'id'</span>)-&gt;<span class="f">all</span>(),
+        };
+
+        <span class="k">foreach</span> (<span class="v">$propertyIds</span> <span class="k">as</span> <span class="v">$id</span>) {
+            <span class="k">$this</span>-&gt;version-&gt;<span class="f">bump</span>(<span class="v">$id</span>);
+        }
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The three models point at it</h3><p>The <code>#[ObservedBy]</code> attribute registers an observer on the model itself, so nobody has to remember a line in a service provider.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/RatePlan.php</span><span class="badge">changed since scene 27: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Money\Money;
+use App\Observers\PriceChangeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+#[ObservedBy([PriceChangeObserver::class])]                     // a price change moves the cache to a new version
+class RatePlan extends Model
+{
+    protected $fillable = ['name', 'nightly_rate_cents', 'currency', 'weekend_uplift_bps'];
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function seasons(): HasMany
+    {
+        return $this-&gt;hasMany(RatePlanSeason::class)-&gt;orderBy('starts_on');
+    }
+
+    public function baseRate(): Money
+    {
+        return Money::of($this-&gt;nightly_rate_cents, $this-&gt;currency);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">PriceChangeObserver</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Attributes</span>\<span class="t">ObservedBy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln add">#[<span class="f">ObservedBy</span>([<span class="t">PriceChangeObserver</span>::class])]                     <span class="c">// a price change moves the cache to a new version</span></span><span class="ln"><span class="k">class</span> <span class="t">RatePlan</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'currency'</span>, <span class="s">'weekend_uplift_bps'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">seasons</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">RatePlanSeason</span>::class)-&gt;<span class="f">orderBy</span>(<span class="s">'starts_on'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">baseRate</span>(): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">Money</span>::<span class="f">of</span>(<span class="k">$this</span>-&gt;nightly_rate_cents, <span class="k">$this</span>-&gt;currency);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/RatePlanSeason.php</span><span class="badge">changed since scene 27: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Observers\PriceChangeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[ObservedBy([PriceChangeObserver::class])]                     // a price change moves the cache to a new version
+class RatePlanSeason extends Model
+{
+    protected $fillable = ['name', 'starts_on', 'ends_on', 'nightly_rate_cents'];
+
+    protected function casts(): array
+    {
+        return [
+            'starts_on' =&gt; 'date:Y-m-d',
+            'ends_on' =&gt; 'date:Y-m-d',
+        ];
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);
+    }
+
+    /** True for every night from starts_on to ends_on, both included. */
+    public function covers(string $night): bool
+    {
+        return $night &gt;= $this-&gt;starts_on-&gt;toDateString() &amp;&amp; $night &lt;= $this-&gt;ends_on-&gt;toDateString();   // Y-m-d compares as text
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">PriceChangeObserver</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Attributes</span>\<span class="t">ObservedBy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"> </span><span class="ln add">#[<span class="f">ObservedBy</span>([<span class="t">PriceChangeObserver</span>::class])]                     <span class="c">// a price change moves the cache to a new version</span></span><span class="ln"><span class="k">class</span> <span class="t">RatePlanSeason</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'starts_on'</span>, <span class="s">'ends_on'</span>, <span class="s">'nightly_rate_cents'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'starts_on'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'ends_on'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** True for every night from starts_on to ends_on, both included. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">covers</span>(<span class="k">string</span> <span class="v">$night</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="v">$night</span> &gt;= <span class="k">$this</span>-&gt;starts_on-&gt;<span class="f">toDateString</span>() &amp;&amp; <span class="v">$night</span> &lt;= <span class="k">$this</span>-&gt;ends_on-&gt;<span class="f">toDateString</span>();   <span class="c">// Y-m-d compares as text</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 34: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Observers\PriceChangeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+#[ObservedBy([PriceChangeObserver::class])]                     // a price change moves the cache to a new version
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    /**
+     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.
+     * $ignoring: the booking being changed, which never blocks its own new dates.
+     */
+    public function scopeAvailableFor(Builder $query, Stay $stay, ?Booking $ignoring = null): void
+    {
+        $query
+            -&gt;whereDoesntHave('bookings', function (Builder $bookings) use ($stay, $ignoring): void {
+                $bookings-&gt;overlapping($stay);
+                if ($ignoring !== null) {
+                    $bookings-&gt;whereKeyNot($ignoring-&gt;id);
+                }
+            })
+            -&gt;whereDoesntHave('externalBlocks', fn (Builder $blocks) =&gt; $blocks-&gt;overlapping($stay));
+    }
+
+    /** Null when the stay is long enough, or the message to show the guest. */
+    public function stayTooShort(Stay $stay): ?string
+    {
+        $minNights = $this-&gt;minNightsOn($stay-&gt;checkIn);
+
+        return $stay-&gt;nights() &lt; $minNights
+            ? &quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;
+            : null;
+    }
+
+    /** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */
+    public function minNightsOn(CarbonImmutable $arrival): int
+    {
+        $rule = $this-&gt;calendarDays()
+            -&gt;where('date', $arrival-&gt;toDateString())                     // a plain comparison: whereDate() would wrap the column in DATE() and skip the index
+            -&gt;value('min_nights');
+
+        return $rule ?? $this-&gt;min_nights;
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);                      // shared: several listings can use one plan
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    /** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */
+    public function nextStay(): HasOne
+    {
+        return $this-&gt;hasOne(Booking::class)-&gt;ofMany(
+            ['check_in' =&gt; 'min'],                                     // the earliest check-in wins (ties: the lowest id)
+            fn (Builder $query) =&gt; $query
+                -&gt;whereIn('status', BookingStatus::blocking())
+                -&gt;where('check_in', '&gt;=', today()-&gt;toDateString()),
+        );
+    }
+
+    public function cleaningTasks(): HasMany
+    {
+        return $this-&gt;hasMany(CleaningTask::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+
+    public function calendarDays(): HasMany
+    {
+        return $this-&gt;hasMany(CalendarDay::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">PriceChangeObserver</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Attributes</span>\<span class="t">ObservedBy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasOne</span>;</span><span class="ln"> </span><span class="ln add">#[<span class="f">ObservedBy</span>([<span class="t">PriceChangeObserver</span>::class])]                     <span class="c">// a price change moves the cache to a new version</span></span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/**</span></span><span class="ln"><span class="c">     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.</span></span><span class="ln"><span class="c">     * $ignoring: the booking being changed, which never blocks its own new dates.</span></span><span class="ln"><span class="c">     */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeAvailableFor</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>, ?<span class="t">Booking</span> <span class="v">$ignoring</span> = <span class="k">null</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span></span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'bookings'</span>, <span class="k">function</span> (<span class="t">Builder</span> <span class="v">$bookings</span>) <span class="k">use</span> (<span class="v">$stay</span>, <span class="v">$ignoring</span>): <span class="k">void</span> {</span><span class="ln">                <span class="v">$bookings</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>);</span><span class="ln">                <span class="k">if</span> (<span class="v">$ignoring</span> !== <span class="k">null</span>) {</span><span class="ln">                    <span class="v">$bookings</span>-&gt;<span class="f">whereKeyNot</span>(<span class="v">$ignoring</span>-&gt;id);</span><span class="ln">                }</span><span class="ln">            })</span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'externalBlocks'</span>, <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$blocks</span>) =&gt; <span class="v">$blocks</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Null when the stay is long enough, or the message to show the guest. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stayTooShort</span>(<span class="t">Stay</span> <span class="v">$stay</span>): ?<span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$minNights</span> = <span class="k">$this</span>-&gt;<span class="f">minNightsOn</span>(<span class="v">$stay</span>-&gt;checkIn);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$stay</span>-&gt;<span class="f">nights</span>() &lt; <span class="v">$minNights</span></span><span class="ln">            ? <span class="s">&quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;</span></span><span class="ln">            : <span class="k">null</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">minNightsOn</span>(<span class="t">CarbonImmutable</span> <span class="v">$arrival</span>): <span class="k">int</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$rule</span> = <span class="k">$this</span>-&gt;<span class="f">calendarDays</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'date'</span>, <span class="v">$arrival</span>-&gt;<span class="f">toDateString</span>())                     <span class="c">// a plain comparison: whereDate() would wrap the column in DATE() and skip the index</span></span><span class="ln">            -&gt;<span class="f">value</span>(<span class="s">'min_nights'</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$rule</span> ?? <span class="k">$this</span>-&gt;min_nights;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);                      <span class="c">// shared: several listings can use one plan</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">nextStay</span>(): <span class="t">HasOne</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasOne</span>(<span class="t">Booking</span>::class)-&gt;<span class="f">ofMany</span>(</span><span class="ln">            [<span class="s">'check_in'</span> =&gt; <span class="s">'min'</span>],                                     <span class="c">// the earliest check-in wins (ties: the lowest id)</span></span><span class="ln">            <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span></span><span class="ln">                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>()),</span><span class="ln">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaningTasks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CleaningTask</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">calendarDays</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CalendarDay</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Model observers only see changes made through Eloquent. A bulk <code>RatePlanSeason::where(...)-&gt;update([...])</code> fires no events, so price changes always go through models, or bump the version themselves.</p><p>For the 23 bookings: they were charged what the guests saw and accepted at checkout. Support offers each host the choice to keep them or ask the guest for the difference; the code never changes a confirmed booking’s price on its own.</p></div></div></section>
+<section class="reveal"><h2>You just wrote the Proxy pattern</h2>
+<p class="rule"><span>Proxy</span>An object that stands in for another, with the same interface, and controls access to it: caching its answers, loading it late, or checking who may call it.</p>
+
+
+
+<ul class="points"><li><code>CachedNightlyRates</code> is a <b>caching proxy</b>: same interface as <code>NightlyRates</code>, holds the real one, answers from the cache when it can. Neither <code>PriceQuoter</code> nor the controller knows it is there.</li><li>Who gets the proxy is one decision in the container, so the rule &quot;never cache what a guest pays&quot; is enforced in one place you can read.</li><li>Proxy and Decorator (scene 16) are built the same way. The difference is intent: a decorator <b>adds</b> behaviour (the rate limit), a proxy <b>controls access</b> to the real object and answers in its place.</li></ul>
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>When the real call is already fast: a cache adds a second source of truth to keep correct.</li><li>For a value that must be exactly right at the moment it is used, like the price at checkout. Read it from the source.</li></ul>
+</section>
+<section class="laravel"><h2>Laravel does the same: Cache::remember() and contextual bindings</h2><p><code>Cache::remember()</code> is the whole cache-aside pattern in one call: read the key, and on a miss run the closure, store its result and return it. Two requests that miss at the same moment both run the closure; for a cheap closure like this one that is fine. For an expensive one, <code>Cache::flexible()</code> serves the old value while one request rebuilds it, and <code>Cache::lock()</code> (scene 4) lets only one process rebuild.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Cache/Repository.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">remember</span>(<span class="v">$key</span>, <span class="v">$ttl</span>, <span class="t">Closure</span> <span class="v">$callback</span>)
+{
+    <span class="v">$value</span> = <span class="k">$this</span>-&gt;<span class="f">get</span>(<span class="v">$key</span>);
+
+    <span class="k">if</span> (! <span class="f">is_null</span>(<span class="v">$value</span>)) {
+        <span class="k">return</span> <span class="v">$value</span>;                                    <span class="c">// a hit: the closure never runs</span>
+    }
+
+    <span class="k">$this</span>-&gt;<span class="f">put</span>(<span class="v">$key</span>, <span class="v">$value</span> = <span class="v">$callback</span>(), <span class="f">value</span>(<span class="v">$ttl</span>, <span class="v">$value</span>));
+
+    <span class="k">return</span> <span class="v">$value</span>;
+}</code></pre>
+</div><p>A hit is a <code>null</code> check, so a closure that returns <code>null</code> is never cached: it runs on every call. Cache an empty array or <code>false</code>, never <code>null</code>, when &quot;nothing&quot; is a valid answer.</p></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The incident, a cached quote until the price changes, the race-free bump, and a shared plan</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/PriceCacheTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CreateBooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceVersion</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;cottage = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'cleaning_fee_cents'</span> =&gt; <span class="k">null</span>]);
+    <span class="k">$this</span>-&gt;plan = <span class="t">RatePlan</span>::<span class="f">forceCreate</span>([<span class="s">'account_id'</span> =&gt; <span class="k">$this</span>-&gt;cottage-&gt;account_id, <span class="s">'name'</span> =&gt; <span class="s">'Skagen'</span>, <span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">18_000</span>, <span class="s">'currency'</span> =&gt; <span class="s">'EUR'</span>]);
+    <span class="k">$this</span>-&gt;cottage-&gt;<span class="f">forceFill</span>([<span class="s">'rate_plan_id'</span> =&gt; <span class="k">$this</span>-&gt;plan-&gt;id])-&gt;<span class="f">save</span>();
+});
+
+<span class="k">function</span> <span class="f">quotedTotal</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">int</span>
+{
+    <span class="k">return</span> <span class="f">test</span>()-&gt;<span class="f">getJson</span>(<span class="s">&quot;/api/v1/properties/{$property-&gt;id}/quote?check_in=2027-08-02&amp;check_out=2027-08-04&quot;</span>)
+        -&gt;<span class="f">assertOk</span>()
+        -&gt;<span class="f">json</span>(<span class="s">'total.amount'</span>);
+}
+
+<span class="f">it</span>(<span class="s">'charges the new price the moment it changes, even right after a cached quote'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage))-&gt;<span class="f">toBe</span>(<span class="n">36_000</span>);                        <span class="c">// cached at €180</span>
+
+    <span class="k">$this</span>-&gt;plan-&gt;<span class="f">update</span>([<span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">22_000</span>]);
+    <span class="v">$booking</span> = <span class="f">app</span>(<span class="t">CreateBooking</span>::class)-&gt;<span class="f">handle</span>(<span class="k">$this</span>-&gt;cottage-&gt;<span class="f">fresh</span>(), <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-08-02'</span>, <span class="s">'2027-08-04'</span>), [
+        <span class="s">'guest_name'</span> =&gt; <span class="s">'Søren'</span>, <span class="s">'guest_email'</span> =&gt; <span class="s">'soren@example.com'</span>, <span class="s">'guest_phone'</span> =&gt; <span class="k">null</span>, <span class="s">'guest_channel'</span> =&gt; <span class="s">'email'</span>, <span class="s">'guests'</span> =&gt; <span class="n">2</span>,
+    ]);
+
+    <span class="f">expect</span>(<span class="v">$booking</span>-&gt;total-&gt;amount)-&gt;<span class="f">toBe</span>(<span class="n">44_000</span>);                            <span class="c">// the incident: never the cached €180</span>
+});
+
+<span class="f">it</span>(<span class="s">'serves the quote from the cache until the price changes, then the new price'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage))-&gt;<span class="f">toBe</span>(<span class="n">36_000</span>);
+
+    <span class="k">$this</span>-&gt;plan-&gt;<span class="f">forceFill</span>([<span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">22_000</span>])-&gt;<span class="f">saveQuietly</span>();  <span class="c">// a change the observer never sees</span>
+    <span class="f">expect</span>(<span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage))-&gt;<span class="f">toBe</span>(<span class="n">36_000</span>);                        <span class="c">// proof the page reads the cache</span>
+
+    <span class="k">$this</span>-&gt;plan-&gt;<span class="f">update</span>([<span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">22_000</span>, <span class="s">'name'</span> =&gt; <span class="s">'Skagen 2027'</span>]);   <span class="c">// a real change: the observer bumps</span>
+    <span class="f">expect</span>(<span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage))-&gt;<span class="f">toBe</span>(<span class="n">44_000</span>);
+});
+
+<span class="f">it</span>(<span class="s">'bumps the version only after the change commits'</span>, <span class="k">function</span> () {
+    <span class="v">$versions</span> = <span class="f">app</span>(<span class="t">PriceVersion</span>::class);
+
+    <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$versions</span>): <span class="k">void</span> {
+        <span class="k">$this</span>-&gt;plan-&gt;<span class="f">update</span>([<span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">22_000</span>]);
+        <span class="f">expect</span>(<span class="v">$versions</span>-&gt;<span class="f">of</span>(<span class="k">$this</span>-&gt;cottage-&gt;id))-&gt;<span class="f">toBe</span>(<span class="n">0</span>);                   <span class="c">// not yet: the old prices are still the committed ones</span>
+    });
+
+    <span class="f">expect</span>(<span class="v">$versions</span>-&gt;<span class="f">of</span>(<span class="k">$this</span>-&gt;cottage-&gt;id))-&gt;<span class="f">toBe</span>(<span class="n">1</span>);
+});
+
+<span class="f">it</span>(<span class="s">'moves every listing on a shared plan to new prices'</span>, <span class="k">function</span> () {
+    <span class="v">$twin</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;cottage-&gt;account)-&gt;<span class="f">create</span>([<span class="s">'cleaning_fee_cents'</span> =&gt; <span class="k">null</span>]);
+    <span class="v">$twin</span>-&gt;<span class="f">forceFill</span>([<span class="s">'rate_plan_id'</span> =&gt; <span class="k">$this</span>-&gt;plan-&gt;id])-&gt;<span class="f">save</span>();
+    <span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage);
+    <span class="f">quotedTotal</span>(<span class="v">$twin</span>);
+
+    <span class="k">$this</span>-&gt;plan-&gt;<span class="f">seasons</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'August'</span>, <span class="s">'starts_on'</span> =&gt; <span class="s">'2027-08-01'</span>, <span class="s">'ends_on'</span> =&gt; <span class="s">'2027-08-31'</span>, <span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">22_000</span>]);
+
+    <span class="f">expect</span>(<span class="f">quotedTotal</span>(<span class="k">$this</span>-&gt;cottage))-&gt;<span class="f">toBe</span>(<span class="n">44_000</span>)
+        -&gt;<span class="f">and</span>(<span class="f">quotedTotal</span>(<span class="v">$twin</span>-&gt;<span class="f">fresh</span>()))-&gt;<span class="f">toBe</span>(<span class="n">44_000</span>);
+});</code></pre>
+</div><p>The tests use the <code>array</code> cache store (phpunit.xml), which keeps entries for the whole test, so a second request really reads what the first one cached. <code>RefreshDatabase</code> lets after-commit observers run when the code’s own transaction commits, so the third test sees exactly what production sees.</p></div></div></div></details></section>
+<section id="eviction" class="part"><h2>Part 2, the same afternoon: Redis throws out what it must keep</h2><p>The fix above shipped at 11:30. By the afternoon, the new cache had filled Redis, and Redis started choosing what to forget.</p><div class="blocks"></div></section>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#ops<span class="inc-when">Thursday 14:20</span></p>
+<p class="inc-msg"><span class="inc-who">Mona · support</span>Since about 13:30 hosts are <b>logged out every few minutes</b>. Six tickets. And Ingrid says a quote showed <b>€180</b> again for ten minutes, an hour after she changed it.</p><p class="inc-msg"><span class="inc-who">Jonas · developer</span>Redis is at its 2 GB <code>maxmemory</code>. <code>evicted_keys</code> went from 0 to <b>1.9 million</b> since 13:00. Horizon shows 212 delayed channel pushes that never ran.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Every quote now writes a key per property and date range, half a million of them. Cache, sessions, queues and locks all live in the <b>same Redis</b>, and it is set to <code>allkeys-lru</code>: when it’s full, it deletes whatever was used least recently. That includes sessions, delayed jobs, and our price-version counters.</p>
+</section>
+<section><h2>The broken code</h2><p>Not a line of PHP. The one Redis everything uses was configured as a cache:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">/etc/redis/redis.conf (production, the one Redis)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="f">maxmemory</span> 2gb
+<span class="f">maxmemory-policy</span> allkeys-lru     <span class="c"># the bug: right for a cache, wrong for the queue, sessions, locks and counters in the same instance</span></code></pre>
+</div><p><code>allkeys-lru</code> is the right policy for a cache: when memory is full, forget the oldest unused entry, and the app recomputes it. It is the wrong policy for anything that <b>is</b> data. A host’s session idle for 20 minutes looks exactly like an old quote. So do the <code>queues:channels:delayed</code> set of jobs waiting for a <code>Retry-After</code> (scene 16), and the unique-job and overlap locks (scene 17).</p><p>And <code>price-version:{id}</code> from part 1. Evict Ingrid’s counter and it reads 0; her next price change bumps it to 1; and every <code>v1</code> quote cached <b>before</b> that change, still inside its 30 minutes, is reachable again. That was the €180.</p></div></div></section>
+<section><h2>Why one Redis can’t do both</h2><div class="blocks"><div class="block"><div class="tablewrap"><table><thead><tr><th scope="col">Policy</th><th scope="col">When full</th><th scope="col">Fits</th></tr></thead>
+<tbody><tr><th scope="row"><code>allkeys-lru</code></th><td>Deletes the least recently used key, any key</td><td>A cache, and only a cache</td></tr><tr><th scope="row"><code>volatile-lru</code></th><td>Deletes the least recently used key <b>with a TTL</b></td><td>Not a fix here: sessions and locks have TTLs too, so they still go</td></tr><tr><th scope="row"><code>noeviction</code></th><td>Refuses new writes with an error</td><td>Queues, sessions, locks, counters: a loud error beats losing a job in silence</td></tr></tbody></table></div><p>Laravel’s default <code>config/database.php</code> already gives the cache its own connection, <code>cache</code>, on database 1. That separates the keys, not the policy: the policy is per Redis <b>instance</b>, not per database number. So the fix is two instances: one that may forget, and one that may not. The one that may not is sized with headroom and watched, because when it fills up, writes start failing.</p></div></div></section>
+<section><h2>The fix, part 1: two Redis instances, two connections</h2><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">/etc/redis/cache.conf and /etc/redis/data.conf (production)</span></div>
+<pre class="code"><code><span class="c"># cache.conf — may forget anything: quotes, search results, computed pages</span>
+<span class="f">port</span> 6380
+<span class="f">maxmemory</span> 2gb
+<span class="f">maxmemory-policy</span> allkeys-lru
+<span class="f">save</span> <span class="s">&quot;&quot;</span>                          <span class="c"># no snapshots: a cache is rebuilt, not restored</span>
+<span class="f">
+#</span> data.conf — must not forget: queues, sessions, locks, price versions
+<span class="f">port</span> 6379
+<span class="f">maxmemory</span> 4gb
+<span class="f">maxmemory-policy</span> noeviction
+<span class="f">appendonly</span> yes                   <span class="c"># a restart must not lose queued jobs</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">config/database.php (the redis entry)</span></div>
+<pre class="code"><code><span class="s">'redis'</span> =&gt; [
+    <span class="s">'client'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_CLIENT'</span>, <span class="s">'phpredis'</span>),
+
+    <span class="s">'default'</span> =&gt; [                                       <span class="c">// queues, sessions, locks: the instance that never evicts</span>
+        <span class="s">'host'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_HOST'</span>, <span class="s">'127.0.0.1'</span>),
+        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_PASSWORD'</span>),
+        <span class="s">'port'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_PORT'</span>, <span class="s">'6379'</span>),
+        <span class="s">'database'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_DB'</span>, <span class="s">'0'</span>),
+    ],
+
+    <span class="s">'cache'</span> =&gt; [                                         <span class="c">// the instance that may forget</span>
+        <span class="s">'host'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_CACHE_HOST'</span>, <span class="f">env</span>(<span class="s">'REDIS_HOST'</span>, <span class="s">'127.0.0.1'</span>)),
+        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_CACHE_PASSWORD'</span>, <span class="f">env</span>(<span class="s">'REDIS_PASSWORD'</span>)),
+        <span class="s">'port'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_CACHE_PORT'</span>, <span class="s">'6380'</span>),
+        <span class="s">'database'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_CACHE_DB'</span>, <span class="s">'0'</span>),
+    ],
+],</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">config/cache.php (the stores entry)</span></div>
+<pre class="code"><code><span class="s">'stores'</span> =&gt; [
+    <span class="s">'redis'</span> =&gt; [                                         <span class="c">// the default store: Cache::remember() and friends</span>
+        <span class="s">'driver'</span> =&gt; <span class="s">'redis'</span>,
+        <span class="s">'connection'</span> =&gt; <span class="s">'cache'</span>,
+        <span class="s">'lock_connection'</span> =&gt; <span class="s">'default'</span>,                  <span class="c">// Cache::lock() must never be evicted mid-lock</span>
+    ],
+
+    <span class="s">'durable'</span> =&gt; [                                       <span class="c">// small values the app can't recompute: price versions</span>
+        <span class="s">'driver'</span> =&gt; <span class="f">env</span>(<span class="s">'CACHE_DURABLE_DRIVER'</span>, <span class="s">'redis'</span>),
+        <span class="s">'connection'</span> =&gt; <span class="s">'default'</span>,
+        <span class="s">'lock_connection'</span> =&gt; <span class="s">'default'</span>,
+    ],
+
+    <span class="s">'array'</span> =&gt; [<span class="s">'driver'</span> =&gt; <span class="s">'array'</span>, <span class="s">'serialize'</span> =&gt; <span class="k">false</span>],
+],</code></pre>
+</div><p><code>.env</code> in production: <code>CACHE_STORE=redis</code>, <code>SESSION_DRIVER=redis</code> with <code>SESSION_CONNECTION=default</code>, <code>QUEUE_CONNECTION=redis</code>. The queue’s <code>redis</code> connection in <code>config/queue.php</code> already uses <code>default</code>; it is the cache that moves out.</p></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">compose.yaml</span><span class="badge">changed since the foundation: <span class="plus">+9</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="services:
+  app:
+    build: docker/app
+    volumes: ['.:/var/www/html']
+    ports: ['8000:8000']
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: pms
+    ports: ['3306:3306']
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/01-test-db.sql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-psecret']
+      interval: 5s
+
+  redis:
+    image: redis:7.4
+    command: redis-server --appendonly yes --maxmemory-policy noeviction     # queues, sessions, locks: never evicted
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+
+  redis-cache:
+    image: redis:7.4
+    command: redis-server --port 6380 --maxmemory 256mb --maxmemory-policy allkeys-lru --save ''
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-p', '6380', 'ping']
+      interval: 5s
+
+volumes:
+  mysql-data:"><code><span class="ln"><span class="t">services</span>:</span><span class="ln"><span class="t">  app</span>:</span><span class="ln"><span class="t">    build</span>: docker/app</span><span class="ln"><span class="t">    volumes</span>: [<span class="s">'.:/var/www/html'</span>]</span><span class="ln"><span class="t">    ports</span>: [<span class="s">'8000:8000'</span>]</span><span class="ln"><span class="t">    command</span>: php artisan serve --host=<span class="n">0.0</span>.<span class="n">0.0</span> --port=<span class="n">8000</span></span><span class="ln"><span class="t">    depends_on</span>:</span><span class="ln"><span class="t">      mysql</span>: { condition: service_healthy }</span><span class="ln"><span class="t">      redis</span>: { condition: service_healthy }</span><span class="ln add"><span class="t">      redis-cache</span>: { condition: service_healthy }</span><span class="ln"> </span><span class="ln"><span class="t">  mysql</span>:</span><span class="ln"><span class="t">    image</span>: mysql:<span class="n">8.4</span></span><span class="ln"><span class="t">    environment</span>:</span><span class="ln"><span class="t">      MYSQL_ROOT_PASSWORD</span>: secret</span><span class="ln"><span class="t">      MYSQL_DATABASE</span>: pms</span><span class="ln"><span class="t">    ports</span>: [<span class="s">'3306:3306'</span>]</span><span class="ln"><span class="t">    volumes</span>:</span><span class="ln">      - mysql-data:/var/lib/mysql</span><span class="ln">      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/<span class="n">01</span>-test-db.sql</span><span class="ln"><span class="t">    healthcheck</span>:</span><span class="ln"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'mysqladmin'</span>, <span class="s">'ping'</span>, <span class="s">'-psecret'</span>]</span><span class="ln"><span class="t">      interval</span>: 5s</span><span class="ln"> </span><span class="ln"><span class="t">  redis</span>:</span><span class="ln"><span class="t">    image</span>: redis:<span class="n">7.4</span></span><span class="ln del"><span class="t">    command</span>: redis-server --appendonly yes     <span class="c"># a restart must not lose queued jobs</span></span><span class="ln add"><span class="t">    command</span>: redis-server --appendonly yes --maxmemory-policy noeviction     <span class="c"># queues, sessions, locks: never evicted</span></span><span class="ln"><span class="t">    healthcheck</span>:</span><span class="ln"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'redis-cli'</span>, <span class="s">'ping'</span>]</span><span class="ln"><span class="t">      interval</span>: 5s</span><span class="ln"> </span><span class="ln add"><span class="t">  redis-cache</span>:</span><span class="ln add"><span class="t">    image</span>: redis:<span class="n">7.4</span></span><span class="ln add"><span class="t">    command</span>: redis-server --port <span class="n">6380</span> --maxmemory 256mb --maxmemory-policy allkeys-lru --save <span class="s">''</span></span><span class="ln add"><span class="t">    healthcheck</span>:</span><span class="ln add"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'redis-cli'</span>, <span class="s">'-p'</span>, <span class="s">'6380'</span>, <span class="s">'ping'</span>]</span><span class="ln add"><span class="t">      interval</span>: 5s</span><span class="ln add"> </span><span class="ln"><span class="t">volumes</span>:</span><span class="ln"><span class="t">  mysql-data</span>:</span></code></pre>
+</div><p>Locally the same split, so a developer sees the same behaviour: <code>REDIS_CACHE_HOST=redis-cache</code> in <code>.env</code>.</p></div></div></section>
+<section><h2>The fix, part 2: the price version is data, not cache</h2><p>A counter that decides which prices are current can’t live where it may be forgotten. <code>PriceVersion</code> moves to the <code>durable</code> store. The quotes themselves stay in the cache that may forget: losing one only costs a recomputation.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/PriceVersion.php</span><span class="badge">changed since the version above: <span class="plus">+11</span> <span class="minus">−4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
+
+final class PriceVersion
+{
+    public function of(int $propertyId): int
+    {
+        return (int) $this-&gt;store()-&gt;get($this-&gt;key($propertyId), 0);
+    }
+
+    /** Every cached price of this property becomes unreachable. Atomic in Redis: two bumps never become one. */
+    public function bump(int $propertyId): void
+    {
+        $this-&gt;store()-&gt;increment($this-&gt;key($propertyId));
+    }
+
+    /** The Redis that never evicts: an evicted counter would bring back prices that were already replaced. */
+    private function store(): Repository
+    {
+        return Cache::store('durable');
+    }
+
+    private function key(int $propertyId): string
+    {
+        return &quot;price-version:{$propertyId}&quot;;
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Cache</span>\<span class="t">Repository</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">PriceVersion</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">of</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">int</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> (<span class="k">int</span>) <span class="t">Cache</span>::<span class="f">get</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>), <span class="n">0</span>);</span><span class="ln add">        <span class="k">return</span> (<span class="k">int</span>) <span class="k">$this</span>-&gt;<span class="f">store</span>()-&gt;<span class="f">get</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>), <span class="n">0</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Every cached price of this property becomes unreachable. Atomic in Redis: two bumps never become one. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bump</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln del">        <span class="t">Cache</span>::<span class="f">increment</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>));</span><span class="ln del">    }</span><span class="ln del"> </span><span class="ln add">        <span class="k">$this</span>-&gt;<span class="f">store</span>()-&gt;<span class="f">increment</span>(<span class="k">$this</span>-&gt;<span class="f">key</span>(<span class="v">$propertyId</span>));</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** The Redis that never evicts: an evicted counter would bring back prices that were already replaced. */</span></span><span class="ln add">    <span class="k">private</span> <span class="k">function</span> <span class="f">store</span>(): <span class="t">Repository</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="t">Cache</span>::<span class="f">store</span>(<span class="s">'durable'</span>);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">key</span>(<span class="k">int</span> <span class="v">$propertyId</span>): <span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="s">&quot;price-version:{$propertyId}&quot;</span>;</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>A counter per property with no TTL: 50,000 properties are about 4 MB. That is the kind of data the <code>noeviction</code> instance is for: small, and not recomputable.</p></div><div class="block"><h3>Tests get the durable store in memory</h3><div class="codebox changed">
+<div class="filehead"><span class="path">phpunit.xml</span><span class="badge">changed since scene 32: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;phpunit xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:noNamespaceSchemaLocation=&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;
+         bootstrap=&quot;vendor/autoload.php&quot;
+         colors=&quot;true&quot;
+&gt;
+    &lt;testsuites&gt;
+        &lt;testsuite name=&quot;Unit&quot;&gt;
+            &lt;directory&gt;tests/Unit&lt;/directory&gt;
+        &lt;/testsuite&gt;
+        &lt;testsuite name=&quot;Feature&quot;&gt;
+            &lt;directory&gt;tests/Feature&lt;/directory&gt;
+        &lt;/testsuite&gt;
+    &lt;/testsuites&gt;
+    &lt;source&gt;
+        &lt;include&gt;
+            &lt;directory&gt;app&lt;/directory&gt;
+        &lt;/include&gt;
+    &lt;/source&gt;
+    &lt;php&gt;
+        &lt;env name=&quot;APP_ENV&quot; value=&quot;testing&quot;/&gt;
+        &lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot;/&gt;
+        &lt;env name=&quot;DB_DATABASE&quot; value=&quot;pms_test&quot;/&gt;
+        &lt;env name=&quot;QUEUE_CONNECTION&quot; value=&quot;sync&quot;/&gt;
+        &lt;env name=&quot;CACHE_STORE&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;CACHE_DURABLE_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;SESSION_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;MAIL_MAILER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;BCRYPT_ROUNDS&quot; value=&quot;4&quot;/&gt;
+        &lt;env name=&quot;BROADCAST_CONNECTION&quot; value=&quot;null&quot;/&gt;
+    &lt;/php&gt;
+&lt;/phpunit&gt;"><code><span class="ln">&lt;?xml <span class="v">version</span>=<span class="s">&quot;1.0&quot;</span> <span class="v">encoding</span>=<span class="s">&quot;UTF-8&quot;</span>?<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;phpunit</span> <span class="v">xmlns:xsi</span>=<span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span><span class="ln">         <span class="v">xsi:noNamespaceSchemaLocation</span>=<span class="s">&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;</span></span><span class="ln">         <span class="v">bootstrap</span>=<span class="s">&quot;vendor/autoload.php&quot;</span></span><span class="ln">         <span class="v">colors</span>=<span class="s">&quot;true&quot;</span></span><span class="ln"><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;testsuites</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/testsuites</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;source</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;include</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>app<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/include</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/source</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;php</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln add">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_DURABLE_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BROADCAST_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;null&quot;</span><span class="k">/&gt;</span></span><span class="ln">    <span class="k">&lt;/php</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/phpunit</span><span class="k">&gt;</span></span></code></pre>
+</div></div><div class="block"><h3>And the alarm that would have rung at 13:05</h3><p>Two alerts in the monitoring, both from Redis <code>INFO</code>: on the data instance, <code>used_memory</code> above 80% of <code>maxmemory</code> (it is about to refuse writes), and <code>evicted_keys</code> above zero, which must never happen there. On the cache instance evictions are normal; the alert is a falling hit rate (<code>keyspace_hits</code> against <code>keyspace_misses</code>), which says the cache is too small to help.</p></div></div></section>
+
+<section class="tests"><details><summary><span>Tests</span><small>Flushing the cache keeps the price versions, and a stale entry stays unreachable</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/PriceVersionStoreTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceVersion</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;
+
+<span class="f">it</span>(<span class="s">'keeps the price versions when the cache forgets everything'</span>, <span class="k">function</span> () {
+    <span class="v">$versions</span> = <span class="f">app</span>(<span class="t">PriceVersion</span>::class);
+    <span class="v">$versions</span>-&gt;<span class="f">bump</span>(<span class="n">812</span>);
+
+    <span class="t">Cache</span>::<span class="f">flush</span>();                                                              <span class="c">// what allkeys-lru does, all at once</span>
+
+    <span class="f">expect</span>(<span class="v">$versions</span>-&gt;<span class="f">of</span>(<span class="n">812</span>))-&gt;<span class="f">toBe</span>(<span class="n">1</span>)                                           <span class="c">// the incident: it read 0</span>
+        -&gt;<span class="f">and</span>(<span class="t">Cache</span>::<span class="f">get</span>(<span class="s">'price-version:812'</span>))-&gt;<span class="f">toBeNull</span>();                      <span class="c">// and it was never in the evictable store</span>
+});
+
+<span class="f">it</span>(<span class="s">'never makes an older cached price reachable again'</span>, <span class="k">function</span> () {
+    <span class="v">$versions</span> = <span class="f">app</span>(<span class="t">PriceVersion</span>::class);
+    <span class="v">$versions</span>-&gt;<span class="f">bump</span>(<span class="n">812</span>);                                                        <span class="c">// version 1</span>
+    <span class="t">Cache</span>::<span class="f">put</span>(<span class="s">'nightly-rates:812:v1:2027-08-02:2027-08-04'</span>, [<span class="n">18_000</span>, <span class="n">18_000</span>], <span class="n">1800</span>);   <span class="c">// a quote cached at €180</span>
+
+    <span class="t">Cache</span>::<span class="f">forget</span>(<span class="s">'price-version:812'</span>);                                          <span class="c">// the eviction that hit Ingrid: nothing to evict now</span>
+    <span class="v">$versions</span>-&gt;<span class="f">bump</span>(<span class="n">812</span>);                                                        <span class="c">// she changes her price</span>
+
+    <span class="f">expect</span>(<span class="v">$versions</span>-&gt;<span class="f">of</span>(<span class="n">812</span>))-&gt;<span class="f">toBe</span>(<span class="n">2</span>)                                          <span class="c">// never back to 1 …</span>
+        -&gt;<span class="f">and</span>(<span class="t">Cache</span>::<span class="f">has</span>(<span class="s">'nightly-rates:812:v2:2027-08-02:2027-08-04'</span>))-&gt;<span class="f">toBeFalse</span>();   <span class="c">// … so the €180 entry is never read again</span>
+});</code></pre>
+</div><p>Mutation: point <code>PriceVersion</code> back at the default store and the first test fails with 0, exactly the counter the eviction reset. The eviction itself is Redis behaviour, not ours, so it isn’t tested here; <code>redis-cli CONFIG GET maxmemory-policy</code> on each instance is part of the deploy checklist instead.</p></div></div></div></details></section>
+<section class="nextup"><p>Prices are right the moment they change, and Redis only forgets what can be recomputed. Next, a partner system that should hear about every booking misses one, and nobody notices for a day.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../34-slow-page/"><small>← Scene 34</small>The properties page takes 4 seconds</a>
+<a rel="next" href="../36-outbox/"><small>Scene 36 →</small>Booking saved, the partner never heard about it</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById(), the review request after check-out"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in"],"slug":"27-rate-plans","ready":true,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), shallow vs deep copies, what a copy must never take along"],"slug":"28-duplicate-listing","ready":true,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Minimum stay sent to the channels with availability, one rule check for every booking path"],"slug":"29-minimum-stay","ready":true,"label":"Day 5 · Scene 29"},{"n":30,"title":"A Christmas minimum stay closed short stays all year","patterns":["A calendar_days table: blocked days, minimum stay and price per day, read by bookings and pushed to every channel"],"slug":"30-calendar-days","ready":true,"label":"Day 5 · Scene 30"},{"n":31,"title":"Search said free, the booking said taken","patterns":["One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough"],"slug":"31-search","ready":true,"label":"Day 5 · Scene 31"},{"n":32,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, private channels scoped to the account, the socket as a hint and a reload after reconnect"],"slug":"32-real-time","ready":true,"label":"Day 5 · Scene 32"},{"n":33,"title":"Two co-hosts sent the same guest different check-in times","patterns":["A presence channel per conversation, who else is answering, typing whispers, channel auth scoped to the account"],"slug":"33-inbox","ready":true,"label":"Day 5 · Scene 33"},{"n":34,"title":"The properties page takes 4 seconds","patterns":["N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN"],"slug":"34-slow-page","ready":true,"label":"Day 6 · Scene 34"},{"n":35,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside; Part 2: Redis eviction policies and separate connections"],"slug":"35-caching","ready":true,"label":"Day 6 · Scene 35"},{"n":36,"title":"Booking saved, the partner never heard about it","patterns":["Writing the message in the same transaction, a relay job, at-least-once delivery, idempotent consumers, event versions"],"slug":"36-outbox","ready":true,"label":"Day 6 · Scene 36"},{"n":37,"title":"The mobile app retried and booked twice","patterns":["An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response"],"slug":"37-public-api","ready":true,"label":"Day 6 · Scene 37"},{"n":38,"title":"A partner’s nightly sync missed bookings","patterns":["Offset vs cursor pagination, cursorPaginate(), whitelisted filters and sorts, a breaking change shipped as /api/v2, deprecating v1"],"slug":"38-partner-sync","ready":true,"label":"Day 6 · Scene 38"},{"n":39,"title":"A channel manager cancelled 14 bookings with a host’s token","patterns":["Sanctum token abilities on every route, expiry, a token bound to one account, a rate limit per token with 429 and Retry-After, JSON errors, and when OAuth with Passport is worth it"],"slug":"39-third-party-access","ready":true,"label":"Day 6 · Scene 39"},{"n":40,"title":"The tax report export included another host’s bookings","patterns":["One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip"],"slug":"40-exports","ready":true,"label":"Day 6 · Scene 40"},{"n":41,"title":"iCal calendars are three hours out of date","patterns":["Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written; Part 2: deadlocks, REPEATABLE READ, gap and next-key locks"],"slug":"41-ical-at-scale","ready":true,"label":"Day 7 · Scene 41"},{"n":42,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary; Part 2: Cache::flexible() against a stampede; Part 3: a CDN with Cache-Control, ETag and purging"],"slug":"42-load","ready":true,"label":"Day 7 · Scene 42"},{"n":43,"title":"Meilisearch restarted, search returned 500 for ten minutes","patterns":["Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: reindexing without downtime by swapping indexes"],"slug":"43-search-fallback","ready":true,"label":"Day 7 · Scene 43"},{"n":44,"title":"Adding a column locked bookings for 20 minutes","patterns":["Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost; Part 2: retention with MassPrunable, archiving, and why not partitioning"],"slug":"44-big-tables","ready":true,"label":"Day 7 · Scene 44"},{"n":45,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane; Part 2: Reverb on two servers through Redis"],"slug":"45-deploys","ready":true,"label":"Day 7 · Scene 45"},{"n":46,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts"],"slug":"46-incident","ready":true,"label":"Day 7 · Scene 46"},{"n":47,"title":"A new developer asks how it all fits together","patterns":["One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades"],"slug":"47-how-it-fits","ready":true,"label":"Day 7 · Scene 47"},{"n":48,"title":"The interview","patterns":["System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers; the follow-up: sharding by account"],"slug":"48-interview","ready":true,"label":"Day 7 · Scene 48"},{"n":49,"title":"Review this pull request","patterns":["An AI-written pull request with eight bugs: find them, explain them, fix them, and ask for the tests that prove it"],"slug":"49-code-review","ready":true,"label":"Day 7 · Scene 49"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":true},{"name":"Specification","chapter":31,"chapterTitle":"Search said free, the booking said taken","slug":"31-search","ready":true},{"name":"Proxy","chapter":35,"chapterTitle":"Prices went up at 09:00, guests paid the old ones until 10:00","slug":"35-caching","ready":true},{"name":"Transactional Outbox","chapter":36,"chapterTitle":"Booking saved, the partner never heard about it","slug":"36-outbox","ready":true},{"name":"Chain of Responsibility","chapter":37,"chapterTitle":"The mobile app retried and booked twice","slug":"37-public-api","ready":true},{"name":"Pipeline","chapter":37,"chapterTitle":"The mobile app retried and booked twice","slug":"37-public-api","ready":true},{"name":"Template Method","chapter":40,"chapterTitle":"The tax report export included another host’s bookings","slug":"40-exports","ready":true},{"name":"Unit of Work","chapter":41,"chapterTitle":"iCal calendars are three hours out of date","slug":"41-ical-at-scale","ready":true},{"name":"Repository","chapter":43,"chapterTitle":"Meilisearch restarted, search returned 500 for ten minutes","slug":"43-search-fallback","ready":true},{"name":"Composite","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Data Mapper","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Interpreter","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Visitor","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Flyweight","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

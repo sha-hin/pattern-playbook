@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Meilisearch restarted, search returned 500 for ten minutes · Repository in Laravel | Pattern Playbook</title>
+<meta name="description" content="Search went down for ten minutes when Meilisearch restarted: the controller called Meilisearch directly, so its outage was search’s outage. Fix it in Laravel with a property repository: one interface, a Meilisearch and an Eloquent implementation that pass the same contract tests, and an action that falls back to the database while Meilisearch is unavailable.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/43-search-fallback/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Meilisearch restarted, search returned 500 for ten minutes · Repository in Laravel | Pattern Playbook">
+<meta property="og:description" content="Search went down for ten minutes when Meilisearch restarted: the controller called Meilisearch directly, so its outage was search’s outage. Fix it in Laravel with a property repository: one interface, a Meilisearch and an Eloquent implementation that pass the same contract tests, and an action that falls back to the database while Meilisearch is unavailable.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/43-search-fallback/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 52 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Meilisearch restarted, search returned 500 for ten minutes · Repository in Laravel | Pattern Playbook">
+<meta name="twitter:description" content="Search went down for ten minutes when Meilisearch restarted: the controller called Meilisearch directly, so its outage was search’s outage. Fix it in Laravel with a property repository: one interface, a Meilisearch and an Eloquent implementation that pass the same contract tests, and an action that falls back to the database while Meilisearch is unavailable.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=bb7913295a">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 43: Meilisearch restarted, search returned 500 for ten minutes","description":"Search went down for ten minutes when Meilisearch restarted: the controller called Meilisearch directly, so its outage was search’s outage. Fix it in Laravel with a property repository: one interface, a Meilisearch and an Eloquent implementation that pass the same contract tests, and an action that falls back to the database while Meilisearch is unavailable.","url":"https://sha-hin.github.io/pattern-playbook/43-search-fallback/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/43-search-fallback/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Repository pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 43: Meilisearch restarted, search returned 500 for ten minutes","item":"https://sha-hin.github.io/pattern-playbook/43-search-fallback/"}]}]}</script>
+</head>
+<body data-page="43-search-fallback" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 7 · Production › Scene 43 of 49</p>
+<h1>Meilisearch restarted, search returned 500 for ten minutes</h1>
+<p class="subtitle">Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: reindexing without downtime by swapping indexes</p>
+<p class="tags"><span class="ptag">Repository</span></p>
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Monday 10:20</span></p>
+<p class="inc-msg"><span class="inc-who">Monitoring</span><b>/api/v1/search: 100% errors</b> for 10 minutes · <code>Meilisearch\Exceptions\CommunicationException: Connection refused</code></p><p class="inc-msg"><span class="inc-who">Karim · developer</span>The Meilisearch server was restarted for its monthly update. It took ten minutes to load the index again, and every search on the site returned a 500 meanwhile.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>The database had every property the whole time. Search had no way to use it.</p>
+</section>
+<section><h2>Last week’s feature</h2><p>Hygge Homes asked for search by words: “sea view”, “sauna”, and with typos, “sauana”. SQL is poor at that (scene 31 said when it stops being enough), so search moved to <b>Meilisearch</b>, through Laravel Scout. Hosts now write a description for each property, and Scout keeps a copy of every property in a Meilisearch index.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">composer</span> require laravel/scout meilisearch/meilisearch-php http-interop/http-factory-guzzle
+<span class="f">php</span> artisan vendor:publish <span class="v">--provider=&quot;Laravel\Scout\ScoutServiceProvider&quot;</span>   <span class="c"># creates config/scout.php</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">compose.yaml</span><span class="badge">changed since scene 35: <span class="plus">+14</span></span></div>
+<pre class="code diff" data-copy="services:
+  app:
+    build: docker/app
+    volumes: ['.:/var/www/html']
+    ports: ['8000:8000']
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+      meilisearch: { condition: service_healthy }
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: pms
+    ports: ['3306:3306']
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/01-test-db.sql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-psecret']
+      interval: 5s
+
+  redis:
+    image: redis:7.4
+    command: redis-server --appendonly yes --maxmemory-policy noeviction     # queues, sessions, locks: never evicted
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+
+  redis-cache:
+    image: redis:7.4
+    command: redis-server --port 6380 --maxmemory 256mb --maxmemory-policy allkeys-lru --save ''
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-p', '6380', 'ping']
+      interval: 5s
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    environment:
+      MEILI_MASTER_KEY: change-me-to-a-long-random-key
+      MEILI_NO_ANALYTICS: 'true'
+    ports: ['7700:7700']
+    volumes:
+      - meili-data:/meili_data             # the index survives a restart; rebuilding it takes minutes
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:7700/health']
+      interval: 5s
+
+volumes:
+  mysql-data:
+  meili-data:"><code><span class="ln"><span class="t">services</span>:</span><span class="ln"><span class="t">  app</span>:</span><span class="ln"><span class="t">    build</span>: docker/app</span><span class="ln"><span class="t">    volumes</span>: [<span class="s">'.:/var/www/html'</span>]</span><span class="ln"><span class="t">    ports</span>: [<span class="s">'8000:8000'</span>]</span><span class="ln"><span class="t">    command</span>: php artisan serve --host=<span class="n">0.0</span>.<span class="n">0.0</span> --port=<span class="n">8000</span></span><span class="ln"><span class="t">    depends_on</span>:</span><span class="ln"><span class="t">      mysql</span>: { condition: service_healthy }</span><span class="ln"><span class="t">      redis</span>: { condition: service_healthy }</span><span class="ln"><span class="t">      redis-cache</span>: { condition: service_healthy }</span><span class="ln add"><span class="t">      meilisearch</span>: { condition: service_healthy }</span><span class="ln"> </span><span class="ln"><span class="t">  mysql</span>:</span><span class="ln"><span class="t">    image</span>: mysql:<span class="n">8.4</span></span><span class="ln"><span class="t">    environment</span>:</span><span class="ln"><span class="t">      MYSQL_ROOT_PASSWORD</span>: secret</span><span class="ln"><span class="t">      MYSQL_DATABASE</span>: pms</span><span class="ln"><span class="t">    ports</span>: [<span class="s">'3306:3306'</span>]</span><span class="ln"><span class="t">    volumes</span>:</span><span class="ln">      - mysql-data:/var/lib/mysql</span><span class="ln">      - ./docker/mysql/create-test-db.sql:/docker-entrypoint-initdb.d/<span class="n">01</span>-test-db.sql</span><span class="ln"><span class="t">    healthcheck</span>:</span><span class="ln"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'mysqladmin'</span>, <span class="s">'ping'</span>, <span class="s">'-psecret'</span>]</span><span class="ln"><span class="t">      interval</span>: 5s</span><span class="ln"> </span><span class="ln"><span class="t">  redis</span>:</span><span class="ln"><span class="t">    image</span>: redis:<span class="n">7.4</span></span><span class="ln"><span class="t">    command</span>: redis-server --appendonly yes --maxmemory-policy noeviction     <span class="c"># queues, sessions, locks: never evicted</span></span><span class="ln"><span class="t">    healthcheck</span>:</span><span class="ln"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'redis-cli'</span>, <span class="s">'ping'</span>]</span><span class="ln"><span class="t">      interval</span>: 5s</span><span class="ln"> </span><span class="ln"><span class="t">  redis-cache</span>:</span><span class="ln"><span class="t">    image</span>: redis:<span class="n">7.4</span></span><span class="ln"><span class="t">    command</span>: redis-server --port <span class="n">6380</span> --maxmemory 256mb --maxmemory-policy allkeys-lru --save <span class="s">''</span></span><span class="ln"><span class="t">    healthcheck</span>:</span><span class="ln"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'redis-cli'</span>, <span class="s">'-p'</span>, <span class="s">'6380'</span>, <span class="s">'ping'</span>]</span><span class="ln"><span class="t">      interval</span>: 5s</span><span class="ln"> </span><span class="ln add"><span class="t">  meilisearch</span>:</span><span class="ln add"><span class="t">    image</span>: getmeili/meilisearch:v1.<span class="n">11</span></span><span class="ln add"><span class="t">    environment</span>:</span><span class="ln add"><span class="t">      MEILI_MASTER_KEY</span>: change-me-to-a-long-random-key</span><span class="ln add"><span class="t">      MEILI_NO_ANALYTICS</span>: <span class="s">'true'</span></span><span class="ln add"><span class="t">    ports</span>: [<span class="s">'7700:7700'</span>]</span><span class="ln add"><span class="t">    volumes</span>:</span><span class="ln add">      - meili-data:/meili_data             <span class="c"># the index survives a restart; rebuilding it takes minutes</span></span><span class="ln add"><span class="t">    healthcheck</span>:</span><span class="ln add"><span class="t">      test</span>: [<span class="s">'CMD'</span>, <span class="s">'curl'</span>, <span class="s">'-f'</span>, <span class="s">'http://localhost:7700/health'</span>]</span><span class="ln add"><span class="t">      interval</span>: 5s</span><span class="ln add"> </span><span class="ln"><span class="t">volumes</span>:</span><span class="ln"><span class="t">  mysql-data</span>:</span><span class="ln add"><span class="t">  meili-data</span>:</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">.env</span></div>
+<pre class="code"><code><span class="t">SCOUT_DRIVER</span>=<span class="s">meilisearch</span>
+<span class="t">SCOUT_QUEUE</span>=<span class="s">true</span>                     <span class="c"># index changes are queued jobs, never part of the request</span>
+<span class="t">MEILISEARCH_HOST</span>=<span class="s">http://meilisearch:7700</span>
+<span class="t">MEILISEARCH_KEY</span>=<span class="s">change-me-to-a-long-random-key</span></code></pre>
+</div></div><div class="block"><p>In <code>config/scout.php</code>, set <code>after_commit</code> and the Meilisearch index settings. The rest of the file stays as published:</p><div class="codebox">
+<div class="filehead"><span class="path">config/scout.php (after_commit and the meilisearch entry)</span></div>
+<pre class="code"><code><span class="s">'after_commit'</span> =&gt; <span class="k">true</span>,                    <span class="c">// index a property only once its change has committed</span>
+
+<span class="s">'meilisearch'</span> =&gt; [
+    <span class="s">'host'</span> =&gt; <span class="f">env</span>(<span class="s">'MEILISEARCH_HOST'</span>, <span class="s">'http://localhost:7700'</span>),
+    <span class="s">'key'</span> =&gt; <span class="f">env</span>(<span class="s">'MEILISEARCH_KEY'</span>),
+    <span class="s">'index-settings'</span> =&gt; [
+        <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>::class =&gt; [
+            <span class="s">'filterableAttributes'</span> =&gt; [<span class="s">'city'</span>, <span class="s">'max_guests'</span>],   <span class="c">// Meilisearch only filters on what it is told about</span>
+        ],
+    ],
+],</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_05_05_000001_add_description_to_properties_table.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
+
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">table</span>(<span class="s">'properties'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">text</span>(<span class="s">'description'</span>)-&gt;<span class="f">nullable</span>();                    <span class="c">// the host's own words: &quot;sea view, sauna, 5 min to the beach&quot;</span>
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 42: <span class="plus">+15</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Observers\ListingCacheObserver;
+use App\Observers\PriceChangeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Laravel\Scout\Searchable;
+
+#[ObservedBy([PriceChangeObserver::class, ListingCacheObserver::class])]   // new prices: a new cache version; any edit: purge the CDN copy
+class Property extends Model
+{
+    use HasFactory, Searchable;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency', 'description',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    /** What Meilisearch stores for each property: only what search needs. @return array&lt;string, string|int|null&gt; */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'name' =&gt; $this-&gt;name,
+            'city' =&gt; $this-&gt;city,
+            'max_guests' =&gt; $this-&gt;max_guests,
+            'description' =&gt; $this-&gt;description,
+        ];
+    }
+
+    /**
+     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.
+     * $ignoring: the booking being changed, which never blocks its own new dates.
+     */
+    public function scopeAvailableFor(Builder $query, Stay $stay, ?Booking $ignoring = null): void
+    {
+        $query
+            -&gt;whereDoesntHave('bookings', function (Builder $bookings) use ($stay, $ignoring): void {
+                $bookings-&gt;overlapping($stay);
+                if ($ignoring !== null) {
+                    $bookings-&gt;whereKeyNot($ignoring-&gt;id);
+                }
+            })
+            -&gt;whereDoesntHave('externalBlocks', fn (Builder $blocks) =&gt; $blocks-&gt;overlapping($stay));
+    }
+
+    /** Null when the stay is long enough, or the message to show the guest. */
+    public function stayTooShort(Stay $stay): ?string
+    {
+        $minNights = $this-&gt;minNightsOn($stay-&gt;checkIn);
+
+        return $stay-&gt;nights() &lt; $minNights
+            ? &quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;
+            : null;
+    }
+
+    /** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */
+    public function minNightsOn(CarbonImmutable $arrival): int
+    {
+        $rule = $this-&gt;calendarDays()
+            -&gt;where('date', $arrival-&gt;toDateString())                     // a plain comparison: whereDate() would wrap the column in DATE() and skip the index
+            -&gt;value('min_nights');
+
+        return $rule ?? $this-&gt;min_nights;
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);                      // shared: several listings can use one plan
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    /** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */
+    public function nextStay(): HasOne
+    {
+        return $this-&gt;hasOne(Booking::class)-&gt;ofMany(
+            ['check_in' =&gt; 'min'],                                     // the earliest check-in wins (ties: the lowest id)
+            fn (Builder $query) =&gt; $query
+                -&gt;whereIn('status', BookingStatus::blocking())
+                -&gt;where('check_in', '&gt;=', today()-&gt;toDateString()),
+        );
+    }
+
+    public function cleaningTasks(): HasMany
+    {
+        return $this-&gt;hasMany(CleaningTask::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+
+    public function calendarDays(): HasMany
+    {
+        return $this-&gt;hasMany(CalendarDay::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">ListingCacheObserver</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">PriceChangeObserver</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Attributes</span>\<span class="t">ObservedBy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasOne</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Laravel</span>\<span class="t">Scout</span>\<span class="t">Searchable</span>;</span><span class="ln"> </span><span class="ln">#[<span class="f">ObservedBy</span>([<span class="t">PriceChangeObserver</span>::class, <span class="t">ListingCacheObserver</span>::class])]   <span class="c">// new prices: a new cache version; any edit: purge the CDN copy</span></span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln del">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln add">    <span class="k">use</span> <span class="t">HasFactory</span>, <span class="t">Searchable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln del">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln add">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>, <span class="s">'description'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="c">/** What Meilisearch stores for each property: only what search needs. @return array&lt;string, string|int|null&gt; */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">toSearchableArray</span>(): <span class="k">array</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> [</span><span class="ln add">            <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,</span><span class="ln add">            <span class="s">'name'</span> =&gt; <span class="k">$this</span>-&gt;name,</span><span class="ln add">            <span class="s">'city'</span> =&gt; <span class="k">$this</span>-&gt;city,</span><span class="ln add">            <span class="s">'max_guests'</span> =&gt; <span class="k">$this</span>-&gt;max_guests,</span><span class="ln add">            <span class="s">'description'</span> =&gt; <span class="k">$this</span>-&gt;description,</span><span class="ln add">        ];</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/**</span></span><span class="ln"><span class="c">     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.</span></span><span class="ln"><span class="c">     * $ignoring: the booking being changed, which never blocks its own new dates.</span></span><span class="ln"><span class="c">     */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeAvailableFor</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>, ?<span class="t">Booking</span> <span class="v">$ignoring</span> = <span class="k">null</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span></span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'bookings'</span>, <span class="k">function</span> (<span class="t">Builder</span> <span class="v">$bookings</span>) <span class="k">use</span> (<span class="v">$stay</span>, <span class="v">$ignoring</span>): <span class="k">void</span> {</span><span class="ln">                <span class="v">$bookings</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>);</span><span class="ln">                <span class="k">if</span> (<span class="v">$ignoring</span> !== <span class="k">null</span>) {</span><span class="ln">                    <span class="v">$bookings</span>-&gt;<span class="f">whereKeyNot</span>(<span class="v">$ignoring</span>-&gt;id);</span><span class="ln">                }</span><span class="ln">            })</span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'externalBlocks'</span>, <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$blocks</span>) =&gt; <span class="v">$blocks</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Null when the stay is long enough, or the message to show the guest. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stayTooShort</span>(<span class="t">Stay</span> <span class="v">$stay</span>): ?<span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$minNights</span> = <span class="k">$this</span>-&gt;<span class="f">minNightsOn</span>(<span class="v">$stay</span>-&gt;checkIn);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$stay</span>-&gt;<span class="f">nights</span>() &lt; <span class="v">$minNights</span></span><span class="ln">            ? <span class="s">&quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;</span></span><span class="ln">            : <span class="k">null</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">minNightsOn</span>(<span class="t">CarbonImmutable</span> <span class="v">$arrival</span>): <span class="k">int</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$rule</span> = <span class="k">$this</span>-&gt;<span class="f">calendarDays</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'date'</span>, <span class="v">$arrival</span>-&gt;<span class="f">toDateString</span>())                     <span class="c">// a plain comparison: whereDate() would wrap the column in DATE() and skip the index</span></span><span class="ln">            -&gt;<span class="f">value</span>(<span class="s">'min_nights'</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$rule</span> ?? <span class="k">$this</span>-&gt;min_nights;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);                      <span class="c">// shared: several listings can use one plan</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">nextStay</span>(): <span class="t">HasOne</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasOne</span>(<span class="t">Booking</span>::class)-&gt;<span class="f">ofMany</span>(</span><span class="ln">            [<span class="s">'check_in'</span> =&gt; <span class="s">'min'</span>],                                     <span class="c">// the earliest check-in wins (ties: the lowest id)</span></span><span class="ln">            <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span></span><span class="ln">                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>()),</span><span class="ln">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaningTasks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CleaningTask</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">calendarDays</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CalendarDay</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">php</span> artisan scout:sync-index-settings          <span class="c"># send the filterable attributes to Meilisearch</span>
+<span class="f">php</span> artisan scout:import <span class="s">&quot;App\Models\Property&quot;</span>   <span class="c"># index every existing property, in chunks</span></code></pre>
+</div></div></div></section>
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Http/Controllers/SearchController.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Endpoints</span>\<span class="t">Indexes</span>;
+
+<span class="k">class</span> <span class="t">SearchController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="t">JsonResponse</span>
+    {
+        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">validate</span>([
+            <span class="s">'q'</span> =&gt; [<span class="s">'nullable'</span>, <span class="s">'string'</span>, <span class="s">'max:100'</span>],
+            <span class="s">'city'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'string'</span>, <span class="s">'max:80'</span>],
+            <span class="s">'check_in'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after_or_equal:today'</span>],
+            <span class="s">'check_out'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after:check_in'</span>],
+            <span class="s">'guests'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'integer'</span>, <span class="s">'min:1'</span>, <span class="s">'max:30'</span>],
+        ]);
+        <span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$data</span>[<span class="s">'check_in'</span>], <span class="v">$data</span>[<span class="s">'check_out'</span>]);
+
+        <span class="v">$properties</span> = <span class="t">Property</span>::<span class="f">search</span>(<span class="v">$data</span>[<span class="s">'q'</span>] ?? <span class="s">''</span>, <span class="k">function</span> (<span class="t">Indexes</span> <span class="v">$index</span>, <span class="k">string</span> <span class="v">$query</span>, <span class="k">array</span> <span class="v">$options</span>) <span class="k">use</span> (<span class="v">$data</span>): <span class="k">array</span> {
+            <span class="v">$options</span>[<span class="s">'filter'</span>] = <span class="f">sprintf</span>(<span class="s">'city = &quot;%s&quot; AND max_guests &gt;= %d'</span>, <span class="f">addcslashes</span>(<span class="v">$data</span>[<span class="s">'city'</span>], <span class="s">'&quot;\\'</span>), <span class="v">$data</span>[<span class="s">'guests'</span>]);
+            <span class="v">$options</span>[<span class="s">'limit'</span>] = <span class="n">200</span>;
+
+            <span class="k">return</span> <span class="v">$index</span>-&gt;<span class="f">search</span>(<span class="v">$query</span>, <span class="v">$options</span>)-&gt;<span class="f">toArray</span>();         <span class="c">// the bug: Meilisearch is the only way to search</span>
+        })
+            -&gt;<span class="f">query</span>(<span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span>-&gt;<span class="f">availableFor</span>(<span class="v">$stay</span>))  <span class="c">// availability still from MySQL (scene 31)</span>
+            -&gt;<span class="f">get</span>()
+            -&gt;<span class="f">take</span>(<span class="n">50</span>);
+
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'data'</span> =&gt; <span class="v">$properties</span>-&gt;map-&gt;<span class="f">only</span>([<span class="s">'id'</span>, <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'max_guests'</span>])-&gt;<span class="f">values</span>()]);
+    }
+}</code></pre>
+</div><p>Nothing here is wrong while Meilisearch answers. But the controller knows exactly one place properties can come from, so when Meilisearch is unreachable, <code>Property::search()</code> throws, the request fails, and every guest gets a 500.</p><p>Meilisearch will be unreachable sometimes: updates, a restart after running out of memory, a full disk, a network blip. Ten minutes a month is 99.98% uptime, and still ten minutes of no search at all.</p></div></div></section>
+<section><h2>The fix, part 1: one question, asked the same way of any store</h2><p>What the controller needs is &quot;the properties matching these criteria&quot;. <b>Where</b> they come from is a separate decision. An interface says what can be asked; each store gets a class that answers it.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Properties/SearchCriteria.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Properties</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">SearchCriteria</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">string</span> <span class="v">$city</span>,
+        <span class="k">public</span> <span class="t">Stay</span> <span class="v">$stay</span>,
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$guests</span>,
+        <span class="k">public</span> ?<span class="k">string</span> <span class="v">$text</span> = <span class="k">null</span>,                                   <span class="c">// &quot;sea view&quot;, optional</span>
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$limit</span> = <span class="n">50</span>,
+    ) {
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Properties/PropertyRepository.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Properties</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+
+<span class="k">interface</span> <span class="t">PropertyRepository</span>
+{
+    <span class="c">/**</span>
+<span class="c">     * Properties in the city, for at least that many guests, free for every night of the stay,</span>
+<span class="c">     * best matches for the text first. Availability always comes from MySQL.</span>
+<span class="c">     *</span>
+<span class="c">     * @return Collection&lt;int, Property&gt;</span>
+<span class="c">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">search</span>(<span class="t">SearchCriteria</span> <span class="v">$criteria</span>): <span class="t">Collection</span>;
+}</code></pre>
+</div></div><div class="block"><h3>Meilisearch: words and typos, then availability from MySQL</h3><div class="codebox">
+<div class="filehead"><span class="path">app/Properties/MeilisearchPropertyRepository.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Properties</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Endpoints</span>\<span class="t">Indexes</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">MeilisearchPropertyRepository</span> <span class="k">implements</span> <span class="t">PropertyRepository</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">search</span>(<span class="t">SearchCriteria</span> <span class="v">$criteria</span>): <span class="t">Collection</span>
+    {
+        <span class="v">$ids</span> = <span class="t">Property</span>::<span class="f">search</span>(<span class="v">$criteria</span>-&gt;text ?? <span class="s">''</span>, <span class="k">function</span> (<span class="t">Indexes</span> <span class="v">$index</span>, <span class="k">string</span> <span class="v">$query</span>, <span class="k">array</span> <span class="v">$options</span>) <span class="k">use</span> (<span class="v">$criteria</span>): <span class="k">array</span> {
+            <span class="v">$options</span>[<span class="s">'filter'</span>] = <span class="f">sprintf</span>(<span class="s">'city = &quot;%s&quot; AND max_guests &gt;= %d'</span>, <span class="f">addcslashes</span>(<span class="v">$criteria</span>-&gt;city, <span class="s">'&quot;\\'</span>), <span class="v">$criteria</span>-&gt;guests);
+            <span class="v">$options</span>[<span class="s">'limit'</span>] = <span class="n">200</span>;                                    <span class="c">// enough candidates after the taken ones drop out</span>
+
+            <span class="k">return</span> <span class="v">$index</span>-&gt;<span class="f">search</span>(<span class="v">$query</span>, <span class="v">$options</span>)-&gt;<span class="f">toArray</span>();
+        })-&gt;<span class="f">keys</span>();                                                     <span class="c">// ids only, in Meilisearch's order: best match first</span>
+
+        <span class="v">$rank</span> = <span class="v">$ids</span>-&gt;<span class="f">flip</span>();                                           <span class="c">// id =&gt; position</span>
+
+        <span class="k">return</span> <span class="t">Property</span>::<span class="f">query</span>()
+            -&gt;<span class="f">whereKey</span>(<span class="v">$ids</span>)
+            -&gt;<span class="f">availableFor</span>(<span class="v">$criteria</span>-&gt;stay)                            <span class="c">// the one availability rule (scene 31), from MySQL</span>
+            -&gt;<span class="f">get</span>([<span class="s">'id'</span>, <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'max_guests'</span>])
+            -&gt;<span class="f">sortBy</span>(<span class="k">fn</span> (<span class="t">Property</span> <span class="v">$property</span>): <span class="k">int</span> =&gt; <span class="v">$rank</span>[<span class="v">$property</span>-&gt;id])
+            -&gt;<span class="f">take</span>(<span class="v">$criteria</span>-&gt;limit)
+            -&gt;<span class="f">values</span>();
+    }
+}</code></pre>
+</div><p>The index never decides availability: it only knows what was true when a property was last indexed (seconds ago, or longer while Meilisearch is catching up). It narrows 21,000 properties to 200 good matches; MySQL decides which of them are free.</p></div><div class="block"><h3>Eloquent: the SQL search from scenes 31 and 42</h3><div class="codebox">
+<div class="filehead"><span class="path">app/Properties/EloquentPropertyRepository.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Properties</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">EloquentPropertyRepository</span> <span class="k">implements</span> <span class="t">PropertyRepository</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">search</span>(<span class="t">SearchCriteria</span> <span class="v">$criteria</span>): <span class="t">Collection</span>
+    {
+        <span class="k">return</span> <span class="t">Property</span>::<span class="f">query</span>()
+            -&gt;<span class="f">where</span>(<span class="s">'city'</span>, <span class="v">$criteria</span>-&gt;city)                            <span class="c">// the (city, name) index from scene 42</span>
+            -&gt;<span class="f">where</span>(<span class="s">'max_guests'</span>, <span class="s">'&gt;='</span>, <span class="v">$criteria</span>-&gt;guests)
+            -&gt;<span class="f">when</span>(<span class="v">$criteria</span>-&gt;text, <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>, <span class="k">string</span> <span class="v">$text</span>) =&gt; <span class="v">$query</span>-&gt;<span class="f">where</span>(
+                <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$words</span>) =&gt; <span class="v">$words</span>-&gt;<span class="f">where</span>(<span class="s">'name'</span>, <span class="s">'like'</span>, <span class="s">&quot;%{$text}%&quot;</span>)-&gt;<span class="f">orWhere</span>(<span class="s">'description'</span>, <span class="s">'like'</span>, <span class="s">&quot;%{$text}%&quot;</span>),
+            ))
+            -&gt;<span class="f">availableFor</span>(<span class="v">$criteria</span>-&gt;stay)
+            -&gt;<span class="f">orderBy</span>(<span class="s">'name'</span>)
+            -&gt;<span class="f">limit</span>(<span class="v">$criteria</span>-&gt;limit)
+            -&gt;<span class="f">get</span>([<span class="s">'id'</span>, <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'max_guests'</span>]);
+    }
+}</code></pre>
+</div><p>It finds &quot;sea view&quot; but not &quot;sea veiw&quot;, and sorts by name instead of relevance. That is the trade: fewer features, always there. <code>LIKE</code> with a leading <code>%</code> can’t use an index, but it only runs over one city’s properties, which the index has already narrowed.</p></div></div></section>
+<section><h2>The fix, part 2: try Meilisearch, fall back to the database</h2><p>The action asks the primary store and, if it can’t answer, the fallback. After a failure it stops asking Meilisearch for 30 seconds: otherwise every search during an outage would first wait for a failed connection.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Properties/SearchProperties.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Properties</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Cache</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Exceptions</span>\<span class="t">ApiException</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Exceptions</span>\<span class="t">CommunicationException</span>;
+
+<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">SearchProperties</span>
+{
+    <span class="k">public</span> <span class="k">const</span> <span class="t">PAUSE_SECONDS</span> = <span class="n">30</span>;
+
+    <span class="k">private</span> <span class="k">const</span> <span class="t">PAUSED_KEY</span> = <span class="s">'search:primary-paused'</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">private</span> <span class="t">PropertyRepository</span> <span class="v">$primary</span>,                            <span class="c">// Meilisearch</span>
+        <span class="k">private</span> <span class="t">PropertyRepository</span> <span class="v">$fallback</span>,                           <span class="c">// MySQL</span>
+    ) {
+    }
+
+    <span class="c">/** @return Collection&lt;int, Property&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">SearchCriteria</span> <span class="v">$criteria</span>): <span class="t">Collection</span>
+    {
+        <span class="k">if</span> (! <span class="t">Cache</span>::<span class="f">has</span>(<span class="k">self</span>::<span class="t">PAUSED_KEY</span>)) {
+            <span class="k">try</span> {
+                <span class="k">return</span> <span class="k">$this</span>-&gt;primary-&gt;<span class="f">search</span>(<span class="v">$criteria</span>);
+            } <span class="k">catch</span> (<span class="t">CommunicationException</span>|<span class="t">ApiException</span> <span class="v">$e</span>) {          <span class="c">// unreachable, or answering 5xx while it loads</span>
+                <span class="t">Cache</span>::<span class="f">put</span>(<span class="k">self</span>::<span class="t">PAUSED_KEY</span>, <span class="k">true</span>, <span class="k">self</span>::<span class="t">PAUSE_SECONDS</span>);
+                <span class="f">report</span>(<span class="v">$e</span>);                                             <span class="c">// the team hears about it; the guest doesn't</span>
+            }
+        }
+
+        <span class="k">return</span> <span class="k">$this</span>-&gt;fallback-&gt;<span class="f">search</span>(<span class="v">$criteria</span>);
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The container decides which store is which</h3><p>Both arguments have the same type, so the container can’t guess. One binding in <code>AppServiceProvider</code> says it. Where no search engine is configured, MySQL answers alone: Scout’s <code>null</code> driver would otherwise “succeed” with no results.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge">changed since scene 39: <span class="plus">+10</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Http\Controllers\QuoteController;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use App\Pricing\CachedNightlyRates;
+use App\Pricing\NightlyPrices;
+use App\Pricing\NightlyRates;
+use App\Pricing\PriceQuoter;
+use App\Properties\EloquentPropertyRepository;
+use App\Properties\MeilisearchPropertyRepository;
+use App\Properties\SearchProperties;
+use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\PersonalAccessToken;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
+        ]));
+
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
+
+        $this-&gt;app-&gt;singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+
+        $this-&gt;app-&gt;bind(NightlyPrices::class, NightlyRates::class);    // the truth, from the database: bookings, changes, refunds
+
+        $this-&gt;app-&gt;when(QuoteController::class)                         // the one place that may show a cached price
+            -&gt;needs(PriceQuoter::class)
+            -&gt;give(fn (Application $app): PriceQuoter =&gt; new PriceQuoter($app-&gt;make(CachedNightlyRates::class)));
+
+        $this-&gt;app-&gt;bind(SearchProperties::class, fn (Application $app): SearchProperties =&gt; new SearchProperties(
+            primary: config('scout.driver') === 'meilisearch'                // no engine configured (tests, a laptop): MySQL only
+                ? $app-&gt;make(MeilisearchPropertyRepository::class)
+                : $app-&gt;make(EloquentPropertyRepository::class),
+            fallback: $app-&gt;make(EloquentPropertyRepository::class),
+        ));
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        if ($this-&gt;app-&gt;isProduction()) {
+            Model::preventLazyLoading();                          // detect it in production too, but don't throw:
+            Model::handleLazyLoadingViolationUsing(function (Model $model, string $relation): void {
+                Log::warning('Lazy loading', ['model' =&gt; $model::class, 'relation' =&gt; $relation, 'url' =&gt; request()-&gt;fullUrl()]);
+            });
+        }
+
+        // An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking =&gt; $arguments[0]-&gt;property-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Property =&gt; $arguments[0]-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Account =&gt; $arguments[0]-&gt;id,
+                default =&gt; null,
+            };
+
+            return $accountId !== null &amp;&amp; $user-&gt;roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+
+        // throttle:api. An integration token has its own budget; our web and mobile apps share one per user.
+        RateLimiter::for('api', function (Request $request): Limit {
+            $token = $request-&gt;user()?-&gt;currentAccessToken();
+
+            if ($token instanceof PersonalAccessToken &amp;&amp; ! $token-&gt;can('*')) {
+                return Limit::perMinute(60)-&gt;by(&quot;token:{$token-&gt;id}&quot;);
+            }
+
+            return Limit::perMinute(300)-&gt;by((string) ($request-&gt;user()?-&gt;id ?? $request-&gt;ip()));
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">CachedNightlyRates</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">NightlyPrices</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">NightlyRates</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">EloquentPropertyRepository</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">MeilisearchPropertyRepository</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchProperties</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Cache</span>\<span class="t">RateLimiting</span>\<span class="t">Limit</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Foundation</span>\<span class="t">Application</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Gate</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Log</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">RateLimiter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Laravel</span>\<span class="t">Sanctum</span>\<span class="t">PersonalAccessToken</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln">        ]));</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ChannelManager</span>::class);                  <span class="c">// one manager: each driver is built once per process</span></span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">NightlyPrices</span>::class, <span class="t">NightlyRates</span>::class);    <span class="c">// the truth, from the database: bookings, changes, refunds</span></span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">when</span>(<span class="t">QuoteController</span>::class)                         <span class="c">// the one place that may show a cached price</span></span><span class="ln">            -&gt;<span class="f">needs</span>(<span class="t">PriceQuoter</span>::class)</span><span class="ln">            -&gt;<span class="f">give</span>(<span class="k">fn</span> (<span class="t">Application</span> <span class="v">$app</span>): <span class="t">PriceQuoter</span> =&gt; <span class="k">new</span> <span class="f">PriceQuoter</span>(<span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">CachedNightlyRates</span>::class)));</span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">SearchProperties</span>::class, <span class="k">fn</span> (<span class="t">Application</span> <span class="v">$app</span>): <span class="t">SearchProperties</span> =&gt; <span class="k">new</span> <span class="f">SearchProperties</span>(</span><span class="ln add">            primary: <span class="f">config</span>(<span class="s">'scout.driver'</span>) === <span class="s">'meilisearch'</span>                <span class="c">// no engine configured (tests, a laptop): MySQL only</span></span><span class="ln add">                ? <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">MeilisearchPropertyRepository</span>::class)</span><span class="ln add">                : <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">EloquentPropertyRepository</span>::class),</span><span class="ln add">            fallback: <span class="v">$app</span>-&gt;<span class="f">make</span>(<span class="t">EloquentPropertyRepository</span>::class),</span><span class="ln add">        ));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>()) {</span><span class="ln">            <span class="t">Model</span>::<span class="f">preventLazyLoading</span>();                          <span class="c">// detect it in production too, but don't throw:</span></span><span class="ln">            <span class="t">Model</span>::<span class="f">handleLazyLoadingViolationUsing</span>(<span class="k">function</span> (<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$relation</span>): <span class="k">void</span> {</span><span class="ln">                <span class="t">Log</span>::<span class="f">warning</span>(<span class="s">'Lazy loading'</span>, [<span class="s">'model'</span> =&gt; <span class="v">$model</span>::class, <span class="s">'relation'</span> =&gt; <span class="v">$relation</span>, <span class="s">'url'</span> =&gt; <span class="f">request</span>()-&gt;<span class="f">fullUrl</span>()]);</span><span class="ln">            });</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="c">// An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.</span></span><span class="ln">        <span class="t">Gate</span>::<span class="f">before</span>(<span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">string</span> <span class="v">$ability</span>, <span class="k">array</span> <span class="v">$arguments</span>): ?<span class="k">bool</span> {</span><span class="ln">            <span class="v">$accountId</span> = <span class="k">match</span> (<span class="k">true</span>) {</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Booking</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;property-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Property</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Account</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;id,</span><span class="ln">                <span class="k">default</span> =&gt; <span class="k">null</span>,</span><span class="ln">            };</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$accountId</span> !== <span class="k">null</span> &amp;&amp; <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>) === <span class="t">MembershipRole</span>::<span class="t">Owner</span> ? <span class="k">true</span> : <span class="k">null</span>;</span><span class="ln">        });</span><span class="ln"> </span><span class="ln">        <span class="c">// throttle:api. An integration token has its own budget; our web and mobile apps share one per user.</span></span><span class="ln">        <span class="t">RateLimiter</span>::<span class="f">for</span>(<span class="s">'api'</span>, <span class="k">function</span> (<span class="t">Request</span> <span class="v">$request</span>): <span class="t">Limit</span> {</span><span class="ln">            <span class="v">$token</span> = <span class="v">$request</span>-&gt;<span class="f">user</span>()?-&gt;<span class="f">currentAccessToken</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$token</span> <span class="k">instanceof</span> <span class="t">PersonalAccessToken</span> &amp;&amp; ! <span class="v">$token</span>-&gt;<span class="f">can</span>(<span class="s">'*'</span>)) {</span><span class="ln">                <span class="k">return</span> <span class="t">Limit</span>::<span class="f">perMinute</span>(<span class="n">60</span>)-&gt;<span class="f">by</span>(<span class="s">&quot;token:{$token-&gt;id}&quot;</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="t">Limit</span>::<span class="f">perMinute</span>(<span class="n">300</span>)-&gt;<span class="f">by</span>((<span class="k">string</span>) (<span class="v">$request</span>-&gt;<span class="f">user</span>()?-&gt;id ?? <span class="v">$request</span>-&gt;<span class="f">ip</span>()));</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/SearchController.php</span><span class="badge">changed since the version above: <span class="plus">+12</span> <span class="minus">−16</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Properties\SearchCriteria;
+use App\Properties\SearchProperties;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class SearchController extends Controller
+{
+    public function __invoke(Request $request, SearchProperties $search): JsonResponse
+    {
+        $data = $request-&gt;validate([
+            'q' =&gt; ['nullable', 'string', 'max:100'],
+            'city' =&gt; ['required', 'string', 'max:80'],
+            'check_in' =&gt; ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_out' =&gt; ['required', 'date_format:Y-m-d', 'after:check_in'],
+            'guests' =&gt; ['required', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $properties = $search-&gt;handle(new SearchCriteria(
+            city: $data['city'],
+            stay: Stay::fromDates($data['check_in'], $data['check_out']),
+            guests: (int) $data['guests'],
+            text: $data['q'] ?? null,
+        ));
+
+        return response()-&gt;json(['data' =&gt; $properties-&gt;map(fn (Property $property): array =&gt; $property-&gt;only(['id', 'name', 'city', 'max_guests']))-&gt;values()]);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchCriteria</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchProperties</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Endpoints</span>\<span class="t">Indexes</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">SearchController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="t">JsonResponse</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">SearchProperties</span> <span class="v">$search</span>): <span class="t">JsonResponse</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">validate</span>([</span><span class="ln">            <span class="s">'q'</span> =&gt; [<span class="s">'nullable'</span>, <span class="s">'string'</span>, <span class="s">'max:100'</span>],</span><span class="ln">            <span class="s">'city'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'string'</span>, <span class="s">'max:80'</span>],</span><span class="ln">            <span class="s">'check_in'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after_or_equal:today'</span>],</span><span class="ln">            <span class="s">'check_out'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after:check_in'</span>],</span><span class="ln">            <span class="s">'guests'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'integer'</span>, <span class="s">'min:1'</span>, <span class="s">'max:30'</span>],</span><span class="ln">        ]);</span><span class="ln del">        <span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$data</span>[<span class="s">'check_in'</span>], <span class="v">$data</span>[<span class="s">'check_out'</span>]);</span><span class="ln del"> </span><span class="ln del">        <span class="v">$properties</span> = <span class="t">Property</span>::<span class="f">search</span>(<span class="v">$data</span>[<span class="s">'q'</span>] ?? <span class="s">''</span>, <span class="k">function</span> (<span class="t">Indexes</span> <span class="v">$index</span>, <span class="k">string</span> <span class="v">$query</span>, <span class="k">array</span> <span class="v">$options</span>) <span class="k">use</span> (<span class="v">$data</span>): <span class="k">array</span> {</span><span class="ln del">            <span class="v">$options</span>[<span class="s">'filter'</span>] = <span class="f">sprintf</span>(<span class="s">'city = &quot;%s&quot; AND max_guests &gt;= %d'</span>, <span class="f">addcslashes</span>(<span class="v">$data</span>[<span class="s">'city'</span>], <span class="s">'&quot;\\'</span>), <span class="v">$data</span>[<span class="s">'guests'</span>]);</span><span class="ln del">            <span class="v">$options</span>[<span class="s">'limit'</span>] = <span class="n">200</span>;</span><span class="ln del"> </span><span class="ln del">            <span class="k">return</span> <span class="v">$index</span>-&gt;<span class="f">search</span>(<span class="v">$query</span>, <span class="v">$options</span>)-&gt;<span class="f">toArray</span>();         <span class="c">// the bug: Meilisearch is the only way to search</span></span><span class="ln del">        })</span><span class="ln del">            -&gt;<span class="f">query</span>(<span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span>-&gt;<span class="f">availableFor</span>(<span class="v">$stay</span>))  <span class="c">// availability still from MySQL (scene 31)</span></span><span class="ln del">            -&gt;<span class="f">get</span>()</span><span class="ln del">            -&gt;<span class="f">take</span>(<span class="n">50</span>);</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'data'</span> =&gt; <span class="v">$properties</span>-&gt;map-&gt;<span class="f">only</span>([<span class="s">'id'</span>, <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'max_guests'</span>])-&gt;<span class="f">values</span>()]);</span><span class="ln add"> </span><span class="ln add">        <span class="v">$properties</span> = <span class="v">$search</span>-&gt;<span class="f">handle</span>(<span class="k">new</span> <span class="f">SearchCriteria</span>(</span><span class="ln add">            city: <span class="v">$data</span>[<span class="s">'city'</span>],</span><span class="ln add">            stay: <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$data</span>[<span class="s">'check_in'</span>], <span class="v">$data</span>[<span class="s">'check_out'</span>]),</span><span class="ln add">            guests: (<span class="k">int</span>) <span class="v">$data</span>[<span class="s">'guests'</span>],</span><span class="ln add">            text: <span class="v">$data</span>[<span class="s">'q'</span>] ?? <span class="k">null</span>,</span><span class="ln add">        ));</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'data'</span> =&gt; <span class="v">$properties</span>-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">Property</span> <span class="v">$property</span>): <span class="k">array</span> =&gt; <span class="v">$property</span>-&gt;<span class="f">only</span>([<span class="s">'id'</span>, <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'max_guests'</span>]))-&gt;<span class="f">values</span>()]);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>The controller doesn’t know Meilisearch exists. When it is restarted next month, search answers from MySQL for those minutes, a little less clever, and nobody gets a 500.</p></div><div class="block"><h3>Tests don’t index anything unless they ask</h3><p>With Scout installed, every saved property would be sent to Meilisearch, in every test. The <code>null</code> driver turns that off; the contract test below switches to Meilisearch for itself.</p><div class="codebox changed">
+<div class="filehead"><span class="path">phpunit.xml</span><span class="badge">changed since scene 35: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;phpunit xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:noNamespaceSchemaLocation=&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;
+         bootstrap=&quot;vendor/autoload.php&quot;
+         colors=&quot;true&quot;
+&gt;
+    &lt;testsuites&gt;
+        &lt;testsuite name=&quot;Unit&quot;&gt;
+            &lt;directory&gt;tests/Unit&lt;/directory&gt;
+        &lt;/testsuite&gt;
+        &lt;testsuite name=&quot;Feature&quot;&gt;
+            &lt;directory&gt;tests/Feature&lt;/directory&gt;
+        &lt;/testsuite&gt;
+    &lt;/testsuites&gt;
+    &lt;source&gt;
+        &lt;include&gt;
+            &lt;directory&gt;app&lt;/directory&gt;
+        &lt;/include&gt;
+    &lt;/source&gt;
+    &lt;php&gt;
+        &lt;env name=&quot;APP_ENV&quot; value=&quot;testing&quot;/&gt;
+        &lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot;/&gt;
+        &lt;env name=&quot;DB_DATABASE&quot; value=&quot;pms_test&quot;/&gt;
+        &lt;env name=&quot;QUEUE_CONNECTION&quot; value=&quot;sync&quot;/&gt;
+        &lt;env name=&quot;CACHE_STORE&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;CACHE_DURABLE_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;SESSION_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;MAIL_MAILER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;BCRYPT_ROUNDS&quot; value=&quot;4&quot;/&gt;
+        &lt;env name=&quot;BROADCAST_CONNECTION&quot; value=&quot;null&quot;/&gt;
+        &lt;env name=&quot;SCOUT_DRIVER&quot; value=&quot;null&quot;/&gt;
+    &lt;/php&gt;
+&lt;/phpunit&gt;"><code><span class="ln">&lt;?xml <span class="v">version</span>=<span class="s">&quot;1.0&quot;</span> <span class="v">encoding</span>=<span class="s">&quot;UTF-8&quot;</span>?<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;phpunit</span> <span class="v">xmlns:xsi</span>=<span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span><span class="ln">         <span class="v">xsi:noNamespaceSchemaLocation</span>=<span class="s">&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;</span></span><span class="ln">         <span class="v">bootstrap</span>=<span class="s">&quot;vendor/autoload.php&quot;</span></span><span class="ln">         <span class="v">colors</span>=<span class="s">&quot;true&quot;</span></span><span class="ln"><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;testsuites</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/testsuites</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;source</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;include</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>app<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/include</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/source</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;php</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_DURABLE_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BROADCAST_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;null&quot;</span><span class="k">/&gt;</span></span><span class="ln add">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SCOUT_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;null&quot;</span><span class="k">/&gt;</span></span><span class="ln">    <span class="k">&lt;/php</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/phpunit</span><span class="k">&gt;</span></span></code></pre>
+</div></div></div></section>
+<section class="reveal"><h2>You just wrote the Repository pattern</h2>
+<p class="rule"><span>Repository</span>An object that gives the rest of the app a collection-like way to ask for domain objects (&quot;properties matching these criteria&quot;) and hides which store, query or engine answers.</p>
+
+
+
+<ul class="points"><li>The controller and the action ask a <code>PropertyRepository</code>. Meilisearch and MySQL are two answers to the same question, and the same tests prove both answer it correctly.</li><li>Because both are the same type, falling back is one <code>try</code>/<code>catch</code>, and a third store (a read replica only for search, an external API) is one more class.</li><li><b>The Laravel debate.</b> Many teams wrap every model in a repository: <code>BookingRepository::find()</code>, <code>save()</code>, each with a single Eloquent implementation. In Laravel that mostly re-types what Eloquent already gives you, and hides its features (scopes, eager loading) behind a thinner API. A repository earns its place where there really are two stores, like here, or where a team must keep the domain free of the ORM (Data Mapper, on the end page).</li></ul>
+<p class="whennot-label">When not to use it</p><ul class="whennot"><li>One store that will stay the only one: query it with Eloquent directly, through scopes like <code>availableFor()</code>.</li><li>As a rule for every model &quot;in case we change the database&quot;: that day rarely comes, and when it does, the queries are the hard part, not the class names.</li></ul>
+</section>
+<section class="laravel"><h2>Laravel inside: how Scout keeps the index in sync</h2><p>The <code>Searchable</code> trait registers a model observer. On every <code>saved</code> and <code>deleted</code> it queues a job that sends the model’s <code>toSearchableArray()</code> to the engine. With <code>after_commit</code>, the job is held until the transaction commits, so the index never shows a property whose change rolled back. The index is updated <b>after</b> the database, which is why it can lag, and why it never decides availability.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">Laravel/Scout/Searchable.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">queueMakeSearchable</span>(<span class="v">$models</span>)
+{
+    <span class="k">if</span> (! <span class="f">config</span>(<span class="s">'scout.queue'</span>)) {
+        <span class="k">return</span> <span class="v">$models</span>-&gt;<span class="f">first</span>()-&gt;<span class="f">makeSearchableUsing</span>(<span class="v">$models</span>)-&gt;<span class="f">first</span>()-&gt;<span class="f">searchableUsing</span>()-&gt;<span class="f">update</span>(<span class="v">$models</span>);
+    }
+
+    <span class="f">dispatch</span>((<span class="k">new</span> <span class="t">Scout</span>::<span class="v">$makeSearchableJob</span>(<span class="v">$models</span>))
+        -&gt;<span class="f">onQueue</span>(<span class="v">$models</span>-&gt;<span class="f">first</span>()-&gt;<span class="f">syncWithSearchUsingQueue</span>())
+        -&gt;<span class="f">onConnection</span>(<span class="v">$models</span>-&gt;<span class="f">first</span>()-&gt;<span class="f">syncWithSearchUsing</span>()));   <span class="c">// a queued job per batch of changed models</span>
+}</code></pre>
+</div></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The same contract for both stores, and a fallback that answers while Meilisearch is down</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/PropertyRepositoryTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">EloquentPropertyRepository</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">MeilisearchPropertyRepository</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">PropertyRepository</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchCriteria</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;seaView = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Harbour loft'</span>, <span class="s">'city'</span> =&gt; <span class="s">'Copenhagen'</span>, <span class="s">'max_guests'</span> =&gt; <span class="n">4</span>, <span class="s">'description'</span> =&gt; <span class="s">'Sea view and a sauna'</span>]);
+    <span class="k">$this</span>-&gt;taken = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Canal flat'</span>, <span class="s">'city'</span> =&gt; <span class="s">'Copenhagen'</span>, <span class="s">'max_guests'</span> =&gt; <span class="n">4</span>, <span class="s">'description'</span> =&gt; <span class="s">'Sea view'</span>]);
+    <span class="k">$this</span>-&gt;small = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Attic room'</span>, <span class="s">'city'</span> =&gt; <span class="s">'Copenhagen'</span>, <span class="s">'max_guests'</span> =&gt; <span class="n">2</span>, <span class="s">'description'</span> =&gt; <span class="s">'Sea view'</span>]);
+    <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;taken)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-13'</span>, <span class="n">2</span>)-&gt;<span class="f">pending</span>()-&gt;<span class="f">create</span>();
+});
+
+<span class="f">dataset</span>(<span class="s">'stores'</span>, [
+    <span class="s">'MySQL'</span> =&gt; <span class="k">fn</span> (): <span class="t">PropertyRepository</span> =&gt; <span class="f">app</span>(<span class="t">EloquentPropertyRepository</span>::class),
+    <span class="s">'Meilisearch'</span> =&gt; <span class="k">function</span> (): <span class="t">PropertyRepository</span> {
+        <span class="f">config</span>([<span class="s">'scout.driver'</span> =&gt; <span class="s">'meilisearch'</span>]);
+        <span class="t">Property</span>::<span class="f">all</span>()-&gt;<span class="f">searchable</span>();                                             <span class="c">// index the three properties</span>
+        <span class="f">retry</span>(<span class="n">30</span>, <span class="k">fn</span> () =&gt; <span class="f">expect</span>(<span class="t">Property</span>::<span class="f">search</span>(<span class="s">''</span>)-&gt;<span class="f">raw</span>()[<span class="s">'estimatedTotalHits'</span>])-&gt;<span class="f">toBe</span>(<span class="n">3</span>), <span class="n">100</span>);   <span class="c">// indexing is asynchronous</span>
+
+        <span class="k">return</span> <span class="f">app</span>(<span class="t">MeilisearchPropertyRepository</span>::class);
+    },
+]);
+
+<span class="f">it</span>(<span class="s">'finds the free properties for the guests and the words'</span>, <span class="k">function</span> (<span class="t">Closure</span> <span class="v">$store</span>) {
+    <span class="v">$found</span> = <span class="v">$store</span>()-&gt;<span class="f">search</span>(<span class="k">new</span> <span class="f">SearchCriteria</span>(<span class="s">'Copenhagen'</span>, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-12'</span>, <span class="s">'2027-07-15'</span>), guests: <span class="n">4</span>, text: <span class="s">'sea view'</span>));
+
+    <span class="f">expect</span>(<span class="v">$found</span>-&gt;<span class="f">pluck</span>(<span class="s">'id'</span>)-&gt;<span class="f">all</span>())-&gt;<span class="f">toBe</span>([<span class="k">$this</span>-&gt;seaView-&gt;id]);                  <span class="c">// not the taken one, not the small one</span>
+})-&gt;<span class="f">with</span>(<span class="s">'stores'</span>)-&gt;<span class="f">group</span>(<span class="s">'meilisearch'</span>);</code></pre>
+</div><p>The dataset is the <b>contract</b>: whatever store answers, the result is the same. The Meilisearch case needs a running Meilisearch, so the file is in the <code>meilisearch</code> group. CI runs it with the compose service; on a laptop without one, <code>php artisan test --exclude-group=meilisearch</code> skips it.</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/SearchFallbackTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">EloquentPropertyRepository</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">PropertyRepository</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchCriteria</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Properties</span>\<span class="t">SearchProperties</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Exceptions</span>\<span class="t">CommunicationException</span>;
+
+<span class="k">function</span> <span class="f">meilisearchDown</span>(): <span class="t">PropertyRepository</span>
+{
+    <span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">implements</span> <span class="t">PropertyRepository</span> {
+        <span class="k">public</span> <span class="k">int</span> <span class="v">$calls</span> = <span class="n">0</span>;
+
+        <span class="k">public</span> <span class="k">function</span> <span class="f">search</span>(<span class="t">SearchCriteria</span> <span class="v">$criteria</span>): <span class="t">Collection</span>
+        {
+            <span class="k">$this</span>-&gt;calls++;
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">CommunicationException</span>(<span class="s">'Connection refused'</span>);
+        }
+    };
+}
+
+<span class="f">it</span>(<span class="s">'answers from MySQL while Meilisearch is down, and stops asking it for a while'</span>, <span class="k">function</span> () {
+    <span class="v">$cottage</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'city'</span> =&gt; <span class="s">'Skagen'</span>, <span class="s">'max_guests'</span> =&gt; <span class="n">4</span>]);
+    <span class="v">$primary</span> = <span class="f">meilisearchDown</span>();
+    <span class="v">$search</span> = <span class="k">new</span> <span class="f">SearchProperties</span>(<span class="v">$primary</span>, <span class="f">app</span>(<span class="t">EloquentPropertyRepository</span>::class));
+    <span class="v">$criteria</span> = <span class="k">new</span> <span class="f">SearchCriteria</span>(<span class="s">'Skagen'</span>, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-12'</span>, <span class="s">'2027-07-15'</span>), guests: <span class="n">2</span>);
+
+    <span class="f">expect</span>(<span class="v">$search</span>-&gt;<span class="f">handle</span>(<span class="v">$criteria</span>)-&gt;<span class="f">pluck</span>(<span class="s">'id'</span>)-&gt;<span class="f">all</span>())-&gt;<span class="f">toBe</span>([<span class="v">$cottage</span>-&gt;id])   <span class="c">// the incident: an answer, not a 500</span>
+        -&gt;<span class="f">and</span>(<span class="v">$search</span>-&gt;<span class="f">handle</span>(<span class="v">$criteria</span>)-&gt;<span class="f">pluck</span>(<span class="s">'id'</span>)-&gt;<span class="f">all</span>())-&gt;<span class="f">toBe</span>([<span class="v">$cottage</span>-&gt;id])
+        -&gt;<span class="f">and</span>(<span class="v">$primary</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">1</span>);                                            <span class="c">// the second search skipped Meilisearch</span>
+
+    <span class="k">$this</span>-&gt;<span class="f">travel</span>(<span class="t">SearchProperties</span>::<span class="t">PAUSE_SECONDS</span> + <span class="n">1</span>)-&gt;<span class="f">seconds</span>();
+    <span class="v">$search</span>-&gt;<span class="f">handle</span>(<span class="v">$criteria</span>);
+    <span class="f">expect</span>(<span class="v">$primary</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">2</span>);                                               <span class="c">// and tries it again after the pause</span>
+});
+
+<span class="f">it</span>(<span class="s">'searches through the endpoint without knowing which store answered'</span>, <span class="k">function</span> () {
+    <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'city'</span> =&gt; <span class="s">'Skagen'</span>, <span class="s">'max_guests'</span> =&gt; <span class="n">4</span>]);
+
+    <span class="k">$this</span>-&gt;<span class="f">getJson</span>(<span class="s">'/api/v1/search?city=Skagen&amp;check_in=2027-07-12&amp;check_out=2027-07-15&amp;guests=2'</span>)
+        -&gt;<span class="f">assertOk</span>()
+        -&gt;<span class="f">assertJsonCount</span>(<span class="n">1</span>, <span class="s">'data'</span>);
+});</code></pre>
+</div><p>The second test runs with the <code>null</code> Scout driver from <code>phpunit.xml</code>, so the endpoint searches MySQL, which is also what keeps scene 31’s search tests passing. The fallback itself is proven by the first test, with a store that fails the way Meilisearch does.</p></div></div></div></details></section>
+<section id="reindex" class="part"><h2>Part 2, the same afternoon: one new field, and search shows half the cottages</h2><p>Hygge Homes’ next request arrived with the fix: guests type “cottage sweden” and get nothing, because the country isn’t in the index. One more field in every document means every document must be sent again.</p><div class="blocks"></div></section>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Monday 16:30</span></p>
+<p class="inc-msg"><span class="inc-who">Mona · support</span>Since about 15:50 search shows <b>half</b> the cottages in Skagen, and a different half every few minutes. Hosts are calling: “my cottage disappeared”.</p><p class="inc-msg"><span class="inc-who">Jonas · developer</span>That’s me. I added <code>country</code> to the indexed fields and ran <code>scout:flush</code> and <code>scout:import</code> on production. The import is at <b>11,000 of 21,000</b>.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>And the fallback can’t help: Meilisearch is up and answering, just from an index that is being refilled.</p>
+</section>
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">terminal (production, 15:50)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="f">php</span> artisan scout:flush <span class="s">&quot;App\Models\Property&quot;</span>    <span class="c"># the bug: the live index is now empty, and every search reads it</span>
+<span class="f">php</span> artisan scout:import <span class="s">&quot;App\Models\Property&quot;</span>   <span class="c"># 40 minutes to fill it again, 500 at a time</span></code></pre>
+</div><p><code>scout:flush</code> deletes every document of the index that searches are reading. From that second until the import ends, search answers from whatever has been imported so far. Nothing fails, so nothing alerts: the results are just wrong.</p><p>The same thing happens on any full reindex: a new field, a new filterable attribute, a Meilisearch upgrade that needs a fresh index. It is a routine task, so it needs a routine that can’t take search down.</p></div></div></section>
+<section><h2>The fix: build the new index next to the live one, then swap them</h2><p>Meilisearch can <b>swap</b> two indexes in one atomic step: every search before the swap reads the old documents, every search after it reads the new ones. So the new index is built under another name, <code>properties_next</code>, with the new settings, while searches keep reading <code>properties</code>. When it is complete, the two swap names, and the old documents, now called <code>properties_next</code>, are deleted.</p><p>One gap remains. While the import runs, hosts keep editing properties, and Scout sends those changes to the <b>live</b> index, the one about to be swapped out. So after the swap, the command sends again every property changed since the rebuild started.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Console/Commands/ReindexProperties.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Console</span>\<span class="t">Command</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Collection</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Client</span>;
+<span class="k">use</span> <span class="t">RuntimeException</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">ReindexProperties</span> <span class="k">extends</span> <span class="t">Command</span>
+{
+    <span class="k">protected</span> <span class="v">$signature</span> = <span class="s">'search:reindex-properties'</span>;
+
+    <span class="k">protected</span> <span class="v">$description</span> = <span class="s">'Rebuild the properties index next to the live one, then swap them in one step'</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Client</span> <span class="v">$meilisearch</span>): <span class="k">int</span>
+    {
+        <span class="v">$live</span> = (<span class="k">new</span> <span class="f">Property</span>())-&gt;<span class="f">searchableAs</span>();                        <span class="c">// &quot;properties&quot;, with Scout's prefix</span>
+        <span class="v">$next</span> = <span class="s">&quot;{$live}_next&quot;</span>;
+        <span class="v">$startedAt</span> = <span class="f">now</span>();
+
+        <span class="k">try</span> {
+            <span class="k">$this</span>-&gt;<span class="f">wait</span>(<span class="v">$meilisearch</span>, <span class="v">$meilisearch</span>-&gt;<span class="f">deleteIndex</span>(<span class="v">$next</span>), mustSucceed: <span class="k">false</span>);   <span class="c">// a leftover from a failed run</span>
+            <span class="k">$this</span>-&gt;<span class="f">wait</span>(<span class="v">$meilisearch</span>, <span class="v">$meilisearch</span>-&gt;<span class="f">createIndex</span>(<span class="v">$next</span>, [<span class="s">'primaryKey'</span> =&gt; <span class="s">'id'</span>]));
+            <span class="k">$this</span>-&gt;<span class="f">wait</span>(<span class="v">$meilisearch</span>, <span class="v">$meilisearch</span>-&gt;<span class="f">index</span>(<span class="v">$next</span>)-&gt;<span class="f">updateSettings</span>(
+                <span class="f">config</span>(<span class="s">'scout.meilisearch.index-settings.'</span> . <span class="t">Property</span>::class, []),   <span class="c">// the same settings as the live index will have</span>
+            ));
+
+            <span class="t">Property</span>::<span class="f">query</span>()-&gt;<span class="f">chunkById</span>(<span class="n">1000</span>, <span class="k">function</span> (<span class="t">Collection</span> <span class="v">$properties</span>) <span class="k">use</span> (<span class="v">$meilisearch</span>, <span class="v">$next</span>): <span class="k">void</span> {
+                <span class="v">$documents</span> = <span class="v">$properties</span>-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">Property</span> <span class="v">$property</span>): <span class="k">array</span> =&gt; <span class="v">$property</span>-&gt;<span class="f">toSearchableArray</span>())-&gt;<span class="f">values</span>()-&gt;<span class="f">all</span>();
+                <span class="k">$this</span>-&gt;<span class="f">wait</span>(<span class="v">$meilisearch</span>, <span class="v">$meilisearch</span>-&gt;<span class="f">index</span>(<span class="v">$next</span>)-&gt;<span class="f">addDocuments</span>(<span class="v">$documents</span>, <span class="s">'id'</span>));
+            });
+
+            <span class="k">$this</span>-&gt;<span class="f">wait</span>(<span class="v">$meilisearch</span>, <span class="v">$meilisearch</span>-&gt;<span class="f">swapIndexes</span>([[<span class="v">$live</span>, <span class="v">$next</span>]]));   <span class="c">// atomic: old documents, then new ones</span>
+        } <span class="k">catch</span> (<span class="t">RuntimeException</span> <span class="v">$e</span>) {
+            <span class="k">$this</span>-&gt;<span class="f">error</span>(<span class="s">&quot;Reindex stopped, the live index is untouched: {$e-&gt;getMessage()}&quot;</span>);
+
+            <span class="k">return</span> <span class="k">self</span>::<span class="t">FAILURE</span>;
+        }
+
+        <span class="c">// Edits made during the import went to the old index. Send them again, to the new live one (queued, chunked by Scout).</span>
+        <span class="t">Property</span>::<span class="f">query</span>()-&gt;<span class="f">where</span>(<span class="s">'updated_at'</span>, <span class="s">'&gt;='</span>, <span class="v">$startedAt</span>)-&gt;<span class="f">searchable</span>();
+
+        <span class="v">$meilisearch</span>-&gt;<span class="f">deleteIndex</span>(<span class="v">$next</span>);                                <span class="c">// it holds the old documents now</span>
+        <span class="k">$this</span>-&gt;<span class="f">info</span>(<span class="s">&quot;Swapped {$live}. Changes since {$startedAt-&gt;toTimeString()} re-sent.&quot;</span>);
+
+        <span class="k">return</span> <span class="k">self</span>::<span class="t">SUCCESS</span>;
+    }
+
+    <span class="c">/** @param array{taskUid: int} $task Meilisearch works asynchronously: every call returns a task to wait for */</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="f">wait</span>(<span class="t">Client</span> <span class="v">$meilisearch</span>, <span class="k">array</span> <span class="v">$task</span>, <span class="k">bool</span> <span class="v">$mustSucceed</span> = <span class="k">true</span>): <span class="k">void</span>
+    {
+        <span class="v">$result</span> = <span class="v">$meilisearch</span>-&gt;<span class="f">waitForTask</span>(<span class="v">$task</span>[<span class="s">'taskUid'</span>], timeoutInMs: <span class="n">600_000</span>);
+
+        <span class="k">if</span> (<span class="v">$mustSucceed</span> &amp;&amp; <span class="v">$result</span>[<span class="s">'status'</span>] !== <span class="s">'succeeded'</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">RuntimeException</span>(<span class="v">$result</span>[<span class="s">'error'</span>][<span class="s">'message'</span>] ?? <span class="s">&quot;Task {$task['taskUid']} ended as {$result['status']}&quot;</span>);
+        }
+    }
+}</code></pre>
+</div><p>A property <b>deleted</b> during the import may still be in the new index after the swap. That is harmless here: Meilisearch only returns ids, and the repository loads them from MySQL with the availability rule (scene 43, part 1), so a deleted property can never be shown. The next run cleans it up.</p><p>The runbook for any index change is now one line, run at a quiet hour: <code>php artisan search:reindex-properties</code>. It applies the settings from <code>config/scout.php</code> to the new index itself, so a new filterable attribute goes out the same way.</p></div><div class="block"><h3>The change that needed the rebuild</h3><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since the version above: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Observers\ListingCacheObserver;
+use App\Observers\PriceChangeObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Laravel\Scout\Searchable;
+
+#[ObservedBy([PriceChangeObserver::class, ListingCacheObserver::class])]   // new prices: a new cache version; any edit: purge the CDN copy
+class Property extends Model
+{
+    use HasFactory, Searchable;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency', 'description',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    /** What Meilisearch stores for each property: only what search needs. @return array&lt;string, string|int|null&gt; */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'name' =&gt; $this-&gt;name,
+            'city' =&gt; $this-&gt;city,
+            'max_guests' =&gt; $this-&gt;max_guests,
+            'description' =&gt; $this-&gt;description,
+            'country' =&gt; $this-&gt;country,                              // &quot;cottage sweden&quot; finds Swedish cottages
+        ];
+    }
+
+    /**
+     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.
+     * $ignoring: the booking being changed, which never blocks its own new dates.
+     */
+    public function scopeAvailableFor(Builder $query, Stay $stay, ?Booking $ignoring = null): void
+    {
+        $query
+            -&gt;whereDoesntHave('bookings', function (Builder $bookings) use ($stay, $ignoring): void {
+                $bookings-&gt;overlapping($stay);
+                if ($ignoring !== null) {
+                    $bookings-&gt;whereKeyNot($ignoring-&gt;id);
+                }
+            })
+            -&gt;whereDoesntHave('externalBlocks', fn (Builder $blocks) =&gt; $blocks-&gt;overlapping($stay));
+    }
+
+    /** Null when the stay is long enough, or the message to show the guest. */
+    public function stayTooShort(Stay $stay): ?string
+    {
+        $minNights = $this-&gt;minNightsOn($stay-&gt;checkIn);
+
+        return $stay-&gt;nights() &lt; $minNights
+            ? &quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;
+            : null;
+    }
+
+    /** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */
+    public function minNightsOn(CarbonImmutable $arrival): int
+    {
+        $rule = $this-&gt;calendarDays()
+            -&gt;where('date', $arrival-&gt;toDateString())                     // a plain comparison: whereDate() would wrap the column in DATE() and skip the index
+            -&gt;value('min_nights');
+
+        return $rule ?? $this-&gt;min_nights;
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);                      // shared: several listings can use one plan
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    /** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */
+    public function nextStay(): HasOne
+    {
+        return $this-&gt;hasOne(Booking::class)-&gt;ofMany(
+            ['check_in' =&gt; 'min'],                                     // the earliest check-in wins (ties: the lowest id)
+            fn (Builder $query) =&gt; $query
+                -&gt;whereIn('status', BookingStatus::blocking())
+                -&gt;where('check_in', '&gt;=', today()-&gt;toDateString()),
+        );
+    }
+
+    public function cleaningTasks(): HasMany
+    {
+        return $this-&gt;hasMany(CleaningTask::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+
+    public function calendarDays(): HasMany
+    {
+        return $this-&gt;hasMany(CalendarDay::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">ListingCacheObserver</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Observers</span>\<span class="t">PriceChangeObserver</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Attributes</span>\<span class="t">ObservedBy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasOne</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Laravel</span>\<span class="t">Scout</span>\<span class="t">Searchable</span>;</span><span class="ln"> </span><span class="ln">#[<span class="f">ObservedBy</span>([<span class="t">PriceChangeObserver</span>::class, <span class="t">ListingCacheObserver</span>::class])]   <span class="c">// new prices: a new cache version; any edit: purge the CDN copy</span></span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>, <span class="t">Searchable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>, <span class="s">'description'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** What Meilisearch stores for each property: only what search needs. @return array&lt;string, string|int|null&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">toSearchableArray</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,</span><span class="ln">            <span class="s">'name'</span> =&gt; <span class="k">$this</span>-&gt;name,</span><span class="ln">            <span class="s">'city'</span> =&gt; <span class="k">$this</span>-&gt;city,</span><span class="ln">            <span class="s">'max_guests'</span> =&gt; <span class="k">$this</span>-&gt;max_guests,</span><span class="ln">            <span class="s">'description'</span> =&gt; <span class="k">$this</span>-&gt;description,</span><span class="ln add">            <span class="s">'country'</span> =&gt; <span class="k">$this</span>-&gt;country,                              <span class="c">// &quot;cottage sweden&quot; finds Swedish cottages</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/**</span></span><span class="ln"><span class="c">     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.</span></span><span class="ln"><span class="c">     * $ignoring: the booking being changed, which never blocks its own new dates.</span></span><span class="ln"><span class="c">     */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeAvailableFor</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>, ?<span class="t">Booking</span> <span class="v">$ignoring</span> = <span class="k">null</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span></span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'bookings'</span>, <span class="k">function</span> (<span class="t">Builder</span> <span class="v">$bookings</span>) <span class="k">use</span> (<span class="v">$stay</span>, <span class="v">$ignoring</span>): <span class="k">void</span> {</span><span class="ln">                <span class="v">$bookings</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>);</span><span class="ln">                <span class="k">if</span> (<span class="v">$ignoring</span> !== <span class="k">null</span>) {</span><span class="ln">                    <span class="v">$bookings</span>-&gt;<span class="f">whereKeyNot</span>(<span class="v">$ignoring</span>-&gt;id);</span><span class="ln">                }</span><span class="ln">            })</span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'externalBlocks'</span>, <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$blocks</span>) =&gt; <span class="v">$blocks</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Null when the stay is long enough, or the message to show the guest. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stayTooShort</span>(<span class="t">Stay</span> <span class="v">$stay</span>): ?<span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$minNights</span> = <span class="k">$this</span>-&gt;<span class="f">minNightsOn</span>(<span class="v">$stay</span>-&gt;checkIn);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$stay</span>-&gt;<span class="f">nights</span>() &lt; <span class="v">$minNights</span></span><span class="ln">            ? <span class="s">&quot;Stays arriving on {$stay-&gt;checkIn-&gt;toDateString()} must be {$minNights} nights or more.&quot;</span></span><span class="ln">            : <span class="k">null</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The minimum for stays that arrive on this date: the date's own rule, or the property's default. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">minNightsOn</span>(<span class="t">CarbonImmutable</span> <span class="v">$arrival</span>): <span class="k">int</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$rule</span> = <span class="k">$this</span>-&gt;<span class="f">calendarDays</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'date'</span>, <span class="v">$arrival</span>-&gt;<span class="f">toDateString</span>())                     <span class="c">// a plain comparison: whereDate() would wrap the column in DATE() and skip the index</span></span><span class="ln">            -&gt;<span class="f">value</span>(<span class="s">'min_nights'</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$rule</span> ?? <span class="k">$this</span>-&gt;min_nights;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);                      <span class="c">// shared: several listings can use one plan</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">nextStay</span>(): <span class="t">HasOne</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasOne</span>(<span class="t">Booking</span>::class)-&gt;<span class="f">ofMany</span>(</span><span class="ln">            [<span class="s">'check_in'</span> =&gt; <span class="s">'min'</span>],                                     <span class="c">// the earliest check-in wins (ties: the lowest id)</span></span><span class="ln">            <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span></span><span class="ln">                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>()),</span><span class="ln">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaningTasks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CleaningTask</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">calendarDays</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CalendarDay</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
+
+<section class="tests"><details><summary><span>Tests</span><small>A rebuild that fails never swaps, so the live index is never touched</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/ReindexPropertiesTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Client</span>;
+<span class="k">use</span> <span class="t">Meilisearch</span>\<span class="t">Endpoints</span>\<span class="t">Indexes</span>;
+
+<span class="k">function</span> <span class="f">meilisearchWithFailingImport</span>(): <span class="t">Client</span>
+{
+    <span class="v">$next</span> = <span class="t">Mockery</span>::<span class="f">mock</span>(<span class="t">Indexes</span>::class);
+    <span class="v">$next</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'updateSettings'</span>)-&gt;<span class="f">andReturn</span>([<span class="s">'taskUid'</span> =&gt; <span class="n">2</span>]);
+    <span class="v">$next</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'addDocuments'</span>)-&gt;<span class="f">andReturn</span>([<span class="s">'taskUid'</span> =&gt; <span class="n">3</span>]);
+
+    <span class="v">$client</span> = <span class="t">Mockery</span>::<span class="f">mock</span>(<span class="t">Client</span>::class);
+    <span class="v">$client</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'deleteIndex'</span>)-&gt;<span class="f">andReturn</span>([<span class="s">'taskUid'</span> =&gt; <span class="n">0</span>]);
+    <span class="v">$client</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'createIndex'</span>)-&gt;<span class="f">andReturn</span>([<span class="s">'taskUid'</span> =&gt; <span class="n">1</span>]);
+    <span class="v">$client</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'index'</span>)-&gt;<span class="f">andReturn</span>(<span class="v">$next</span>);
+    <span class="v">$client</span>-&gt;<span class="f">shouldReceive</span>(<span class="s">'waitForTask'</span>)-&gt;<span class="f">andReturnUsing</span>(<span class="k">fn</span> (<span class="k">int</span> <span class="v">$uid</span>): <span class="k">array</span> =&gt; <span class="v">$uid</span> === <span class="n">3</span>
+        ? [<span class="s">'status'</span> =&gt; <span class="s">'failed'</span>, <span class="s">'error'</span> =&gt; [<span class="s">'message'</span> =&gt; <span class="s">'Document has an invalid id'</span>]]
+        : [<span class="s">'status'</span> =&gt; <span class="s">'succeeded'</span>]);
+    <span class="v">$client</span>-&gt;<span class="f">shouldNotReceive</span>(<span class="s">'swapIndexes'</span>);                                   <span class="c">// the live index stays as it is</span>
+
+    <span class="k">return</span> <span class="v">$client</span>;
+}
+
+<span class="f">it</span>(<span class="s">'stops before the swap when the new index fails to build'</span>, <span class="k">function</span> () {
+    <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">count</span>(<span class="n">3</span>)-&gt;<span class="f">create</span>();
+    <span class="k">$this</span>-&gt;app-&gt;<span class="f">instance</span>(<span class="t">Client</span>::class, <span class="f">meilisearchWithFailingImport</span>());
+
+    <span class="k">$this</span>-&gt;<span class="f">artisan</span>(<span class="s">'search:reindex-properties'</span>)
+        -&gt;<span class="f">expectsOutputToContain</span>(<span class="s">'the live index is untouched'</span>)
+        -&gt;<span class="f">assertFailed</span>();
+});</code></pre>
+</div><p>This one test uses a mock, because the interesting behaviour is the order of calls to a server we don’t run in tests: build, check, and only then swap. That the swap is atomic is Meilisearch’s promise, shown once on staging by searching in a loop during a reindex: no request saw fewer than 21,000 documents.</p></div></div></div></details></section>
+<section class="nextup"><p>Search survives its engine and its reindexes. Next, a one-line migration locks the bookings table for 20 minutes.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../42-load/"><small>← Scene 42</small>Busiest day of the year: search p99 is 8 seconds</a>
+<a rel="next" href="../44-big-tables/"><small>Scene 44 →</small>Adding a column locked bookings for 20 minutes</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById(), the review request after check-out"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in"],"slug":"27-rate-plans","ready":true,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), shallow vs deep copies, what a copy must never take along"],"slug":"28-duplicate-listing","ready":true,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Minimum stay sent to the channels with availability, one rule check for every booking path"],"slug":"29-minimum-stay","ready":true,"label":"Day 5 · Scene 29"},{"n":30,"title":"A Christmas minimum stay closed short stays all year","patterns":["A calendar_days table: blocked days, minimum stay and price per day, read by bookings and pushed to every channel"],"slug":"30-calendar-days","ready":true,"label":"Day 5 · Scene 30"},{"n":31,"title":"Search said free, the booking said taken","patterns":["One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough"],"slug":"31-search","ready":true,"label":"Day 5 · Scene 31"},{"n":32,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, private channels scoped to the account, the socket as a hint and a reload after reconnect"],"slug":"32-real-time","ready":true,"label":"Day 5 · Scene 32"},{"n":33,"title":"Two co-hosts sent the same guest different check-in times","patterns":["A presence channel per conversation, who else is answering, typing whispers, channel auth scoped to the account"],"slug":"33-inbox","ready":true,"label":"Day 5 · Scene 33"},{"n":34,"title":"The properties page takes 4 seconds","patterns":["N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN"],"slug":"34-slow-page","ready":true,"label":"Day 6 · Scene 34"},{"n":35,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside; Part 2: Redis eviction policies and separate connections"],"slug":"35-caching","ready":true,"label":"Day 6 · Scene 35"},{"n":36,"title":"Booking saved, the partner never heard about it","patterns":["Writing the message in the same transaction, a relay job, at-least-once delivery, idempotent consumers, event versions"],"slug":"36-outbox","ready":true,"label":"Day 6 · Scene 36"},{"n":37,"title":"The mobile app retried and booked twice","patterns":["An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response"],"slug":"37-public-api","ready":true,"label":"Day 6 · Scene 37"},{"n":38,"title":"A partner’s nightly sync missed bookings","patterns":["Offset vs cursor pagination, cursorPaginate(), whitelisted filters and sorts, a breaking change shipped as /api/v2, deprecating v1"],"slug":"38-partner-sync","ready":true,"label":"Day 6 · Scene 38"},{"n":39,"title":"A channel manager cancelled 14 bookings with a host’s token","patterns":["Sanctum token abilities on every route, expiry, a token bound to one account, a rate limit per token with 429 and Retry-After, JSON errors, and when OAuth with Passport is worth it"],"slug":"39-third-party-access","ready":true,"label":"Day 6 · Scene 39"},{"n":40,"title":"The tax report export included another host’s bookings","patterns":["One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip"],"slug":"40-exports","ready":true,"label":"Day 6 · Scene 40"},{"n":41,"title":"iCal calendars are three hours out of date","patterns":["Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written; Part 2: deadlocks, REPEATABLE READ, gap and next-key locks"],"slug":"41-ical-at-scale","ready":true,"label":"Day 7 · Scene 41"},{"n":42,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary; Part 2: Cache::flexible() against a stampede; Part 3: a CDN with Cache-Control, ETag and purging"],"slug":"42-load","ready":true,"label":"Day 7 · Scene 42"},{"n":43,"title":"Meilisearch restarted, search returned 500 for ten minutes","patterns":["Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: reindexing without downtime by swapping indexes"],"slug":"43-search-fallback","ready":true,"label":"Day 7 · Scene 43"},{"n":44,"title":"Adding a column locked bookings for 20 minutes","patterns":["Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost; Part 2: retention with MassPrunable, archiving, and why not partitioning"],"slug":"44-big-tables","ready":true,"label":"Day 7 · Scene 44"},{"n":45,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane; Part 2: Reverb on two servers through Redis"],"slug":"45-deploys","ready":true,"label":"Day 7 · Scene 45"},{"n":46,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts"],"slug":"46-incident","ready":true,"label":"Day 7 · Scene 46"},{"n":47,"title":"A new developer asks how it all fits together","patterns":["One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades"],"slug":"47-how-it-fits","ready":true,"label":"Day 7 · Scene 47"},{"n":48,"title":"The interview","patterns":["System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers; the follow-up: sharding by account"],"slug":"48-interview","ready":true,"label":"Day 7 · Scene 48"},{"n":49,"title":"Review this pull request","patterns":["An AI-written pull request with eight bugs: find them, explain them, fix them, and ask for the tests that prove it"],"slug":"49-code-review","ready":true,"label":"Day 7 · Scene 49"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":true},{"name":"Specification","chapter":31,"chapterTitle":"Search said free, the booking said taken","slug":"31-search","ready":true},{"name":"Proxy","chapter":35,"chapterTitle":"Prices went up at 09:00, guests paid the old ones until 10:00","slug":"35-caching","ready":true},{"name":"Transactional Outbox","chapter":36,"chapterTitle":"Booking saved, the partner never heard about it","slug":"36-outbox","ready":true},{"name":"Chain of Responsibility","chapter":37,"chapterTitle":"The mobile app retried and booked twice","slug":"37-public-api","ready":true},{"name":"Pipeline","chapter":37,"chapterTitle":"The mobile app retried and booked twice","slug":"37-public-api","ready":true},{"name":"Template Method","chapter":40,"chapterTitle":"The tax report export included another host’s bookings","slug":"40-exports","ready":true},{"name":"Unit of Work","chapter":41,"chapterTitle":"iCal calendars are three hours out of date","slug":"41-ical-at-scale","ready":true},{"name":"Repository","chapter":43,"chapterTitle":"Meilisearch restarted, search returned 500 for ten minutes","slug":"43-search-fallback","ready":true},{"name":"Composite","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Data Mapper","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Interpreter","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Visitor","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true},{"name":"Flyweight","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"50-outside-the-story","ready":true}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

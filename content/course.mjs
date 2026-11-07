@@ -1,4 +1,4 @@
-// The course: one story in 7 days, 45 scenes. Nordic Stays, a vacation-rental PMS, grows from launch to scale,
+// The course: one story in 7 days, 49 scenes. Nordic Stays, a vacation-rental PMS, grows from launch to scale,
 // and every scene starts with a production incident. Patterns are named after the fix, never before.
 // Each ready scene's content lives in content/scenes/<slug>.mjs.
 
@@ -7,9 +7,9 @@ export const DAYS = [
   { n: 2, title: 'Money comes in', blurb: 'Quotes, Stripe webhooks, the booking lifecycle, refunds, reports and reconciliation.' },
   { n: 3, title: 'Channels', blurb: 'Airbnb and Booking.com: iCal, real APIs, rate limits, queues and overbookings.' },
   { n: 4, title: 'Hosts and guests', blurb: 'Teams and roles, automatic guest messages, notifications and changed dates.' },
-  { n: 5, title: 'Operations and pricing', blurb: 'Cleaning between stays, rate plans, the calendar, search and live updates.' },
-  { n: 6, title: 'Scale', blurb: 'Slow pages, caching, an outbox, safe retries, exports, syncs at scale, load and search.' },
-  { n: 7, title: 'Production', blurb: 'Live schema changes, deploys, an incident, how it all fits, the interview and a code review.' },
+  { n: 5, title: 'Operations and pricing', blurb: 'Cleaning between stays, rate plans, rules for single dates, search, live calendars and the guest inbox.' },
+  { n: 6, title: 'Scale', blurb: 'Slow pages, caching and Redis, an outbox, safe retries, a partner API with versions and scoped tokens, and exports.' },
+  { n: 7, title: 'Production', blurb: 'Syncs and deadlocks, the busiest day, CDN and stampedes, search and reindexing, big tables, deploys on two servers, an incident, the interview and a code review.' },
 ];
 
 export const SCENES = [
@@ -40,7 +40,7 @@ export const SCENES = [
   // Day 4 · Hosts and guests
   { n: 19, day: 4, slug: '19-tenancy', incident: 'A host saw another host’s bookings', patterns: [], learn: 'IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment', ready: true },
   { n: 20, day: 4, slug: '20-roles', incident: 'The cleaner can see payouts', patterns: [], learn: 'Roles and policies, Gate::before, invitations with signed URLs, removing a member', ready: true },
-  { n: 21, day: 4, slug: '21-send-times', incident: 'Arrival message sent at 3 a.m.', patterns: [], learn: 'Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()', ready: true },
+  { n: 21, day: 4, slug: '21-send-times', incident: 'Arrival message sent at 3 a.m.', patterns: [], learn: 'Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById(), the review request after check-out', ready: true },
   { n: 22, day: 4, slug: '22-never-twice', incident: 'Guest got the door code twice', patterns: ['Observer', 'Event Dispatcher'], learn: 'An atomic pending → sent claim; a BookingCancelled event with independent listeners', ready: true },
   { n: 23, day: 4, slug: '23-date-change', incident: 'Dates changed, the payment failed, the booking is half-changed', patterns: ['Memento'], learn: 'Snapshot before the change, restore exactly when the payment fails, messages rescheduled', ready: true },
   { n: 24, day: 4, slug: '24-template-variables', incident: '{guest_name} showed up literally in the email', patterns: [], learn: 'A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival', ready: true },
@@ -51,31 +51,35 @@ export const SCENES = [
   { n: 27, day: 5, slug: '27-rate-plans', incident: 'Summer prices ignored the weekend rule', patterns: [], learn: 'Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in', ready: true },
   { n: 28, day: 5, slug: '28-duplicate-listing', incident: 'Changed the copy’s prices, the original’s changed too', patterns: ['Prototype'], learn: 'Eloquent replicate(), shallow vs deep copies, what a copy must never take along', ready: true },
   { n: 29, day: 5, slug: '29-minimum-stay', incident: 'A 1-night Booking.com stay on a 3-night-minimum cabin', patterns: [], learn: 'Minimum stay sent to the channels with availability, one rule check for every booking path', ready: true },
-  { n: 30, day: 5, slug: '30-search', incident: 'Search said free, the booking said taken', patterns: ['Specification'], learn: 'One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough', ready: true },
-  { n: 31, day: 5, slug: '31-real-time', incident: 'The calendar didn’t update when Airbnb booked', patterns: [], learn: 'Reverb, broadcasting after commit, channels scoped to the account, presence, scaling', ready: true },
+  { n: 30, day: 5, slug: '30-calendar-days', incident: 'A Christmas minimum stay closed short stays all year', patterns: [], learn: 'A calendar_days table: blocked days, minimum stay and price per day, read by bookings and pushed to every channel', ready: true },
+  { n: 31, day: 5, slug: '31-search', incident: 'Search said free, the booking said taken', patterns: ['Specification'], learn: 'One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough', ready: true },
+  { n: 32, day: 5, slug: '32-real-time', incident: 'The calendar didn’t update when Airbnb booked', patterns: [], learn: 'Reverb, broadcasting after commit, private channels scoped to the account, the socket as a hint and a reload after reconnect', ready: true },
+  { n: 33, day: 5, slug: '33-inbox', incident: 'Two co-hosts sent the same guest different check-in times', patterns: [], learn: 'A presence channel per conversation, who else is answering, typing whispers, channel auth scoped to the account', ready: true },
 
   // Day 6 · Scale
-  { n: 32, day: 6, slug: '32-slow-page', incident: 'The properties page takes 4 seconds', patterns: [], learn: 'N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN', ready: true },
-  { n: 33, day: 6, slug: '33-caching', incident: 'Prices went up at 09:00, guests paid the old ones until 10:00', patterns: ['Proxy'], learn: 'A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside', ready: true },
-  { n: 34, day: 6, slug: '34-outbox', incident: 'Booking saved, the partner never heard about it', patterns: ['Transactional Outbox'], learn: 'Writing the message in the same transaction, a relay job, at-least-once delivery, idempotent consumers, event versions', ready: true },
-  { n: 35, day: 6, slug: '35-public-api', incident: 'The mobile app retried and booked twice', patterns: ['Chain of Responsibility', 'Pipeline'], learn: 'An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response', ready: true },
-  { n: 36, day: 6, slug: '36-exports', incident: 'The tax report export included another host’s bookings', patterns: ['Template Method'], learn: 'One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip', ready: true },
-  { n: 37, day: 6, slug: '37-ical-at-scale', incident: 'iCal calendars are three hours out of date', patterns: ['Unit of Work'], learn: 'Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written', ready: true },
-  { n: 38, day: 6, slug: '38-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary', ready: true },
-  { n: 39, day: 6, slug: '39-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate', ready: true },
+  { n: 34, day: 6, slug: '34-slow-page', incident: 'The properties page takes 4 seconds', patterns: [], learn: 'N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN', ready: true },
+  { n: 35, day: 6, slug: '35-caching', incident: 'Prices went up at 09:00, guests paid the old ones until 10:00', patterns: ['Proxy'], learn: 'A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside; Part 2: Redis eviction policies and separate connections', ready: true },
+  { n: 36, day: 6, slug: '36-outbox', incident: 'Booking saved, the partner never heard about it', patterns: ['Transactional Outbox'], learn: 'Writing the message in the same transaction, a relay job, at-least-once delivery, idempotent consumers, event versions', ready: true },
+  { n: 37, day: 6, slug: '37-public-api', incident: 'The mobile app retried and booked twice', patterns: ['Chain of Responsibility', 'Pipeline'], learn: 'An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response', ready: true },
+  { n: 38, day: 6, slug: '38-partner-sync', incident: 'A partner’s nightly sync missed bookings', patterns: [], learn: 'Offset vs cursor pagination, cursorPaginate(), whitelisted filters and sorts, a breaking change shipped as /api/v2, deprecating v1', ready: true },
+  { n: 39, day: 6, slug: '39-third-party-access', incident: 'A channel manager cancelled 14 bookings with a host’s token', patterns: [], learn: 'Sanctum token abilities on every route, expiry, a token bound to one account, a rate limit per token with 429 and Retry-After, JSON errors, and when OAuth with Passport is worth it', ready: true },
+  { n: 40, day: 6, slug: '40-exports', incident: 'The tax report export included another host’s bookings', patterns: ['Template Method'], learn: 'One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip', ready: true },
 
   // Day 7 · Production
-  { n: 40, day: 7, slug: '40-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost', ready: true },
-  { n: 41, day: 7, slug: '41-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane', ready: true },
-  { n: 42, day: 7, slug: '42-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts', ready: true },
-  { n: 43, day: 7, slug: '43-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades', ready: true },
-  { n: 44, day: 7, slug: '44-interview', incident: 'The interview', patterns: [], learn: 'System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers', ready: true },
-  { n: 45, day: 7, slug: '45-code-review', incident: 'Review this pull request', patterns: [], learn: 'An AI-written pull request with eight bugs: find them, explain them, fix them, and ask for the tests that prove it', ready: true },
+  { n: 41, day: 7, slug: '41-ical-at-scale', incident: 'iCal calendars are three hours out of date', patterns: ['Unit of Work'], learn: 'Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written; Part 2: deadlocks, REPEATABLE READ, gap and next-key locks', ready: true },
+  { n: 42, day: 7, slug: '42-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary; Part 2: Cache::flexible() against a stampede; Part 3: a CDN with Cache-Control, ETag and purging', ready: true },
+  { n: 43, day: 7, slug: '43-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate; Part 2: reindexing without downtime by swapping indexes', ready: true },
+  { n: 44, day: 7, slug: '44-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost; Part 2: retention with MassPrunable, archiving, and why not partitioning', ready: true },
+  { n: 45, day: 7, slug: '45-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane; Part 2: Reverb on two servers through Redis', ready: true },
+  { n: 46, day: 7, slug: '46-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts', ready: true },
+  { n: 47, day: 7, slug: '47-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades', ready: true },
+  { n: 48, day: 7, slug: '48-interview', incident: 'The interview', patterns: [], learn: 'System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers; the follow-up: sharding by account', ready: true },
+  { n: 49, day: 7, slug: '49-code-review', incident: 'Review this pull request', patterns: [], learn: 'An AI-written pull request with eight bugs: find them, explain them, fix them, and ask for the tests that prove it', ready: true },
 ];
 
 // After the story: patterns that have no honest place in this PMS, each built for real outside the app.
 export const OUTSIDE = {
-  slug: '46-outside-the-story',
+  slug: '50-outside-the-story',
   title: 'Five patterns outside the story',
   learn: 'Composite, Data Mapper, Interpreter, Visitor and Flyweight, each built from scratch for a job where it fits, with tests',
   patterns: ['Composite', 'Data Mapper', 'Interpreter', 'Visitor', 'Flyweight'],

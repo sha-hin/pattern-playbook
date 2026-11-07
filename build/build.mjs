@@ -45,6 +45,7 @@ const codeBlocksOf = body => {
     for (const sec of [...body.sections, ...(body.afterReveal || [])]) walk(sec.blocks || []);
     walk(body.laravel?.blocks || []);
     walk(body.tests?.blocks || []);
+    for (const f of body.followups || []) out.push(...codeBlocksOf(f));   // a scene's later parts, in reading order
   } else walk(body);
   return out;
 };
@@ -115,7 +116,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, main }) {
 <meta property="og:image" content="${SITE}assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 45 production incidents">
+<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 52 production incidents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
@@ -248,8 +249,23 @@ ${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join(''
     s.push(`<section class="tests"><details><summary><span>Tests</span><small>${esc(body.tests.summary)}</small></summary>
 <div class="testbody">${paras(body.tests.text)}<div class="blocks">${blocksHtml(body.tests.blocks)}</div></div></details></section>`);
   }
+  // Later the same week, the fix leads to the next problem: each follow-up has its own incident, fix and tests.
+  for (const f of body.followups || []) s.push(followupHtml(f));
   s.push(`<section class="nextup">${body.next ? `<p>${inline(body.next)}</p>` : ''}${pagerHtml(prev, next, SCENES[scene.n])}</section>`);
   return `<article class="chapter">${s.join('\n')}</article>`;
+}
+
+const testsHtml = t => `<section class="tests"><details><summary><span>Tests</span><small>${esc(t.summary)}</small></summary>
+<div class="testbody">${paras(t.text)}<div class="blocks">${blocksHtml(t.blocks)}</div></div></details></section>`;
+
+function followupHtml(f) {
+  return [
+    sectionHtml({ id: f.id, title: f.title, text: f.text, blocks: [], kind: 'part' }),
+    incidentHtml(f.incident),
+    ...f.sections.map(sectionHtml),
+    f.laravel ? sectionHtml({ kind: 'laravel', title: f.laravel.title || 'Laravel does the same', ...f.laravel }) : '',
+    f.tests ? testsHtml(f.tests) : '',
+  ].join('\n');
 }
 
 // After the story: one part per pattern, each with its sections, its pattern box and its tests.
@@ -302,7 +318,7 @@ function hubHtml() {
 
   return `<section class="hero">
 <p class="eyebrow">Advanced Laravel, in 7 days</p>
-<h1>One rental platform, 45 production incidents</h1>
+<h1>One rental platform, 52 production incidents</h1>
 <p class="intro">Follow Nordic Stays, a vacation-rental property management system, from its first booking to its busiest day. Every scene starts with something breaking in production. You read the broken code, fix it the way a senior Laravel team would, and see the pattern and the framework internals behind the fix.</p>
 <p class="cta"><a class="btn" href="${FOUNDATION.slug}/" data-umami-event="Start course">Start here</a></p>
 </section>
@@ -313,7 +329,7 @@ function hubHtml() {
 <div><b>4. The name</b>The pattern you just wrote, how Laravel uses it, then the tests, folded.</div>
 </section>
 <section id="chapters" class="course"><h2>The story</h2>
-<p class="hint">About 2–3 hours a day. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
+<p class="hint">About 3 hours a day. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
 <a class="crow found" href="${FOUNDATION.slug}/"><span class="cn">0</span><span class="ct">${esc(FOUNDATION.title)}<small>${inline(FOUNDATION.learn)}</small></span><span class="cs go">Read</span></a>
 ${days}
 <section class="day" id="end"><h3><span>After Day 7</span>${esc(OUTSIDE.title)}</h3><p class="hint">Patterns a Laravel PMS doesn’t need, built for real on their own, so you know them when you meet them.</p>
@@ -327,9 +343,9 @@ for (const entry of readdirSync(ROOT)) {
   if (/^\d\d-/.test(entry) && existsSync(join(ROOT, entry, 'index.html'))) rmSync(join(ROOT, entry), { recursive: true, force: true });
 }
 
-const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 45 production incidents, with the design patterns, framework internals and engineering behind each fix, in 7 days.`;
+const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 52 production incidents, with the design patterns, framework internals and engineering behind each fix, in 7 days.`;
 writeFileSync(join(ROOT, 'index.html'), page({
-  title: 'Advanced Laravel in 7 Days: One PMS, 42 Production Incidents | Pattern Playbook',
+  title: 'Advanced Laravel in 7 Days: One PMS, 52 Production Incidents | Pattern Playbook',
   description: hubDescription,
   url: SITE, prefix: '', pageId: 'hub', type: 'website',
   jsonld: {
@@ -337,10 +353,10 @@ writeFileSync(join(ROOT, 'index.html'), page({
     '@graph': [
       { ...website, description: hubDescription, author: person },
       {
-        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 45 production incidents', description: hubDescription, url: SITE,
+        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 52 production incidents', description: hubDescription, url: SITE,
         inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Advanced',
         teaches: PATTERNS.map(p => p.name),
-        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT18H' },
+        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT21H' },
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD', category: 'Free' },
       },
       {

@@ -106,6 +106,7 @@ code{font-family:var(--mono);font-size:.86em;background:var(--well);border:1px s
 .how b{display:block;font-family:var(--display);font-size:16px;color:var(--fg);margin-bottom:2px}
 .course,.pindex{margin-top:40px}
 .part{margin:22px 0 0}
+section.part{margin-top:56px;padding-top:28px;border-top:2px solid var(--line)}
 .part h3{display:flex;align-items:baseline;gap:10px;font-size:19px;margin:0 0 8px}
 .part h3 span{font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .clist{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
