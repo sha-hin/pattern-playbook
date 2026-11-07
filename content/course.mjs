@@ -61,8 +61,8 @@ export const SCENES = [
   { n: 35, day: 6, slug: '35-public-api', incident: 'The mobile app retried and booked twice', patterns: ['Chain of Responsibility', 'Pipeline'], learn: 'An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response', ready: true },
   { n: 36, day: 6, slug: '36-exports', incident: 'The tax report export included another host’s bookings', patterns: ['Template Method'], learn: 'One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip', ready: true },
   { n: 37, day: 6, slug: '37-ical-at-scale', incident: 'iCal calendars are three hours out of date', patterns: ['Unit of Work'], learn: 'Changes worked out in memory and written in one short transaction: upsert(), one delete, only real differences written', ready: true },
-  { n: 38, day: 6, slug: '38-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6, p95 and p99, read replicas and sticky, finding the slow query' },
-  { n: 39, day: 6, slug: '39-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate' },
+  { n: 38, day: 6, slug: '38-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6 at a fixed arrival rate, p95 and p99, EXPLAIN and a composite index, read replicas, sticky, what must read the primary', ready: true },
+  { n: 39, day: 6, slug: '39-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate', ready: true },
 
   // Day 7 · Production
   { n: 40, day: 7, slug: '40-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Online DDL, batched backfills, zero-downtime migrations' },
