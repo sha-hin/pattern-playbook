@@ -69,7 +69,7 @@ export const SCENES = [
   { n: 41, day: 7, slug: '41-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Release directories and an atomic switch, OPcache, horizon:terminate, Supervisor, onOneServer() on two servers, CI, Octane', ready: true },
   { n: 42, day: 7, slug: '42-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts', ready: true },
   { n: 43, day: 7, slug: '43-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades', ready: true },
-  { n: 44, day: 7, slug: '44-interview', incident: 'The interview', patterns: [], learn: 'System design: a PMS, a channel manager, a message scheduler; behavioural answers' },
+  { n: 44, day: 7, slug: '44-interview', incident: 'The interview', patterns: [], learn: 'System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers', ready: true },
   { n: 45, day: 7, slug: '45-code-review', incident: 'Review this pull request', patterns: [], learn: 'AI-written code with hidden bugs' },
 ];
 
