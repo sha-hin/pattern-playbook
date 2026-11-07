@@ -48,15 +48,15 @@ export const SCENES = [
 
   // Day 5 · Operations and pricing
   { n: 26, day: 5, slug: '26-turnovers', incident: 'The cleaner arrived while guests were still inside', patterns: [], learn: 'Cleaning tasks between stays, due times in the property timezone, review requests' },
-  { n: 27, day: 5, slug: '27-duplicate-listing', incident: 'Host duplicated a listing, editing the copy changed the original', patterns: ['Prototype'], learn: 'Eloquent replicate(), deep vs shallow copies' },
+  { n: 27, day: 5, slug: '27-duplicate-listing', incident: 'Changed the copy’s prices, the original’s changed too', patterns: ['Prototype'], learn: 'Eloquent replicate(), deep vs shallow copies' },
   { n: 28, day: 5, slug: '28-rate-plans', incident: 'Summer prices ignored the weekend rule', patterns: ['Composite'], learn: 'Rate plans as a tree of rules; the calendar_days table' },
-  { n: 29, day: 5, slug: '29-acceptance-rules', incident: 'Accepted 1 night with a 3-night minimum', patterns: ['Pipeline', 'Chain of Responsibility'], learn: 'Booking rules and price stages; Laravel’s middleware pipeline inside' },
-  { n: 30, day: 5, slug: '30-search', incident: 'Free 12–15 July, 3 bedrooms, pets OK?', patterns: ['Specification', 'Repository'], learn: 'Availability search on SQL, then Meilisearch behind the same interface' },
+  { n: 29, day: 5, slug: '29-acceptance-rules', incident: 'A 1-night Booking.com stay on a 3-night-minimum cabin', patterns: ['Pipeline', 'Chain of Responsibility'], learn: 'Booking rules and price stages; Laravel’s middleware pipeline inside' },
+  { n: 30, day: 5, slug: '30-search', incident: 'Search said free, the booking said taken', patterns: ['Specification', 'Repository'], learn: 'Availability search on SQL, then Meilisearch behind the same interface' },
   { n: 31, day: 5, slug: '31-real-time', incident: 'The calendar didn’t update when Airbnb booked', patterns: [], learn: 'Reverb, broadcasting after commit, channels scoped to the account, presence, scaling' },
 
   // Day 6 · Scale
   { n: 32, day: 6, slug: '32-slow-page', incident: 'The property page takes 4 seconds', patterns: ['Proxy'], learn: 'N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work' },
-  { n: 33, day: 6, slug: '33-caching', incident: 'Cached price, guest charged the old one', patterns: [], learn: 'Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction' },
+  { n: 33, day: 6, slug: '33-caching', incident: 'Prices went up at 09:00, guests paid the old ones until 10:00', patterns: [], learn: 'Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction' },
   { n: 34, day: 6, slug: '34-outbox', incident: 'Booking saved, the partner never heard about it', patterns: ['Transactional Outbox', 'Unit of Work'], learn: 'At-least-once delivery, idempotent consumers, event versions, SQS and Kafka' },
   { n: 35, day: 6, slug: '35-public-api', incident: 'The mobile app retried and booked twice', patterns: [], learn: 'Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth' },
   { n: 36, day: 6, slug: '36-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding' },
