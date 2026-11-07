@@ -37,6 +37,24 @@ public function via(object $notifiable): array
       ],
     },
     {
+      title: 'The fix',
+      text: ['One line: `via()` stops hard-coding email and returns the channel the guest chose.'],
+      blocks: [
+        {
+          path: 'app/Notifications/GuestMessage.php (via, before → after)',
+          fragment: true,
+          code: String.raw`// before: every guest gets email
+return ['mail'];
+
+// after: the guest's choice decides
+return [$this->message->booking->guest_channel->notificationChannel()];`,
+          after: [
+            'For that line to work, three things must exist: the choice stored as an enum that knows Laravel’s name for each channel (part 1), the message written for every channel (part 2), and an SMS and a WhatsApp channel to deliver it (parts 4 and 5). First, the shortcut most teams try.',
+          ],
+        },
+      ],
+    },
+    {
       title: 'The tempting fix, and why it’s wrong',
       text: ['The quick patch reads the choice inside the message, and sends from there:'],
       blocks: [
