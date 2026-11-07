@@ -77,8 +77,8 @@ export const SCENES = [
 export const OUTSIDE = {
   slug: '46-outside-the-story',
   title: 'Five patterns outside the story',
-  learn: 'Composite, Data Mapper, Visitor, Interpreter and Flyweight, each built for a job where it fits, with tests',
-  patterns: ['Composite', 'Data Mapper', 'Visitor', 'Interpreter', 'Flyweight'],
+  learn: 'Composite, Data Mapper, Interpreter, Visitor and Flyweight, each built from scratch for a job where it fits, with tests',
+  patterns: ['Composite', 'Data Mapper', 'Interpreter', 'Visitor', 'Flyweight'],
   ready: true,
 };
 

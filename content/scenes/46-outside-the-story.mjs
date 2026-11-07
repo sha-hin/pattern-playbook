@@ -1,7 +1,7 @@
 // After the story · Five patterns a Laravel PMS doesn't need, each built for a job where it does fit.
 
 export default {
-  description: 'Composite, Data Mapper, Visitor, Interpreter and Flyweight had no honest place in Nordic Stays. Each is built here for a real job where it fits: a permission-aware menu, a plain domain object saved by a mapper, a static check that walks PHP’s syntax tree, a small rule language for hosts, and memory shared by 300,000 amenities. With tests, and where you will meet each one.',
+  description: 'Composite, Data Mapper, Interpreter, Visitor and Flyweight had no honest place in Nordic Stays. Each is built here, from scratch, for a real job where it fits: a permission-aware menu, a plain domain object saved by a mapper, a small rule language for hosts, new operations on that language’s tree, and memory shared by 300,000 amenities. With tests, and where you will meet each one.',
   intro: [
     'The story used a pattern only where a real team would write it. These five never came up, because a vacation-rental PMS on Laravel doesn’t need them. You will still meet them: in Symfony and Doctrine codebases, in the tools that check your code, in rule engines, in interviews.',
     'Each one below is a small, complete example: the problem, the code, the tests, and the places it lives in real software. The code sits in `examples/`, outside the Nordic Stays app, so nothing in the story depends on it.',
@@ -397,116 +397,6 @@ it('saves and loads a reservation through the mapper only', function () {
       },
     },
     {
-      id: 'visitor',
-      title: 'Visitor: a static check that walks PHP’s syntax tree',
-      text: [
-        'Scene 42’s postmortem asked for a rule: `env()` only in config files. Scene 43 enforced it with Pest’s architecture tests. Under the hood, tools like that parse PHP into a **syntax tree**, one node per piece of code, and walk it. The node classes never change; what changes is what you want to do with them: find `env()` calls, count classes, rename a method. Each of those is a **visitor**.',
-        '`nikic/php-parser` is the parser PHPStan, Rector and Pest’s arch tests use. Writing a visitor for it is a real task: custom checks, code migrations, generators.',
-      ],
-      sections: [
-        {
-          title: 'The code',
-          blocks: [
-            {
-              path: 'terminal',
-              lang: 'shell',
-              code: String.raw`composer require --dev nikic/php-parser`,
-            },
-            {
-              title: 'The visitor: one operation, applied to every node',
-              path: 'examples/visitor/EnvCallFinder.php',
-              code: String.raw`<?php
-
-namespace Examples\Visitor;
-
-use PhpParser\Node;
-use PhpParser\Node\Expr\FuncCall;
-use PhpParser\Node\Name;
-use PhpParser\NodeVisitorAbstract;
-
-final class EnvCallFinder extends NodeVisitorAbstract
-{
-    /** @var list<int> the line of every env() call found */
-    public array $lines = [];
-
-    public function enterNode(Node $node): null
-    {
-        if ($node instanceof FuncCall && $node->name instanceof Name && $node->name->toLowerString() === 'env') {
-            $this->lines[] = $node->getStartLine();
-        }
-
-        return null;                                                    // keep walking into child nodes
-    }
-}`,
-            },
-            {
-              title: 'The walk: parse once, let the traverser visit every node',
-              path: 'examples/visitor/FindEnvCalls.php',
-              code: String.raw`<?php
-
-namespace Examples\Visitor;
-
-use PhpParser\NodeTraverser;
-use PhpParser\ParserFactory;
-
-final class FindEnvCalls
-{
-    /** @return list<int> lines with an env() call, in the given PHP source */
-    public function in(string $php): array
-    {
-        $ast = (new ParserFactory())->createForNewestSupportedVersion()->parse($php) ?? [];
-
-        $finder = new EnvCallFinder();
-        $traverser = new NodeTraverser();
-        $traverser->addVisitor($finder);                               // more visitors here: one walk, several checks
-        $traverser->traverse($ast);
-
-        return $finder->lines;
-    }
-}`,
-              after: ['A second check (no `dd()` calls, say) is a second visitor class, added to the same traverser. No node class changes, and the tree is walked once.'],
-            },
-          ],
-        },
-      ],
-      reveal: {
-        names: ['Visitor'],
-        rules: [['Visitor', 'Put an operation on a structure of objects in its own class, so new operations can be added without changing the objects. The structure is walked; the visitor decides what to do at each object.']],
-        points: [
-          '**Where you’ll meet it:** every PHP code tool. PHPStan rules, Rector rules, Pest’s arch tests and PHP-CS-Fixer all walk syntax trees with visitors. Twig compiles templates with node visitors; Doctrine parses DQL into a tree and walks it to build SQL.',
-          'The classic version uses **double dispatch**: each node has `accept(Visitor $v)` that calls `$v->visitFuncCall($this)`, so the right method is chosen per node type. PHP-Parser lets the visitor check `instanceof` instead; the idea is the same.',
-        ],
-        whenNot: [
-          'When the set of node types changes often: every new node type means a new case in every visitor.',
-          'For a flat list of objects: a loop with a `match` does the job.',
-        ],
-      },
-      tests: {
-        summary: 'It finds env() and only env(), on the right lines',
-        blocks: [
-          {
-            path: 'tests/Unit/Examples/VisitorTest.php',
-            code: String.raw`<?php
-
-use Examples\Visitor\FindEnvCalls;
-
-it('finds every env() call, and nothing that only looks like one', function () {
-    $php = <<<'PHP'
-    <?php
-    $key = env('STRIPE_SECRET');
-    $other = $config->env('x');                        // a method, not the function
-    $label = 'env(';                                   // text, not code
-    return ['url' => ENV('APP_URL')];                  // function names are case-insensitive
-    PHP;
-
-    expect((new FindEnvCalls())->in($php))->toBe([2, 5]);
-});`,
-            after: ['A text search for `env(` would report four lines. The visitor sees code, not text, so it reports two.'],
-          },
-        ],
-      },
-    },
-    {
       id: 'interpreter',
       title: 'Interpreter: a small rule language for hosts',
       text: [
@@ -777,6 +667,381 @@ it('names a fact the booking doesn’t have', function () {
     expect(fn () => (new RuleParser())->parse('pets == 1')->evaluate(['nights' => 2]))
         ->toThrow(InvalidArgumentException::class, 'Unknown fact "pets".');
 });`,
+          },
+        ],
+      },
+    },
+    {
+      id: 'visitor',
+      title: 'Visitor: new operations on the rule tree, without touching its nodes',
+      text: [
+        'The Interpreter above parses a host’s rule into a tree of five node classes. Hosts now need two more things done with that tree: **read the rule back in plain words** under the box they typed it in, and **list the facts it uses**, so a rule naming a fact that doesn’t exist (`pets`) is refused when it is saved, not when a message fails to send.',
+        'Adding a `describe()` and a `facts()` method to all five node classes would work, and the next request would add a third to all five again. Visitor puts each operation in its own class instead. The nodes get one method, `accept()`, once; every new operation after that is a new class, and the nodes never change again.',
+      ],
+      sections: [
+        {
+          title: 'The visitor interface: one method per kind of node',
+          blocks: [
+            {
+              path: 'examples/visitor/RuleVisitor.php',
+              code: String.raw`<?php
+
+namespace Examples\Visitor;
+
+use Examples\Interpreter\AllOf;
+use Examples\Interpreter\AnyOf;
+use Examples\Interpreter\Comparison;
+use Examples\Interpreter\Fact;
+use Examples\Interpreter\Literal;
+
+/**
+ * One operation over a rule tree: one method per kind of node.
+ *
+ * @template T what the operation produces
+ */
+interface RuleVisitor
+{
+    /** @return T */
+    public function visitLiteral(Literal $node): mixed;
+
+    /** @return T */
+    public function visitFact(Fact $node): mixed;
+
+    /** @return T */
+    public function visitComparison(Comparison $node): mixed;
+
+    /** @return T */
+    public function visitAllOf(AllOf $node): mixed;
+
+    /** @return T */
+    public function visitAnyOf(AnyOf $node): mixed;
+}`,
+              after: ['`@template T` says what an operation produces: a `string` for the description, a list of names for the facts. PHPStan (scene 43) checks that each visitor returns what it promises.'],
+            },
+          ],
+        },
+        {
+          title: 'The nodes accept a visitor: double dispatch',
+          text: [
+            'Each node gets the same small method. It calls back the visitor method **for its own class**: a `Comparison` calls `visitComparison($this)`. That is the trick of the pattern, called **double dispatch**: which code runs depends on two things, the visitor (which operation) and the node (which kind), without a single `instanceof` in the visitors.',
+            'These are the node classes from the Interpreter part, with `accept()` added and their properties made public so visitors can read them:',
+          ],
+          blocks: [
+            {
+              path: 'examples/interpreter/Expression.php',
+              code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+
+/** One node of a parsed rule. Every node can evaluate itself against the facts of one booking. */
+interface Expression
+{
+    /** @param array<string, int|string|bool> $facts e.g. ['nights' => 7, 'channel' => 'airbnb'] */
+    public function evaluate(array $facts): int|string|bool;
+
+    /**
+     * Hand this node to a visitor, which runs its own method for this kind of node.
+     *
+     * @template T
+     * @param RuleVisitor<T> $visitor
+     * @return T
+     */
+    public function accept(RuleVisitor $visitor): mixed;
+}`,
+            },
+            { path: 'examples/interpreter/Literal.php', code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+
+final readonly class Literal implements Expression
+{
+    public function __construct(public int|string $value)
+    {
+    }
+
+    public function evaluate(array $facts): int|string
+    {
+        return $this->value;
+    }
+
+    public function accept(RuleVisitor $visitor): mixed
+    {
+        return $visitor->visitLiteral($this);                         // the node picks the method: "I am a Literal"
+    }
+}` },
+            { path: 'examples/interpreter/Fact.php', code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+use InvalidArgumentException;
+
+final readonly class Fact implements Expression
+{
+    public function __construct(public string $name)
+    {
+    }
+
+    public function evaluate(array $facts): int|string|bool
+    {
+        return $facts[$this->name] ?? throw new InvalidArgumentException("Unknown fact \"{$this->name}\".");
+    }
+
+    public function accept(RuleVisitor $visitor): mixed
+    {
+        return $visitor->visitFact($this);
+    }
+}` },
+            { path: 'examples/interpreter/Comparison.php', code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+
+final readonly class Comparison implements Expression
+{
+    public function __construct(public Expression $left, public string $operator, public Expression $right)
+    {
+    }
+
+    public function evaluate(array $facts): bool
+    {
+        $left = $this->left->evaluate($facts);
+        $right = $this->right->evaluate($facts);
+
+        return match ($this->operator) {
+            '==' => $left === $right,
+            '!=' => $left !== $right,
+            '>=' => $left >= $right,
+            '<=' => $left <= $right,
+            '>' => $left > $right,
+            '<' => $left < $right,
+        };
+    }
+
+    public function accept(RuleVisitor $visitor): mixed
+    {
+        return $visitor->visitComparison($this);
+    }
+}` },
+            { path: 'examples/interpreter/AllOf.php', code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+
+final readonly class AllOf implements Expression
+{
+    public function __construct(public Expression $left, public Expression $right)
+    {
+    }
+
+    public function evaluate(array $facts): bool
+    {
+        return $this->left->evaluate($facts) === true && $this->right->evaluate($facts) === true;
+    }
+
+    public function accept(RuleVisitor $visitor): mixed
+    {
+        return $visitor->visitAllOf($this);
+    }
+}` },
+            { path: 'examples/interpreter/AnyOf.php', code: String.raw`<?php
+
+namespace Examples\Interpreter;
+
+use Examples\Visitor\RuleVisitor;
+
+final readonly class AnyOf implements Expression
+{
+    public function __construct(public Expression $left, public Expression $right)
+    {
+    }
+
+    public function evaluate(array $facts): bool
+    {
+        return $this->left->evaluate($facts) === true || $this->right->evaluate($facts) === true;
+    }
+
+    public function accept(RuleVisitor $visitor): mixed
+    {
+        return $visitor->visitAnyOf($this);
+    }
+}` },
+          ],
+        },
+        {
+          title: 'Two operations, two classes',
+          blocks: [
+            {
+              title: 'The rule in plain words',
+              path: 'examples/visitor/DescribeRule.php',
+              code: String.raw`<?php
+
+namespace Examples\Visitor;
+
+use Examples\Interpreter\AllOf;
+use Examples\Interpreter\AnyOf;
+use Examples\Interpreter\Comparison;
+use Examples\Interpreter\Expression;
+use Examples\Interpreter\Fact;
+use Examples\Interpreter\Literal;
+
+/**
+ * The rule in plain words, shown to the host under the rule they typed.
+ *
+ * @implements RuleVisitor<string>
+ */
+final class DescribeRule implements RuleVisitor
+{
+    private const WORDS = ['==' => 'is', '!=' => 'is not', '>=' => 'is at least', '<=' => 'is at most', '>' => 'is more than', '<' => 'is less than'];
+
+    public function describe(Expression $rule): string
+    {
+        return ucfirst($rule->accept($this));
+    }
+
+    public function visitLiteral(Literal $node): string
+    {
+        return is_int($node->value) ? (string) $node->value : "“{$node->value}”";
+    }
+
+    public function visitFact(Fact $node): string
+    {
+        return str_replace('_', ' ', $node->name);                     // lead_days → lead days
+    }
+
+    public function visitComparison(Comparison $node): string
+    {
+        return $node->left->accept($this) . ' ' . self::WORDS[$node->operator] . ' ' . $node->right->accept($this);
+    }
+
+    public function visitAllOf(AllOf $node): string
+    {
+        return $this->part($node->left, AnyOf::class) . ' and ' . $this->part($node->right, AnyOf::class);
+    }
+
+    public function visitAnyOf(AnyOf $node): string
+    {
+        return $this->part($node->left, AllOf::class) . ' or ' . $this->part($node->right, AllOf::class);
+    }
+
+    /** A child of the other kind (an "or" inside an "and", or the reverse) gets brackets, so the words can't be misread. */
+    private function part(Expression $child, string $bracketed): string
+    {
+        $words = $child->accept($this);
+
+        return $child instanceof $bracketed ? "({$words})" : $words;
+    }
+}`,
+              after: ['`nights >= 7 and (channel == "airbnb" or channel == "booking_com")` reads back as **“Nights is at least 7 and (channel is “airbnb” or channel is “booking_com”)”**. A host who meant something else sees it before saving.'],
+            },
+            {
+              title: 'The facts a rule uses',
+              path: 'examples/visitor/FactsInRule.php',
+              code: String.raw`<?php
+
+namespace Examples\Visitor;
+
+use Examples\Interpreter\AllOf;
+use Examples\Interpreter\AnyOf;
+use Examples\Interpreter\Comparison;
+use Examples\Interpreter\Expression;
+use Examples\Interpreter\Fact;
+use Examples\Interpreter\Literal;
+
+/**
+ * Every fact a rule reads, so a rule naming an unknown fact is refused when the host saves it.
+ *
+ * @implements RuleVisitor<list<string>>
+ */
+final class FactsInRule implements RuleVisitor
+{
+    /** @return list<string> each fact once, sorted */
+    public function of(Expression $rule): array
+    {
+        $facts = array_unique($rule->accept($this));
+        sort($facts);
+
+        return $facts;
+    }
+
+    public function visitLiteral(Literal $node): array
+    {
+        return [];
+    }
+
+    public function visitFact(Fact $node): array
+    {
+        return [$node->name];
+    }
+
+    public function visitComparison(Comparison $node): array
+    {
+        return [...$node->left->accept($this), ...$node->right->accept($this)];
+    }
+
+    public function visitAllOf(AllOf $node): array
+    {
+        return [...$node->left->accept($this), ...$node->right->accept($this)];
+    }
+
+    public function visitAnyOf(AnyOf $node): array
+    {
+        return [...$node->left->accept($this), ...$node->right->accept($this)];
+    }
+}`,
+              after: ['On save: `array_diff((new FactsInRule())->of($rule), [\'nights\', \'channel\', \'guests\', \'lead_days\'])` lists the unknown facts, and the form shows them as a validation error.'],
+            },
+          ],
+        },
+      ],
+      reveal: {
+        names: ['Visitor'],
+        rules: [['Visitor', 'Put each operation on a structure of objects in its own class. The objects only accept a visitor and call its method for their own type, so new operations never change the objects.']],
+        points: [
+          '**Interpreter and Visitor, side by side.** The Interpreter put the operation (`evaluate()`) **in** the nodes. The Visitor puts operations **outside** them. Nodes rarely change and operations keep coming? Visitor. A new kind of node every month? Methods on the nodes.',
+          '**Where you’ll meet it:** every PHP code tool. `nikic/php-parser`, which PHPStan, Rector and Pest’s arch tests are built on, walks PHP’s syntax tree with visitors; Twig compiles templates with node visitors; Doctrine turns DQL into SQL by walking a tree. A custom PHPStan or Rector rule is a visitor you write for them.',
+        ],
+        whenNot: [
+          'When the node types change often: every new node class means a new method in the interface and in every visitor.',
+          'For one operation, or a flat list: a method on the class, or a loop with a `match`, is simpler.',
+        ],
+      },
+      tests: {
+        summary: 'Both visitors on the same tree, and a rule refused for an unknown fact',
+        blocks: [
+          {
+            path: 'tests/Unit/Examples/VisitorTest.php',
+            code: String.raw`<?php
+
+use Examples\Interpreter\RuleParser;
+use Examples\Visitor\DescribeRule;
+use Examples\Visitor\FactsInRule;
+
+it('reads a rule back in plain words, with brackets where "and" and "or" mix', function (string $rule, string $words) {
+    expect((new DescribeRule())->describe((new RuleParser())->parse($rule)))->toBe($words);
+})->with([
+    ['nights >= 7 and (channel == "airbnb" or channel == "booking_com")', 'Nights is at least 7 and (channel is “airbnb” or channel is “booking_com”)'],
+    ['nights >= 7 and channel == "airbnb" or guests > 4', '(nights is at least 7 and channel is “airbnb”) or guests is more than 4'],
+]);
+
+it('lists every fact a rule uses, once', function () {
+    $rule = (new RuleParser())->parse('nights >= 7 and (channel == "airbnb" or channel == "booking_com")');
+
+    expect((new FactsInRule())->of($rule))->toBe(['channel', 'nights']);
+});
+
+it('finds the fact that would make a saved rule fail at send time', function () {
+    $rule = (new RuleParser())->parse('nights >= 3 and pets == 1');
+
+    expect(array_values(array_diff((new FactsInRule())->of($rule), ['nights', 'channel', 'guests', 'lead_days'])))->toBe(['pets']);
+});`,
+            after: ['The same tree, parsed once, goes through three operations: `evaluate()` from the Interpreter, and the two visitors. None of the node classes knows what a description or a fact list is.'],
           },
         ],
       },
