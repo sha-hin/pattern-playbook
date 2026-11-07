@@ -17,6 +17,7 @@ const collect = (lesson) => {
   const add = (b, where) => { if (b && b.code && (b.lang || 'php') === 'php' && !b.fragment) out.push({ ...b, where }); };
   for (const s of [...(lesson.sections || []), ...(lesson.afterReveal || [])]) for (const b of s.blocks || []) add(b, s.title);
   for (const k of ['laravel', 'reveal', 'tests']) for (const b of lesson[k]?.blocks || []) add(b, k);
+  for (const part of lesson.parts || []) out.push(...collect(part));          // the end page: one part per pattern
   return out;
 };
 
@@ -47,7 +48,7 @@ for (const b of blocks) {
   for (const m of b.code.matchAll(/^(?:final |abstract |readonly )*(?:class|interface|enum|trait) (\w+)/gm)) declared.add(`${ns}\\${m[1]}`);
 }
 let missing = 0;
-const PHP_GLOBALS = new Set(['Exception', 'LogicException', 'InvalidArgumentException', 'RuntimeException', 'UnexpectedValueException', 'DomainException', 'Throwable', 'Closure', 'Generator', 'DateTimeImmutable', 'ReflectionClass', 'ReflectionProperty', 'ReflectionParameter']);
+const PHP_GLOBALS = new Set(['Exception', 'LogicException', 'InvalidArgumentException', 'RuntimeException', 'UnexpectedValueException', 'DomainException', 'Throwable', 'Closure', 'Generator', 'DateTimeImmutable', 'ReflectionClass', 'ReflectionProperty', 'ReflectionParameter', 'ValueError']);
 for (const b of blocks) {
   const ns = b.code.match(/^namespace ([^;]+);/m)?.[1] ?? '';   // '' = a test file in the global namespace
   const imported = new Set([...b.code.matchAll(/^use ([^;]+);$/gm)].map(m => m[1].split(/\s+as\s+/).pop().split('\\').pop()));

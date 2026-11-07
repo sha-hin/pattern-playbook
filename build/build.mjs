@@ -31,6 +31,7 @@ const load = async file => (await import(pathToFileURL(join(ROOT, 'content', fil
 const BODY = {};
 for (const s of ready) BODY[s.slug] = await load(`scenes/${s.slug}.mjs`);
 const foundation = await load('foundation/index.mjs');
+const outside = OUTSIDE.ready ? await load(`scenes/${OUTSIDE.slug}.mjs`) : null;
 
 // Every file the reader writes is followed through the course. When a later scene shows the same
 // file again, it is shown complete, with the lines that changed since its last version marked.
@@ -225,7 +226,7 @@ function pagerHtml(prev, next, upcoming) {
   const link = (s, rel, label) => `<a rel="${rel}" href="../${s.slug}/"><small>${label}</small>${inline(s.incident || s.title)}</a>`;
   return `<nav class="pager" aria-label="Scenes">
 ${prev ? link(prev, 'prev', prev.n ? `← ${sceneLabel(prev)}` : '← Start here') : '<span></span>'}
-${next ? link(next, 'next', `${sceneLabel(next)} →`)
+${next ? link(next, 'next', next.n ? `${sceneLabel(next)} →` : 'After the story →')
     : upcoming ? `<span class="soon"><small>${sceneLabel(upcoming)}, coming soon</small>${inline(upcoming.incident)}</span>` : '<span></span>'}
 </nav>`;
 }
@@ -249,6 +250,29 @@ ${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join(''
   }
   s.push(`<section class="nextup">${body.next ? `<p>${inline(body.next)}</p>` : ''}${pagerHtml(prev, next, SCENES[scene.n])}</section>`);
   return `<article class="chapter">${s.join('\n')}</article>`;
+}
+
+// After the story: one part per pattern, each with its sections, its pattern box and its tests.
+function outsideHtml(body) {
+  const last = SCENES[SCENES.length - 1];
+  const parts = body.parts.map(part => [
+    sectionHtml({ id: part.id, title: part.title, text: part.text, blocks: [], kind: 'part' }),
+    ...part.sections.map(sectionHtml),
+    revealHtml(part.reveal),
+    part.tests ? `<section class="tests"><details><summary><span>Tests</span><small>${esc(part.tests.summary)}</small></summary>
+<div class="testbody"><div class="blocks">${blocksHtml(part.tests.blocks)}</div></div></details></section>` : '',
+  ].join('\n')).join('\n');
+  return `<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › After Day 7</p>
+<h1>${esc(OUTSIDE.title)}</h1>
+<p class="subtitle">${inline(OUTSIDE.learn)}</p>
+<p class="tags">${OUTSIDE.patterns.map(tagHtml).join('')}</p>
+</header>
+<section class="lead">${paras(body.intro)}</section>
+${tocHtml(body.parts)}
+${parts}
+<section class="nextup"><p>${inline(body.next)}</p>${pagerHtml(last, null, null)}</section>
+</article>`;
 }
 
 function foundationHtml(body) {
@@ -358,7 +382,7 @@ const write = (slug, html) => { mkdirSync(join(ROOT, slug), { recursive: true })
 for (const scene of ready) {
   const body = BODY[scene.slug];
   const prev = scene.n === 1 ? { ...FOUNDATION, n: 0 } : SCENES[scene.n - 2];
-  const next = SCENES[scene.n] && SCENES[scene.n].ready ? SCENES[scene.n] : null;
+  const next = SCENES[scene.n] ? (SCENES[scene.n].ready ? SCENES[scene.n] : null) : (outside ? { ...OUTSIDE, n: null } : null);
   const url = `${SITE}${scene.slug}/`;
   const what = scene.patterns.length ? `${scene.patterns.join(', ')} in Laravel` : `Laravel: ${scene.learn.split(',')[0]}`;
   write(scene.slug, page({
@@ -369,7 +393,17 @@ for (const scene of ready) {
   }));
 }
 
-const urls = [SITE, `${SITE}${FOUNDATION.slug}/`, ...ready.map(s => `${SITE}${s.slug}/`)];
+if (outside) {
+  const url = `${SITE}${OUTSIDE.slug}/`;
+  write(OUTSIDE.slug, page({
+    title: `${OUTSIDE.title}: ${OUTSIDE.patterns.join(', ')} in PHP | ${BRAND}`, description: outside.description, url,
+    prefix: '../', pageId: OUTSIDE.slug, type: 'article',
+    jsonld: articleLd(OUTSIDE.title, outside.description, url, OUTSIDE.patterns.map(p => `${p} pattern`)),
+    main: outsideHtml(outside),
+  }));
+}
+
+const urls = [SITE, `${SITE}${FOUNDATION.slug}/`, ...ready.map(s => `${SITE}${s.slug}/`), ...(outside ? [`${SITE}${OUTSIDE.slug}/`] : [])];
 writeFileSync(join(ROOT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(u => `  <url><loc>${u}</loc><lastmod>${TODAY}</lastmod></url>`).join('\n')}
