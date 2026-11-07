@@ -65,7 +65,7 @@ export const SCENES = [
   { n: 39, day: 6, slug: '39-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate', ready: true },
 
   // Day 7 · Production
-  { n: 40, day: 7, slug: '40-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Online DDL, batched backfills, zero-downtime migrations' },
+  { n: 40, day: 7, slug: '40-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Metadata locks, ALGORITHM=INSTANT and lock_wait_timeout, reports off the primary, batched backfills, gh-ost', ready: true },
   { n: 41, day: 7, slug: '41-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers' },
   { n: 42, day: 7, slug: '42-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs' },
   { n: 43, day: 7, slug: '43-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades' },
