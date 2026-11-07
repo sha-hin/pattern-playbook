@@ -70,7 +70,7 @@ export const SCENES = [
   { n: 42, day: 7, slug: '42-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; static state in workers, memory, maxJobs and maxTime, wait-time alerts', ready: true },
   { n: 43, day: 7, slug: '43-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'One booking end to end, where code goes, the container inside, Pint, Larastan, arch tests, mutation testing, Rector, upgrades', ready: true },
   { n: 44, day: 7, slug: '44-interview', incident: 'The interview', patterns: [], learn: 'System design of a channel manager: requirements, numbers, data model, flows, pushback, trade-offs; behavioural answers', ready: true },
-  { n: 45, day: 7, slug: '45-code-review', incident: 'Review this pull request', patterns: [], learn: 'AI-written code with hidden bugs' },
+  { n: 45, day: 7, slug: '45-code-review', incident: 'Review this pull request', patterns: [], learn: 'An AI-written pull request with eight bugs: find them, explain them, fix them, and ask for the tests that prove it', ready: true },
 ];
 
 // After the story: patterns that have no honest place in this PMS, each built for real outside the app.
