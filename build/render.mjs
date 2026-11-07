@@ -91,7 +91,7 @@ const LANGS = {
   sql: [
     [String.raw`--[^\n]*`, 'c'],
     [String.raw`'[^'\n]*'`, 's'],
-    [String.raw`\b(?:CREATE|DATABASE|TABLE|IF|NOT|EXISTS|SELECT|FROM|WHERE|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GRANT|ON|TO|EXPLAIN|INDEX|ORDER|BY|LIMIT)\b`, 'k'],
+    [String.raw`\b(?:CREATE|DATABASE|TABLE|IF|NOT|EXISTS|SELECT|FROM|WHERE|AND|OR|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GRANT|ON|TO|EXPLAIN|INDEX|ORDER|BY|LIMIT|IN)\b`, 'k'],
     [String.raw`\b\d+\b`, 'n'],
   ],
   json: [
@@ -99,6 +99,13 @@ const LANGS = {
     [String.raw`"(?:\\.|[^"\\])*"`, 's'],
     [String.raw`\b(?:true|false|null)\b`, 'k'],
     [String.raw`-?\b\d+(?:\.\d+)?\b`, 'n'],
+  ],
+  js: [
+    [String.raw`\/\/[^\n]*|\/\*[\s\S]*?\*\/`, 'c'],
+    [String.raw`'[^'\n]*'|"[^"\n]*"|` + '`[^`]*`', 's'],
+    [String.raw`\b(?:import|from|export|default|const|let|var|function|return|if|else|async|await|new|class|of|in|for|while|true|false|null|undefined)\b`, 'k'],
+    [String.raw`\b\d+(?:\.\d+)?\b`, 'n'],
+    [String.raw`\b[A-Za-z_$][\w$]*(?=\()`, 'f'],
   ],
   // iCalendar (RFC 5545): BEGIN/END as keywords, property names as types, parameters as variables.
   ics: [

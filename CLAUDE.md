@@ -16,15 +16,15 @@
 | Scene | Incident | The real cause |
 |---|---|---|
 | 26 | The cleaner arrived while guests were still inside | The guests extended by a night; the task was created once at confirmation, and date changes skipped `CalendarSync` |
-| 27 | Summer prices ignored the weekend rule | A season replaces the base rules instead of combining with them |
-| 28 | Changed the copy’s prices, the original’s changed too | `replicate()` copies `rate_plan_id`, so both listings share one rate plan |
-| 29 | A 1-night Booking.com stay on a 3-night-minimum cabin | Minimum stay is checked only in the website’s Form Request; channel imports skip it |
-| 30 | Search said free, the booking said taken | Search wrote its own overlap query and ignores pending holds; booking counts them |
+| 27 | Summer prices ignored the weekend rule | The season code returns the season price early and skips the weekend rule (no pattern) |
+| 28 | Changed the copy’s prices, the original’s changed too | `replicate()` copies `rate_plan_id`, so both listings share one rate plan (Prototype) |
+| 29 | A 1-night Booking.com stay on a 3-night-minimum cabin | Minimum stay is only in the website’s Form Request and never pushed to the channels (no pattern) |
+| 30 | Search said free, the booking said taken | Search wrote its own overlap query and ignores pending holds; booking counts them (Specification) |
 | 31 | The calendar didn’t update when Airbnb booked | Broadcast fired only from the website’s controller, not from channel imports, and before commit |
 | 32 | The property page takes 4 seconds | Lazy-loaded relations in a loop (N+1), plus a missing index |
 | 33 | Prices went up at 09:00, guests paid the old ones until 10:00 | The quote is cached for an hour and a price change never invalidates it |
 | 34 | Booking saved, the partner never heard about it | The event is published after commit; the process died between the two |
-| 35 | The mobile app retried and booked twice | A timeout made the app retry a POST that had already succeeded |
+| 35 | The mobile app retried and booked twice | A timeout made the app retry a POST that had already succeeded (Chain of Responsibility, Pipeline: an Idempotency-Key middleware) |
 | 36 | Busiest day of the year: search p99 is 8 seconds | Every search hits the primary; one unindexed filter scans the whole table |
 | 37 | Adding a column locked bookings for 20 minutes | A migration with a column change that MySQL can’t do online |
 | 38 | Deployed at 14:00, workers ran old code until 16:00 | The deploy script never ran `queue:restart` |

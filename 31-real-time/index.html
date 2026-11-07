@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>The calendar didn’t update when Airbnb booked · Laravel: Reverb | Pattern Playbook</title>
+<meta name="description" content="A host watched her calendar while Airbnb sold a week of it, and her screen never changed: the live update was broadcast from our own booking code only, before the commit, with the whole booking in it. Fix it in Laravel with one queued broadcast from the calendar coordinator, sent after commit, carrying ids only, on a private channel scoped to the account.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/31-real-time/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The calendar didn’t update when Airbnb booked · Laravel: Reverb | Pattern Playbook">
+<meta property="og:description" content="A host watched her calendar while Airbnb sold a week of it, and her screen never changed: the live update was broadcast from our own booking code only, before the commit, with the whole booking in it. Fix it in Laravel with one queued broadcast from the calendar coordinator, sent after commit, carrying ids only, on a private channel scoped to the account.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/31-real-time/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The calendar didn’t update when Airbnb booked · Laravel: Reverb | Pattern Playbook">
+<meta name="twitter:description" content="A host watched her calendar while Airbnb sold a week of it, and her screen never changed: the live update was broadcast from our own booking code only, before the commit, with the whole booking in it. Fix it in Laravel with one queued broadcast from the calendar coordinator, sent after commit, carrying ids only, on a private channel scoped to the account.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 31: The calendar didn’t update when Airbnb booked","description":"A host watched her calendar while Airbnb sold a week of it, and her screen never changed: the live update was broadcast from our own booking code only, before the commit, with the whole booking in it. Fix it in Laravel with one queued broadcast from the calendar coordinator, sent after commit, carrying ids only, on a private channel scoped to the account.","url":"https://sha-hin.github.io/pattern-playbook/31-real-time/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/31-real-time/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 31: The calendar didn’t update when Airbnb booked","item":"https://sha-hin.github.io/pattern-playbook/31-real-time/"}]}]}</script>
+</head>
+<body data-page="31-real-time" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 5 · Operations and pricing › Scene 31 of 42</p>
+<h1>The calendar didn’t update when Airbnb booked</h1>
+<p class="subtitle">Reverb, broadcasting after commit, channels scoped to the account, presence, scaling</p>
+
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Wednesday 21:15</span></p>
+<p class="inc-msg"><span class="inc-who">Ingrid · host, Skagen cottages</span>I had the calendar open for Cottage 2. Airbnb emailed me a booking for <b>2–9 August</b>. My calendar still showed those nights free until I reloaded the page. I almost sold them again by phone.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>The live update fires when a booking is made on our site. Airbnb and Booking.com imports never send one.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>Two more things while you’re in there. Our own bookings sometimes flash in and disappear until a reload. And the event carries the <b>whole booking</b>: I can read guest emails and phone numbers in the browser’s network tab.</p>
+</section>
+<section><h2>Last week’s feature</h2><p>The host’s calendar page updates live. Laravel’s broadcasting sends an event from the server to a WebSocket server, <b>Reverb</b>, and the browser, connected to Reverb through <b>Laravel Echo</b>, receives it. One command installs all of it:</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">php</span> artisan install:broadcasting    <span class="c"># answer yes to installing Reverb and the Node packages</span>
+<span class="f">php</span> artisan reverb:start            <span class="c"># the WebSocket server; in production it runs under Supervisor (scene 38)</span></code></pre>
+</div><p>It creates <code>config/broadcasting.php</code>, <code>config/reverb.php</code>, <code>routes/channels.php</code> and <code>resources/js/echo.js</code>, installs <code>laravel/reverb</code> and <code>laravel-echo</code>, and adds the Reverb keys to <code>.env</code>:</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">.env</span></div>
+<pre class="code"><code><span class="t">BROADCAST_CONNECTION</span>=<span class="s">reverb</span>
+
+<span class="t">REVERB_APP_ID</span>=<span class="s">nordic-stays</span>
+<span class="t">REVERB_APP_KEY</span>=<span class="s">hn3k9w2x7q5m1p8r</span>
+<span class="t">REVERB_APP_SECRET</span>=<span class="s">generated-by-install-broadcasting</span>
+<span class="t">REVERB_HOST</span>=<span class="s">ws.nordicstays.com</span>
+<span class="t">REVERB_PORT</span>=<span class="n">443</span>
+<span class="t">REVERB_SCHEME</span>=<span class="s">https</span>
+
+<span class="t">VITE_REVERB_APP_KEY</span>=<span class="s">&quot;${REVERB_APP_KEY}&quot;</span>
+<span class="t">VITE_REVERB_HOST</span>=<span class="s">&quot;${REVERB_HOST}&quot;</span>
+<span class="t">VITE_REVERB_PORT</span>=<span class="s">&quot;${REVERB_PORT}&quot;</span>
+<span class="t">VITE_REVERB_SCHEME</span>=<span class="s">&quot;${REVERB_SCHEME}&quot;</span></code></pre>
+</div><p>The key is public (the browser needs it); the secret never leaves the server: it signs every channel authorization.</p></div><div class="block"><h3>Who may listen</h3><p>A <b>private</b> channel needs permission: before the browser may subscribe to <code>account.7</code>, Echo asks our app at <code>/api/broadcasting/auth</code>, and the callback below decides. Without it, anyone who guesses an account id could watch that host’s calendar: the IDOR of WebSockets. Owners and co-hosts see the calendar; cleaners see their tasks, not bookings (scene 20).</p><div class="codebox">
+<div class="filehead"><span class="path">routes/channels.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Broadcast</span>;
+
+<span class="t">Broadcast</span>::<span class="f">channel</span>(<span class="s">'account.{accountId}'</span>, <span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">int</span> <span class="v">$accountId</span>): <span class="k">bool</span> {
+    <span class="k">return</span> <span class="f">in_array</span>(<span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>), [<span class="t">MembershipRole</span>::<span class="t">Owner</span>, <span class="t">MembershipRole</span>::<span class="t">CoHost</span>], <span class="k">true</span>);
+});</code></pre>
+</div></div><div class="block"><h3>Authorization under /api, with the host’s Sanctum token</h3><div class="codebox">
+<div class="filehead"><span class="path">bootstrap/app.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Application</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Configuration</span>\<span class="t">Exceptions</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Configuration</span>\<span class="t">Middleware</span>;
+
+<span class="k">return</span> <span class="t">Application</span>::<span class="f">configure</span>(basePath: <span class="f">dirname</span>(__DIR__))
+    -&gt;<span class="f">withRouting</span>(
+        web: __DIR__ . <span class="s">'/../routes/web.php'</span>,
+        api: __DIR__ . <span class="s">'/../routes/api.php'</span>,
+        commands: __DIR__ . <span class="s">'/../routes/console.php'</span>,
+        health: <span class="s">'/up'</span>,
+    )
+    -&gt;<span class="f">withBroadcasting</span>(
+        __DIR__ . <span class="s">'/../routes/channels.php'</span>,
+        [<span class="s">'prefix'</span> =&gt; <span class="s">'api'</span>, <span class="s">'middleware'</span> =&gt; [<span class="s">'api'</span>, <span class="s">'auth:sanctum'</span>]],      <span class="c">// POST /api/broadcasting/auth</span>
+    )
+    -&gt;<span class="f">withMiddleware</span>(<span class="k">function</span> (<span class="t">Middleware</span> <span class="v">$middleware</span>): <span class="k">void</span> {
+        <span class="c">//</span>
+    })
+    -&gt;<span class="f">withExceptions</span>(<span class="k">function</span> (<span class="t">Exceptions</span> <span class="v">$exceptions</span>): <span class="k">void</span> {
+        <span class="c">//</span>
+    })-&gt;<span class="f">create</span>();</code></pre>
+</div><p>This is Laravel’s file as <code>install:api</code> (Foundation) and <code>install:broadcasting</code> leave it, with the broadcasting routes moved under <code>/api</code> so the host app’s token works for them.</p></div><div class="block"><h3>The calendar page listens</h3><div class="codebox">
+<div class="filehead"><span class="path">resources/js/calendar.js</span><span class="badge new">new file</span></div>
+<pre class="code"><code><span class="k">import</span> <span class="s">'./echo'</span>;                                      <span class="c">// creates window.Echo, connected to Reverb</span>
+
+<span class="k">const</span> accountId = document.<span class="f">querySelector</span>(<span class="s">'meta[name=&quot;account-id&quot;]'</span>).content;
+
+window.Echo.<span class="f">private</span>(<span class="s">`account.${accountId}`</span>)
+    .<span class="f">listen</span>(<span class="s">'.booking.created'</span>, (event) =&gt; {
+        window.calendar.<span class="f">show</span>(event.booking);              <span class="c">// draw the booking straight from the event</span>
+    });</code></pre>
+</div></div></div></section>
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Events/BookingCreated.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Events</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Broadcasting</span>\<span class="t">PrivateChannel</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Broadcasting</span>\<span class="t">ShouldBroadcastNow</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Events</span>\<span class="t">Dispatchable</span>;
+
+<span class="k">class</span> <span class="t">BookingCreated</span> <span class="k">implements</span> <span class="t">ShouldBroadcastNow</span>                 <span class="c">// bug 2: sent at once, inside the transaction</span>
+{
+    <span class="k">use</span> <span class="t">Dispatchable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">Booking</span> <span class="v">$booking</span>)           <span class="c">// bug 3: every public property is the payload</span>
+    {
+    }
+
+    <span class="c">/** @return list&lt;PrivateChannel&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">broadcastOn</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="k">new</span> <span class="f">PrivateChannel</span>(<span class="s">&quot;account.{$this-&gt;booking-&gt;property-&gt;account_id}&quot;</span>)];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">broadcastAs</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">'booking.created'</span>;
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Events</span>\<span class="t">BookingCreated</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span>
+{
+    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>)
+    {
+    }
+
+    <span class="c">/** @param array{guest_name: string, guest_email: string, guest_phone: ?string, guest_channel: string, guests: int} $guest */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span>
+    {
+        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {
+            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span>
+
+            <span class="k">if</span> (! <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">availableFor</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {   <span class="c">// the one availability rule</span>
+                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);
+            }
+
+            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);              <span class="c">// the same price the page showed</span>
+
+            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);
+            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;
+            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();
+            <span class="v">$booking</span>-&gt;cancellation_policy = <span class="v">$property</span>-&gt;cancellation_policy;   <span class="c">// the terms the guest agreed to, frozen</span>
+            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
+            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);
+            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);
+
+            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [
+                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,
+                <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,
+                <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,
+            ], <span class="v">$quote</span>-&gt;lines));                                           <span class="c">// every line of the bill, kept</span>
+
+            <span class="t">BookingCreated</span>::<span class="f">dispatch</span>(<span class="v">$booking</span>);                           <span class="c">// bug 1: only bookings made through this class</span>
+
+            <span class="k">return</span> <span class="v">$booking</span>;
+        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span>
+    }
+}</code></pre>
+</div><p><b>Bug 1, the incident.</b> The event is sent from <code>CreateBooking</code>, so only bookings made on Nordic Stays are announced. Airbnb and Booking.com imports (scene 15), cancellations, expired holds, date changes and moves change the calendar silently.</p><p><b>Bug 2, the flash.</b> <code>ShouldBroadcastNow</code> sends during the transaction. If the transaction then rolls back (a deadlock, retried by <code>attempts: 3</code>), the screen has drawn a booking that doesn’t exist. Reloading shows the truth.</p><p><b>Bug 3, the leak.</b> With no <code>broadcastWith()</code>, Laravel sends every public property: the whole <code>Booking</code>, serialized with <code>toArray()</code>, guest email and phone included. Anyone with the account open in a browser can read them in the developer tools.</p></div></div></section>
+<section><h2>The fix, part 1: an event that says what changed, not what it is</h2><p>The screen needs one fact: <b>this property’s calendar changed</b>. It then reloads that property from the API, which applies every policy as usual (scene 19). So the payload is two ids, and nothing a guest typed.</p><p><code>ShouldBroadcast</code> puts the broadcast on the queue instead of sending it in the request. <code>ShouldDispatchAfterCommit</code> holds the event until the open transaction commits, and drops it if the transaction rolls back.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Events/CalendarChanged.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Events</span>;
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Broadcasting</span>\<span class="t">PrivateChannel</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Broadcasting</span>\<span class="t">ShouldBroadcast</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Events</span>\<span class="t">ShouldDispatchAfterCommit</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Events</span>\<span class="t">Dispatchable</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">CalendarChanged</span> <span class="k">implements</span> <span class="t">ShouldBroadcast</span>, <span class="t">ShouldDispatchAfterCommit</span>
+{
+    <span class="k">use</span> <span class="t">Dispatchable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(
+        <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$accountId</span>,
+        <span class="k">public</span> <span class="k">readonly</span> <span class="k">int</span> <span class="v">$propertyId</span>,
+    ) {
+    }
+
+    <span class="c">/** @return list&lt;PrivateChannel&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">broadcastOn</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="k">new</span> <span class="f">PrivateChannel</span>(<span class="s">&quot;account.{$this-&gt;accountId}&quot;</span>)];      <span class="c">// only this account's owners and co-hosts</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">broadcastAs</span>(): <span class="k">string</span>
+    {
+        <span class="k">return</span> <span class="s">'calendar.changed'</span>;
+    }
+
+    <span class="c">/** @return array{property_id: int} exactly what the screen needs, and nothing more */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">broadcastWith</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;propertyId];
+    }
+}</code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 2: sent from the one place every change goes through</h2><p>Every change to a calendar already reaches <code>CalendarSync</code>: our bookings, channel imports, cancellations, expired holds, date changes, moves and iCal syncs. The broadcast goes there, next to the channel push. The minimum-stay change sends none: it doesn’t change what the calendar shows.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/CalendarSync.php</span><span class="badge">changed since scene 30: <span class="plus">+9</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Enums\MembershipRole;
+use App\Events\CalendarChanged;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\Overbooking;
+use App\Models\Property;
+use App\Notifications\OverbookingDetected;
+use App\Operations\PlanTurnover;
+use Illuminate\Support\Facades\Notification;
+
+final class CalendarSync
+{
+    public function __construct(private PlanTurnover $turnover)
+    {
+    }
+
+    /** A booking was created, confirmed, imported, cancelled, expired, moved to other dates or to this property. */
+    public function bookingChanged(Booking $booking): void
+    {
+        if (in_array($booking-&gt;status, BookingStatus::blocking(), true)) {
+            $this-&gt;recordClashes($booking);
+        }
+
+        $this-&gt;turnover-&gt;forBooking($booking);                          // the cleaning follows the booking
+
+        PushAvailability::forProperty($booking-&gt;property);           // every channel learns the new state (scene 17)
+        $this-&gt;tellScreens($booking-&gt;property);                         // and every open calendar
+    }
+
+    /** A booking moved away from this property: its nights are free here now. */
+    public function bookingLeft(Property $property): void
+    {
+        PushAvailability::forProperty($property);
+        $this-&gt;tellScreens($property);
+    }
+
+    /** An iCal sync changed the blocks of a property (scene 12). */
+    public function blocksChanged(Property $property): void
+    {
+        PushAvailability::forProperty($property);
+        $this-&gt;tellScreens($property);
+    }
+
+    /** The host changed a rule the channels enforce for us, like the minimum stay. */
+    public function stayRulesChanged(Property $property): void
+    {
+        PushAvailability::forProperty($property);
+    }
+
+    private function tellScreens(Property $property): void
+    {
+        CalendarChanged::dispatch($property-&gt;account_id, $property-&gt;id);   // queued, and only after the commit
+    }
+
+    private function recordClashes(Booking $booking): void
+    {
+        $clashes = $booking-&gt;property-&gt;bookings()
+            -&gt;overlapping($booking-&gt;stay)
+            -&gt;whereKeyNot($booking-&gt;id)
+            -&gt;where('id', '&lt;', $booking-&gt;id)                               // earlier bookings only: each clash is recorded once, on the later one
+            -&gt;get();
+
+        foreach ($clashes as $earlier) {
+            $overbooking = Overbooking::createOrFirst([
+                'property_id' =&gt; $booking-&gt;property_id,
+                'booking_id' =&gt; $booking-&gt;id,
+                'conflicting_booking_id' =&gt; $earlier-&gt;id,
+            ]);
+
+            if ($overbooking-&gt;wasRecentlyCreated) {
+                $owners = $booking-&gt;property-&gt;account-&gt;users()-&gt;wherePivot('role', MembershipRole::Owner-&gt;value)-&gt;get();
+                Notification::send($owners, (new OverbookingDetected($overbooking))-&gt;afterCommit());
+            }
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Events</span>\<span class="t">CalendarChanged</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">OverbookingDetected</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Operations</span>\<span class="t">PlanTurnover</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CalendarSync</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PlanTurnover</span> <span class="v">$turnover</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** A booking was created, confirmed, imported, cancelled, expired, moved to other dates or to this property. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookingChanged</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">if</span> (<span class="f">in_array</span>(<span class="v">$booking</span>-&gt;status, <span class="t">BookingStatus</span>::<span class="f">blocking</span>(), <span class="k">true</span>)) {</span><span class="ln">            <span class="k">$this</span>-&gt;<span class="f">recordClashes</span>(<span class="v">$booking</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;turnover-&gt;<span class="f">forBooking</span>(<span class="v">$booking</span>);                          <span class="c">// the cleaning follows the booking</span></span><span class="ln"> </span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);           <span class="c">// every channel learns the new state (scene 17)</span></span><span class="ln add">        <span class="k">$this</span>-&gt;<span class="f">tellScreens</span>(<span class="v">$booking</span>-&gt;property);                         <span class="c">// and every open calendar</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** A booking moved away from this property: its nights are free here now. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookingLeft</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$property</span>);</span><span class="ln add">        <span class="k">$this</span>-&gt;<span class="f">tellScreens</span>(<span class="v">$property</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** An iCal sync changed the blocks of a property (scene 12). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">blocksChanged</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$property</span>);</span><span class="ln add">        <span class="k">$this</span>-&gt;<span class="f">tellScreens</span>(<span class="v">$property</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The host changed a rule the channels enforce for us, like the minimum stay. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stayRulesChanged</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$property</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">private</span> <span class="k">function</span> <span class="f">tellScreens</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="k">void</span></span><span class="ln add">    {</span><span class="ln add">        <span class="t">CalendarChanged</span>::<span class="f">dispatch</span>(<span class="v">$property</span>-&gt;account_id, <span class="v">$property</span>-&gt;id);   <span class="c">// queued, and only after the commit</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">recordClashes</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$clashes</span> = <span class="v">$booking</span>-&gt;property-&gt;<span class="f">bookings</span>()</span><span class="ln">            -&gt;<span class="f">overlapping</span>(<span class="v">$booking</span>-&gt;stay)</span><span class="ln">            -&gt;<span class="f">whereKeyNot</span>(<span class="v">$booking</span>-&gt;id)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'id'</span>, <span class="s">'&lt;'</span>, <span class="v">$booking</span>-&gt;id)                               <span class="c">// earlier bookings only: each clash is recorded once, on the later one</span></span><span class="ln">            -&gt;<span class="f">get</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">foreach</span> (<span class="v">$clashes</span> <span class="k">as</span> <span class="v">$earlier</span>) {</span><span class="ln">            <span class="v">$overbooking</span> = <span class="t">Overbooking</span>::<span class="f">createOrFirst</span>([</span><span class="ln">                <span class="s">'property_id'</span> =&gt; <span class="v">$booking</span>-&gt;property_id,</span><span class="ln">                <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id,</span><span class="ln">                <span class="s">'conflicting_booking_id'</span> =&gt; <span class="v">$earlier</span>-&gt;id,</span><span class="ln">            ]);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$overbooking</span>-&gt;wasRecentlyCreated) {</span><span class="ln">                <span class="v">$owners</span> = <span class="v">$booking</span>-&gt;property-&gt;account-&gt;<span class="f">users</span>()-&gt;<span class="f">wherePivot</span>(<span class="s">'role'</span>, <span class="t">MembershipRole</span>::<span class="t">Owner</span>-&gt;value)-&gt;<span class="f">get</span>();</span><span class="ln">                <span class="t">Notification</span>::<span class="f">send</span>(<span class="v">$owners</span>, (<span class="k">new</span> <span class="f">OverbookingDetected</span>(<span class="v">$overbooking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln">            }</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>CreateBooking stops broadcasting on its own</h3><p>A new booking doesn’t call <code>CalendarSync</code> yet: it is a hold, and the calendar coordinator runs when it is confirmed. But a hold blocks the nights (scene 30), so the screen must hear about it. <code>CreateBooking</code> asks the coordinator, like every other change does:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge">changed since the version above: <span class="plus">+6</span> <span class="minus">−4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(
+        private PriceQuoter $quoter,
+        private CalendarSync $calendar,
+    ) {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guest_phone: ?string, guest_channel: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // others wait here
+
+            if (! Property::whereKey($property-&gt;id)-&gt;availableFor($stay)-&gt;exists()) {   // the one availability rule
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this-&gt;quoter-&gt;quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking-&gt;stay = $stay;
+            $booking-&gt;total = $quote-&gt;total();
+            $booking-&gt;cancellation_policy = $property-&gt;cancellation_policy;   // the terms the guest agreed to, frozen
+            $booking-&gt;status = BookingStatus::Pending;
+            $booking-&gt;expires_at = now()-&gt;addMinutes(self::HOLD_MINUTES);
+            $property-&gt;bookings()-&gt;save($booking);
+
+            $booking-&gt;lineItems()-&gt;createMany(array_map(fn (LineItem $line): array =&gt; [
+                'type' =&gt; $line-&gt;type,
+                'description' =&gt; $line-&gt;description,
+                'amount' =&gt; $line-&gt;amount,
+            ], $quote-&gt;lines));                                           // every line of the bill, kept
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                    // the hold closes the nights everywhere, screens included
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Events</span>\<span class="t">BookingCreated</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>)</span><span class="ln del">    {</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln add">        <span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>,</span><span class="ln add">        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,</span><span class="ln add">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @param array{guest_name: string, guest_email: string, guest_phone: ?string, guest_channel: string, guests: int} $guest */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">availableFor</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {   <span class="c">// the one availability rule</span></span><span class="ln">                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);              <span class="c">// the same price the page showed</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);</span><span class="ln">            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;cancellation_policy = <span class="v">$property</span>-&gt;cancellation_policy;   <span class="c">// the terms the guest agreed to, frozen</span></span><span class="ln">            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);</span><span class="ln">            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,</span><span class="ln">                <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,</span><span class="ln">                <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,</span><span class="ln">            ], <span class="v">$quote</span>-&gt;lines));                                           <span class="c">// every line of the bill, kept</span></span><span class="ln"> </span><span class="ln del">            <span class="t">BookingCreated</span>::<span class="f">dispatch</span>(<span class="v">$booking</span>);                           <span class="c">// bug 1: only bookings made through this class</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                    <span class="c">// the hold closes the nights everywhere, screens included</span></span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$booking</span>;</span><span class="ln">        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>A side effect, and the right one: since scene 17 a hold never reached the channels until it was paid, so Airbnb could sell the nights during those 30 minutes. Now a hold closes them on every channel too, and an expired hold (scene 9, through <code>CalendarSync</code>) opens them again.</p><p>The old event goes:</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">rm</span> app/Events/BookingCreated.php</code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 3: the socket is a hint, the API is the truth</h2><p>A WebSocket message can be missed: a laptop sleeps, the Wi-Fi drops, Reverb restarts during a deploy. So the page never draws from the event. On <code>calendar.changed</code> it reloads that property’s calendar from the API, and after every reconnect it reloads everything it shows, because it can’t know what it missed while it was away.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">resources/js/calendar.js</span><span class="badge">changed since the version above: <span class="plus">+7</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="import './echo';                                      // creates window.Echo, connected to Reverb
+
+const accountId = document.querySelector('meta[name=&quot;account-id&quot;]').content;
+
+window.Echo.private(`account.${accountId}`)
+    .listen('.calendar.changed', (event) =&gt; {
+        window.calendar.reload(event.property_id);        // fetch the truth from the API; the event only says &quot;look again&quot;
+    });
+
+// After a dropped connection, events sent while we were away are gone: reload what is on screen.
+window.Echo.connector.pusher.connection.bind('connected', () =&gt; {
+    window.calendar.reloadAll();
+});"><code><span class="ln"><span class="k">import</span> <span class="s">'./echo'</span>;                                      <span class="c">// creates window.Echo, connected to Reverb</span></span><span class="ln"> </span><span class="ln"><span class="k">const</span> accountId = document.<span class="f">querySelector</span>(<span class="s">'meta[name=&quot;account-id&quot;]'</span>).content;</span><span class="ln"> </span><span class="ln">window.Echo.<span class="f">private</span>(<span class="s">`account.${accountId}`</span>)</span><span class="ln del">    .<span class="f">listen</span>(<span class="s">'.booking.created'</span>, (event) =&gt; {</span><span class="ln del">        window.calendar.<span class="f">show</span>(event.booking);              <span class="c">// draw the booking straight from the event</span></span><span class="ln add">    .<span class="f">listen</span>(<span class="s">'.calendar.changed'</span>, (event) =&gt; {</span><span class="ln add">        window.calendar.<span class="f">reload</span>(event.property_id);        <span class="c">// fetch the truth from the API; the event only says &quot;look again&quot;</span></span><span class="ln">    });</span><span class="ln add"> </span><span class="ln add"><span class="c">// After a dropped connection, events sent while we were away are gone: reload what is on screen.</span></span><span class="ln add">window.Echo.connector.pusher.connection.<span class="f">bind</span>(<span class="s">'connected'</span>, () =&gt; {</span><span class="ln add">    window.calendar.<span class="f">reloadAll</span>();</span><span class="ln add">});</span></code></pre>
+</div><p><code>window.calendar</code> is the calendar page’s own code: <code>reload(id)</code> fetches one property’s nights from the API and redraws them, <code>reloadAll()</code> does it for every property on screen. The leading dot in <code>.calendar.changed</code> tells Echo to use the name from <code>broadcastAs()</code> as it is.</p></div><div class="block"><h3>Running it</h3><p>Broadcasts are queued now, so they are sent by the queue workers (Horizon, scene 17) to Reverb. Reverb keeps one connection per open browser tab: scene 38 runs it under Supervisor and raises the open-file limit, since each connection is a file descriptor.</p><div class="codebox changed">
+<div class="filehead"><span class="path">phpunit.xml</span><span class="badge">changed since scene 8: <span class="plus">+1</span> <span class="minus">−5</span></span></div>
+<pre class="code diff" data-copy="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;phpunit xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:noNamespaceSchemaLocation=&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;
+         bootstrap=&quot;vendor/autoload.php&quot;
+         colors=&quot;true&quot;
+&gt;
+    &lt;testsuites&gt;
+        &lt;testsuite name=&quot;Unit&quot;&gt;
+            &lt;directory&gt;tests/Unit&lt;/directory&gt;
+        &lt;/testsuite&gt;
+        &lt;testsuite name=&quot;Feature&quot;&gt;
+            &lt;directory&gt;tests/Feature&lt;/directory&gt;
+        &lt;/testsuite&gt;
+    &lt;/testsuites&gt;
+    &lt;source&gt;
+        &lt;include&gt;
+            &lt;directory&gt;app&lt;/directory&gt;
+        &lt;/include&gt;
+    &lt;/source&gt;
+    &lt;php&gt;
+        &lt;env name=&quot;APP_ENV&quot; value=&quot;testing&quot;/&gt;
+        &lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot;/&gt;
+        &lt;env name=&quot;DB_DATABASE&quot; value=&quot;pms_test&quot;/&gt;
+        &lt;env name=&quot;QUEUE_CONNECTION&quot; value=&quot;sync&quot;/&gt;
+        &lt;env name=&quot;CACHE_STORE&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;SESSION_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;MAIL_MAILER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;BCRYPT_ROUNDS&quot; value=&quot;4&quot;/&gt;
+        &lt;env name=&quot;BROADCAST_CONNECTION&quot; value=&quot;null&quot;/&gt;
+    &lt;/php&gt;
+&lt;/phpunit&gt;"><code><span class="ln">&lt;?xml <span class="v">version</span>=<span class="s">&quot;1.0&quot;</span> <span class="v">encoding</span>=<span class="s">&quot;UTF-8&quot;</span>?<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;phpunit</span> <span class="v">xmlns:xsi</span>=<span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span><span class="ln">         <span class="v">xsi:noNamespaceSchemaLocation</span>=<span class="s">&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;</span></span><span class="ln">         <span class="v">bootstrap</span>=<span class="s">&quot;vendor/autoload.php&quot;</span></span><span class="ln">         <span class="v">colors</span>=<span class="s">&quot;true&quot;</span></span><span class="ln"><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;testsuites</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln del">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Concurrency&quot;</span><span class="k">&gt;</span></span><span class="ln del">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Concurrency<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln del">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/testsuites</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;source</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;include</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>app<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/include</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/source</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;php</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span></span><span class="ln del">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;sk_test_fake&quot;</span><span class="k">/&gt;</span></span><span class="ln del">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_WEBHOOK_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;whsec_test&quot;</span><span class="k">/&gt;</span></span><span class="ln add">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BROADCAST_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;null&quot;</span><span class="k">/&gt;</span></span><span class="ln">    <span class="k">&lt;/php</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/phpunit</span><span class="k">&gt;</span></span></code></pre>
+</div><p>In tests, broadcasts go to the <code>null</code> broadcaster: with the <code>sync</code> queue, every test that changes a calendar would otherwise try to reach a Reverb server. The channel authorization test below switches to Reverb for itself.</p></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The incident, the exact channel and payload, after-commit, and who may subscribe</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/CalendarBroadcastTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelReservation</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ImportChannelReservation</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Events</span>\<span class="t">CalendarChanged</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Broadcasting</span>\<span class="t">PrivateChannel</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Events</span>\<span class="t">ShouldDispatchAfterCommit</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Event</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Queue</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;cottage = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Cottage 2'</span>]);
+});
+
+<span class="f">it</span>(<span class="s">'tells the host’s screen when Airbnb books'</span>, <span class="k">function</span> () {
+    <span class="t">Event</span>::<span class="f">fake</span>([<span class="t">CalendarChanged</span>::class]);
+    <span class="t">Queue</span>::<span class="f">fake</span>();                                                              <span class="c">// no channel pushes in this test</span>
+    <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;cottage-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'41793625'</span>]);
+
+    <span class="f">app</span>(<span class="t">ImportChannelReservation</span>::class)-&gt;<span class="f">handle</span>(<span class="k">new</span> <span class="f">ChannelReservation</span>(
+        <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'HMXK2W9'</span>, <span class="s">'41793625'</span>, <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>, <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-08-02'</span>, <span class="s">'2027-08-09'</span>),
+        <span class="s">'Lena Berg'</span>, <span class="s">'lena@guest.airbnb.com'</span>, <span class="n">2</span>, <span class="t">Money</span>::<span class="f">of</span>(<span class="n">126_000</span>, <span class="s">'EUR'</span>), version: <span class="n">1</span>,
+    ));
+
+    <span class="t">Event</span>::<span class="f">assertDispatched</span>(<span class="t">CalendarChanged</span>::class, <span class="k">fn</span> (<span class="t">CalendarChanged</span> <span class="v">$event</span>): <span class="k">bool</span> =&gt; <span class="v">$event</span>-&gt;propertyId === <span class="k">$this</span>-&gt;cottage-&gt;id);
+});
+
+<span class="f">it</span>(<span class="s">'broadcasts on the account’s private channel, with the property id and nothing else'</span>, <span class="k">function</span> () {
+    <span class="v">$event</span> = <span class="k">new</span> <span class="f">CalendarChanged</span>(<span class="k">$this</span>-&gt;cottage-&gt;account_id, <span class="k">$this</span>-&gt;cottage-&gt;id);
+
+    <span class="f">expect</span>(<span class="v">$event</span>-&gt;<span class="f">broadcastOn</span>())-&gt;<span class="f">toEqual</span>([<span class="k">new</span> <span class="f">PrivateChannel</span>(<span class="s">&quot;account.{$this-&gt;cottage-&gt;account_id}&quot;</span>)])
+        -&gt;<span class="f">and</span>(<span class="v">$event</span>-&gt;<span class="f">broadcastAs</span>())-&gt;<span class="f">toBe</span>(<span class="s">'calendar.changed'</span>)
+        -&gt;<span class="f">and</span>(<span class="v">$event</span>-&gt;<span class="f">broadcastWith</span>())-&gt;<span class="f">toBe</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;cottage-&gt;id]);   <span class="c">// no guest data can leak</span>
+});
+
+<span class="f">it</span>(<span class="s">'is held until the transaction commits'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="k">new</span> <span class="f">CalendarChanged</span>(<span class="n">1</span>, <span class="n">2</span>))-&gt;<span class="f">toBeInstanceOf</span>(<span class="t">ShouldDispatchAfterCommit</span>::class);
+});
+
+<span class="f">it</span>(<span class="s">'lets only the account’s owners and co-hosts subscribe'</span>, <span class="k">function</span> (<span class="t">MembershipRole</span>|<span class="k">null</span> <span class="v">$role</span>, <span class="k">int</span> <span class="v">$status</span>) {
+    <span class="f">config</span>([
+        <span class="s">'broadcasting.default'</span> =&gt; <span class="s">'reverb'</span>,
+        <span class="s">'broadcasting.connections.reverb.key'</span> =&gt; <span class="s">'test-key'</span>,
+        <span class="s">'broadcasting.connections.reverb.secret'</span> =&gt; <span class="s">'test-secret'</span>,
+        <span class="s">'broadcasting.connections.reverb.app_id'</span> =&gt; <span class="s">'test'</span>,
+    ]);
+    <span class="k">require</span> <span class="f">base_path</span>(<span class="s">'routes/channels.php'</span>);                                   <span class="c">// register the channel on the Reverb broadcaster</span>
+
+    <span class="v">$user</span> = <span class="v">$role</span> === <span class="k">null</span> ? <span class="f">memberOf</span>(<span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>()-&gt;account) : <span class="f">hostOf</span>(<span class="k">$this</span>-&gt;cottage, <span class="v">$role</span>);
+
+    <span class="k">$this</span>-&gt;<span class="f">actingAs</span>(<span class="v">$user</span>)
+        -&gt;<span class="f">postJson</span>(<span class="s">'/api/broadcasting/auth'</span>, [<span class="s">'socket_id'</span> =&gt; <span class="s">'1234.5678'</span>, <span class="s">'channel_name'</span> =&gt; <span class="s">&quot;private-account.{$this-&gt;cottage-&gt;account_id}&quot;</span>])
+        -&gt;<span class="f">assertStatus</span>(<span class="v">$status</span>);
+})-&gt;<span class="f">with</span>([
+    <span class="s">'owner'</span> =&gt; [<span class="t">MembershipRole</span>::<span class="t">Owner</span>, <span class="n">200</span>],
+    <span class="s">'co-host'</span> =&gt; [<span class="t">MembershipRole</span>::<span class="t">CoHost</span>, <span class="n">200</span>],
+    <span class="s">'cleaner'</span> =&gt; [<span class="t">MembershipRole</span>::<span class="t">Cleaner</span>, <span class="n">403</span>],
+    <span class="s">'another account’s owner'</span> =&gt; [<span class="k">null</span>, <span class="n">403</span>],
+]);</code></pre>
+</div><p><code>Event::fake([CalendarChanged::class])</code> fakes only that event: every other event and listener still runs, so the import does everything it does in production.</p></div></div></div></details></section>
+<section class="nextup"><p>Day 5 is done: cleanings that follow the calendar, rate plans, copies with their own prices, minimum stays every door knows, one availability rule and live calendars. Day 6 starts with a property page that takes four seconds to load.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../30-search/"><small>← Scene 30</small>Search said free, the booking said taken</a>
+<span class="soon"><small>Scene 32, coming soon</small>The property page takes 4 seconds</span>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in"],"slug":"27-rate-plans","ready":true,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), shallow vs deep copies, what a copy must never take along"],"slug":"28-duplicate-listing","ready":true,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Minimum stay sent to the channels with availability, one rule check for every booking path"],"slug":"29-minimum-stay","ready":true,"label":"Day 5 · Scene 29"},{"n":30,"title":"Search said free, the booking said taken","patterns":["One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough"],"slug":"30-search","ready":true,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":true,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":true},{"name":"Specification","chapter":30,"chapterTitle":"Search said free, the booking said taken","slug":"30-search","ready":true},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Chain of Responsibility","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":false},{"name":"Pipeline","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":false},{"name":"Template Method","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Factory Method","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Composite","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Repository","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

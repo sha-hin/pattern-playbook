@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Summer prices ignored the weekend rule · Laravel: Rate plans with seasons and a weekend rule | Pattern Playbook</title>
+<meta name="description" content="After the summer season went live, every July Saturday was cheaper than a May Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/27-rate-plans/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Summer prices ignored the weekend rule · Laravel: Rate plans with seasons and a weekend rule | Pattern Playbook">
+<meta property="og:description" content="After the summer season went live, every July Saturday was cheaper than a May Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/27-rate-plans/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Summer prices ignored the weekend rule · Laravel: Rate plans with seasons and a weekend rule | Pattern Playbook">
+<meta name="twitter:description" content="After the summer season went live, every July Saturday was cheaper than a May Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 27: Summer prices ignored the weekend rule","description":"After the summer season went live, every July Saturday was cheaper than a May Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.","url":"https://sha-hin.github.io/pattern-playbook/27-rate-plans/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/27-rate-plans/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 27: Summer prices ignored the weekend rule","item":"https://sha-hin.github.io/pattern-playbook/27-rate-plans/"}]}]}</script>
+</head>
+<body data-page="27-rate-plans" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 5 · Operations and pricing › Scene 27 of 42</p>
+<h1>Summer prices ignored the weekend rule</h1>
+<p class="subtitle">Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in</p>
+
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Wednesday 14:30</span></p>
+<p class="inc-msg"><span class="inc-who">Ingrid · host, Skagen cottages</span>I set <b>€160</b> a night, <b>+20% on Fridays and Saturdays</b>, and a summer season at <b>€180</b> for July and August. A guest just booked Saturday 3 July for <b>€180</b>. Saturday 8 May costs <b>€192</b>. My busiest weekends are cheaper than May.</p><p class="inc-msg"><span class="inc-who">Mona · support</span>Three other hosts with summer seasons say the same.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Seasons shipped last week. Inside a season we return the season price and never get to the weekend rule.</p>
+</section>
+<section><h2>Last week’s feature</h2><p>Until last week a property had one price per night (scene 1). Now a host can give it a <b>rate plan</b>: a base price, a weekend uplift for Friday and Saturday nights, and seasons with their own nightly price. A plan belongs to the account and several listings can use the same one: a host with three identical studios keeps one plan for all three.</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_04_20_000001_create_rate_plans_tables.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
+
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">create</span>(<span class="s">'rate_plans'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">id</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'account_id'</span>)-&gt;<span class="f">constrained</span>();
+            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'name'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">unsignedInteger</span>(<span class="s">'nightly_rate_cents'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">char</span>(<span class="s">'currency'</span>, <span class="n">3</span>);
+            <span class="v">$table</span>-&gt;<span class="f">unsignedSmallInteger</span>(<span class="s">'weekend_uplift_bps'</span>)-&gt;<span class="f">default</span>(<span class="n">0</span>);   <span class="c">// 2000 = +20% on Friday and Saturday nights</span>
+            <span class="v">$table</span>-&gt;<span class="f">timestamps</span>();
+        });
+
+        <span class="t">Schema</span>::<span class="f">create</span>(<span class="s">'rate_plan_seasons'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">id</span>();
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'rate_plan_id'</span>)-&gt;<span class="f">constrained</span>()-&gt;<span class="f">cascadeOnDelete</span>();
+            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'name'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">date</span>(<span class="s">'starts_on'</span>);                                     <span class="c">// the first night of the season</span>
+            <span class="v">$table</span>-&gt;<span class="f">date</span>(<span class="s">'ends_on'</span>);                                       <span class="c">// the last night, included</span>
+            <span class="v">$table</span>-&gt;<span class="f">unsignedInteger</span>(<span class="s">'nightly_rate_cents'</span>);
+            <span class="v">$table</span>-&gt;<span class="f">timestamps</span>();
+        });
+
+        <span class="t">Schema</span>::<span class="f">table</span>(<span class="s">'properties'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">foreignId</span>(<span class="s">'rate_plan_id'</span>)-&gt;<span class="f">nullable</span>()-&gt;<span class="f">constrained</span>();  <span class="c">// null: the property's own nightly_rate</span>
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Models/RatePlan.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;
+
+<span class="k">class</span> <span class="t">RatePlan</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'currency'</span>, <span class="s">'weekend_uplift_bps'</span>];
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">seasons</span>(): <span class="t">HasMany</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">RatePlanSeason</span>::class)-&gt;<span class="f">orderBy</span>(<span class="s">'starts_on'</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">baseRate</span>(): <span class="t">Money</span>
+    {
+        <span class="k">return</span> <span class="t">Money</span>::<span class="f">of</span>(<span class="k">$this</span>-&gt;nightly_rate_cents, <span class="k">$this</span>-&gt;currency);
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Models/RatePlanSeason.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">RatePlanSeason</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'starts_on'</span>, <span class="s">'ends_on'</span>, <span class="s">'nightly_rate_cents'</span>];
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [
+            <span class="s">'starts_on'</span> =&gt; <span class="s">'date:Y-m-d'</span>,
+            <span class="s">'ends_on'</span> =&gt; <span class="s">'date:Y-m-d'</span>,
+        ];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);
+    }
+
+    <span class="c">/** True for every night from starts_on to ends_on, both included. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">covers</span>(<span class="k">string</span> <span class="v">$night</span>): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="v">$night</span> &gt;= <span class="k">$this</span>-&gt;starts_on-&gt;<span class="f">toDateString</span>() &amp;&amp; <span class="v">$night</span> &lt;= <span class="k">$this</span>-&gt;ends_on-&gt;<span class="f">toDateString</span>();   <span class="c">// Y-m-d compares as text</span>
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The property points at its plan</h3><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 13: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);                      // shared: several listings can use one plan
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);                      <span class="c">// shared: several listings can use one plan</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p><code>rate_plan_id</code> is not fillable: the host picks a plan through the property settings, which checks the plan belongs to the same account (scene 19) and sets it with <code>forceFill()</code>.</p></div><div class="block"><h3>The quote takes one price per night</h3><p>Nights no longer all cost the same, so the builder from scene 7 learns to take a list of nightly prices. Its old method stays, for the host’s custom offer with one price for every night.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/QuoteBuilder.php</span><span class="badge">changed since scene 7: <span class="plus">+22</span> <span class="minus">−3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use App\Bookings\Stay;
+use App\Enums\LineItemType;
+use App\Money\Money;
+use Illuminate\Support\Str;
+use LogicException;
+
+final class QuoteBuilder
+{
+    /** @var list&lt;LineItem&gt; */
+    private array $lines = [];
+
+    private ?Money $nights = null;                     // what discounts apply to
+
+    private bool $taxed = false;
+
+    public function nights(Stay $stay, Money $nightlyRate): self
+    {
+        return $this-&gt;nightsAt(array_fill(0, $stay-&gt;nights(), $nightlyRate));   // the same price every night
+    }
+
+    /** @param list&lt;Money&gt; $prices one price per night, in order */
+    public function nightsAt(array $prices): self
+    {
+        if ($this-&gt;lines !== []) {
+            throw new LogicException('Nights come first.');
+        }
+
+        if ($prices === []) {
+            throw new LogicException('A stay has at least one night.');
+        }
+
+        $this-&gt;nights = array_reduce(array_slice($prices, 1), fn (Money $sum, Money $price): Money =&gt; $sum-&gt;add($price), $prices[0]);
+
+        $count = count($prices) . ' ' . Str::plural('night', count($prices));
+        $samePrice = count(array_unique(array_map(fn (Money $price): int =&gt; $price-&gt;amount, $prices))) === 1;
+
+        $this-&gt;lines[] = new LineItem(
+            LineItemType::Nights,
+            $samePrice ? &quot;{$count} × {$prices[0]-&gt;format()}&quot; : &quot;{$count}, {$this-&gt;nights-&gt;format()} in total&quot;,
+            $this-&gt;nights,
+        );
+
+        return $this;                                   // returning $this is what lets the calls chain
+    }
+
+    public function discount(string $description, int $basisPoints): self
+    {
+        $this-&gt;assertOpen();
+
+        $this-&gt;lines[] = new LineItem(LineItemType::Discount, $description, $this-&gt;nightsTotal()-&gt;percent($basisPoints)-&gt;negate());
+
+        return $this;
+    }
+
+    public function cleaningFee(Money $fee): self
+    {
+        $this-&gt;assertOpen();
+
+        $this-&gt;lines[] = new LineItem(LineItemType::CleaningFee, 'Cleaning fee', $fee);
+
+        return $this;
+    }
+
+    public function tax(string $description, int $basisPoints): self
+    {
+        $this-&gt;assertOpen();
+
+        $subtotal = (new Quote($this-&gt;lines))-&gt;total();             // everything so far
+        $this-&gt;lines[] = new LineItem(LineItemType::Tax, $description, $subtotal-&gt;percent($basisPoints));
+        $this-&gt;taxed = true;                                         // nothing may be added after tax
+
+        return $this;
+    }
+
+    public function build(): Quote
+    {
+        $this-&gt;nightsTotal();                                        // a quote without nights is a bug
+
+        return new Quote($this-&gt;lines);
+    }
+
+    private function nightsTotal(): Money
+    {
+        return $this-&gt;nights ?? throw new LogicException('Add the nights first.');
+    }
+
+    private function assertOpen(): void
+    {
+        $this-&gt;nightsTotal();
+
+        if ($this-&gt;taxed) {
+            throw new LogicException('Tax is the last line; nothing can be added after it.');
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">LineItemType</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Str</span>;</span><span class="ln"><span class="k">use</span> <span class="t">LogicException</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">QuoteBuilder</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @var list&lt;LineItem&gt; */</span></span><span class="ln">    <span class="k">private</span> <span class="k">array</span> <span class="v">$lines</span> = [];</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> ?<span class="t">Money</span> <span class="v">$nights</span> = <span class="k">null</span>;                     <span class="c">// what discounts apply to</span></span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">bool</span> <span class="v">$taxed</span> = <span class="k">false</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">nights</span>(<span class="t">Stay</span> <span class="v">$stay</span>, <span class="t">Money</span> <span class="v">$nightlyRate</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">nightsAt</span>(<span class="f">array_fill</span>(<span class="n">0</span>, <span class="v">$stay</span>-&gt;<span class="f">nights</span>(), <span class="v">$nightlyRate</span>));   <span class="c">// the same price every night</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** @param list&lt;Money&gt; $prices one price per night, in order */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">nightsAt</span>(<span class="k">array</span> <span class="v">$prices</span>): <span class="k">self</span></span><span class="ln add">    {</span><span class="ln">        <span class="k">if</span> (<span class="k">$this</span>-&gt;lines !== []) {</span><span class="ln">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'Nights come first.'</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln del">        <span class="k">$this</span>-&gt;nights = <span class="v">$nightlyRate</span>-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());</span><span class="ln del">        <span class="k">$this</span>-&gt;lines[] = <span class="k">new</span> <span class="f">LineItem</span>(<span class="t">LineItemType</span>::<span class="t">Nights</span>, <span class="s">&quot;{$stay-&gt;nights()} nights × {$nightlyRate-&gt;format()}&quot;</span>, <span class="k">$this</span>-&gt;nights);</span><span class="ln del"> </span><span class="ln add">        <span class="k">if</span> (<span class="v">$prices</span> === []) {</span><span class="ln add">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'A stay has at least one night.'</span>);</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;nights = <span class="f">array_reduce</span>(<span class="f">array_slice</span>(<span class="v">$prices</span>, <span class="n">1</span>), <span class="k">fn</span> (<span class="t">Money</span> <span class="v">$sum</span>, <span class="t">Money</span> <span class="v">$price</span>): <span class="t">Money</span> =&gt; <span class="v">$sum</span>-&gt;<span class="f">add</span>(<span class="v">$price</span>), <span class="v">$prices</span>[<span class="n">0</span>]);</span><span class="ln add"> </span><span class="ln add">        <span class="v">$count</span> = <span class="f">count</span>(<span class="v">$prices</span>) . <span class="s">' '</span> . <span class="t">Str</span>::<span class="f">plural</span>(<span class="s">'night'</span>, <span class="f">count</span>(<span class="v">$prices</span>));</span><span class="ln add">        <span class="v">$samePrice</span> = <span class="f">count</span>(<span class="f">array_unique</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">Money</span> <span class="v">$price</span>): <span class="k">int</span> =&gt; <span class="v">$price</span>-&gt;amount, <span class="v">$prices</span>))) === <span class="n">1</span>;</span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;lines[] = <span class="k">new</span> <span class="f">LineItem</span>(</span><span class="ln add">            <span class="t">LineItemType</span>::<span class="t">Nights</span>,</span><span class="ln add">            <span class="v">$samePrice</span> ? <span class="s">&quot;{$count} × {$prices[0]-&gt;format()}&quot;</span> : <span class="s">&quot;{$count}, {$this-&gt;nights-&gt;format()} in total&quot;</span>,</span><span class="ln add">            <span class="k">$this</span>-&gt;nights,</span><span class="ln add">        );</span><span class="ln add"> </span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>;                                   <span class="c">// returning $this is what lets the calls chain</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">discount</span>(<span class="k">string</span> <span class="v">$description</span>, <span class="k">int</span> <span class="v">$basisPoints</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">assertOpen</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;lines[] = <span class="k">new</span> <span class="f">LineItem</span>(<span class="t">LineItemType</span>::<span class="t">Discount</span>, <span class="v">$description</span>, <span class="k">$this</span>-&gt;<span class="f">nightsTotal</span>()-&gt;<span class="f">percent</span>(<span class="v">$basisPoints</span>)-&gt;<span class="f">negate</span>());</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaningFee</span>(<span class="t">Money</span> <span class="v">$fee</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">assertOpen</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;lines[] = <span class="k">new</span> <span class="f">LineItem</span>(<span class="t">LineItemType</span>::<span class="t">CleaningFee</span>, <span class="s">'Cleaning fee'</span>, <span class="v">$fee</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">tax</span>(<span class="k">string</span> <span class="v">$description</span>, <span class="k">int</span> <span class="v">$basisPoints</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">assertOpen</span>();</span><span class="ln"> </span><span class="ln">        <span class="v">$subtotal</span> = (<span class="k">new</span> <span class="f">Quote</span>(<span class="k">$this</span>-&gt;lines))-&gt;<span class="f">total</span>();             <span class="c">// everything so far</span></span><span class="ln">        <span class="k">$this</span>-&gt;lines[] = <span class="k">new</span> <span class="f">LineItem</span>(<span class="t">LineItemType</span>::<span class="t">Tax</span>, <span class="v">$description</span>, <span class="v">$subtotal</span>-&gt;<span class="f">percent</span>(<span class="v">$basisPoints</span>));</span><span class="ln">        <span class="k">$this</span>-&gt;taxed = <span class="k">true</span>;                                         <span class="c">// nothing may be added after tax</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">build</span>(): <span class="t">Quote</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">nightsTotal</span>();                                        <span class="c">// a quote without nights is a bug</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">Quote</span>(<span class="k">$this</span>-&gt;lines);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">nightsTotal</span>(): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;nights ?? <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'Add the nights first.'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">assertOpen</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">nightsTotal</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="k">$this</span>-&gt;taxed) {</span><span class="ln">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'Tax is the last line; nothing can be added after it.'</span>);</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/PriceQuoter.php</span><span class="badge">changed since scene 7: <span class="plus">+5</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Money\Money;
+
+final class PriceQuoter
+{
+    public const WEEKLY_NIGHTS = 7;
+
+    public function __construct(private NightlyRates $rates)
+    {
+    }
+
+    public function quote(Property $property, Stay $stay): Quote
+    {
+        $quote = (new QuoteBuilder())-&gt;nightsAt($this-&gt;rates-&gt;for($property, $stay));   // each night at its own price
+
+        if ($stay-&gt;nights() &gt;= self::WEEKLY_NIGHTS &amp;&amp; $property-&gt;weekly_discount_bps &gt; 0) {
+            $quote-&gt;discount('Weekly discount', $property-&gt;weekly_discount_bps);
+        }
+
+        if ($property-&gt;cleaning_fee_cents !== null) {
+            $quote-&gt;cleaningFee(Money::of($property-&gt;cleaning_fee_cents, $property-&gt;currency));
+        }
+
+        if ($property-&gt;tax_rate_bps &gt; 0) {
+            $quote-&gt;tax('Accommodation tax', $property-&gt;tax_rate_bps);
+        }
+
+        return $quote-&gt;build();
+    }
+
+    /** The host's offer to one guest: their own nightly rate and discount. The tax rule is not theirs to change. */
+    public function customOffer(Property $property, Stay $stay, Money $nightlyRate, int $discountBps): Quote
+    {
+        $quote = (new QuoteBuilder())-&gt;nights($stay, $nightlyRate);
+
+        if ($discountBps &gt; 0) {
+            $quote-&gt;discount('Host discount', $discountBps);                  // instead of the weekly discount, never on top of it
+        }
+
+        if ($property-&gt;cleaning_fee_cents !== null) {
+            $quote-&gt;cleaningFee(Money::of($property-&gt;cleaning_fee_cents, $property-&gt;currency));
+        }
+
+        if ($property-&gt;tax_rate_bps &gt; 0) {
+            $quote-&gt;tax('Accommodation tax', $property-&gt;tax_rate_bps);
+        }
+
+        return $quote-&gt;build();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">PriceQuoter</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">WEEKLY_NIGHTS</span> = <span class="n">7</span>;</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">NightlyRates</span> <span class="v">$rates</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">quote</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="t">Quote</span></span><span class="ln">    {</span><span class="ln del">        <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nights</span>(<span class="v">$stay</span>, <span class="v">$property</span>-&gt;nightly_rate);</span><span class="ln add">        <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nightsAt</span>(<span class="k">$this</span>-&gt;rates-&gt;<span class="f">for</span>(<span class="v">$property</span>, <span class="v">$stay</span>));   <span class="c">// each night at its own price</span></span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$stay</span>-&gt;<span class="f">nights</span>() &gt;= <span class="k">self</span>::<span class="t">WEEKLY_NIGHTS</span> &amp;&amp; <span class="v">$property</span>-&gt;weekly_discount_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">discount</span>(<span class="s">'Weekly discount'</span>, <span class="v">$property</span>-&gt;weekly_discount_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;cleaning_fee_cents !== <span class="k">null</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">cleaningFee</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$property</span>-&gt;cleaning_fee_cents, <span class="v">$property</span>-&gt;currency));</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;tax_rate_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">tax</span>(<span class="s">'Accommodation tax'</span>, <span class="v">$property</span>-&gt;tax_rate_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$quote</span>-&gt;<span class="f">build</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The host's offer to one guest: their own nightly rate and discount. The tax rule is not theirs to change. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">customOffer</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="t">Money</span> <span class="v">$nightlyRate</span>, <span class="k">int</span> <span class="v">$discountBps</span>): <span class="t">Quote</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nights</span>(<span class="v">$stay</span>, <span class="v">$nightlyRate</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$discountBps</span> &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">discount</span>(<span class="s">'Host discount'</span>, <span class="v">$discountBps</span>);                  <span class="c">// instead of the weekly discount, never on top of it</span></span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;cleaning_fee_cents !== <span class="k">null</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">cleaningFee</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$property</span>-&gt;cleaning_fee_cents, <span class="v">$property</span>-&gt;currency));</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$property</span>-&gt;tax_rate_bps &gt; <span class="n">0</span>) {</span><span class="ln">            <span class="v">$quote</span>-&gt;<span class="f">tax</span>(<span class="s">'Accommodation tax'</span>, <span class="v">$property</span>-&gt;tax_rate_bps);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$quote</span>-&gt;<span class="f">build</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Every caller already gets <code>PriceQuoter</code> from the container (the quote endpoint, <code>CreateBooking</code>, <code>ChangeBookingDates</code>), so the new constructor argument is filled in for them.</p></div></div></section>
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Pricing/NightlyRates.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">NightlyRates</span>
+{
+    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span>
+    {
+        <span class="v">$plan</span> = <span class="v">$property</span>-&gt;ratePlan;
+        <span class="v">$prices</span> = [];
+
+        <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$stay</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$stay</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {
+            <span class="v">$prices</span>[] = <span class="v">$plan</span> === <span class="k">null</span> ? <span class="v">$property</span>-&gt;nightly_rate : <span class="k">$this</span>-&gt;<span class="f">priceOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);
+        }
+
+        <span class="k">return</span> <span class="v">$prices</span>;
+    }
+
+    <span class="k">private</span> <span class="k">function</span> <span class="f">priceOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span>
+    {
+        <span class="k">foreach</span> (<span class="v">$plan</span>-&gt;seasons <span class="k">as</span> <span class="v">$season</span>) {
+            <span class="k">if</span> (<span class="v">$season</span>-&gt;<span class="f">covers</span>(<span class="v">$night</span>-&gt;<span class="f">toDateString</span>())) {
+                <span class="k">return</span> <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$season</span>-&gt;nightly_rate_cents, <span class="v">$plan</span>-&gt;currency);   <span class="c">// the bug: returns before the weekend rule</span>
+            }
+        }
+
+        <span class="v">$base</span> = <span class="v">$plan</span>-&gt;<span class="f">baseRate</span>();
+
+        <span class="k">return</span> <span class="v">$night</span>-&gt;<span class="f">isFriday</span>() || <span class="v">$night</span>-&gt;<span class="f">isSaturday</span>()
+            ? <span class="v">$base</span>-&gt;<span class="f">add</span>(<span class="v">$base</span>-&gt;<span class="f">percent</span>(<span class="v">$plan</span>-&gt;weekend_uplift_bps))
+            : <span class="v">$base</span>;
+    }
+}</code></pre>
+</div><p>The season’s <code>return</code> ends the method, so the weekend rule only ever runs outside a season. A July Saturday costs €180; a May Saturday costs €160 + 20% = €192.</p><p>The code mixes two different things: the <b>base price</b> of a night (the plan’s, or a season’s instead) and the <b>adjustments</b> on top of it (the weekend uplift). A season replaces the base. It must never replace the adjustments.</p></div></div></section>
+<section><h2>The fix: choose the base, then adjust it</h2><p>Every night goes through the same two steps, in this order. <b>1. The base:</b> the season that covers the night, or the plan’s own price. <b>2. The adjustments:</b> the weekend uplift, applied to whichever base step 1 chose. A rule added later (a last-minute discount, say) goes into step 2, and works inside and outside seasons alike.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Pricing/NightlyRates.php</span><span class="badge">changed since the version above: <span class="plus">+18</span> <span class="minus">−11</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Pricing;
+
+use App\Bookings\Stay;
+use App\Models\Property;
+use App\Models\RatePlan;
+use App\Models\RatePlanSeason;
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+
+final class NightlyRates
+{
+    /** @return list&lt;Money&gt; one price per night of the stay */
+    public function for(Property $property, Stay $stay): array
+    {
+        $plan = $property-&gt;ratePlan;
+        $prices = [];
+
+        for ($night = $stay-&gt;checkIn; $night-&gt;lessThan($stay-&gt;checkOut); $night = $night-&gt;addDay()) {
+            $prices[] = $plan === null ? $property-&gt;nightly_rate : $this-&gt;priceOf($plan, $night);
+        }
+
+        return $prices;
+    }
+
+    private function priceOf(RatePlan $plan, CarbonImmutable $night): Money
+    {
+        $price = $this-&gt;baseOf($plan, $night);                          // 1. what the night costs before adjustments
+
+        if ($night-&gt;isFriday() || $night-&gt;isSaturday()) {                 // 2. adjustments, on whichever base step 1 chose
+            $price = $price-&gt;add($price-&gt;percent($plan-&gt;weekend_uplift_bps));
+        }
+
+        return $price;
+    }
+
+    /** A season replaces the plan's base price for its nights. Only the base. */
+    private function baseOf(RatePlan $plan, CarbonImmutable $night): Money
+    {
+        $season = $plan-&gt;seasons-&gt;first(fn (RatePlanSeason $season): bool =&gt; $season-&gt;covers($night-&gt;toDateString()));
+
+        return $season === null
+            ? $plan-&gt;baseRate()
+            : Money::of($season-&gt;nightly_rate_cents, $plan-&gt;currency);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlanSeason</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">NightlyRates</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return list&lt;Money&gt; one price per night of the stay */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$plan</span> = <span class="v">$property</span>-&gt;ratePlan;</span><span class="ln">        <span class="v">$prices</span> = [];</span><span class="ln"> </span><span class="ln">        <span class="k">for</span> (<span class="v">$night</span> = <span class="v">$stay</span>-&gt;checkIn; <span class="v">$night</span>-&gt;<span class="f">lessThan</span>(<span class="v">$stay</span>-&gt;checkOut); <span class="v">$night</span> = <span class="v">$night</span>-&gt;<span class="f">addDay</span>()) {</span><span class="ln">            <span class="v">$prices</span>[] = <span class="v">$plan</span> === <span class="k">null</span> ? <span class="v">$property</span>-&gt;nightly_rate : <span class="k">$this</span>-&gt;<span class="f">priceOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$prices</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">priceOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">foreach</span> (<span class="v">$plan</span>-&gt;seasons <span class="k">as</span> <span class="v">$season</span>) {</span><span class="ln del">            <span class="k">if</span> (<span class="v">$season</span>-&gt;<span class="f">covers</span>(<span class="v">$night</span>-&gt;<span class="f">toDateString</span>())) {</span><span class="ln del">                <span class="k">return</span> <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$season</span>-&gt;nightly_rate_cents, <span class="v">$plan</span>-&gt;currency);   <span class="c">// the bug: returns before the weekend rule</span></span><span class="ln del">            }</span><span class="ln del">        }</span><span class="ln del"> </span><span class="ln del">        <span class="v">$base</span> = <span class="v">$plan</span>-&gt;<span class="f">baseRate</span>();</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="v">$night</span>-&gt;<span class="f">isFriday</span>() || <span class="v">$night</span>-&gt;<span class="f">isSaturday</span>()</span><span class="ln del">            ? <span class="v">$base</span>-&gt;<span class="f">add</span>(<span class="v">$base</span>-&gt;<span class="f">percent</span>(<span class="v">$plan</span>-&gt;weekend_uplift_bps))</span><span class="ln del">            : <span class="v">$base</span>;</span><span class="ln add">        <span class="v">$price</span> = <span class="k">$this</span>-&gt;<span class="f">baseOf</span>(<span class="v">$plan</span>, <span class="v">$night</span>);                          <span class="c">// 1. what the night costs before adjustments</span></span><span class="ln add"> </span><span class="ln add">        <span class="k">if</span> (<span class="v">$night</span>-&gt;<span class="f">isFriday</span>() || <span class="v">$night</span>-&gt;<span class="f">isSaturday</span>()) {                 <span class="c">// 2. adjustments, on whichever base step 1 chose</span></span><span class="ln add">            <span class="v">$price</span> = <span class="v">$price</span>-&gt;<span class="f">add</span>(<span class="v">$price</span>-&gt;<span class="f">percent</span>(<span class="v">$plan</span>-&gt;weekend_uplift_bps));</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="v">$price</span>;</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** A season replaces the plan's base price for its nights. Only the base. */</span></span><span class="ln add">    <span class="k">private</span> <span class="k">function</span> <span class="f">baseOf</span>(<span class="t">RatePlan</span> <span class="v">$plan</span>, <span class="t">CarbonImmutable</span> <span class="v">$night</span>): <span class="t">Money</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$season</span> = <span class="v">$plan</span>-&gt;seasons-&gt;<span class="f">first</span>(<span class="k">fn</span> (<span class="t">RatePlanSeason</span> <span class="v">$season</span>): <span class="k">bool</span> =&gt; <span class="v">$season</span>-&gt;<span class="f">covers</span>(<span class="v">$night</span>-&gt;<span class="f">toDateString</span>()));</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="v">$season</span> === <span class="k">null</span></span><span class="ln add">            ? <span class="v">$plan</span>-&gt;<span class="f">baseRate</span>()</span><span class="ln add">            : <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$season</span>-&gt;nightly_rate_cents, <span class="v">$plan</span>-&gt;currency);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>A Friday or Saturday night in July is now €180 + 20% = <b>€216</b>, and a summer weekday stays €180.</p><p><code>$plan-&gt;seasons</code> is loaded once per quote and searched in memory, not queried once per night. The seasons are ordered by <code>starts_on</code>, so if two ever overlap, the earlier one wins, every time.</p></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The incident, both rules on their own, a stay across the season’s first night, and a property without a plan</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/NightlyRatesTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">NightlyRates</span>;
+
+<span class="f">beforeEach</span>(<span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;property = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">15_000</span>]);
+    <span class="v">$plan</span> = <span class="t">RatePlan</span>::<span class="f">forceCreate</span>([
+        <span class="s">'account_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;account_id, <span class="s">'name'</span> =&gt; <span class="s">'Skagen cottages'</span>,
+        <span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">16_000</span>, <span class="s">'currency'</span> =&gt; <span class="s">'EUR'</span>, <span class="s">'weekend_uplift_bps'</span> =&gt; <span class="n">2_000</span>,
+    ]);
+    <span class="v">$plan</span>-&gt;<span class="f">seasons</span>()-&gt;<span class="f">create</span>([<span class="s">'name'</span> =&gt; <span class="s">'Summer'</span>, <span class="s">'starts_on'</span> =&gt; <span class="s">'2027-07-01'</span>, <span class="s">'ends_on'</span> =&gt; <span class="s">'2027-08-31'</span>, <span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">18_000</span>]);
+    <span class="k">$this</span>-&gt;property-&gt;<span class="f">forceFill</span>([<span class="s">'rate_plan_id'</span> =&gt; <span class="v">$plan</span>-&gt;id])-&gt;<span class="f">save</span>();
+});
+
+<span class="c">/** @return list&lt;int&gt; the price of each night, in cents */</span>
+<span class="k">function</span> <span class="f">nightly</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="k">string</span> <span class="v">$checkIn</span>, <span class="k">string</span> <span class="v">$checkOut</span>): <span class="k">array</span>
+{
+    <span class="k">return</span> <span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">Money</span> <span class="v">$price</span>): <span class="k">int</span> =&gt; <span class="v">$price</span>-&gt;amount, <span class="f">app</span>(<span class="t">NightlyRates</span>::class)-&gt;<span class="f">for</span>(<span class="v">$property</span>-&gt;<span class="f">fresh</span>(), <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$checkIn</span>, <span class="v">$checkOut</span>)));
+}
+
+<span class="f">it</span>(<span class="s">'adds the weekend uplift on top of the summer price'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">nightly</span>(<span class="k">$this</span>-&gt;property, <span class="s">'2027-07-02'</span>, <span class="s">'2027-07-04'</span>))-&gt;<span class="f">toBe</span>([<span class="n">21_600</span>, <span class="n">21_600</span>]);   <span class="c">// Friday and Saturday in July</span>
+});
+
+<span class="f">it</span>(<span class="s">'charges the plain season price on a summer weekday'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">nightly</span>(<span class="k">$this</span>-&gt;property, <span class="s">'2027-07-05'</span>, <span class="s">'2027-07-06'</span>))-&gt;<span class="f">toBe</span>([<span class="n">18_000</span>]);          <span class="c">// a Monday</span>
+});
+
+<span class="f">it</span>(<span class="s">'keeps the weekend uplift outside the season'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">nightly</span>(<span class="k">$this</span>-&gt;property, <span class="s">'2027-05-07'</span>, <span class="s">'2027-05-09'</span>))-&gt;<span class="f">toBe</span>([<span class="n">19_200</span>, <span class="n">19_200</span>]);   <span class="c">// Friday and Saturday in May</span>
+});
+
+<span class="f">it</span>(<span class="s">'prices each night on its own when a stay starts before the season'</span>, <span class="k">function</span> () {
+    <span class="f">expect</span>(<span class="f">nightly</span>(<span class="k">$this</span>-&gt;property, <span class="s">'2027-06-29'</span>, <span class="s">'2027-07-02'</span>))-&gt;<span class="f">toBe</span>([<span class="n">16_000</span>, <span class="n">16_000</span>, <span class="n">18_000</span>]);   <span class="c">// Tue, Wed, then 1 July</span>
+});
+
+<span class="f">it</span>(<span class="s">'uses the property’s own price when it has no plan'</span>, <span class="k">function</span> () {
+    <span class="k">$this</span>-&gt;property-&gt;<span class="f">forceFill</span>([<span class="s">'rate_plan_id'</span> =&gt; <span class="k">null</span>])-&gt;<span class="f">save</span>();
+
+    <span class="f">expect</span>(<span class="f">nightly</span>(<span class="k">$this</span>-&gt;property, <span class="s">'2027-07-02'</span>, <span class="s">'2027-07-04'</span>))-&gt;<span class="f">toBe</span>([<span class="n">15_000</span>, <span class="n">15_000</span>]);
+});</code></pre>
+</div><p>2 July 2027 is a Friday and 7 May 2027 is a Friday: the weekend tests use real calendar days, not a mocked &quot;is it the weekend&quot;.</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Unit/QuoteNightsTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">QuoteBuilder</span>;
+
+<span class="f">it</span>(<span class="s">'adds up nights with different prices in one line'</span>, <span class="k">function</span> () {
+    <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nightsAt</span>([<span class="t">Money</span>::<span class="f">of</span>(<span class="n">16_000</span>, <span class="s">'EUR'</span>), <span class="t">Money</span>::<span class="f">of</span>(<span class="n">16_000</span>, <span class="s">'EUR'</span>), <span class="t">Money</span>::<span class="f">of</span>(<span class="n">18_000</span>, <span class="s">'EUR'</span>)])-&gt;<span class="f">build</span>();
+
+    <span class="f">expect</span>(<span class="v">$quote</span>-&gt;lines[<span class="n">0</span>]-&gt;amount-&gt;amount)-&gt;<span class="f">toBe</span>(<span class="n">50_000</span>)
+        -&gt;<span class="f">and</span>(<span class="v">$quote</span>-&gt;lines[<span class="n">0</span>]-&gt;description)-&gt;<span class="f">toBe</span>(<span class="s">'3 nights, €500.00 in total'</span>);
+});
+
+<span class="f">it</span>(<span class="s">'still describes equal nights as a rate'</span>, <span class="k">function</span> () {
+    <span class="v">$quote</span> = (<span class="k">new</span> <span class="f">QuoteBuilder</span>())-&gt;<span class="f">nightsAt</span>([<span class="t">Money</span>::<span class="f">of</span>(<span class="n">15_000</span>, <span class="s">'EUR'</span>)])-&gt;<span class="f">build</span>();
+
+    <span class="f">expect</span>(<span class="v">$quote</span>-&gt;lines[<span class="n">0</span>]-&gt;description)-&gt;<span class="f">toBe</span>(<span class="s">'1 night × €150.00'</span>);
+});</code></pre>
+</div></div></div></div></details></section>
+<section class="nextup"><p>Prices are right inside seasons too. Next, a host duplicates one of her cottages, lowers the copy’s prices, and the original gets cheaper as well.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../26-turnovers/"><small>← Scene 26</small>The cleaner arrived while guests were still inside</a>
+<a rel="next" href="../28-duplicate-listing/"><small>Scene 28 →</small>Changed the copy’s prices, the original’s changed too</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in"],"slug":"27-rate-plans","ready":true,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), shallow vs deep copies, what a copy must never take along"],"slug":"28-duplicate-listing","ready":true,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Minimum stay sent to the channels with availability, one rule check for every booking path"],"slug":"29-minimum-stay","ready":true,"label":"Day 5 · Scene 29"},{"n":30,"title":"Search said free, the booking said taken","patterns":["One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough"],"slug":"30-search","ready":true,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":true,"label":"Day 5 · Scene 31"},{"n":32,"title":"The property page takes 4 seconds","patterns":["N+1, eager loading, indexes and EXPLAIN; how Eloquent’s lazy relations work"],"slug":"32-slow-page","ready":false,"label":"Day 6 · Scene 32"},{"n":33,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction"],"slug":"33-caching","ready":false,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["At-least-once delivery, idempotent consumers, event versions, SQS and Kafka"],"slug":"34-outbox","ready":false,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth"],"slug":"35-public-api","ready":false,"label":"Day 6 · Scene 35"},{"n":36,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding"],"slug":"36-load","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"37-big-tables","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"38-deploys","ready":false,"label":"Day 7 · Scene 38"},{"n":39,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"39-incident","ready":false,"label":"Day 7 · Scene 39"},{"n":40,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"40-how-it-fits","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"41-interview","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"42-code-review","ready":false,"label":"Day 7 · Scene 42"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":true},{"name":"Specification","chapter":30,"chapterTitle":"Search said free, the booking said taken","slug":"30-search","ready":true},{"name":"Proxy","chapter":32,"chapterTitle":"The property page takes 4 seconds","slug":"32-slow-page","ready":false},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Unit of Work","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":false},{"name":"Chain of Responsibility","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":false},{"name":"Pipeline","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":false},{"name":"Template Method","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Factory Method","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Composite","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Repository","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Eight patterns outside the story","slug":"43-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>
