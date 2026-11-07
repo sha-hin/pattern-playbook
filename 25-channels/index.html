@@ -69,14 +69,6 @@
     <span class="k">return</span> [<span class="s">'mail'</span>];                                                         <span class="c">// the guest's choice is never read</span>
 }</code></pre>
 </div><p>That is the whole bug: the choice is stored, and every message sends email anyway.</p></div></div></section>
-<section><h2>The fix</h2><p>One line: <code>via()</code> stops hard-coding email and returns the channel the guest chose.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/GuestMessage.php (via, before → after)</span></div>
-<pre class="code"><code><span class="c">// before: every guest gets email</span>
-<span class="k">return</span> [<span class="s">'mail'</span>];
-
-<span class="c">// after: the guest's choice decides</span>
-<span class="k">return</span> [<span class="k">$this</span>-&gt;message-&gt;booking-&gt;guest_channel-&gt;<span class="f">notificationChannel</span>()];</code></pre>
-</div><p>For that line to work, three things must exist: the choice stored as an enum that knows Laravel’s name for each channel (part 1), the message written for every channel (part 2), and an SMS and a WhatsApp channel to deliver it (parts 4 and 5). First, the shortcut most teams try.</p></div></div></section>
 <section><h2>The tempting fix, and why it’s wrong</h2><p>The quick patch reads the choice inside the message, and sends from there:</p><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Notifications/GuestMessage.php (the quick patch, not used)</span><span class="badge">the bug</span></div>
 <pre class="code rejected"><code><span class="k">if</span> (<span class="v">$booking</span>-&gt;guest_channel === <span class="s">'sms'</span>) {
