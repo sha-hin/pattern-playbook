@@ -8,8 +8,8 @@ export const DAYS = [
   { n: 3, title: 'Channels', blurb: 'Airbnb and Booking.com: iCal, real APIs, rate limits, queues and overbookings.' },
   { n: 4, title: 'Hosts and guests', blurb: 'Teams and roles, automatic guest messages, notifications and changed dates.' },
   { n: 5, title: 'Operations and pricing', blurb: 'Cleaning between stays, rate plans, the calendar, search and live updates.' },
-  { n: 6, title: 'Scale', blurb: 'Slow pages, caching, events for other systems, the public API, load and big tables.' },
-  { n: 7, title: 'Production', blurb: 'Deploys, incidents, how it all fits together, the interview and code review.' },
+  { n: 6, title: 'Scale', blurb: 'Slow pages, caching, an outbox, safe retries, exports, syncs at scale, load and search.' },
+  { n: 7, title: 'Production', blurb: 'Live schema changes, deploys, an incident, how it all fits, the interview and a code review.' },
 ];
 
 export const SCENES = [
