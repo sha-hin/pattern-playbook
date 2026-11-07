@@ -1148,7 +1148,7 @@ final readonly class PropertyAmenities
         rules: [['Flyweight', 'Share immutable objects that many users need, instead of giving each user its own copy. What differs per user is kept outside, by the user.']],
         points: [
           '**Where you’ll meet it:** PHP enums and interned strings, the glyphs of a text editor, tiles and sprites in games, the shared style objects of a spreadsheet, a font cache.',
-          'In this story the enums were flyweights all along: every `BookingStatus::Confirmed` in every booking is the same object. You used the pattern in scene 3 without having to write it.',
+          'In this story the enums were flyweights all along: every `BookingStatus::Confirmed` in every booking is the same object, and scene 43’s `App\\Enums\\Amenity` is exactly this enum, cast onto every property with `AsEnumCollection`. Here it is built outside Laravel, so the sharing can be measured.',
         ],
         whenNot: [
           'When the objects aren’t really the same: sharing objects that differ slightly needs the differences stored elsewhere, which costs more than it saves.',

@@ -793,111 +793,87 @@ it('searches through the endpoint without knowing which store answered', functio
   followups: [
     {
       id: 'reindex',
-      title: 'Part 2, the same afternoon: one new field, and search shows half the cottages',
-      text: ['Hygge Homes’ next request arrived with the fix: guests type “cottage sweden” and get nothing, because the country isn’t in the index. One more field in every document means every document must be sent again.'],
+      title: 'Part 2, the same afternoon: an amenities filter, and search shows half the cottages',
+      text: ['Hygge Homes’ next request arrived with the fix: “Let guests filter on sea view and sauna.” A new filterable field means every document must be sent again.'],
       incident: {
         channel: '#support',
         when: 'Monday 16:30',
         messages: [
           ['Mona · support', 'Since about 15:50 search shows **half** the cottages in Skagen, and a different half every few minutes. Hosts are calling: “my cottage disappeared”.'],
-          ['Jonas · developer', 'That’s me. I added `country` to the indexed fields and ran `scout:flush` and `scout:import` on production. The import is at **11,000 of 21,000**.'],
+          ['Jonas · developer', 'That’s me. I shipped the amenities filter, then ran `scout:sync-index-settings`, `scout:flush` and `scout:import` on production. The import is at **11,000 of 21,000**.'],
           ['Karim · developer', 'And the fallback can’t help: Meilisearch is up and answering, just from an index that is being refilled.'],
         ],
       },
       sections: [
         {
-          title: 'The broken code',
-          blocks: [
-            {
-              path: 'terminal (production, 15:50)',
-              broken: true,
-              fragment: true,
-              lang: 'shell',
-              code: String.raw`php artisan scout:flush "App\Models\Property"    # the bug: the live index is now empty, and every search reads it
-php artisan scout:import "App\Models\Property"   # 40 minutes to fill it again, 500 at a time`,
-              after: [
-                '`scout:flush` deletes every document of the index that searches are reading. From that second until the import ends, search answers from whatever has been imported so far. Nothing fails, so nothing alerts: the results are just wrong.',
-                'The same thing happens on any full reindex: a new field, a new filterable attribute, a Meilisearch upgrade that needs a fresh index. It is a routine task, so it needs a routine that can’t take search down.',
-              ],
-            },
-          ],
-        },
-        {
-          title: 'The fix: build the new index next to the live one, then swap them',
+          title: 'The feature: amenities guests can filter on',
           text: [
-            'Meilisearch can **swap** two indexes in one atomic step: every search before the swap reads the old documents, every search after it reads the new ones. So the new index is built under another name, `properties_next`, with the new settings, while searches keep reading `properties`. When it is complete, the two swap names, and the old documents, now called `properties_next`, are deleted.',
-            'One gap remains. While the import runs, hosts keep editing properties, and Scout sends those changes to the **live** index, the one about to be swapped out. So after the swap, the command sends again every property changed since the rebuild started.',
+            'Hosts have listed amenities in their descriptions since launch (“sea view, sauna”), and text search finds them only when the words match. Hygge wants a real filter: tick **Sea view** and **Sauna**, get only cottages with both. That needs amenities as data, not words.',
           ],
           blocks: [
             {
-              path: 'app/Console/Commands/ReindexProperties.php',
+              path: 'app/Enums/Amenity.php',
               code: String.raw`<?php
 
-namespace App\Console\Commands;
+namespace App\Enums;
 
-use App\Models\Property;
-use Illuminate\Console\Command;
-use Illuminate\Support\Collection;
-use Meilisearch\Client;
-use RuntimeException;
-
-final class ReindexProperties extends Command
+/** Every amenity a listing can have. One shared instance per case, for the whole process: PHP's own flyweights. */
+enum Amenity: string
 {
-    protected $signature = 'search:reindex-properties';
+    case Sauna = 'sauna';
+    case Wifi = 'wifi';
+    case SeaView = 'sea_view';
+    case Parking = 'parking';
+    case PetsAllowed = 'pets';
+    case Fireplace = 'fireplace';
+    case HotTub = 'hot_tub';
+    case EvCharger = 'ev_charger';
+    case Kitchen = 'kitchen';
+    case Washer = 'washer';
+    case Barbecue = 'bbq';
+    case AirConditioning = 'air_conditioning';
+    case Crib = 'crib';
+    case Bikes = 'bikes';
+    case Garden = 'garden';
 
-    protected $description = 'Rebuild the properties index next to the live one, then swap them in one step';
-
-    public function handle(Client $meilisearch): int
+    public function label(): string
     {
-        $live = (new Property())->searchableAs();                        // "properties", with Scout's prefix
-        $next = "{$live}_next";
-        $startedAt = now();
-
-        try {
-            $this->wait($meilisearch, $meilisearch->deleteIndex($next), mustSucceed: false);   // a leftover from a failed run
-            $this->wait($meilisearch, $meilisearch->createIndex($next, ['primaryKey' => 'id']));
-            $this->wait($meilisearch, $meilisearch->index($next)->updateSettings(
-                config('scout.meilisearch.index-settings.' . Property::class, []),   // the same settings as the live index will have
-            ));
-
-            Property::query()->chunkById(1000, function (Collection $properties) use ($meilisearch, $next): void {
-                $documents = $properties->map(fn (Property $property): array => $property->toSearchableArray())->values()->all();
-                $this->wait($meilisearch, $meilisearch->index($next)->addDocuments($documents, 'id'));
-            });
-
-            $this->wait($meilisearch, $meilisearch->swapIndexes([[$live, $next]]));   // atomic: old documents, then new ones
-        } catch (RuntimeException $e) {
-            $this->error("Reindex stopped, the live index is untouched: {$e->getMessage()}");
-
-            return self::FAILURE;
-        }
-
-        // Edits made during the import went to the old index. Send them again, to the new live one (queued, chunked by Scout).
-        Property::query()->where('updated_at', '>=', $startedAt)->searchable();
-
-        $meilisearch->deleteIndex($next);                                // it holds the old documents now
-        $this->info("Swapped {$live}. Changes since {$startedAt->toTimeString()} re-sent.");
-
-        return self::SUCCESS;
-    }
-
-    /** @param array{taskUid: int} $task Meilisearch works asynchronously: every call returns a task to wait for */
-    private function wait(Client $meilisearch, array $task, bool $mustSucceed = true): void
-    {
-        $result = $meilisearch->waitForTask($task['taskUid'], timeoutInMs: 600_000);
-
-        if ($mustSucceed && $result['status'] !== 'succeeded') {
-            throw new RuntimeException($result['error']['message'] ?? "Task {$task['taskUid']} ended as {$result['status']}");
-        }
+        return match ($this) {
+            self::Wifi => 'Wi-Fi',
+            self::SeaView => 'Sea view',
+            self::HotTub => 'Hot tub',
+            self::EvCharger => 'EV charger',
+            self::PetsAllowed => 'Pets allowed',
+            self::Barbecue => 'Barbecue',
+            self::AirConditioning => 'Air conditioning',
+            default => ucfirst($this->value),                          // Sauna, Parking, Kitchen …
+        };
     }
 }`,
               after: [
-                'A property **deleted** during the import may still be in the new index after the swap. That is harmless here: Meilisearch only returns ids, and the repository loads them from MySQL with the availability rule (scene 43, part 1), so a deleted property can never be shown. The next run cleans it up.',
-                'The runbook for any index change is now one line, run at a quiet hour: `php artisan search:reindex-properties`. It applies the settings from `config/scout.php` to the new index itself, so a new filterable attribute goes out the same way.',
+                'The column stores codes like `sea_view`, and the model hands out enum cases. `Amenity::from(\'sauna\')` doesn’t create anything: it returns the one `Sauna` object that exists for the whole process. 20,000 properties that all have a sauna hold 20,000 references to **one** object. That is the **Flyweight** pattern: share immutable objects that many users need, instead of a copy each. PHP enums are flyweights by design, so nobody here writes one.',
+                'The end page builds a Flyweight by hand, outside Laravel, and measures it: 66.8 MB as separate objects against 7.7 MB shared, for the same 300,000 amenities.',
               ],
             },
             {
-              title: 'The change that needed the rebuild',
+              path: 'database/migrations/2026_05_06_000001_add_amenities_to_properties_table.php',
+              code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('properties', function (Blueprint $table) {
+            $table->json('amenities')->nullable();                      // ["sauna", "sea_view"]: codes, never labels
+        });
+    }
+};`,
+            },
+            {
               path: 'app/Models/Property.php',
               code: String.raw`<?php
 
@@ -906,9 +882,11 @@ namespace App\Models;
 use App\Bookings\Stay;
 use App\Casts\MoneyCast;
 use App\Enums\BookingStatus;
+use App\Enums\Amenity;
 use App\Enums\CancellationPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Observers\ListingCacheObserver;
 use App\Observers\PriceChangeObserver;
@@ -934,10 +912,11 @@ class Property extends Model
         return [
             'nightly_rate' => MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
             'cancellation_policy' => CancellationPolicy::class,          // the terms for new bookings
+            'amenities' => AsEnumCollection::of(Amenity::class),         // ["sauna", "sea_view"] in the column, shared enum cases in PHP
         ];
     }
 
-    /** What Meilisearch stores for each property: only what search needs. @return array<string, string|int|null> */
+    /** What Meilisearch stores for each property: only what search needs. @return array<string, string|int|list<string>|null> */
     public function toSearchableArray(): array
     {
         return [
@@ -946,7 +925,7 @@ class Property extends Model
             'city' => $this->city,
             'max_guests' => $this->max_guests,
             'description' => $this->description,
-            'country' => $this->country,                              // "cottage sweden" finds Swedish cottages
+            'amenities' => $this->amenities?->map(fn (Amenity $amenity): string => $amenity->value)->values()->all() ?? [],
         ];
     }
 
@@ -1037,13 +1016,312 @@ class Property extends Model
         return $this->hasMany(CalendarDay::class);
     }
 }`,
+              after: ['`AsEnumCollection` turns the JSON array into a collection of `Amenity` cases and back. An unknown code in the column throws when it is read, so a typo can’t become an amenity nobody can filter on.'],
+            },
+            {
+              path: 'config/scout.php (the meilisearch index-settings)',
+              fragment: true,
+              code: String.raw`'index-settings' => [
+    App\Models\Property::class => [
+        'filterableAttributes' => ['city', 'max_guests', 'amenities'],   // amenities: an array; "amenities = sauna" matches if it contains sauna
+        'searchableAttributes' => ['name', 'description'],             // words search words: "sea view" must not match the code sea_view
+    ],
+],`,
+            },
+            {
+              title: 'The search asks for amenities, and both stores answer the same way',
+              path: 'app/Properties/SearchCriteria.php',
+              code: String.raw`<?php
+
+namespace App\Properties;
+
+use App\Bookings\Stay;
+use App\Enums\Amenity;
+
+final readonly class SearchCriteria
+{
+    /** @param list<Amenity> $amenities every one must be present */
+    public function __construct(
+        public string $city,
+        public Stay $stay,
+        public int $guests,
+        public ?string $text = null,                                   // "sea view", optional
+        public int $limit = 50,
+        public array $amenities = [],
+    ) {
+    }
+}`,
+            },
+            {
+              path: 'app/Properties/MeilisearchPropertyRepository.php',
+              code: String.raw`<?php
+
+namespace App\Properties;
+
+use App\Enums\Amenity;
+use App\Models\Property;
+use Illuminate\Support\Collection;
+use Meilisearch\Endpoints\Indexes;
+
+final class MeilisearchPropertyRepository implements PropertyRepository
+{
+    public function search(SearchCriteria $criteria): Collection
+    {
+        $ids = Property::search($criteria->text ?? '', function (Indexes $index, string $query, array $options) use ($criteria): array {
+            $filters = [sprintf('city = "%s"', addcslashes($criteria->city, '"\\')), "max_guests >= {$criteria->guests}"];
+            foreach ($criteria->amenities as $amenity) {
+                $filters[] = "amenities = {$amenity->value}";              // an enum value: never user text inside the filter
+            }
+            $options['filter'] = implode(' AND ', $filters);
+            $options['limit'] = 200;                                    // enough candidates after the taken ones drop out
+
+            return $index->search($query, $options)->toArray();
+        })->keys();                                                     // ids only, in Meilisearch's order: best match first
+
+        $rank = $ids->flip();                                           // id => position
+
+        return Property::query()
+            ->whereKey($ids)
+            ->availableFor($criteria->stay)                            // the one availability rule (scene 31), from MySQL
+            ->get(['id', 'name', 'city', 'max_guests'])
+            ->sortBy(fn (Property $property): int => $rank[$property->id])
+            ->take($criteria->limit)
+            ->values();
+    }
+}`,
+            },
+            {
+              path: 'app/Properties/EloquentPropertyRepository.php',
+              code: String.raw`<?php
+
+namespace App\Properties;
+
+use App\Models\Property;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+
+final class EloquentPropertyRepository implements PropertyRepository
+{
+    public function search(SearchCriteria $criteria): Collection
+    {
+        return Property::query()
+            ->where('city', $criteria->city)                            // the (city, name) index from scene 42
+            ->where('max_guests', '>=', $criteria->guests)
+            ->when($criteria->text, fn (Builder $query, string $text) => $query->where(
+                fn (Builder $words) => $words->where('name', 'like', "%{$text}%")->orWhere('description', 'like', "%{$text}%"),
+            ))
+            ->when($criteria->amenities, function (Builder $query, array $amenities): void {
+                foreach ($amenities as $amenity) {
+                    $query->whereJsonContains('amenities', $amenity->value);   // the same rule as Meilisearch's filter
+                }
+            })
+            ->availableFor($criteria->stay)
+            ->orderBy('name')
+            ->limit($criteria->limit)
+            ->get(['id', 'name', 'city', 'max_guests']);
+    }
+}`,
+              after: ['The fallback must filter exactly like Meilisearch, or a guest who ticked Sauna gets cottages without one the day Meilisearch is down. The contract test below runs the same expectation against both.'],
+            },
+            {
+              path: 'app/Http/Controllers/SearchController.php',
+              code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\Stay;
+use App\Enums\Amenity;
+use App\Models\Property;
+use App\Properties\SearchCriteria;
+use App\Properties\SearchProperties;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class SearchController extends Controller
+{
+    public function __invoke(Request $request, SearchProperties $search): JsonResponse
+    {
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'city' => ['required', 'string', 'max:80'],
+            'check_in' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_out' => ['required', 'date_format:Y-m-d', 'after:check_in'],
+            'guests' => ['required', 'integer', 'min:1', 'max:30'],
+            'amenities' => ['sometimes', 'array', 'max:15'],
+            'amenities.*' => [Rule::enum(Amenity::class)],                    // only amenities that exist
+        ]);
+
+        $properties = $search->handle(new SearchCriteria(
+            city: $data['city'],
+            stay: Stay::fromDates($data['check_in'], $data['check_out']),
+            guests: (int) $data['guests'],
+            text: $data['q'] ?? null,
+            amenities: array_map(fn (string $code): Amenity => Amenity::from($code), $data['amenities'] ?? []),
+        ));
+
+        return response()->json(['data' => $properties->map(fn (Property $property): array => $property->only(['id', 'name', 'city', 'max_guests']))->values()]);
+    }
+}`,
+            },
+            {
+              text: ['The code was right. Then it was deployed.'],
+            },
+          ],
+        },
+        {
+          title: 'The broken code',
+          blocks: [
+            {
+              path: 'terminal (production, 15:50)',
+              broken: true,
+              fragment: true,
+              lang: 'shell',
+              code: String.raw`php artisan scout:sync-index-settings          # amenities becomes filterable on the live index
+php artisan scout:flush "App\Models\Property"    # the bug: the live index is now empty, and every search reads it
+php artisan scout:import "App\Models\Property"   # 40 minutes to fill it again, 500 at a time`,
+              after: [
+                '`scout:flush` deletes every document of the index that searches are reading. From that second until the import ends, search answers from whatever has been imported so far. Nothing fails, so nothing alerts: the results are just wrong.',
+                'The same thing happens on any full reindex: a new field, a new filterable attribute, a Meilisearch upgrade that needs a fresh index. It is a routine task, so it needs a routine that can’t take search down.',
+              ],
+            },
+          ],
+        },
+        {
+          title: 'The fix: build the new index next to the live one, then swap them',
+          text: [
+            'Meilisearch can **swap** two indexes in one atomic step: every search before the swap reads the old documents, every search after it reads the new ones. So the new index is built under another name, `properties_next`, with the new settings, while searches keep reading `properties`. When it is complete, the two swap names, and the old documents, now called `properties_next`, are deleted.',
+            'One gap remains. While the import runs, hosts keep editing properties, and Scout sends those changes to the **live** index, the one about to be swapped out. So after the swap, the command sends again every property changed since the rebuild started.',
+          ],
+          blocks: [
+            {
+              path: 'app/Console/Commands/ReindexProperties.php',
+              code: String.raw`<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Property;
+use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
+use Meilisearch\Client;
+use RuntimeException;
+
+final class ReindexProperties extends Command
+{
+    protected $signature = 'search:reindex-properties';
+
+    protected $description = 'Rebuild the properties index next to the live one, then swap them in one step';
+
+    public function handle(Client $meilisearch): int
+    {
+        $live = (new Property())->searchableAs();                        // "properties", with Scout's prefix
+        $next = "{$live}_next";
+        $startedAt = now();
+
+        try {
+            $this->wait($meilisearch, $meilisearch->deleteIndex($next), mustSucceed: false);   // a leftover from a failed run
+            $this->wait($meilisearch, $meilisearch->createIndex($next, ['primaryKey' => 'id']));
+            $this->wait($meilisearch, $meilisearch->index($next)->updateSettings(
+                config('scout.meilisearch.index-settings.' . Property::class, []),   // the same settings as the live index will have
+            ));
+
+            Property::query()->chunkById(1000, function (Collection $properties) use ($meilisearch, $next): void {
+                $documents = $properties->map(fn (Property $property): array => $property->toSearchableArray())->values()->all();
+                $this->wait($meilisearch, $meilisearch->index($next)->addDocuments($documents, 'id'));
+            });
+
+            $this->wait($meilisearch, $meilisearch->swapIndexes([[$live, $next]]));   // atomic: old documents, then new ones
+        } catch (RuntimeException $e) {
+            $this->error("Reindex stopped, the live index is untouched: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
+
+        // Edits made during the import went to the old index. Send them again, to the new live one (queued, chunked by Scout).
+        Property::query()->where('updated_at', '>=', $startedAt)->searchable();
+
+        $meilisearch->deleteIndex($next);                                // it holds the old documents now
+        $this->info("Swapped {$live}. Changes since {$startedAt->toTimeString()} re-sent.");
+
+        return self::SUCCESS;
+    }
+
+    /** @param array{taskUid: int} $task Meilisearch works asynchronously: every call returns a task to wait for */
+    private function wait(Client $meilisearch, array $task, bool $mustSucceed = true): void
+    {
+        $result = $meilisearch->waitForTask($task['taskUid'], timeoutInMs: 600_000);
+
+        if ($mustSucceed && $result['status'] !== 'succeeded') {
+            throw new RuntimeException($result['error']['message'] ?? "Task {$task['taskUid']} ended as {$result['status']}");
+        }
+    }
+}`,
+              after: [
+                'A property **deleted** during the import may still be in the new index after the swap. That is harmless here: Meilisearch only returns ids, and the repository loads them from MySQL with the availability rule (scene 43, part 1), so a deleted property can never be shown. The next run cleans it up.',
+                'The runbook for any index change is now one line, run at a quiet hour: `php artisan search:reindex-properties`. It applies the settings from `config/scout.php` to the new index itself, so a new filterable attribute goes out the same way.',
+              ],
             },
           ],
         },
       ],
       tests: {
-        summary: 'A rebuild that fails never swaps, so the live index is never touched',
+        summary: 'Both stores filter on amenities alike, amenities are shared objects, and a failed rebuild never swaps',
         blocks: [
+          {
+            title: 'The contract test, with amenities',
+            path: 'tests/Feature/PropertyRepositoryTest.php',
+            code: String.raw`<?php
+
+use App\Bookings\Stay;
+use App\Enums\Amenity;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Properties\EloquentPropertyRepository;
+use App\Properties\MeilisearchPropertyRepository;
+use App\Properties\PropertyRepository;
+use App\Properties\SearchCriteria;
+
+beforeEach(function () {
+    $this->seaView = Property::factory()->create(['name' => 'Harbour loft', 'city' => 'Copenhagen', 'max_guests' => 4, 'description' => 'Sea view and a sauna', 'amenities' => [Amenity::SeaView, Amenity::Sauna]]);
+    $this->taken = Property::factory()->create(['name' => 'Canal flat', 'city' => 'Copenhagen', 'max_guests' => 4, 'description' => 'Sea view']);
+    $this->small = Property::factory()->create(['name' => 'Attic room', 'city' => 'Copenhagen', 'max_guests' => 2, 'description' => 'Sea view']);
+    Booking::factory()->for($this->taken)->forStay('2027-07-13', 2)->pending()->create();
+});
+
+dataset('stores', [
+    'MySQL' => fn (): PropertyRepository => app(EloquentPropertyRepository::class),
+    'Meilisearch' => function (): PropertyRepository {
+        config(['scout.driver' => 'meilisearch']);
+        Property::all()->searchable();                                             // index the three properties
+        retry(30, fn () => expect(Property::search('')->raw()['estimatedTotalHits'])->toBe(Property::count()), 100);   // indexing is asynchronous
+
+        return app(MeilisearchPropertyRepository::class);
+    },
+]);
+
+it('finds the free properties for the guests and the words', function (Closure $store) {
+    $found = $store()->search(new SearchCriteria('Copenhagen', Stay::fromDates('2027-07-12', '2027-07-15'), guests: 4, text: 'sea view'));
+
+    expect($found->pluck('id')->all())->toBe([$this->seaView->id]);                  // not the taken one, not the small one
+})->with('stores')->group('meilisearch');
+
+it('filters on amenities the same way in both stores', function (Closure $store) {
+    $plain = Property::factory()->create(['name' => 'Beach hut', 'city' => 'Copenhagen', 'max_guests' => 4, 'amenities' => [Amenity::SeaView]]);
+    $repository = $store();
+    $criteria = fn (array $amenities): SearchCriteria => new SearchCriteria('Copenhagen', Stay::fromDates('2027-07-12', '2027-07-15'), guests: 4, amenities: $amenities);
+
+    expect($repository->search($criteria([Amenity::SeaView, Amenity::Sauna]))->pluck('id')->all())->toBe([$this->seaView->id])   // both, not one
+        ->and($repository->search($criteria([Amenity::SeaView]))->pluck('id')->sort()->values()->all())->toBe([$this->seaView->id, $plain->id]);
+})->with('stores')->group('meilisearch');
+
+it('shares one object per amenity across every property', function () {
+    $hut = Property::factory()->create(['amenities' => [Amenity::SeaView]]);
+
+    expect($hut->fresh()->amenities->first())->toBe($this->seaView->fresh()->amenities->first())   // the very same instance
+        ->and($hut->fresh()->amenities->first())->toBe(Amenity::SeaView);
+});`,
+            after: ['Mutation: drop the `whereJsonContains()` loop from the MySQL store and the second test fails for MySQL only: the fallback would show every cottage. The third test is the Flyweight, proven: two properties, one object.'],
+          },
           {
             path: 'tests/Feature/ReindexPropertiesTest.php',
             code: String.raw`<?php
