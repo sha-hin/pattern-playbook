@@ -22,7 +22,7 @@ export default {
           path: 'terminal',
           lang: 'shell',
           code: String.raw`php artisan install:broadcasting    # answer yes to installing Reverb and the Node packages
-php artisan reverb:start            # the WebSocket server; in production it runs under Supervisor (scene 38)`,
+php artisan reverb:start            # the WebSocket server; in production it runs under Supervisor (scene 40)`,
           after: ['It creates `config/broadcasting.php`, `config/reverb.php`, `routes/channels.php` and `resources/js/echo.js`, installs `laravel/reverb` and `laravel-echo`, and adds the Reverb keys to `.env`:'],
         },
         {
@@ -434,7 +434,7 @@ window.Echo.connector.pusher.connection.bind('connected', () => {
         },
         {
           title: 'Running it',
-          text: ['Broadcasts are queued now, so they are sent by the queue workers (Horizon, scene 17) to Reverb. Reverb keeps one connection per open browser tab: scene 38 runs it under Supervisor and raises the open-file limit, since each connection is a file descriptor.'],
+          text: ['Broadcasts are queued now, so they are sent by the queue workers (Horizon, scene 17) to Reverb. Reverb keeps one connection per open browser tab: scene 40 runs it under Supervisor and raises the open-file limit, since each connection is a file descriptor.'],
           path: 'phpunit.xml',
           lang: 'xml',
           code: String.raw`<?xml version="1.0" encoding="UTF-8"?>

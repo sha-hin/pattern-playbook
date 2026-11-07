@@ -747,14 +747,16 @@ class ExpireHolds extends Command
     },
   ],
   reveal: {
-    names: ['Adapter', 'Manager / Driver'],
+    names: ['Adapter', 'Manager / Driver', 'Factory Method'],
     rules: [
       ['Adapter', 'A class that makes an existing API fit the interface your code expects, by translating every call.'],
       ['Manager / Driver', 'One object that builds the right implementation of an interface by name, from configuration, and keeps it for reuse. Laravel’s own pattern, used by mail, cache, queue and more.'],
+      ['Factory Method', 'A base class leaves the creation of an object to a method that a subclass writes. The base class works with the result through its interface and never names the concrete class.'],
     ],
     points: [
       'The interface is written in **our** words (`closeDates`, `Stay`), not Airbnb’s or Booking.com’s. Their quirks (inclusive end dates, XML, errors inside a 200) stay inside their adapters.',
       'Adding Vrbo is one adapter and one `createVrboDriver()` method. No caller changes.',
+      'The Manager is built on Factory Method. Laravel’s `Manager` base class does the shared work: pick the name, build once, keep the instance. The one thing it can’t know is which class to build, so it calls a method our subclass writes: `createAirbnbDriver()` builds an `AirbnbApi`, `createBookingComDriver()` a `BookingComApi`. Each of those is a **factory method**, and `driver()` only ever sees a `ChannelApi`.',
       'Testing callers is easy: bind a fake `ChannelApi`, or fake the HTTP calls, as below.',
     ],
     whenNot: [
@@ -764,7 +766,8 @@ class ExpireHolds extends Command
   },
   laravel: {
     title: 'Laravel inside: how Manager::driver() works',
-    text: ['The driver name becomes a method name. A custom driver registered with `extend()` wins over a built-in one, which is how packages add their own cache stores or mail transports.'],
+    text: ['The driver name becomes a method name. A custom driver registered with `extend()` wins over a built-in one, which is how packages add their own cache stores or mail transports.',
+      'This is where the factory methods are called: `createDriver()` turns the name into `create…Driver` and calls the subclass’s method. You’ll find the same shape in `CacheManager::createRedisDriver()` and `MailManager::createSmtpTransport()`: the most common place Factory Method lives in Laravel.'],
     blocks: [
       {
         path: 'Illuminate/Support/Manager.php (simplified)',

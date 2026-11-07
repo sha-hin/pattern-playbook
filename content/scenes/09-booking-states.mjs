@@ -719,7 +719,7 @@ class ProcessStripeWebhook implements ShouldQueue
         $this->runEvent($event);    // withoutOverlapping(): Cache::lock('framework/schedule-...')->get() or skip
     }
 }`,
-        after: ['Running the app on two servers? Add `->onOneServer()` too, or both servers expire the same holds (scene 38).'],
+        after: ['Running the app on two servers? Add `->onOneServer()` too, or both servers expire the same holds (scene 40).'],
       },
     ],
   },

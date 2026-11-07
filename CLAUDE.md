@@ -25,8 +25,10 @@
 | 33 | Prices went up at 09:00, guests paid the old ones until 10:00 | The quote is cached for an hour and a price change never invalidates it |
 | 34 | Booking saved, the partner never heard about it | The event is published after commit; the process died between the two |
 | 35 | The mobile app retried and booked twice | A timeout made the app retry a POST that had already succeeded (Chain of Responsibility, Pipeline: an Idempotency-Key middleware) |
-| 36 | Busiest day of the year: search p99 is 8 seconds | Every search hits the primary; one unindexed filter scans the whole table |
-| 37 | Adding a column locked bookings for 20 minutes | A migration with a column change that MySQL can’t do online |
-| 38 | Deployed at 14:00, workers ran old code until 16:00 | The deploy script never ran `queue:restart` |
-| 39 | Stuck queue, a worker eating memory | A long-running worker keeps every model it loaded in a static array |
-| 40–42 | Onboarding, interview, code review | No incident needed; the code under review has real bugs only |
+| 36 | The tax report export included another host’s bookings | The tax export was copied from the payouts export and lost the account scope; it also loads every row at once (Template Method: a base export that always scopes and chunks) |
+| 37 | Busiest day of the year: search p99 is 8 seconds | Every search hits the primary; one unindexed filter scans the whole table |
+| 38 | Meilisearch restarted, search returned 500 for ten minutes | Search moved to Meilisearch and the controller calls it directly, with no fallback (Repository: one search interface, Meilisearch and SQL implementations) |
+| 39 | Adding a column locked bookings for 20 minutes | A migration with a column change that MySQL can’t do online |
+| 40 | Deployed at 14:00, workers ran old code until 16:00 | The deploy script never ran `queue:restart` |
+| 41 | Stuck queue, a worker eating memory | A long-running worker keeps every model it loaded in a static array |
+| 42–44 | Onboarding, interview, code review | No incident needed; the code under review has real bugs only |

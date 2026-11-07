@@ -1,4 +1,4 @@
-# Pattern Playbook: advanced Laravel in 7 days, one PMS, 42 production incidents
+# Pattern Playbook: advanced Laravel in 7 days, one PMS, 44 production incidents
 
 **Live course:** https://sha-hin.github.io/pattern-playbook/
 
@@ -13,7 +13,7 @@ By [Mohammed Shahin](https://sha-hin.github.io).
 
 ## Editing the course
 
-- The story (7 days, 42 scenes, which ones are published): [`content/course.mjs`](content/course.mjs)
+- The story (7 days, 44 scenes, which ones are published): [`content/course.mjs`](content/course.mjs)
 - The app every scene starts from: [`content/foundation/index.mjs`](content/foundation/index.mjs)
 - Each scene's incident, code and tests: [`content/scenes/<slug>.mjs`](content/scenes)
 

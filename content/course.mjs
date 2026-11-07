@@ -1,4 +1,4 @@
-// The course: one story in 7 days, 42 scenes. Nordic Stays, a vacation-rental PMS, grows from launch to scale,
+// The course: one story in 7 days, 44 scenes. Nordic Stays, a vacation-rental PMS, grows from launch to scale,
 // and every scene starts with a production incident. Patterns are named after the fix, never before.
 // Each ready scene's content lives in content/scenes/<slug>.mjs.
 
@@ -30,7 +30,7 @@ export const SCENES = [
 
   // Day 3 · Channels
   { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: [], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },
-  { n: 13, day: 3, slug: '13-channel-api', incident: 'Every Airbnb call has failed with 401 for an hour', patterns: ['Adapter', 'Manager / Driver'], learn: 'One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock', ready: true },
+  { n: 13, day: 3, slug: '13-channel-api', incident: 'Every Airbnb call has failed with 401 for an hour', patterns: ['Adapter', 'Manager / Driver', 'Factory Method'], learn: 'One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock', ready: true },
   { n: 14, day: 3, slug: '14-channel-kits', incident: 'Two days of Booking.com reservations never arrived', patterns: ['Abstract Factory'], learn: 'One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration', ready: true },
   { n: 15, day: 3, slug: '15-out-of-order', incident: 'A cancellation arrived before the booking', patterns: [], learn: 'Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()', ready: true },
   { n: 16, day: 3, slug: '16-rate-limits', incident: 'Airbnb blocked us for an hour', patterns: ['Decorator'], learn: 'Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()', ready: true },
@@ -59,23 +59,25 @@ export const SCENES = [
   { n: 33, day: 6, slug: '33-caching', incident: 'Prices went up at 09:00, guests paid the old ones until 10:00', patterns: [], learn: 'Cache-aside, invalidation after commit, versioned keys, stampedes, ETag, CDN, Redis eviction' },
   { n: 34, day: 6, slug: '34-outbox', incident: 'Booking saved, the partner never heard about it', patterns: ['Transactional Outbox', 'Unit of Work'], learn: 'At-least-once delivery, idempotent consumers, event versions, SQS and Kafka' },
   { n: 35, day: 6, slug: '35-public-api', incident: 'The mobile app retried and booked twice', patterns: ['Chain of Responsibility', 'Pipeline'], learn: 'Idempotency-Key middleware, versioning, one error format, Sanctum, rate limits, pagination, OAuth' },
-  { n: 36, day: 6, slug: '36-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding' },
-  { n: 37, day: 6, slug: '37-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Online DDL, batched backfills, zero-downtime migrations' },
+  { n: 36, day: 6, slug: '36-exports', incident: 'The tax report export included another host’s bookings', patterns: ['Template Method'], learn: 'One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip' },
+  { n: 37, day: 6, slug: '37-load', incident: 'Busiest day of the year: search p99 is 8 seconds', patterns: [], learn: 'k6, read replicas and sticky, isolation levels, archiving, partitioning, sharding' },
+  { n: 38, day: 6, slug: '38-search-fallback', incident: 'Meilisearch restarted, search returned 500 for ten minutes', patterns: ['Repository'], learn: 'Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate' },
 
   // Day 7 · Production
-  { n: 38, day: 7, slug: '38-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers' },
-  { n: 39, day: 7, slug: '39-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs' },
-  { n: 40, day: 7, slug: '40-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades' },
-  { n: 41, day: 7, slug: '41-interview', incident: 'The interview', patterns: [], learn: 'System design: a PMS, a channel manager, a message scheduler; behavioural answers' },
-  { n: 42, day: 7, slug: '42-code-review', incident: 'Review this pull request', patterns: [], learn: 'AI-written code with hidden bugs' },
+  { n: 39, day: 7, slug: '39-big-tables', incident: 'Adding a column locked bookings for 20 minutes', patterns: [], learn: 'Online DDL, batched backfills, zero-downtime migrations' },
+  { n: 40, day: 7, slug: '40-deploys', incident: 'Deployed at 14:00, workers ran old code until 16:00', patterns: [], learn: 'Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers' },
+  { n: 41, day: 7, slug: '41-incident', incident: 'Stuck queue, a worker eating memory', patterns: [], learn: 'Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs' },
+  { n: 42, day: 7, slug: '42-how-it-fits', incident: 'A new developer asks how it all fits together', patterns: [], learn: 'Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades' },
+  { n: 43, day: 7, slug: '43-interview', incident: 'The interview', patterns: [], learn: 'System design: a PMS, a channel manager, a message scheduler; behavioural answers' },
+  { n: 44, day: 7, slug: '44-code-review', incident: 'Review this pull request', patterns: [], learn: 'AI-written code with hidden bugs' },
 ];
 
 // After the story: patterns that have no honest place in this PMS, each built for real outside the app.
 export const OUTSIDE = {
-  slug: '43-outside-the-story',
-  title: 'Eight patterns outside the story',
-  learn: 'Template Method, Factory Method, Composite, Repository, Data Mapper, Visitor, Flyweight and Interpreter, each built with real code',
-  patterns: ['Template Method', 'Factory Method', 'Composite', 'Repository', 'Data Mapper', 'Visitor', 'Flyweight', 'Interpreter'],
+  slug: '45-outside-the-story',
+  title: 'Five patterns outside the story',
+  learn: 'Composite, Data Mapper, Visitor, Flyweight and Interpreter, each built with real code',
+  patterns: ['Composite', 'Data Mapper', 'Visitor', 'Flyweight', 'Interpreter'],
   ready: false,
 };
 

@@ -114,7 +114,7 @@ function page({ title, description, url, prefix, pageId, type, jsonld, main }) {
 <meta property="og:image" content="${SITE}assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 42 production incidents">
+<meta property="og:image:alt" content="${BRAND}: advanced Laravel in 7 days, one PMS, 44 production incidents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
@@ -278,7 +278,7 @@ function hubHtml() {
 
   return `<section class="hero">
 <p class="eyebrow">Advanced Laravel, in 7 days</p>
-<h1>One rental platform, 42 production incidents</h1>
+<h1>One rental platform, 44 production incidents</h1>
 <p class="intro">Follow Nordic Stays, a vacation-rental property management system, from its first booking to its busiest day. Every scene starts with something breaking in production. You read the broken code, fix it the way a senior Laravel team would, and see the pattern and the framework internals behind the fix.</p>
 <p class="cta"><a class="btn" href="${FOUNDATION.slug}/" data-umami-event="Start course">Start here</a></p>
 </section>
@@ -303,7 +303,7 @@ for (const entry of readdirSync(ROOT)) {
   if (/^\d\d-/.test(entry) && existsSync(join(ROOT, entry, 'index.html'))) rmSync(join(ROOT, entry), { recursive: true, force: true });
 }
 
-const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 42 production incidents, with the design patterns, framework internals and engineering behind each fix, in 7 days.`;
+const hubDescription = `An advanced Laravel course told as one story: a vacation-rental PMS from launch to scale in 44 production incidents, with the design patterns, framework internals and engineering behind each fix, in 7 days.`;
 writeFileSync(join(ROOT, 'index.html'), page({
   title: 'Advanced Laravel in 7 Days: One PMS, 42 Production Incidents | Pattern Playbook',
   description: hubDescription,
@@ -313,7 +313,7 @@ writeFileSync(join(ROOT, 'index.html'), page({
     '@graph': [
       { ...website, description: hubDescription, author: person },
       {
-        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 42 production incidents', description: hubDescription, url: SITE,
+        '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 44 production incidents', description: hubDescription, url: SITE,
         inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Advanced',
         teaches: PATTERNS.map(p => p.name),
         hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT18H' },
