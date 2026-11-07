@@ -320,7 +320,7 @@ final class FakePaymentGateway implements PaymentGateway
     whenNot: [
       'Don’t bind every class. The container builds concrete classes on its own (autowiring); bind only interfaces, configured objects and shared instances.',
       'Don’t call `app(SomeService::class)` inside business code: that’s the static singleton again with extra steps. Ask for it in the constructor.',
-      'Never `singleton()` something that holds per-request or per-user data: one user’s data would leak into the next request when the app stays in memory (scene 40, Octane).',
+      'Never `singleton()` something that holds per-request or per-user data: one user’s data would leak into the next request when the app stays in memory (scene 41, Octane).',
     ],
   },
   laravel: {

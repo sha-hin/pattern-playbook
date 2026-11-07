@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>The properties page takes 4 seconds · Laravel: N+1 queries | Pattern Playbook</title>
+<meta name="description" content="An agency with 140 properties waited four seconds for its properties page: the resource ran four queries for every property, 561 in all. Fix it in Laravel with eager loading, a constrained withCount() and a has-one-of-many relation, prove it with a test that counts queries, and see why lazy-loading protection never fired.">
+<link rel="canonical" href="https://sha-hin.github.io/pattern-playbook/32-slow-page/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="Mohammed Shahin">
+<meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="Pattern Playbook">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The properties page takes 4 seconds · Laravel: N+1 queries | Pattern Playbook">
+<meta property="og:description" content="An agency with 140 properties waited four seconds for its properties page: the resource ran four queries for every property, 561 in all. Fix it in Laravel with eager loading, a constrained withCount() and a has-one-of-many relation, prove it with a test that counts queries, and see why lazy-loading protection never fired.">
+<meta property="og:url" content="https://sha-hin.github.io/pattern-playbook/32-slow-page/">
+<meta property="og:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pattern Playbook: advanced Laravel in 7 days, one PMS, 45 production incidents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The properties page takes 4 seconds · Laravel: N+1 queries | Pattern Playbook">
+<meta name="twitter:description" content="An agency with 140 properties waited four seconds for its properties page: the resource ran four queries for every property, 561 in all. Fix it in Laravel with eager loading, a constrained withCount() and a has-one-of-many relation, prove it with a test that counts queries, and see why lazy-loading protection never fired.">
+<meta name="twitter:image" content="https://sha-hin.github.io/pattern-playbook/assets/og.png">
+<link rel="icon" href="../assets/favicon.svg?v=34952b5cf1" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 32: The properties page takes 4 seconds","description":"An agency with 140 properties waited four seconds for its properties page: the resource ran four queries for every property, 561 in all. Fix it in Laravel with eager loading, a constrained withCount() and a has-one-of-many relation, prove it with a test that counts queries, and see why lazy-loading protection never fired.","url":"https://sha-hin.github.io/pattern-playbook/32-slow-page/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/32-slow-page/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 32: The properties page takes 4 seconds","item":"https://sha-hin.github.io/pattern-playbook/32-slow-page/"}]}]}</script>
+</head>
+<body data-page="32-slow-page" data-prefix="../">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#8a94a3"/></marker>
+<marker id="arx" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="#d1453b"/></marker>
+</defs></svg>
+<div class="wrap">
+<div class="topbar">
+<a class="brand" href="../">Pattern Playbook</a>
+<div class="tools">
+<button type="button" class="searchbtn" aria-label="Search scenes and patterns (Ctrl K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><span class="keys" aria-hidden="true"><kbd class="k-mod">Ctrl</kbd><kbd>K</kbd></span></button>
+<button type="button" class="iconbtn theme-toggle" aria-label="Switch to dark mode"><svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+</div>
+</div>
+<main>
+<article class="chapter"><header class="chead">
+<p class="crumbs"><a href="../">Course</a> › Day 6 · Scale › Scene 32 of 45</p>
+<h1>The properties page takes 4 seconds</h1>
+<p class="subtitle">N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN</p>
+
+</header>
+<section class="incident" aria-label="The incident">
+<p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Thursday 09:10</span></p>
+<p class="inc-msg"><span class="inc-who">Mona · support</span>Hygge Homes joined on Monday with <b>140 properties</b>. Their Properties page takes <b>4 seconds</b> to load, and sometimes times out on their office Wi-Fi.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Telescope shows <b>561 queries</b> for one load of that page. For an account with three properties it’s 13.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>561 is 1 + 4 × 140. Something runs four queries per property.</p>
+</section>
+<section><h2>The broken code</h2><p>Last week’s properties page: one row per property, with its rate plan, its channels and whether they are in sync, the next check-in, and the cleanings still to do.</p><div class="blocks"><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Http/Controllers/PropertyController.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">PropertyResource</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">AnonymousResourceCollection</span>;
+
+<span class="k">class</span> <span class="t">PropertyController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">AnonymousResourceCollection</span>
+    {
+        <span class="k">return</span> <span class="t">PropertyResource</span>::<span class="f">collection</span>(<span class="v">$account</span>-&gt;<span class="f">properties</span>()-&gt;<span class="f">orderBy</span>(<span class="s">'name'</span>)-&gt;<span class="f">get</span>());   <span class="c">// 1 query</span>
+    }
+}</code></pre>
+</div></div><div class="block"><div class="codebox broken">
+<div class="filehead"><span class="path">app/Http/Resources/PropertyResource.php</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">JsonResource</span>;
+
+<span class="c">/** @mixin \App\Models\Property */</span>
+<span class="k">class</span> <span class="t">PropertyResource</span> <span class="k">extends</span> <span class="t">JsonResource</span>
+{
+    <span class="c">/** @return array&lt;string, mixed&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toArray</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="k">array</span>
+    {
+        <span class="k">return</span> [
+            <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,
+            <span class="s">'name'</span> =&gt; <span class="k">$this</span>-&gt;name,
+            <span class="s">'city'</span> =&gt; <span class="k">$this</span>-&gt;city,
+            <span class="s">'rate_plan'</span> =&gt; <span class="k">$this</span>-&gt;ratePlan?-&gt;name,                                  <span class="c">// +1 query per property</span>
+            <span class="s">'channels'</span> =&gt; <span class="k">$this</span>-&gt;channelListings-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">ChannelListing</span> <span class="v">$listing</span>): <span class="k">array</span> =&gt; [   <span class="c">// +1</span>
+                <span class="s">'channel'</span> =&gt; <span class="v">$listing</span>-&gt;channel-&gt;value,
+                <span class="s">'in_sync'</span> =&gt; <span class="v">$listing</span>-&gt;last_push_error === <span class="k">null</span>,
+            ]),
+            <span class="s">'next_check_in'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">bookings</span>()                                    <span class="c">// +1</span>
+                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())
+                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>())
+                -&gt;<span class="f">orderBy</span>(<span class="s">'check_in'</span>)
+                -&gt;<span class="f">value</span>(<span class="s">'check_in'</span>),
+            <span class="s">'open_cleanings'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">cleaningTasks</span>()-&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>)-&gt;<span class="f">count</span>(),   <span class="c">// +1</span>
+        ];
+    }
+}</code></pre>
+</div><p>A resource runs once <b>per item</b>. Every relation it touches without the data already loaded is a query, so 140 properties × 4 = 560 queries, plus the one that loaded the properties. That is the <b>N+1 problem</b>: one query for the list, then N more for the rows.</p></div><div class="block"><h3>Why strict mode didn’t catch it</h3><p><code>AppServiceProvider</code> turns on <code>Model::shouldBeStrict()</code> outside production (scene 5), which makes lazy loading throw. It missed all four, for two reasons:</p><div class="tablewrap"><table><thead><tr><th scope="col">Line</th><th scope="col">Why nothing was thrown</th></tr></thead>
+<tbody><tr><th scope="row"><code>$this-&gt;ratePlan</code>, <code>$this-&gt;channelListings</code></th><td>Laravel only flags a lazy load when the model came from a query that returned <b>more than one</b> model. Karim’s local account and the feature test both had one property.</td></tr><tr><th scope="row"><code>$this-&gt;bookings()-&gt;…-&gt;value()</code>, <code>$this-&gt;cleaningTasks()-&gt;…-&gt;count()</code></th><td>These aren’t lazy loads at all: calling the relation <b>method</b> builds a new query, on purpose. Strict mode never looks at them, with one property or a thousand.</td></tr></tbody></table></div><p>So the test that proves the fix counts queries with many rows, and fails if the number grows with the rows.</p></div></div></section>
+<section><h2>The fix, part 1: relations the page can load in one go</h2><p>Two of the four values need a relation that can be eager loaded. <b>Open cleanings</b> is a count: <code>withCount()</code> adds it to the properties query as a subquery. <b>The next check-in</b> is one booking per property, the earliest upcoming one: a *has-one-of-many* relation picks exactly that row for every property in one query.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 30: <span class="plus">+18</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    /**
+     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.
+     * $ignoring: the booking being changed, which never blocks its own new dates.
+     */
+    public function scopeAvailableFor(Builder $query, Stay $stay, ?Booking $ignoring = null): void
+    {
+        $query
+            -&gt;whereDoesntHave('bookings', function (Builder $bookings) use ($stay, $ignoring): void {
+                $bookings-&gt;overlapping($stay);
+                if ($ignoring !== null) {
+                    $bookings-&gt;whereKeyNot($ignoring-&gt;id);
+                }
+            })
+            -&gt;whereDoesntHave('externalBlocks', fn (Builder $blocks) =&gt; $blocks-&gt;overlapping($stay));
+    }
+
+    /** Null when the stay is long enough, or the message to show the guest. */
+    public function stayTooShort(Stay $stay): ?string
+    {
+        return $stay-&gt;nights() &lt; $this-&gt;min_nights
+            ? &quot;This property takes stays of {$this-&gt;min_nights} nights or more.&quot;
+            : null;
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function ratePlan(): BelongsTo
+    {
+        return $this-&gt;belongsTo(RatePlan::class);                      // shared: several listings can use one plan
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    /** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */
+    public function nextStay(): HasOne
+    {
+        return $this-&gt;hasOne(Booking::class)-&gt;ofMany(
+            ['check_in' =&gt; 'min'],                                     // the earliest check-in wins (ties: the lowest id)
+            fn (Builder $query) =&gt; $query
+                -&gt;whereIn('status', BookingStatus::blocking())
+                -&gt;where('check_in', '&gt;=', today()-&gt;toDateString()),
+        );
+    }
+
+    public function cleaningTasks(): HasMany
+    {
+        return $this-&gt;hasMany(CleaningTask::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasOne</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/**</span></span><span class="ln"><span class="c">     * Properties where every night of $stay is free: no pending or confirmed booking, no block from a channel.</span></span><span class="ln"><span class="c">     * $ignoring: the booking being changed, which never blocks its own new dates.</span></span><span class="ln"><span class="c">     */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeAvailableFor</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>, ?<span class="t">Booking</span> <span class="v">$ignoring</span> = <span class="k">null</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span></span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'bookings'</span>, <span class="k">function</span> (<span class="t">Builder</span> <span class="v">$bookings</span>) <span class="k">use</span> (<span class="v">$stay</span>, <span class="v">$ignoring</span>): <span class="k">void</span> {</span><span class="ln">                <span class="v">$bookings</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>);</span><span class="ln">                <span class="k">if</span> (<span class="v">$ignoring</span> !== <span class="k">null</span>) {</span><span class="ln">                    <span class="v">$bookings</span>-&gt;<span class="f">whereKeyNot</span>(<span class="v">$ignoring</span>-&gt;id);</span><span class="ln">                }</span><span class="ln">            })</span><span class="ln">            -&gt;<span class="f">whereDoesntHave</span>(<span class="s">'externalBlocks'</span>, <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$blocks</span>) =&gt; <span class="v">$blocks</span>-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Null when the stay is long enough, or the message to show the guest. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stayTooShort</span>(<span class="t">Stay</span> <span class="v">$stay</span>): ?<span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="v">$stay</span>-&gt;<span class="f">nights</span>() &lt; <span class="k">$this</span>-&gt;min_nights</span><span class="ln">            ? <span class="s">&quot;This property takes stays of {$this-&gt;min_nights} nights or more.&quot;</span></span><span class="ln">            : <span class="k">null</span>;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">ratePlan</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">RatePlan</span>::class);                      <span class="c">// shared: several listings can use one plan</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="c">/** The earliest upcoming pending or confirmed booking: one row per property, even when eager loaded. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">nextStay</span>(): <span class="t">HasOne</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasOne</span>(<span class="t">Booking</span>::class)-&gt;<span class="f">ofMany</span>(</span><span class="ln add">            [<span class="s">'check_in'</span> =&gt; <span class="s">'min'</span>],                                     <span class="c">// the earliest check-in wins (ties: the lowest id)</span></span><span class="ln add">            <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$query</span>) =&gt; <span class="v">$query</span></span><span class="ln add">                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln add">                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>()),</span><span class="ln add">        );</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">cleaningTasks</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">CleaningTask</span>::class);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Without <code>ofMany()</code>, eager loading &quot;the next booking&quot; would mean loading <b>every</b> upcoming booking of every property and keeping the first: correct, but thousands of rows to show 140 dates.</p></div></div></section>
+<section><h2>The fix, part 2: load everything before the resource runs</h2><p>The controller loads what the page shows; the resource only reads what is already there.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/PropertyController.php</span><span class="badge">changed since the version above: <span class="plus">+9</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\CleaningTaskStatus;
+use App\Http\Resources\PropertyResource;
+use App\Models\Account;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+
+class PropertyController extends Controller
+{
+    public function index(Account $account): AnonymousResourceCollection
+    {
+        $properties = $account-&gt;properties()
+            -&gt;with(['ratePlan:id,name', 'channelListings', 'nextStay'])          // one query each, for all properties
+            -&gt;withCount(['cleaningTasks as open_cleanings_count' =&gt; fn (Builder $tasks) =&gt; $tasks-&gt;where('status', CleaningTaskStatus::Pending)])
+            -&gt;orderBy('name')
+            -&gt;get();
+
+        return PropertyResource::collection($properties);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">PropertyResource</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">AnonymousResourceCollection</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">PropertyController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">AnonymousResourceCollection</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> <span class="t">PropertyResource</span>::<span class="f">collection</span>(<span class="v">$account</span>-&gt;<span class="f">properties</span>()-&gt;<span class="f">orderBy</span>(<span class="s">'name'</span>)-&gt;<span class="f">get</span>());   <span class="c">// 1 query</span></span><span class="ln add">        <span class="v">$properties</span> = <span class="v">$account</span>-&gt;<span class="f">properties</span>()</span><span class="ln add">            -&gt;<span class="f">with</span>([<span class="s">'ratePlan:id,name'</span>, <span class="s">'channelListings'</span>, <span class="s">'nextStay'</span>])          <span class="c">// one query each, for all properties</span></span><span class="ln add">            -&gt;<span class="f">withCount</span>([<span class="s">'cleaningTasks as open_cleanings_count'</span> =&gt; <span class="k">fn</span> (<span class="t">Builder</span> <span class="v">$tasks</span>) =&gt; <span class="v">$tasks</span>-&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>)])</span><span class="ln add">            -&gt;<span class="f">orderBy</span>(<span class="s">'name'</span>)</span><span class="ln add">            -&gt;<span class="f">get</span>();</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="t">PropertyResource</span>::<span class="f">collection</span>(<span class="v">$properties</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p><code>ratePlan:id,name</code> loads only the two columns the page uses. The <code>id</code> must be there: Laravel matches each plan to its properties by it.</p></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Resources/PropertyResource.php</span><span class="badge">changed since the version above: <span class="plus">+4</span> <span class="minus">−10</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Resources;
+
+use App\Models\ChannelListing;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\Property */
+class PropertyResource extends JsonResource
+{
+    /** @return array&lt;string, mixed&gt; */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'name' =&gt; $this-&gt;name,
+            'city' =&gt; $this-&gt;city,
+            'rate_plan' =&gt; $this-&gt;ratePlan?-&gt;name,                                  // loaded by the controller
+            'channels' =&gt; $this-&gt;channelListings-&gt;map(fn (ChannelListing $listing): array =&gt; [
+                'channel' =&gt; $listing-&gt;channel-&gt;value,
+                'in_sync' =&gt; $listing-&gt;last_push_error === null,
+            ]),
+            'next_check_in' =&gt; $this-&gt;nextStay?-&gt;check_in-&gt;toDateString(),
+            'open_cleanings' =&gt; $this-&gt;open_cleanings_count,                       // from withCount(): no query here
+        ];
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>;</span><span class="ln"> </span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">JsonResource</span>;</span><span class="ln"> </span><span class="ln"><span class="c">/** @mixin \App\Models\Property */</span></span><span class="ln"><span class="k">class</span> <span class="t">PropertyResource</span> <span class="k">extends</span> <span class="t">JsonResource</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return array&lt;string, mixed&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">toArray</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,</span><span class="ln">            <span class="s">'name'</span> =&gt; <span class="k">$this</span>-&gt;name,</span><span class="ln">            <span class="s">'city'</span> =&gt; <span class="k">$this</span>-&gt;city,</span><span class="ln del">            <span class="s">'rate_plan'</span> =&gt; <span class="k">$this</span>-&gt;ratePlan?-&gt;name,                                  <span class="c">// +1 query per property</span></span><span class="ln del">            <span class="s">'channels'</span> =&gt; <span class="k">$this</span>-&gt;channelListings-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">ChannelListing</span> <span class="v">$listing</span>): <span class="k">array</span> =&gt; [   <span class="c">// +1</span></span><span class="ln add">            <span class="s">'rate_plan'</span> =&gt; <span class="k">$this</span>-&gt;ratePlan?-&gt;name,                                  <span class="c">// loaded by the controller</span></span><span class="ln add">            <span class="s">'channels'</span> =&gt; <span class="k">$this</span>-&gt;channelListings-&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">ChannelListing</span> <span class="v">$listing</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                <span class="s">'channel'</span> =&gt; <span class="v">$listing</span>-&gt;channel-&gt;value,</span><span class="ln">                <span class="s">'in_sync'</span> =&gt; <span class="v">$listing</span>-&gt;last_push_error === <span class="k">null</span>,</span><span class="ln">            ]),</span><span class="ln del">            <span class="s">'next_check_in'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">bookings</span>()                                    <span class="c">// +1</span></span><span class="ln del">                -&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln del">                -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&gt;='</span>, <span class="f">today</span>()-&gt;<span class="f">toDateString</span>())</span><span class="ln del">                -&gt;<span class="f">orderBy</span>(<span class="s">'check_in'</span>)</span><span class="ln del">                -&gt;<span class="f">value</span>(<span class="s">'check_in'</span>),</span><span class="ln del">            <span class="s">'open_cleanings'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">cleaningTasks</span>()-&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>)-&gt;<span class="f">count</span>(),   <span class="c">// +1</span></span><span class="ln add">            <span class="s">'next_check_in'</span> =&gt; <span class="k">$this</span>-&gt;nextStay?-&gt;check_in-&gt;<span class="f">toDateString</span>(),</span><span class="ln add">            <span class="s">'open_cleanings'</span> =&gt; <span class="k">$this</span>-&gt;open_cleanings_count,                       <span class="c">// from withCount(): no query here</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>If a later change reads a relation the controller didn’t load, strict mode now throws in development and tests, because the test below loads many properties.</p></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 30: <span class="plus">+2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\AccountMemberController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChangeDatesController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\DuplicatePropertyController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\MessageTemplateController;
+use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\StayRulesController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices or search.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+Route::get('/v1/search', SearchController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])-&gt;prefix('v1')-&gt;group(function (): void {
+    Route::get('/properties', [PropertyController::class, 'index']);             // the current account's properties
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])-&gt;can('createBooking', 'property');
+    Route::post('/properties/{property}/duplicate', DuplicatePropertyController::class)-&gt;can('update', 'property');
+    Route::patch('/properties/{property}/stay-rules', StayRulesController::class)-&gt;can('update', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])-&gt;can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)-&gt;can('update', 'booking');
+    Route::patch('/bookings/{booking}/dates', ChangeDatesController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)-&gt;can('update', 'booking');
+
+    Route::post('/members', [AccountMemberController::class, 'store']);         // invite someone to the current account
+    Route::delete('/members/{user}', [AccountMemberController::class, 'destroy']);
+
+    Route::post('/message-templates', [MessageTemplateController::class, 'store']);
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">AccountMemberController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">CancelBookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">ChangeDatesController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">ChannelWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">DuplicatePropertyController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MessageTemplateController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">PropertyController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">SearchController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">StayRulesController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">StripeWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Middleware</span>\<span class="t">SetCurrentAccount</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api.</span></span><span class="ln"> </span><span class="ln"><span class="c">// Public: guests aren't logged in when they look at prices or search.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);</span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/search'</span>, <span class="t">SearchController</span>::class);</span><span class="ln"> </span><span class="ln"><span class="c">// Everything a host does: logged in, inside one current account, every id checked by a policy.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">middleware</span>([<span class="s">'auth:sanctum'</span>, <span class="t">SetCurrentAccount</span>::class])-&gt;<span class="f">prefix</span>(<span class="s">'v1'</span>)-&gt;<span class="f">group</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln add">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/properties'</span>, [<span class="t">PropertyController</span>::class, <span class="s">'index'</span>]);             <span class="c">// the current account's properties</span></span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])-&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/properties/{property}/duplicate'</span>, <span class="t">DuplicatePropertyController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'property'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/properties/{property}/stay-rules'</span>, <span class="t">StayRulesController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'index'</span>]);</span><span class="ln">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings/{booking}'</span>, [<span class="t">BookingController</span>::class, <span class="s">'show'</span>])-&gt;<span class="f">can</span>(<span class="s">'view'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/bookings/{booking}/property'</span>, [<span class="t">BookingController</span>::class, <span class="s">'move'</span>])-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/cancel'</span>, <span class="t">CancelBookingController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/bookings/{booking}/dates'</span>, <span class="t">ChangeDatesController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln"> </span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/members'</span>, [<span class="t">AccountMemberController</span>::class, <span class="s">'store'</span>]);         <span class="c">// invite someone to the current account</span></span><span class="ln">    <span class="t">Route</span>::<span class="f">delete</span>(<span class="s">'/members/{user}'</span>, [<span class="t">AccountMemberController</span>::class, <span class="s">'destroy'</span>]);</span><span class="ln"> </span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/message-templates'</span>, [<span class="t">MessageTemplateController</span>::class, <span class="s">'store'</span>]);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/stripe'</span>, <span class="t">StripeWebhookController</span>::class);</span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/channels/{channel}'</span>, <span class="t">ChannelWebhookController</span>::class);   <span class="c">// {channel} is the Channel enum: vrbo is a 404</span></span></code></pre>
+</div><p>The route has existed since last week; it is shown here because this is the first scene that needs it.</p></div></div></section>
+<section><h2>The fix, part 3: check the queries that are left</h2><p>The page now runs four queries, whatever the number of properties: the properties with their cleaning count, then the rate plans, the channel listings and the next stays. (Every request also loads the user and the account, as before.) The heaviest is the next stay. Its inner query finds the earliest check-in per property; <code>EXPLAIN</code> shows how MySQL runs it:</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">mysql</span></div>
+<pre class="code"><code><span class="k">EXPLAIN</span> <span class="k">SELECT</span> property_id, MIN(check_in)
+<span class="k">FROM</span> bookings
+<span class="k">WHERE</span> property_id <span class="k">IN</span> (<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>)
+  <span class="k">AND</span> status <span class="k">IN</span> (<span class="s">'pending'</span>, <span class="s">'confirmed'</span>)
+  <span class="k">AND</span> check_in &gt;= <span class="s">'2027-06-01'</span>
+GROUP <span class="k">BY</span> property_id;</code></pre>
+</div></div><div class="block"><div class="tablewrap"><table><thead><tr><th scope="col">type</th><th scope="col">key</th><th scope="col">rows</th><th scope="col">Extra</th></tr></thead>
+<tbody><tr><th scope="row">range</th><td>bookings_property_id_status_check_in_check_out_index</td><td>9</td><td>Using where; Using index</td></tr></tbody></table></div><p><b>key</b> is the index the Foundation created on <code>(property_id, status, check_in, check_out)</code>. <b>range</b> means MySQL reads only the matching slice of it. <b>Using index</b> means it never touches the table rows at all: every column it needs is in the index. Had <b>key</b> been empty and <b>type</b> been <code>ALL</code>, it would read every booking ever made, and adding the index would be the next fix.</p></div><div class="block"><h3>In production, log lazy loading instead of throwing</h3><p>Strict mode stays off in production, so a guest never sees an error for a slow page. But a lazy load there is still a bug worth knowing about, so it is logged with the model and relation:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge">changed since scene 20: <span class="plus">+8</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
+        ]));
+
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
+
+        $this-&gt;app-&gt;singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        if ($this-&gt;app-&gt;isProduction()) {
+            Model::preventLazyLoading();                          // detect it in production too, but don't throw:
+            Model::handleLazyLoadingViolationUsing(function (Model $model, string $relation): void {
+                Log::warning('Lazy loading', ['model' =&gt; $model::class, 'relation' =&gt; $relation, 'url' =&gt; request()-&gt;fullUrl()]);
+            });
+        }
+
+        // An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking =&gt; $arguments[0]-&gt;property-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Property =&gt; $arguments[0]-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Account =&gt; $arguments[0]-&gt;id,
+                default =&gt; null,
+            };
+
+            return $accountId !== null &amp;&amp; $user-&gt;roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Gate</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Log</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln">        ]));</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ChannelManager</span>::class);                  <span class="c">// one manager: each driver is built once per process</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln"> </span><span class="ln add">        <span class="k">if</span> (<span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>()) {</span><span class="ln add">            <span class="t">Model</span>::<span class="f">preventLazyLoading</span>();                          <span class="c">// detect it in production too, but don't throw:</span></span><span class="ln add">            <span class="t">Model</span>::<span class="f">handleLazyLoadingViolationUsing</span>(<span class="k">function</span> (<span class="t">Model</span> <span class="v">$model</span>, <span class="k">string</span> <span class="v">$relation</span>): <span class="k">void</span> {</span><span class="ln add">                <span class="t">Log</span>::<span class="f">warning</span>(<span class="s">'Lazy loading'</span>, [<span class="s">'model'</span> =&gt; <span class="v">$model</span>::class, <span class="s">'relation'</span> =&gt; <span class="v">$relation</span>, <span class="s">'url'</span> =&gt; <span class="f">request</span>()-&gt;<span class="f">fullUrl</span>()]);</span><span class="ln add">            });</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln">        <span class="c">// An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.</span></span><span class="ln">        <span class="t">Gate</span>::<span class="f">before</span>(<span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">string</span> <span class="v">$ability</span>, <span class="k">array</span> <span class="v">$arguments</span>): ?<span class="k">bool</span> {</span><span class="ln">            <span class="v">$accountId</span> = <span class="k">match</span> (<span class="k">true</span>) {</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Booking</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;property-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Property</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;account_id,</span><span class="ln">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Account</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;id,</span><span class="ln">                <span class="k">default</span> =&gt; <span class="k">null</span>,</span><span class="ln">            };</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$accountId</span> !== <span class="k">null</span> &amp;&amp; <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>) === <span class="t">MembershipRole</span>::<span class="t">Owner</span> ? <span class="k">true</span> : <span class="k">null</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>A log search for &quot;Lazy loading&quot; then shows every page that still loads row by row, with the relation to add to its <code>with()</code>.</p></div></div></section>
+<section class="laravel"><h2>Laravel does it differently: no proxies</h2><p>Doctrine, the Data Mapper ORM most Symfony apps use, makes lazy loading work with <b>proxy objects</b>: <code>$booking-&gt;getProperty()</code> returns a generated subclass of <code>Property</code> that looks real and runs its query on the first method call. That object is a Proxy, the pattern the next scene builds.</p><p>Eloquent has no proxy objects. <code>$property-&gt;ratePlan</code> goes through PHP’s magic <code>__get()</code>, which loads the relation the first time it is read and keeps it in the model’s <code>$relations</code> array:</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">Illuminate/Database/Eloquent/Concerns/HasAttributes.php (simplified)</span></div>
+<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">getRelationValue</span>(<span class="v">$key</span>)
+{
+    <span class="k">if</span> (<span class="k">$this</span>-&gt;<span class="f">relationLoaded</span>(<span class="v">$key</span>)) {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;relations[<span class="v">$key</span>];                    <span class="c">// eager loaded, or read before: no query</span>
+    }
+
+    <span class="k">if</span> (! <span class="k">$this</span>-&gt;<span class="f">isRelation</span>(<span class="v">$key</span>)) {
+        <span class="k">return</span>;
+    }
+
+    <span class="k">if</span> (<span class="k">$this</span>-&gt;preventsLazyLoading) {                      <span class="c">// set on models that came from a multi-row query</span>
+        <span class="k">$this</span>-&gt;<span class="f">handleLazyLoadingViolation</span>(<span class="v">$key</span>);           <span class="c">// throws, or calls your handler</span>
+    }
+
+    <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">getRelationshipFromMethod</span>(<span class="v">$key</span>);        <span class="c">// runs the query and stores the result</span>
+}</code></pre>
+</div><p><code>preventsLazyLoading</code> is set by the query that returned the models, and only when it returned more than one. That is the line that let the one-property test pass.</p></div></div></section>
+<section class="tests"><details><summary><span>Tests</span><small>The same number of queries for 2 properties and for 30, and the right values on the page</small></summary>
+<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/PropertiesPageTest.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CleaningTaskStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">CleaningTask</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">RatePlan</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="c">/** A property with a rate plan, a channel listing, a booking and a pending cleaning: every relation the page reads. */</span>
+<span class="k">function</span> <span class="f">fullProperty</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">Property</span>
+{
+    <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="v">$account</span>)-&gt;<span class="f">create</span>();
+    <span class="v">$plan</span> = <span class="t">RatePlan</span>::<span class="f">forceCreate</span>([<span class="s">'account_id'</span> =&gt; <span class="v">$account</span>-&gt;id, <span class="s">'name'</span> =&gt; <span class="s">&quot;Plan {$property-&gt;id}&quot;</span>, <span class="s">'nightly_rate_cents'</span> =&gt; <span class="n">16_000</span>, <span class="s">'currency'</span> =&gt; <span class="s">'EUR'</span>]);
+    <span class="v">$property</span>-&gt;<span class="f">forceFill</span>([<span class="s">'rate_plan_id'</span> =&gt; <span class="v">$plan</span>-&gt;id])-&gt;<span class="f">save</span>();
+    <span class="v">$property</span>-&gt;<span class="f">channelListings</span>()-&gt;<span class="f">forceCreate</span>([<span class="s">'channel'</span> =&gt; <span class="s">'airbnb'</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">&quot;ab-{$property-&gt;id}&quot;</span>]);
+    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="v">$property</span>)-&gt;<span class="f">forStay</span>(<span class="s">'2027-07-10'</span>, <span class="n">3</span>)-&gt;<span class="f">create</span>();
+    <span class="t">CleaningTask</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="v">$property</span>-&gt;id, <span class="s">'booking_id'</span> =&gt; <span class="v">$booking</span>-&gt;id, <span class="s">'starts_at'</span> =&gt; <span class="s">'2027-07-13 09:00:00'</span>, <span class="s">'status'</span> =&gt; <span class="t">CleaningTaskStatus</span>::<span class="t">Pending</span>]);
+
+    <span class="k">return</span> <span class="v">$property</span>;
+}
+
+<span class="k">function</span> <span class="f">queriesForPropertiesPage</span>(<span class="t">User</span> <span class="v">$host</span>): <span class="k">int</span>
+{
+    <span class="t">DB</span>::<span class="f">flushQueryLog</span>();
+    <span class="t">DB</span>::<span class="f">enableQueryLog</span>();
+    <span class="f">test</span>()-&gt;<span class="f">actingAs</span>(<span class="v">$host</span>)-&gt;<span class="f">getJson</span>(<span class="s">'/api/v1/properties'</span>)-&gt;<span class="f">assertOk</span>();
+
+    <span class="k">return</span> <span class="f">count</span>(<span class="t">DB</span>::<span class="f">getQueryLog</span>());
+}
+
+<span class="f">it</span>(<span class="s">'runs the same number of queries for 2 properties and for 30'</span>, <span class="k">function</span> () {
+    <span class="v">$account</span> = <span class="t">Account</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="v">$host</span> = <span class="f">memberOf</span>(<span class="v">$account</span>);
+    <span class="f">fullProperty</span>(<span class="v">$account</span>);
+    <span class="f">fullProperty</span>(<span class="v">$account</span>);
+    <span class="v">$few</span> = <span class="f">queriesForPropertiesPage</span>(<span class="v">$host</span>);
+
+    <span class="k">foreach</span> (<span class="f">range</span>(<span class="n">1</span>, <span class="n">28</span>) <span class="k">as</span> <span class="v">$more</span>) {
+        <span class="f">fullProperty</span>(<span class="v">$account</span>);
+    }
+
+    <span class="f">expect</span>(<span class="f">queriesForPropertiesPage</span>(<span class="v">$host</span>))-&gt;<span class="f">toBe</span>(<span class="v">$few</span>);                    <span class="c">// 561 queries for 140 is impossible now</span>
+});
+
+<span class="f">it</span>(<span class="s">'shows the plan, the channels, the next check-in and the open cleanings'</span>, <span class="k">function</span> () {
+    <span class="v">$account</span> = <span class="t">Account</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();
+    <span class="v">$property</span> = <span class="f">fullProperty</span>(<span class="v">$account</span>);
+    <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="v">$property</span>)-&gt;<span class="f">forStay</span>(<span class="s">'2027-06-20'</span>, <span class="n">2</span>)-&gt;<span class="f">create</span>();            <span class="c">// earlier: this is the next one</span>
+    <span class="t">Booking</span>::<span class="f">factory</span>()-&gt;<span class="f">for</span>(<span class="v">$property</span>)-&gt;<span class="f">forStay</span>(<span class="s">'2027-06-10'</span>, <span class="n">2</span>)-&gt;<span class="f">cancelled</span>()-&gt;<span class="f">create</span>();  <span class="c">// cancelled: never the next one</span>
+
+    <span class="k">$this</span>-&gt;<span class="f">actingAs</span>(<span class="f">memberOf</span>(<span class="v">$account</span>))-&gt;<span class="f">getJson</span>(<span class="s">'/api/v1/properties'</span>)
+        -&gt;<span class="f">assertOk</span>()
+        -&gt;<span class="f">assertJsonPath</span>(<span class="s">'data.0.rate_plan'</span>, <span class="s">&quot;Plan {$property-&gt;id}&quot;</span>)
+        -&gt;<span class="f">assertJsonPath</span>(<span class="s">'data.0.channels.0'</span>, [<span class="s">'channel'</span> =&gt; <span class="s">'airbnb'</span>, <span class="s">'in_sync'</span> =&gt; <span class="k">true</span>])
+        -&gt;<span class="f">assertJsonPath</span>(<span class="s">'data.0.next_check_in'</span>, <span class="s">'2027-06-20'</span>)
+        -&gt;<span class="f">assertJsonPath</span>(<span class="s">'data.0.open_cleanings'</span>, <span class="n">1</span>);
+});</code></pre>
+</div><p>The first test is the one that would have caught the incident: it compares two counts instead of hard-coding one, so it keeps working when the page shows one more thing, and fails the day someone adds a query per row.</p><p>With 30 properties, strict mode is also active in this test: any relation the controller forgot to load throws here, long before production.</p></div></div></div></details></section>
+<section class="nextup"><p>The page loads in 80 milliseconds. Next: a host raises her prices at 09:00, and for an hour guests keep paying the old ones.</p><nav class="pager" aria-label="Scenes">
+<a rel="prev" href="../31-real-time/"><small>← Scene 31</small>The calendar didn’t update when Airbnb booked</a>
+<a rel="next" href="../33-caching/"><small>Scene 33 →</small>Prices went up at 09:00, guests paid the old ones until 10:00</a>
+</nav></section></article>
+</main>
+<footer class="credit">By <a href="https://sha-hin.github.io" data-umami-event="Visit portfolio">Mohammed Shahin</a> · PHP / Laravel developer · <a href="https://github.com/sha-hin/pattern-playbook" data-umami-event="View source">Source on GitHub</a></footer>
+</div>
+<script id="course-data" type="application/json">{"chapters":[{"n":0,"title":"Foundation","patterns":["The app every scene starts from: setup, the core tables, models, factories and test helpers"],"slug":"00-foundation","ready":true,"label":"Foundation"},{"n":1,"title":"38 bookings, one cent short each","patterns":["Money in cents, Currency, Eloquent casts, CarbonImmutable"],"slug":"01-money","ready":true,"label":"Day 1 · Scene 1"},{"n":2,"title":"Every stay billed one night short","patterns":["Stay as calendar dates, nights, dates vs moments, property timezones"],"slug":"02-stay","ready":true,"label":"Day 1 · Scene 2"},{"n":3,"title":"500 error, and a stranger booked our cabin","patterns":["Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests"],"slug":"03-booking-endpoint","ready":true,"label":"Day 1 · Scene 3"},{"n":4,"title":"Two guests, same night, same second","patterns":["Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test"],"slug":"04-race","ready":true,"label":"Day 1 · Scene 4"},{"n":5,"title":"Our test suite charged a real card","patterns":["Bindings, autowiring, register() vs boot(), swapping a service in tests"],"slug":"05-container","ready":true,"label":"Day 1 · Scene 5"},{"n":6,"title":"Marked paid by hand, but the guest never heard","patterns":["One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object"],"slug":"06-confirm","ready":true,"label":"Day 1 · Scene 6"},{"n":7,"title":"The quote said €1,098.90, the card was charged €1,105.50","patterns":["One price built step by step: nights, discount, fee, tax; percentages in basis points; line items"],"slug":"07-quote","ready":true,"label":"Day 2 · Scene 7"},{"n":8,"title":"Stripe said paid, the booking is still pending","patterns":["Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events"],"slug":"08-webhooks","ready":true,"label":"Day 2 · Scene 8"},{"n":9,"title":"She paid two minutes after her hold expired","patterns":["The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key"],"slug":"09-booking-states","ready":true,"label":"Day 2 · Scene 9"},{"n":10,"title":"Refunded 100% on a strict booking","patterns":["Cancellation policies as classes, partial refunds after commit, bookings with no policy"],"slug":"10-refunds","ready":true,"label":"Day 2 · Scene 10"},{"n":11,"title":"Stripe and our books disagree by €40","patterns":["Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()"],"slug":"11-reconciliation","ready":true,"label":"Day 2 · Scene 11"},{"n":12,"title":"Two families, one cabin, one night","patterns":["iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction"],"slug":"12-ical","ready":true,"label":"Day 3 · Scene 12"},{"n":13,"title":"Every Airbnb call has failed with 401 for an hour","patterns":["One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock"],"slug":"13-channel-api","ready":true,"label":"Day 3 · Scene 13"},{"n":14,"title":"Two days of Booking.com reservations never arrived","patterns":["One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration"],"slug":"14-channel-kits","ready":true,"label":"Day 3 · Scene 14"},{"n":15,"title":"A cancellation arrived before the booking","patterns":["Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()"],"slug":"15-out-of-order","ready":true,"label":"Day 3 · Scene 15"},{"n":16,"title":"Airbnb blocked us for an hour","patterns":["Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()"],"slug":"16-rate-limits","ready":true,"label":"Day 3 · Scene 16"},{"n":17,"title":"642 pushes queued in one minute","patterns":["State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop"],"slug":"17-queues","ready":true,"label":"Day 3 · Scene 17"},{"n":18,"title":"Same night sold on Airbnb and Booking.com","patterns":["One coordinator for every calendar change: overbookings recorded and reported once, every channel updated"],"slug":"18-overbooking","ready":true,"label":"Day 3 · Scene 18"},{"n":19,"title":"A host saw another host’s bookings","patterns":["IDOR, queries that start from the account, policies with 404s, scoped exists rules, no mass assignment"],"slug":"19-tenancy","ready":true,"label":"Day 4 · Scene 19"},{"n":20,"title":"The cleaner can see payouts","patterns":["Roles and policies, Gate::before, invitations with signed URLs, removing a member"],"slug":"20-roles","ready":true,"label":"Day 4 · Scene 20"},{"n":21,"title":"Arrival message sent at 3 a.m.","patterns":["Message templates, send_at built in the property’s timezone, DST tests, a scheduler with chunkById()"],"slug":"21-send-times","ready":true,"label":"Day 4 · Scene 21"},{"n":22,"title":"Guest got the door code twice","patterns":["An atomic pending → sent claim; a BookingCancelled event with independent listeners"],"slug":"22-never-twice","ready":true,"label":"Day 4 · Scene 22"},{"n":23,"title":"Dates changed, the payment failed, the booking is half-changed","patterns":["Snapshot before the change, restore exactly when the payment fails, messages rescheduled"],"slug":"23-date-change","ready":true,"label":"Day 4 · Scene 23"},{"n":24,"title":"{guest_name} showed up literally in the email","patterns":["A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival"],"slug":"24-template-variables","ready":true,"label":"Day 4 · Scene 24"},{"n":25,"title":"SMS guests got an email instead","patterns":["Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices"],"slug":"25-channels","ready":true,"label":"Day 4 · Scene 25"},{"n":26,"title":"The cleaner arrived while guests were still inside","patterns":["Cleaning tasks that follow the calendar, start times in the property’s timezone, telling the cleaner"],"slug":"26-turnovers","ready":true,"label":"Day 5 · Scene 26"},{"n":27,"title":"Summer prices ignored the weekend rule","patterns":["Rate plans with seasons and a weekend rule, each night priced on its own, the order rules apply in"],"slug":"27-rate-plans","ready":true,"label":"Day 5 · Scene 27"},{"n":28,"title":"Changed the copy’s prices, the original’s changed too","patterns":["Eloquent replicate(), shallow vs deep copies, what a copy must never take along"],"slug":"28-duplicate-listing","ready":true,"label":"Day 5 · Scene 28"},{"n":29,"title":"A 1-night Booking.com stay on a 3-night-minimum cabin","patterns":["Minimum stay sent to the channels with availability, one rule check for every booking path"],"slug":"29-minimum-stay","ready":true,"label":"Day 5 · Scene 29"},{"n":30,"title":"Search said free, the booking said taken","patterns":["One availability rule as an Eloquent scope, shared by search, bookings, date changes and moves; whereDoesntHave(); when SQL is enough"],"slug":"30-search","ready":true,"label":"Day 5 · Scene 30"},{"n":31,"title":"The calendar didn’t update when Airbnb booked","patterns":["Reverb, broadcasting after commit, channels scoped to the account, presence, scaling"],"slug":"31-real-time","ready":true,"label":"Day 5 · Scene 31"},{"n":32,"title":"The properties page takes 4 seconds","patterns":["N+1 queries, eager loading with constraints, withCount() and ofMany(), why lazy-loading protection missed it, EXPLAIN"],"slug":"32-slow-page","ready":true,"label":"Day 6 · Scene 32"},{"n":33,"title":"Prices went up at 09:00, guests paid the old ones until 10:00","patterns":["A caching proxy, versioned keys bumped after commit, never caching the price a guest pays, cache-aside"],"slug":"33-caching","ready":true,"label":"Day 6 · Scene 33"},{"n":34,"title":"Booking saved, the partner never heard about it","patterns":["Writing the message in the same transaction, a relay job, at-least-once delivery, idempotent consumers, event versions"],"slug":"34-outbox","ready":true,"label":"Day 6 · Scene 34"},{"n":35,"title":"The mobile app retried and booked twice","patterns":["An Idempotency-Key middleware, how Laravel’s middleware pipeline works, replaying the stored response"],"slug":"35-public-api","ready":true,"label":"Day 6 · Scene 35"},{"n":36,"title":"The tax report export included another host’s bookings","patterns":["One base class for every CSV export: the account scope, chunked reads and streamed downloads that no export can skip"],"slug":"36-exports","ready":false,"label":"Day 6 · Scene 36"},{"n":37,"title":"iCal calendars are three hours out of date","patterns":["Changes worked out in memory and written in one short transaction: upsert(), one delete, a lock held for milliseconds"],"slug":"37-ical-at-scale","ready":false,"label":"Day 6 · Scene 37"},{"n":38,"title":"Busiest day of the year: search p99 is 8 seconds","patterns":["k6, p95 and p99, read replicas and sticky, finding the slow query"],"slug":"38-load","ready":false,"label":"Day 6 · Scene 38"},{"n":39,"title":"Meilisearch restarted, search returned 500 for ten minutes","patterns":["Scout and Meilisearch behind one search interface, the SQL search as a fallback, contract tests for both, the Eloquent repository debate"],"slug":"39-search-fallback","ready":false,"label":"Day 6 · Scene 39"},{"n":40,"title":"Adding a column locked bookings for 20 minutes","patterns":["Online DDL, batched backfills, zero-downtime migrations"],"slug":"40-big-tables","ready":false,"label":"Day 7 · Scene 40"},{"n":41,"title":"Deployed at 14:00, workers ran old code until 16:00","patterns":["Docker, CI, Horizon, queue:restart, config:cache, OPcache, Octane, stateless servers"],"slug":"41-deploys","ready":false,"label":"Day 7 · Scene 41"},{"n":42,"title":"Stuck queue, a worker eating memory","patterns":["Logs → metrics → reproduce → fix → postmortem; monitoring failed jobs"],"slug":"42-incident","ready":false,"label":"Day 7 · Scene 42"},{"n":43,"title":"A new developer asks how it all fits together","patterns":["Laravel internals, architecture, Larastan, Pint, Rector, arch tests, mutation testing, upgrades"],"slug":"43-how-it-fits","ready":false,"label":"Day 7 · Scene 43"},{"n":44,"title":"The interview","patterns":["System design: a PMS, a channel manager, a message scheduler; behavioural answers"],"slug":"44-interview","ready":false,"label":"Day 7 · Scene 44"},{"n":45,"title":"Review this pull request","patterns":["AI-written code with hidden bugs"],"slug":"45-code-review","ready":false,"label":"Day 7 · Scene 45"}],"patterns":[{"name":"Value Object","chapter":1,"chapterTitle":"38 bookings, one cent short each","slug":"01-money","ready":true},{"name":"Active Record","chapter":3,"chapterTitle":"500 error, and a stranger booked our cabin","slug":"03-booking-endpoint","ready":true},{"name":"Singleton","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Dependency Injection Container","chapter":5,"chapterTitle":"Our test suite charged a real card","slug":"05-container","ready":true},{"name":"Facade","chapter":6,"chapterTitle":"Marked paid by hand, but the guest never heard","slug":"06-confirm","ready":true},{"name":"Builder","chapter":7,"chapterTitle":"The quote said €1,098.90, the card was charged €1,105.50","slug":"07-quote","ready":true},{"name":"Simple Factory","chapter":8,"chapterTitle":"Stripe said paid, the booking is still pending","slug":"08-webhooks","ready":true},{"name":"State","chapter":9,"chapterTitle":"She paid two minutes after her hold expired","slug":"09-booking-states","ready":true},{"name":"Strategy","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Null Object","chapter":10,"chapterTitle":"Refunded 100% on a strict booking","slug":"10-refunds","ready":true},{"name":"Iterator","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Generators","chapter":11,"chapterTitle":"Stripe and our books disagree by €40","slug":"11-reconciliation","ready":true},{"name":"Adapter","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Manager / Driver","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Factory Method","chapter":13,"chapterTitle":"Every Airbnb call has failed with 401 for an hour","slug":"13-channel-api","ready":true},{"name":"Abstract Factory","chapter":14,"chapterTitle":"Two days of Booking.com reservations never arrived","slug":"14-channel-kits","ready":true},{"name":"Decorator","chapter":16,"chapterTitle":"Airbnb blocked us for an hour","slug":"16-rate-limits","ready":true},{"name":"Command","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Command Bus","chapter":17,"chapterTitle":"642 pushes queued in one minute","slug":"17-queues","ready":true},{"name":"Mediator","chapter":18,"chapterTitle":"Same night sold on Airbnb and Booking.com","slug":"18-overbooking","ready":true},{"name":"Observer","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Event Dispatcher","chapter":22,"chapterTitle":"Guest got the door code twice","slug":"22-never-twice","ready":true},{"name":"Memento","chapter":23,"chapterTitle":"Dates changed, the payment failed, the booking is half-changed","slug":"23-date-change","ready":true},{"name":"Bridge","chapter":25,"chapterTitle":"SMS guests got an email instead","slug":"25-channels","ready":true},{"name":"Prototype","chapter":28,"chapterTitle":"Changed the copy’s prices, the original’s changed too","slug":"28-duplicate-listing","ready":true},{"name":"Specification","chapter":30,"chapterTitle":"Search said free, the booking said taken","slug":"30-search","ready":true},{"name":"Proxy","chapter":33,"chapterTitle":"Prices went up at 09:00, guests paid the old ones until 10:00","slug":"33-caching","ready":true},{"name":"Transactional Outbox","chapter":34,"chapterTitle":"Booking saved, the partner never heard about it","slug":"34-outbox","ready":true},{"name":"Chain of Responsibility","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":true},{"name":"Pipeline","chapter":35,"chapterTitle":"The mobile app retried and booked twice","slug":"35-public-api","ready":true},{"name":"Template Method","chapter":36,"chapterTitle":"The tax report export included another host’s bookings","slug":"36-exports","ready":false},{"name":"Unit of Work","chapter":37,"chapterTitle":"iCal calendars are three hours out of date","slug":"37-ical-at-scale","ready":false},{"name":"Repository","chapter":39,"chapterTitle":"Meilisearch restarted, search returned 500 for ten minutes","slug":"39-search-fallback","ready":false},{"name":"Composite","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"46-outside-the-story","ready":false},{"name":"Data Mapper","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"46-outside-the-story","ready":false},{"name":"Visitor","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"46-outside-the-story","ready":false},{"name":"Flyweight","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"46-outside-the-story","ready":false},{"name":"Interpreter","chapter":"end","chapterTitle":"Five patterns outside the story","slug":"46-outside-the-story","ready":false}]}</script>
+<script src="../assets/site.js?v=01cb09e3b0" defer></script>
+</body>
+</html>

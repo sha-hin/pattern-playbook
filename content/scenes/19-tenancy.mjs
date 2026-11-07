@@ -98,7 +98,7 @@ class SetCurrentAccount
         return $next($request);
     }
 }`,
-          after: ['The routes in part 3 run it right after `auth:sanctum`. Under Octane, where the app stays in memory between requests, register `Account` with `$this->app->scoped()` so it is forgotten after each request (scene 40).'],
+          after: ['The routes in part 3 run it right after `auth:sanctum`. Under Octane, where the app stays in memory between requests, register `Account` with `$this->app->scoped()` so it is forgotten after each request (scene 41).'],
         },
       ],
     },
@@ -201,7 +201,7 @@ class BookingController extends Controller
         return new BookingResource($booking);
     }
 }`,
-          after: ['There is no `$request->all()` left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 42).'],
+          after: ['There is no `$request->all()` left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 43).'],
         },
       ],
     },
