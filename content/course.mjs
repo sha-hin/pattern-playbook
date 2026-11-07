@@ -26,7 +26,7 @@ export const SCENES = [
   { n: 8, day: 2, slug: '08-webhooks', incident: 'Stripe said paid, the booking is still pending', patterns: ['Simple Factory'], learn: 'Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events', ready: true },
   { n: 9, day: 2, slug: '09-booking-states', incident: 'She paid two minutes after her hold expired', patterns: ['State'], learn: 'The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key', ready: true },
   { n: 10, day: 2, slug: '10-refunds', incident: 'Refunded 100% on a strict booking', patterns: ['Strategy', 'Null Object'], learn: 'Cancellation policies as classes, partial refunds after commit, bookings with no policy', ready: true },
-  { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
+  { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generator'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
 
   // Day 3 · Channels
   { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: [], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },

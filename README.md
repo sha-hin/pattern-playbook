@@ -9,7 +9,7 @@ the fix. Each scene ends with its Pest tests, folded.
 
 For Laravel developers: about 2–3 hours a day for a week.
 
-By [Mohammed Shahin](https://sha-hin.github.io).
+By [Mohamed Shahin](https://sha-hin.github.io).
 
 ## Editing the course
 

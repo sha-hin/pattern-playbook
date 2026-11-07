@@ -1,4 +1,4 @@
-// Scene 11 · Iterator and Generators: nightly reconciliation with Stripe.
+// Scene 11 · Iterator and Generator: nightly reconciliation with Stripe.
 
 export default {
   description: 'Stripe and Nordic Stays disagreed by €40 and nobody noticed for a month. Build a nightly reconciliation in Laravel that walks Stripe’s pages and our table with iterators, compares them in a generator, and never loads everything into memory.',
@@ -284,7 +284,7 @@ Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverla
     },
   ],
   reveal: {
-    names: ['Iterator', 'Generators'],
+    names: ['Iterator', 'Generator'],
     rules: [
       ['Iterator', 'A way to go through a collection one item at a time without knowing how it is stored: a database table in batches, an API in pages, or an array.'],
       ['Generator', 'A function that uses yield to hand out values one by one, pausing between them. In PHP, the shortest way to write an iterator.'],

@@ -16,7 +16,7 @@ const REPO = 'https://github.com/sha-hin/pattern-playbook';
 const BRAND = 'Pattern Playbook';
 const TODAY = new Date().toISOString().slice(0, 10);
 const PUBLISHED = '2026-11-06';
-const AUTHOR = { name: 'Mohammed Shahin', url: 'https://sha-hin.github.io' };
+const AUTHOR = { name: 'Mohamed Shahin', url: 'https://sha-hin.github.io' };
 // Umami Cloud website id (same account as the portfolio). Tracking only runs on sha-hin.github.io.
 const UMAMI_ID = '37b7903a-c779-475f-b20f-18fe98cd4d70';
 
