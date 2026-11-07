@@ -12,7 +12,7 @@
 - The timeline stays consistent with the scenes before and after it (days, teasers, numbers).
 - Code is production quality, type annotations included, no silent failures.
 
-## Planned bugs for the upcoming scenes
+## The real cause behind each scene
 | Scene | Incident | The real cause |
 |---|---|---|
 | 26 | The cleaner arrived while guests were still inside | The guests extended by a night; the task was created once at confirmation, and date changes skipped `CalendarSync` |
@@ -29,7 +29,7 @@
 | 37 | iCal calendars are three hours out of date | Row-by-row updateOrCreate per event; at 3,000 feeds every 15 minutes the sync queue never catches up (Unit of Work: changes worked out in memory, written once) |
 | 38 | Busiest day of the year: search p99 is 8 seconds | Every search hits the primary; one unindexed filter scans the whole table |
 | 39 | Meilisearch restarted, search returned 500 for ten minutes | Search moved to Meilisearch and the controller calls it directly, with no fallback (Repository: one search interface, Meilisearch and SQL implementations) |
-| 40 | Adding a column locked bookings for 20 minutes | A migration with a column change that MySQL can’t do online |
-| 41 | Deployed at 14:00, workers ran old code until 16:00 | The deploy script never ran `queue:restart` |
+| 40 | Adding a column locked bookings for 20 minutes | An instant ALTER waited for the metadata lock behind a 25-minute report on the primary, and every booking query queued behind it |
+| 41 | Deployed at 14:00, workers ran old code until 16:00 | The deploy script never ran `horizon:terminate` |
 | 42 | Stuck queue, a worker eating memory | A long-running worker keeps every model it loaded in a static array |
 | 43–45 | Onboarding, interview, code review | No incident needed; the code under review has real bugs only |
