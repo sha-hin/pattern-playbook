@@ -14,8 +14,8 @@ export const DAYS = [
 
 export const SCENES = [
   // Day 1 · Launch week
-  { n: 1, day: 1, slug: '01-money', incident: 'Guest charged €450.29 for a €450.30 stay', patterns: ['Value Object'], learn: 'Money in cents, Currency, Eloquent casts, CarbonImmutable', ready: true },
-  { n: 2, day: 1, slug: '02-stay', incident: 'She booked 4 nights, we billed 3', patterns: ['Value Object'], learn: 'Stay as calendar dates, nights, dates vs moments, property timezones', ready: true },
+  { n: 1, day: 1, slug: '01-money', incident: '38 bookings, one cent short each', patterns: ['Value Object'], learn: 'Money in cents, Currency, Eloquent casts, CarbonImmutable', ready: true },
+  { n: 2, day: 1, slug: '02-stay', incident: 'Every stay billed one night short', patterns: ['Value Object'], learn: 'Stay as calendar dates, nights, dates vs moments, property timezones', ready: true },
   { n: 3, day: 1, slug: '03-booking-endpoint', incident: '500 error, and a stranger booked our cabin', patterns: ['Active Record'], learn: 'Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests', ready: true },
   { n: 4, day: 1, slug: '04-race', incident: 'Two guests, same night, same second', patterns: [], learn: 'Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test', ready: true },
   { n: 5, day: 1, slug: '05-container', incident: 'Our test suite charged a real card', patterns: ['Singleton', 'Dependency Injection Container'], learn: 'Bindings, autowiring, register() vs boot(), swapping a service in tests', ready: true },
@@ -25,13 +25,13 @@ export const SCENES = [
   { n: 7, day: 2, slug: '07-quote', incident: 'The quote said €1,098.90, the card was charged €1,105.50', patterns: ['Builder'], learn: 'One price built step by step: nights, discount, fee, tax; percentages in basis points; line items', ready: true },
   { n: 8, day: 2, slug: '08-webhooks', incident: 'Stripe said paid, the booking is still pending', patterns: ['Simple Factory'], learn: 'Webhooks: verify the signature, store, answer 200, process in a job; createOrFirst(); typed events', ready: true },
   { n: 9, day: 2, slug: '09-booking-states', incident: 'She paid two minutes after her hold expired', patterns: ['State'], learn: 'The booking lifecycle as states, holds that expire on a schedule, late payments, refunds with Idempotency-Key', ready: true },
-  { n: 10, day: 2, slug: '10-refunds', incident: 'Refunded 100% on a strict policy', patterns: ['Strategy', 'Null Object'], learn: 'Cancellation policies as classes, partial refunds after commit, bookings with no policy', ready: true },
+  { n: 10, day: 2, slug: '10-refunds', incident: 'Refunded 100% on a strict booking', patterns: ['Strategy', 'Null Object'], learn: 'Cancellation policies as classes, partial refunds after commit, bookings with no policy', ready: true },
   { n: 11, day: 2, slug: '11-reconciliation', incident: 'Stripe and our books disagree by €40', patterns: ['Iterator', 'Generators'], learn: 'Nightly reconciliation: Stripe’s pages and our table as iterators, a comparing generator, lazyById() vs cursor()', ready: true },
 
   // Day 3 · Channels
   { n: 12, day: 3, slug: '12-ical', incident: 'Two families, one cabin, one night', patterns: ['Template Method', 'Factory Method'], learn: 'iCal sync: match by UID, updateOrCreate, deletes scoped to the source, one transaction', ready: true },
   { n: 13, day: 3, slug: '13-channel-api', incident: 'Every Airbnb call has failed with 401 for an hour', patterns: ['Adapter', 'Manager / Driver'], learn: 'One interface for every channel, an adapter each, Laravel’s Manager, OAuth token refresh under a lock', ready: true },
-  { n: 14, day: 3, slug: '14-channel-kits', incident: 'A Booking.com cancellation cancelled an Airbnb booking', patterns: ['Abstract Factory'], learn: 'One kit per channel: API client, signature verifier and payload mapper that always match', ready: true },
+  { n: 14, day: 3, slug: '14-channel-kits', incident: 'Two days of Booking.com reservations never arrived', patterns: ['Abstract Factory'], learn: 'One kit per channel: API client, signature verifier and payload mapper built from that channel’s own configuration', ready: true },
   { n: 15, day: 3, slug: '15-out-of-order', incident: 'A cancellation arrived before the booking', patterns: [], learn: 'Versioned upserts under a lock, tombstones, a polling fallback, recorded payloads with Http::fake()', ready: true },
   { n: 16, day: 3, slug: '16-rate-limits', incident: 'Airbnb blocked us for an hour', patterns: ['Decorator'], learn: 'Retries only for real blips, a shared Redis rate limit, 429 and Retry-After, release() and retryUntil()', ready: true },
   { n: 17, day: 3, slug: '17-queues', incident: '642 pushes queued in one minute', patterns: ['Command', 'Command Bus'], learn: 'State instead of changes, ShouldBeUniqueUntilProcessing, WithoutOverlapping, two Redis queues, Horizon, retry_after, the worker loop', ready: true },
@@ -44,7 +44,7 @@ export const SCENES = [
   { n: 22, day: 4, slug: '22-never-twice', incident: 'Guest got the door code twice', patterns: ['Observer', 'Event Dispatcher'], learn: 'An atomic pending → sent claim; a BookingCancelled event with independent listeners', ready: true },
   { n: 23, day: 4, slug: '23-date-change', incident: 'Dates changed, the payment failed, the booking is half-changed', patterns: ['Memento'], learn: 'Snapshot before the change, restore exactly when the payment fails, messages rescheduled', ready: true },
   { n: 24, day: 4, slug: '24-template-variables', incident: '{guest_name} showed up literally in the email', patterns: [], learn: 'A fixed list checked on save, escaping after Markdown, an encrypted door code only near arrival', ready: true },
-  { n: 25, day: 4, slug: '25-channels', incident: 'SMS guests got an email instead', patterns: ['Bridge'], learn: 'Laravel Notifications as a bridge, channels per guest and host, Vonage SMS, a custom WhatsApp channel', ready: true },
+  { n: 25, day: 4, slug: '25-channels', incident: 'SMS guests got an email instead', patterns: ['Bridge'], learn: 'Laravel Notifications as a bridge, the guest’s chosen channel, custom SMS and WhatsApp channels, hosts’ choices', ready: true },
 
   // Day 5 · Operations and pricing
   { n: 26, day: 5, slug: '26-turnovers', incident: 'The cleaner arrived while guests were still inside', patterns: [], learn: 'Cleaning tasks between stays, due times in the property timezone, review requests' },

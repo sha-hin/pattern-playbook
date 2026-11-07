@@ -571,5 +571,5 @@ it('stores tokens encrypted', function () {
       },
     ],
   },
-  next: 'Pushing out works. Wednesday, the first reservation webhooks come in from the channels, and a Booking.com cancellation lands on an Airbnb booking.',
+  next: 'Pushing out works. Wednesday, a family arrives with a Booking.com reservation that Nordic Stays never received.',
 };

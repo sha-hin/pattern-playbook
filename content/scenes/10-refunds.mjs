@@ -1,13 +1,13 @@
 // Scene 10 · Strategy and Null Object: cancellation policies.
 
 export default {
-  description: 'A guest cancelled a strict, non-refundable stay and got everything back, because the refund rules were an if-chain that fell through. Fix it with the Strategy pattern in Laravel, one class per cancellation policy, and a Null Object for bookings made before policies existed.',
+  description: 'A guest who booked under a strict policy got a full refund, because the host had switched the property to flexible since, and the refund code read today’s setting. Fix it in Laravel with the policy copied onto the booking, one Strategy class per policy, and a Null Object for bookings made before policies existed.',
   incident: {
     channel: '#finance',
     when: 'Thursday 11:40',
     messages: [
-      ['Lina · finance', 'A guest cancelled the Lake Cabin **three days** before arrival. The cabin is on the **strict** policy: 50% back until 14 days before, nothing after. We refunded **€1,105.50, the full amount**.'],
-      ['Ahmed · host', 'I turned down two other guests for those dates. Who pays me?'],
+      ['Lina · finance', 'A guest cancelled the Lake Cabin **three days** before arrival and got **€1,105.50 back, everything**. She booked in August, under the **strict** policy: nothing back in the last 14 days.'],
+      ['Ahmed · host', 'I switched the cabin to **flexible** last week, for new winter bookings. Not for the bookings I already had. I turned down other guests for her dates.'],
     ],
   },
   sections: [
@@ -17,30 +17,26 @@ export default {
         {
           path: 'app/Http/Controllers/CancelBookingController.php (before)',
           broken: true, fragment: true,
-          code: String.raw`$days = now()->diffInDays($booking->check_in);
+          code: String.raw`$hours = now()->diffInHours($booking->check_in);              // to midnight UTC, not the guest's check-in time
 
-if ($property->cancellation_policy === 'flexible' && $days >= 1) {
-    $refund = $paid;
-} elseif ($property->cancellation_policy === 'moderate') {
-    $refund = $days >= 5 ? $paid : $paid * 0.5;
-} elseif ($property->cancelation_policy === 'strict' && $days >= 14) {    // typo: always null
-    $refund = $paid * 0.5;
-} else {
-    $refund = $paid;                                                       // "when in doubt, refund"
-}`,
+$refund = match ($booking->property->cancellation_policy) {   // the property's policy TODAY
+    'flexible' => $hours >= 24 ? $paid : 0,
+    'moderate' => $hours >= 120 ? $paid : $paid * 0.5,
+    'strict' => $hours >= 336 ? $paid * 0.5 : 0,
+};`,
           after: [
-            'One typo in a property name makes the strict branch unreachable, and the `else` turns "I don’t know" into "refund everything". Nothing failed; the money just left.',
-            'There are more problems hiding in the same lines. The policy is read from the **property**, so a host who changes the policy changes the terms of bookings already made. `diffInDays` counts from the server’s midnight, not from the guest’s check-in time in the property’s timezone (scene 2). And `$paid * 0.5` is a float again (scene 1).',
+            'The rules themselves are right. The input is wrong: the policy comes from the **property**, read at the moment of cancelling. The guest agreed to *strict* in August; the property says *flexible* today, so she gets flexible terms. Any host who changes a policy silently rewrites every booking already made.',
+            'Two smaller bugs ride along: the hours are counted to midnight UTC instead of the guest’s real check-in moment in the property’s timezone (scene 2), and `$paid * 0.5` is a float again (scene 1). And the rules are a `match` inside a controller, so they can’t be tested without an HTTP request.',
           ],
         },
       ],
     },
     {
       title: 'The fix, part 1: the policy is part of the booking',
-      text: ['The guest agreed to the policy that was shown when they booked, so the booking keeps a **copy**. Bookings made before policies existed have none: `null`, on purpose.'],
+      text: ['The guest agreed to the policy that was shown when they booked, so the booking keeps a **copy**, made once, at booking time. The property’s setting (a `cancellation_policy` column added with the first refund code last month) only decides the terms of **new** bookings. Bookings made before policies existed get `null`, on purpose.'],
       blocks: [
         {
-          path: 'database/migrations/2026_02_05_000001_add_cancellation_policy.php',
+          path: 'database/migrations/2026_02_05_000001_add_cancellation_policy_to_bookings_table.php',
           code: String.raw`<?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -51,10 +47,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('properties', function (Blueprint $table) {
-            $table->string('cancellation_policy')->default('moderate');
-        });
-
         Schema::table('bookings', function (Blueprint $table) {
             $table->string('cancellation_policy')->nullable();   // copied at booking time; null on older bookings
         });
@@ -414,7 +406,7 @@ it('cancels a strict booking 3 days out with no refund', function () {
 
     expect($refund->amount)->toBe(0)
         ->and($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RefundCancelledBooking::class);
 });
 
 it('refunds half on a moderate booking 3 days out, once', function () {
@@ -427,6 +419,15 @@ it('refunds half on a moderate booking 3 days out, once', function () {
 
     expect(Refund::sole()->amount_cents)->toBe(55_275)
         ->and($gateway->refunded)->toHaveCount(1);
+});
+
+it('keeps the policy the guest booked under, even after the host changes it', function () {
+    Queue::fake();
+    $booking = paidBooking(CancellationPolicy::Strict);
+    $booking->property->forceFill(['cancellation_policy' => CancellationPolicy::Flexible])->save();   // the incident
+
+    expect(app(CancelBooking::class)->handle($booking)->amount)->toBe(0);
+    Queue::assertNotPushed(RefundCancelledBooking::class);
 });
 
 it('treats a booking without a policy as no automatic refund', function () {

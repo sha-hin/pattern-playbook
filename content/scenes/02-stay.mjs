@@ -1,18 +1,19 @@
 // Scene 2 · Value Object: Stay.
 
 export default {
-  description: 'A 4-night stay was billed as 3 because nights were counted between two moments. Fix it with a Stay value object of calendar dates in Laravel, and build real moments from the property timezone.',
+  description: 'After a release, every stay was billed one night short and shown a day early, because nights were counted between two moments. Fix it with a Stay value object of calendar dates in Laravel, and build real moments from the property timezone.',
   incident: {
     channel: '#support',
     when: 'Tuesday 08:40',
     messages: [
-      ['Mona · support', 'A guest booked **1 to 5 July**, four nights. Her invoice says **3 nights**, and her booking page says she arrives on **30 June**. She has already booked flights.'],
+      ['Ahmed · host', 'My payout for this week is a quarter lower than it should be. A guest booked **1 to 5 July**, four nights; your system billed her for **3**. And her booking page says she arrives on **30 June**: she just emailed asking if her dates were changed.'],
+      ['Karim · developer', 'Every booking since Monday’s release has one night too few. That release added check-in and check-out times to bookings.'],
     ],
   },
   sections: [
     {
       title: 'The broken code',
-      text: ['When a booking came in, the code turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them:'],
+      text: ['Monday’s release turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them:'],
       blocks: [
         {
           path: 'app/Http/Controllers/BookingController.php (before)',

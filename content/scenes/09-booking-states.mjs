@@ -619,5 +619,5 @@ final class FakePaymentGateway implements PaymentGateway
       },
     ],
   },
-  next: 'Late payments are handled. Thursday: a guest cancels a non-refundable stay and gets every cent back.',
+  next: 'Late payments are handled. Thursday: a guest cancels a strict booking three days out and gets every cent back.',
 };

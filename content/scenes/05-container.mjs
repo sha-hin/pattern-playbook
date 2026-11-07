@@ -7,7 +7,7 @@ export default {
     when: 'Friday 09:30',
     messages: [
       ['Lina · finance', 'Our **live** Stripe account has a €450.00 charge on a card ending 4242… no, ending **8817**. That’s Karim’s personal card. Description: "Test booking, Nyhavn flat".'],
-      ['Karim · developer', 'I ran the test suite on my laptop yesterday. My `.env` still had the live key from debugging a payout. I’m so sorry.'],
+      ['Karim · developer', 'I ran the test suite on my laptop yesterday. `phpunit.xml` doesn’t override `STRIPE_SECRET`, so the tests used my `.env`, and it still had the **live** key from debugging a payout.'],
     ],
   },
   sections: [

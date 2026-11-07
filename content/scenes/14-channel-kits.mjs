@@ -1,13 +1,13 @@
 // Scene 14 · Abstract Factory: one matching set of objects per channel.
 
 export default {
-  description: 'A Booking.com cancellation cancelled an Airbnb booking, because the webhook code chose its verifier, its mapper and its booking lookup in three different ways. Fix it in Laravel with an Abstract Factory: one kit per channel that creates a matching API client, signature verifier and payload mapper.',
+  description: 'For two days every Booking.com reservation webhook was rejected, because a refactor built the Booking.com signature checker with Airbnb’s secret. Fix it in Laravel with an Abstract Factory: one kit per channel that creates its API client, signature verifier and payload mapper from that channel’s own configuration, so the parts can’t be mixed.',
   incident: {
     channel: '#incidents',
     when: 'Wednesday 16:45',
     messages: [
-      ['Ahmed · host', 'My Airbnb guest arriving Friday was just **cancelled** in Nordic Stays, and the dates opened up on every channel. She never cancelled. Airbnb still shows her booking.'],
-      ['Karim · developer', 'The cancellation came from **Booking.com**, for their reservation 4471202. Our Airbnb booking has the code 4471202 too. And Booking.com’s new payload has a `reservation` key, so our code read it with the Airbnb mapper.'],
+      ['Ahmed · host', 'A family just arrived at the Nyhavn flat with a **Booking.com reservation made on Monday night**. Nordic Stays has never heard of it, and the flat is occupied by another guest.'],
+      ['Karim · developer', 'Since Monday’s refactor, **every** Booking.com webhook got a 401 from us: the Booking.com verifier was built with **Airbnb’s secret**, one copied line. Booking.com retried for a day, then gave up. 14 reservations never reached us.'],
     ],
   },
   sections: [
@@ -15,21 +15,26 @@ export default {
       title: 'The broken code',
       blocks: [
         {
-          path: 'app/Http/Controllers/ChannelWebhookController.php (before)',
+          path: 'app/Providers/ChannelServiceProvider.php (before, after Monday’s refactor)',
           broken: true, fragment: true,
-          code: String.raw`// One endpoint for every channel
-$verifier = $this->verifiers[$request->header('X-Channel')];                 // chosen by a header
-if (! $verifier->verify($request)) {
-    abort(401);
-}
+          code: String.raw`// three lists, kept in sync by hand
+$this->app->singleton('channel.clients', fn () => [
+    'airbnb' => new AirbnbApi(/* services.airbnb */),
+    'booking_com' => new BookingComApi(/* services.booking_com */),
+]);
 
-$payload = $request->json()->all();
-$mapper = isset($payload['reservation']) ? new AirbnbMapper() : new BookingComMapper();   // chosen by the payload's shape
-$reservation = $mapper->map($payload);
+$this->app->singleton('channel.verifiers', fn () => [
+    'airbnb' => new HmacVerifier(config('services.airbnb.webhook_secret'), 'X-Airbnb-Signature', 'hex'),
+    'booking_com' => new HmacVerifier(config('services.airbnb.webhook_secret'), 'X-Booking-Signature', 'base64'),   // copied, one word not changed
+]);
 
-Booking::where('external_id', $reservation->externalId)->update([...]);       // no channel in the lookup`,
+$this->app->singleton('channel.mappers', fn () => [
+    'airbnb' => new AirbnbReservationMapper(),
+    'booking_com' => new BookingComReservationMapper(),
+]);`,
           after: [
-            'Three parts that must belong to **the same channel** are picked in three unrelated ways: the verifier by a header, the mapper by guessing from the payload, the booking by an id without its channel. Nothing stops a Booking.com request being verified as Booking.com, read as Airbnb, and applied to an Airbnb booking.',
+            'Every channel needs three parts that only work **together**: its API client, the verifier for its webhook signatures (with **its** secret), and the mapper for **its** payloads. Here they are three separate lists, and nothing connects the Booking.com entry in one list to the Booking.com entry in the next. A copied line put Airbnb’s secret into Booking.com’s verifier, every signature failed, and the tests passed, because each list was tested on its own.',
+            'Rejecting a webhook looks like success from our side: nothing crashes, nothing is logged as an error. The polling fallback that would have caught the missed reservations is the next scene.',
           ],
         },
       ],
@@ -37,7 +42,7 @@ Booking::where('external_id', $reservation->externalId)->update([...]);       //
     {
       title: 'The fix, part 1: one kit per channel',
       text: [
-        'Each channel needs a **family** of objects that only work together: its API client (scene 13), the verifier for its webhook signatures, and the mapper for its payloads. Instead of choosing each one separately, each channel gets a **kit** that creates all three. Pick the kit once, from the URL, and every part you get from it matches.',
+        'Each channel needs a **family** of objects that only work together: its API client (scene 13), the verifier for its webhook signatures, and the mapper for its payloads. Instead of choosing each one separately, each channel gets a **kit** that creates all three. Pick the kit once, from the URL, and every part you get from it matches. Each kit receives **only its own channel’s configuration**, so the Booking.com kit has no way to reach Airbnb’s secret.',
         'The signing schemes and payloads below are simplified versions of each partner’s; the real ones are in the partner documentation.',
       ],
       blocks: [
@@ -360,7 +365,7 @@ protected function createBookingComDriver(): ChannelKit
         },
         {
           title: 'Bookings know their channel',
-          text: ['A reservation id is only unique **within** its channel, so the pair is the key. `channel` is null for direct bookings, and MySQL allows any number of nulls in a unique index.'],
+          text: ['While webhooks now find their way in, the booking they belong to needs the same care: a reservation id is only unique **within** its channel (Airbnb and Booking.com both use plain numbers for some ids), so the pair is the key. `channel` is null for direct bookings, and MySQL allows any number of nulls in a unique index.'],
           path: 'database/migrations/2026_03_04_000001_add_channel_to_bookings_table.php',
           code: String.raw`<?php
 
@@ -583,11 +588,18 @@ it('never applies a Booking.com cancellation to an Airbnb booking with the same 
         ->and(Booking::where('channel', Channel::BookingCom)->sole()->status)->toBe(BookingStatus::Cancelled);
 });
 
-it('refuses a request signed for another channel', function () {
-    $payload = bookingComCancellation('1');
-    $airbnbStyle = hash_hmac('sha256', json_encode($payload, JSON_THROW_ON_ERROR), 'airbnb-secret');
+it('accepts a Booking.com webhook signed with Booking.com’s own secret', function () {
+    $payload = bookingComCancellation('5530117');
 
-    postChannel(Channel::BookingCom, $payload, 'X-Booking-Signature', $airbnbStyle)->assertUnauthorized();
+    postChannel(Channel::BookingCom, $payload, 'X-Booking-Signature', bookingComSignature($payload))->assertOk();   // the incident: this was a 401
+
+    expect(WebhookEvent::sole()->provider)->toBe('booking_com');
+});
+
+it('refuses a request signed with another channel’s secret', function () {
+    $payload = bookingComCancellation('1');
+
+    postChannel(Channel::BookingCom, $payload, 'X-Booking-Signature', bookingComSignature($payload, secret: 'airbnb-secret'))->assertUnauthorized();
 
     expect(WebhookEvent::count())->toBe(0);
 });

@@ -7,7 +7,7 @@ export default {
     when: 'Monday 07:55',
     messages: [
       ['Alert · queues', 'Queue `default`: **642 jobs** waiting, oldest 38 minutes. Guest emails are stuck behind them.'],
-      ['Karim · developer', 'Booking.com was down overnight. At 07:30 the poll (scene 15) caught up 214 reservations at once, and every import queued a push to Airbnb for each of its nights. And Ahmed says two nights that are **booked** show as **open** on Airbnb.'],
+      ['Karim · developer', 'Booking.com was down overnight. At 07:30 the poll (scene 15) caught up 321 reservations at once, and every import queued one push per channel listing of its property: 321 × 2 = 642. And Ahmed says two nights that are **booked** show as **open** on Airbnb.'],
     ],
   },
   sections: [
@@ -24,7 +24,7 @@ foreach ($property->channelListings as $listing) {
 
 // CancelBooking: the same, with $close = false`,
           after: [
-            'Each job carries a **change**: "close 1–4 August", "open 2–3 August". 214 imports produced 642 of them, and they all wait in the one queue that also sends guest emails.',
+            'Each job carries a **change**: "close 1–4 August", "open 2–3 August". 321 imports produced 642 of them, and they all wait in the one queue that also sends guest emails.',
             'Worse, changes only make sense in order, and queues don’t promise order. Workers run jobs in parallel and retries come back later, so an "open" that was queued first can finish after the "close" that should have replaced it. That’s how booked nights showed as open on Airbnb.',
           ],
         },

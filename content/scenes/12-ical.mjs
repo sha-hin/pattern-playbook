@@ -7,7 +7,7 @@ export default {
     when: 'Monday 08:20',
     messages: [
       ['Ahmed · host', 'A family is standing outside the Lake Cabin with an **Airbnb** booking for tonight. Another family is inside with a **Nordic Stays** booking for the same nights. The nights were blocked on Airbnb two weeks ago.'],
-      ['Karim · developer', 'The Airbnb iCal import ran at 03:00, Airbnb timed out halfway, and the import had already deleted every block for the cabin. For 15 minutes the calendar looked empty, and that’s when the direct booking came in.'],
+      ['Karim · developer', 'The iCal import deletes every block for the cabin **first**, then downloads the feed. At 03:00 the download hung until the server killed the process, so the cabin had no blocks until the next run 15 minutes later. That’s when the direct booking came in.'],
     ],
   },
   sections: [

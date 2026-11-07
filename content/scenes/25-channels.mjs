@@ -1,37 +1,67 @@
 // Scene 25 · Bridge: what a message says, separate from how it is delivered.
 
+const rows = [18, 67, 116];
+const messages = ['Arrival', 'Cancelled', 'Thank you'];
+const channels = ['Mail', 'SMS', 'WhatsApp'];
+
 export default {
-  description: 'Guests who asked for SMS got every message by email, because each notification hard-coded its delivery. Fix it with Laravel Notifications, which are a Bridge: the message on one side, the channel on the other. Pick channels per guest and per host, send SMS through Vonage, and add a WhatsApp channel without touching a single message.',
+  description: 'Guests who chose SMS or WhatsApp still got every message by email, because the booking form saved their choice and every message ignored it. Fix it with Laravel Notifications, which are a Bridge: messages on one side, delivery channels on the other. Mail is built in; SMS and WhatsApp are one small channel class each.',
   incident: {
     channel: '#support',
     when: 'Tuesday 18:30',
     messages: [
-      ['Mona · support', 'A guest at the Nyhavn flat asked for **SMS** when booking, because she doesn’t read email while travelling. She never saw her arrival instructions and waited outside for an hour.'],
-      ['Ahmed · host', 'Same for me: I want overbooking alerts by text, not in an inbox I check once a day. And half our guests ask if we do WhatsApp.'],
+      ['Mona · support', 'Since last week the booking form asks guests **“Email, SMS or WhatsApp?”**. A guest at the Nyhavn flat chose **SMS**, because she doesn’t read email while travelling. Her arrival instructions came **by email**. She waited outside for an hour.'],
+      ['Mona · support', 'The guests who chose WhatsApp got emails too.'],
+      ['Karim · developer', 'The form saves the choice. Nothing reads it.'],
     ],
   },
   sections: [
     {
       title: 'The broken code',
+      text: ['The question was added to the booking form. The messages were written when email was the only option, and nobody changed them:'],
       blocks: [
         {
-          path: 'app/Notifications/GuestMessage.php · OverbookingDetected.php (before)',
+          path: 'app/Http/Requests/StoreBookingRequest.php · app/Notifications/GuestMessage.php (before)',
           broken: true, fragment: true,
-          code: String.raw`public function via(object $notifiable): array
+          code: String.raw`// the booking form, last week: the choice is validated and saved
+'contact_channel' => ['required', Rule::in(['email', 'sms', 'whatsapp'])],
+$booking->guest_channel = $request->validated('contact_channel');           // 'sms'
+
+// the message, from scene 21: written when email was the only way
+public function via(object $notifiable): array
 {
-    return ['mail'];                                                  // in every notification class
+    return ['mail'];                                                         // the guest's choice is never read
+}`,
+          after: ['That is the whole bug: the choice is stored, and every message sends email anyway.'],
+        },
+      ],
+    },
+    {
+      title: 'The tempting fix, and why it’s wrong',
+      text: ['The quick patch reads the choice inside the message, and sends from there:'],
+      blocks: [
+        {
+          path: 'app/Notifications/GuestMessage.php (the quick patch, not used)',
+          broken: true, fragment: true,
+          code: String.raw`if ($booking->guest_channel === 'sms') {
+    Http::withToken($smsToken)->post($smsUrl, ['to' => $booking->guest_phone, 'text' => $text]);   // sending code inside a message
+} elseif ($booking->guest_channel === 'whatsapp') {
+    Http::withToken($waToken)->post($waUrl, [/* another format */]);
+} else {
+    Mail::to($booking->guest_email)->send(new GuestMail($booking));
 }`,
           after: [
-            'Every notification decides its own delivery, and they all decided "email". Supporting SMS the obvious way means editing every notification, and WhatsApp means editing all of them again: message types × delivery channels, every combination written by hand.',
+            'It works for this one message. But the cancellation notice (scene 22) and the overbooking alert (scene 18) need the same three branches, so the sending code is copied into every message: **3 messages × 3 channels = 9 places** that send. A fourth channel means editing every message again, and a fix to how SMS is sent has to be made three times.',
+            'Two things are mixed that change for different reasons: **what** a message says, and **how** it is delivered.',
           ],
         },
       ],
     },
     {
-      title: 'The fix, part 1: the guest’s choice, stored',
+      title: 'The fix, part 1: the guest’s choice, with an address',
       blocks: [
         {
-          path: 'database/migrations/2026_04_14_000001_add_contact_preferences.php',
+          path: 'database/migrations/2026_04_14_000001_add_contact_channel_to_bookings_table.php',
           code: String.raw`<?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -43,25 +73,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->string('guest_phone')->nullable();                 // E.164: +4512345678
+            $table->string('guest_phone')->nullable();                 // E.164, e.g. +4512345678
             $table->string('guest_channel')->default('mail');          // mail, sms, whatsapp
-        });
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('phone')->nullable();
-            $table->json('notification_channels')->nullable();         // a host's choice, e.g. ["mail","vonage"]
         });
     }
 };`,
         },
         {
-          title: 'Our names for the choices, Laravel’s names for the channels',
-          text: ['`via()` returns channel names: `mail` and `vonage` are built in, and a custom channel is named by its class.'],
+          title: 'Our words in the database, Laravel’s names in the code',
+          text: [
+            'The database stores **our** words (`sms`), never class names: a class can be renamed or moved, a stored value can’t follow it. The enum translates our word into the name Laravel uses for that channel: `mail` is built in, and a custom channel is named by its class.',
+          ],
           path: 'app/Enums/GuestChannel.php',
           code: String.raw`<?php
 
 namespace App\Enums;
 
+use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Channels\WhatsAppChannel;
 
 enum GuestChannel: string
@@ -73,20 +101,20 @@ enum GuestChannel: string
     public function notificationChannel(): string
     {
         return match ($this) {
-            self::Mail => 'mail',
-            self::Sms => 'vonage',                                      // laravel/vonage-notification-channel
-            self::WhatsApp => WhatsAppChannel::class,
+            self::Mail => 'mail',                                       // Laravel's own mail channel
+            self::Sms => SmsChannel::class,                             // ours, part 4
+            self::WhatsApp => WhatsAppChannel::class,                   // ours, part 5
         };
     }
 }`,
-          after: ['`Booking` casts `guest_channel` to it; the booking form and the channel mappers (scene 14) fill both fields.'],
+          after: ['`Booking` casts `guest_channel` to it; the booking form saves the guest’s choice and phone number.'],
         },
       ],
     },
     {
-      title: 'The fix, part 2: a message says what, the channel decides how',
+      title: 'The fix, part 2: a message says what, never how',
       text: [
-        'A notification class answers two questions: **who wants it, by which channels** (`via()`), and **what it looks like on each** (`toMail()`, `toVonage()`, `toWhatsApp()`). It never sends anything itself. Delivering it is the channel’s job.',
+        'A notification answers two questions: **which channel** this recipient wants (`via()`), and **what the message looks like** on each channel (`toMail()`, `toSms()`, `toWhatsApp()`). It never sends anything.',
       ],
       blocks: [
         {
@@ -99,7 +127,6 @@ use App\Messaging\TemplateRenderer;
 use App\Models\ScheduledMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Messages\VonageMessage;
 use Illuminate\Notifications\Notification;
 
 class GuestMessage extends Notification
@@ -113,76 +140,139 @@ class GuestMessage extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return [$this->message->booking->guest_channel->notificationChannel()];       // the guest's choice
+        return [$this->message->booking->guest_channel->notificationChannel()];   // the fix for the incident
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         $renderer = app(TemplateRenderer::class);
+        $booking = $this->message->booking;
 
         return (new MailMessage())
-            ->subject($renderer->text($this->message->template->subject, $this->message->booking, now()))
-            ->view('mail.guest', ['html' => $renderer->html($this->message->template->body, $this->message->booking, now())]);
+            ->subject($renderer->text($this->message->template->subject, $booking, now()))
+            ->view('mail.guest', ['html' => $renderer->html($this->message->template->body, $booking, now())]);
     }
 
-    public function toVonage(object $notifiable): VonageMessage
+    public function toSms(object $notifiable): string
     {
-        return (new VonageMessage())->content($this->text())->unicode();                // names like "Søren" need unicode
+        return $this->plainText();
     }
 
     public function toWhatsApp(object $notifiable): string
     {
-        return $this->text();
+        return $this->plainText();
     }
 
-    private function text(): string
+    private function plainText(): string
     {
         return app(TemplateRenderer::class)->text($this->message->template->body, $this->message->booking, now());   // scene 24
     }
 }`,
         },
+      ],
+    },
+    {
+      title: 'Where the two sides meet',
+      text: [
+        'For each channel `via()` returns, Laravel asks its notification channel manager (a Manager, like scene 13’s) for that channel, and calls its `send()` with the recipient and the message. `mail` is a built-in driver; a class name is built from the container. **This one line is the bridge**: on its left, any message; on its right, any channel.',
+      ],
+      blocks: [
         {
-          title: 'Where each channel delivers to',
-          text: ['A guest isn’t a user, so the send job gives the on-demand notifiable an address for every channel. The notification picks one with `via()`; the matching channel reads its address.'],
-          path: 'app/Jobs/SendScheduledMessage.php (the send line, after)',
+          path: 'Illuminate/Notifications/NotificationSender.php · ChannelManager.php (simplified)',
           fragment: true,
-          code: String.raw`$booking = $this->message->booking;
-
-Notification::route('mail', $booking->guest_email)
-    ->route('vonage', $booking->guest_phone)
-    ->route(WhatsAppChannel::class, $booking->guest_phone)
-    ->notifyNow(new GuestMessage($this->message));`,
-        },
-        {
-          title: 'Hosts choose too',
-          text: ['Hosts are users, so their choice is on their own row, and Laravel asks the user for each channel’s address.'],
-          path: 'app/Notifications/OverbookingDetected.php (via, after) · app/Models/User.php (added)',
-          fragment: true,
-          code: String.raw`// OverbookingDetected (scene 18)
-public function via(object $notifiable): array
+          code: String.raw`// NotificationSender
+protected function sendToNotifiable($notifiable, $id, $notification, $channel)
 {
-    return array_values(array_intersect($notifiable->notification_channels ?? ['mail'], ['mail', 'vonage']));
+    $response = $this->manager->driver($channel)->send($notifiable, $notification);   // the bridge
+
+    $this->events->dispatch(new NotificationSent($notifiable, $notification, $channel, $response));
 }
 
-public function toVonage(object $notifiable): VonageMessage
+// ChannelManager
+protected function createDriver($driver)
 {
-    return (new VonageMessage())->content("Overbooking at {$this->overbooking->booking->property->name}: check your email or the app.");
-}
+    try {
+        return parent::createDriver($driver);              // mail, database, broadcast…
+    } catch (InvalidArgumentException $e) {
+        if (class_exists($driver)) {
+            return $this->container->make($driver);         // SmsChannel::class, WhatsAppChannel::class
+        }
 
-// User: casts 'notification_channels' => 'array'
-public function routeNotificationForVonage(Notification $notification): ?string
-{
-    return $this->phone;
+        throw $e;
+    }
 }`,
         },
       ],
     },
     {
-      title: 'The fix, part 3: a new channel, no message touched',
+      title: 'The fix, part 3: the recipient carries every address',
       text: [
-        'WhatsApp isn’t built in. A channel is any class with a `send($notifiable, $notification)` method. This one asks the notification for its WhatsApp text and posts it to Meta’s WhatsApp Cloud API. Messages a business starts must use a template approved by Meta, so the text goes in as the parameter of one approved template, `guest_message`, whose body is just `{{1}}`.',
+        'A guest isn’t a user, so the send job (scene 22) builds the recipient on the spot. It gives it an address for **every** channel, because the recipient knows *where* each channel can reach it, and the message decides *which* channel is used. Each channel then asks the recipient for its own address.',
       ],
       blocks: [
+        {
+          path: 'app/Jobs/SendScheduledMessage.php (the send line, after)',
+          fragment: true,
+          code: String.raw`$booking = $this->message->booking;
+
+Notification::route('mail', $booking->guest_email)
+    ->route(SmsChannel::class, $booking->guest_phone)
+    ->route(WhatsAppChannel::class, $booking->guest_phone)
+    ->notifyNow(new GuestMessage($this->message));`,
+        },
+      ],
+    },
+    {
+      title: 'The fix, part 4: an SMS channel',
+      text: [
+        'A channel is any class with a `send($notifiable, $notification)` method. This one asks the message for its SMS text, asks the recipient for its number, and posts both to the SMS provider. Every SMS provider has an HTTP API of this shape: a token, a sender, a number and a text. Only the field names differ, so switching providers changes this one class.',
+      ],
+      blocks: [
+        {
+          path: 'app/Notifications/Channels/SmsChannel.php',
+          code: String.raw`<?php
+
+namespace App\Notifications\Channels;
+
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Http;
+use LogicException;
+
+class SmsChannel
+{
+    public function send(object $notifiable, Notification $notification): void
+    {
+        $to = $notifiable->routeNotificationFor(self::class, $notification)
+            ?? throw new LogicException('No phone number for this recipient.');   // loud: the guest asked for SMS
+
+        Http::withToken(config('services.sms.token'))
+            ->timeout(10)
+            ->post(config('services.sms.url'), [
+                'from' => config('services.sms.from'),                          // the sender name guests see
+                'to' => $to,
+                'text' => $notification->toSms($notifiable),
+            ])
+            ->throw();                                                         // a failed send fails the job, which retries
+    }
+}`,
+          after: ['`config/services.php` gets an `sms` entry with `url`, `token` and `from`, read from `.env`.'],
+        },
+      ],
+    },
+    {
+      title: 'The fix, part 5: WhatsApp, without touching a single message',
+      text: [
+        'WhatsApp needs one more class of the same shape, posting to Meta’s WhatsApp Cloud API. One rule of WhatsApp shapes the request:',
+      ],
+      blocks: [
+        {
+          table: [
+            ['Step', 'What it means here'],
+            ['1. A business may only **start** a conversation with a template Meta has approved', 'Our arrival message is sent before the guest ever writes to us, so it must be a template'],
+            ['2. We register one template, `guest_message`, whose whole body is one placeholder', 'Meta approves it once, in the Meta business dashboard'],
+            ['3. Each message’s text goes into that placeholder', 'The hosts’ own templates (scene 24) keep working unchanged'],
+          ],
+        },
         {
           path: 'app/Notifications/Channels/WhatsAppChannel.php',
           code: String.raw`<?php
@@ -197,86 +287,97 @@ class WhatsAppChannel
 {
     public function send(object $notifiable, Notification $notification): void
     {
-        if (! method_exists($notification, 'toWhatsApp')) {
-            throw new LogicException($notification::class . ' has no WhatsApp version.');
-        }
+        $to = $notifiable->routeNotificationFor(self::class, $notification)
+            ?? throw new LogicException('No WhatsApp number for this recipient.');
 
-        $to = $notifiable->routeNotificationFor(self::class, $notification);
-        if ($to === null) {
-            throw new LogicException('No WhatsApp number for this recipient.');   // loud: the guest asked for WhatsApp
-        }
-
-        $config = config('services.whatsapp');
+        $config = config('services.whatsapp');                                 // token, api_version, phone_number_id
 
         Http::withToken($config['token'])
             ->timeout(10)
             ->post("https://graph.facebook.com/{$config['api_version']}/{$config['phone_number_id']}/messages", [
                 'messaging_product' => 'whatsapp',
-                'to' => ltrim($to, '+'),
+                'to' => ltrim($to, '+'),                                       // WhatsApp wants the number without "+"
                 'type' => 'template',
                 'template' => [
                     'name' => 'guest_message',
                     'language' => ['code' => 'en'],
-                    'components' => [['type' => 'body', 'parameters' => [['type' => 'text', 'text' => $notification->toWhatsApp($notifiable)]]]],
+                    'components' => [[
+                        'type' => 'body',
+                        'parameters' => [['type' => 'text', 'text' => $notification->toWhatsApp($notifiable)]],
+                    ]],
                 ],
             ])
-            ->throw();                                                     // a failed send fails the job, which retries
+            ->throw();
     }
 }`,
-          after: ['Its settings go in `config/services.php` as `whatsapp` → `token`, `api_version` (the Graph API version your Meta app uses) and `phone_number_id`, read from `.env`. Adding WhatsApp took one channel class and one `toWhatsApp()` per message that supports it. Adding a new message type later takes one notification class, and every channel already works with it.'],
+          after: ['Adding WhatsApp took this one class and the `toWhatsApp()` method on the messages that support it. No existing message, and no other channel, changed.'],
         },
       ],
     },
   ],
   reveal: {
     names: ['Bridge'],
-    rules: [['Bridge', 'Split something that varies in two directions into two hierarchies, the abstraction and the implementation, connected by a reference, so each side can grow without the other.']],
+    rules: [['Bridge', 'When something varies in two directions, keep each direction in its own set of classes and connect them through one interface, so either side can grow without the other.']],
+    drawing: {
+      bad: [
+        ...messages.map((label, i) => ['b', 8, rows[i], 84, 32, label, 'n']),
+        ...channels.map((label, i) => ['b', 208, rows[i], 84, 32, label, 'n']),
+        ...rows.flatMap(from => rows.map(to => ['a', 92, from + 16, 206, to + 16, '', 'x'])),
+      ],
+      good: [
+        ['b', 4, 8, 96, 150, '', 'i'],
+        ['b', 200, 8, 96, 150, '', 'i'],
+        ...messages.map((label, i) => ['b', 12, rows[i], 80, 32, label, 'n']),
+        ...channels.map((label, i) => ['b', 208, rows[i], 80, 32, label, 'v2']),
+        ['a', 100, 83, 198, 83, '', 'k'],
+        ['t', 150, 75, 'send()', 'kv', 'middle'],
+      ],
+      badCaption: 'Every message carries code for every channel: 3 × 3 = 9 places that send.',
+      goodCaption: 'Messages say what; channels deliver. They meet in one place, send(): 3 + 3 classes.',
+    },
     points: [
-      'One side: **what** is said, the notifications (`GuestMessage`, `OverbookingDetected`, `BookingCancelledNotice`). The other: **how** it’s delivered, the channels (mail, Vonage, WhatsApp).',
-      'Without the bridge, 3 messages × 3 channels is 9 combinations to write. With it, it’s 3 + 3, and the fourth channel is one class.',
-      'Laravel built this side for you; your part is to keep the two sides apart: no HTTP calls in a notification, no wording in a channel.',
+      'One side is **what is said**: `GuestMessage`, `BookingCancelledNotice`, `OverbookingDetected`. The other is **how it’s delivered**: mail, SMS, WhatsApp.',
+      'A new message works on every channel at once. A new channel (push notifications, say) is one class, plus one `toX()` method on the messages that should use it.',
+      'Laravel built the bridge; your part is to keep the sides apart: no HTTP calls inside a message, no wording inside a channel.',
     ],
     whenNot: [
-      'One way of delivering, forever: a plain mailable is simpler than a notification.',
-      'Don’t create a bridge for two sides that don’t really vary independently. The test: can a new item on one side work with every item on the other?',
+      'One message, one way of delivering it: a plain Mailable is simpler.',
+      'Two sides that don’t really vary on their own. The test: can every item on one side work with every item on the other?',
     ],
   },
-  laravel: {
-    title: 'Laravel inside: where the two sides meet',
-    text: ['For every channel `via()` returns, the sender asks the notification channel manager (a Manager, scene 13) for that channel’s driver and hands it the notification. A class name that isn’t a built-in driver is resolved from the container, which is all a custom channel needs.'],
-    blocks: [
-      {
-        path: 'Illuminate/Notifications/NotificationSender.php · ChannelManager.php (simplified)',
-        fragment: true,
-        code: String.raw`protected function sendToNotifiable($notifiable, $id, $notification, $channel)
+  afterReveal: [
+    {
+      title: 'Hosts choose too',
+      text: ['Hosts are users, so their choice lives on their own row (a `notification_channels` JSON column and a `phone` column on `users`), and the overbooking alert from scene 18 reads it in `via()`. The same two channels deliver it; only the message is different.'],
+      blocks: [
+        {
+          path: 'app/Notifications/OverbookingDetected.php (via, after) · app/Models/User.php (added)',
+          fragment: true,
+          code: String.raw`// OverbookingDetected
+public function via(object $notifiable): array
 {
-    if (! $this->shouldSendNotification($notifiable, $notification, $channel)) {
-        return;
-    }
+    $allowed = ['mail' => 'mail', 'sms' => SmsChannel::class];
 
-    $response = $this->manager->driver($channel)->send($notifiable, $notification);   // the bridge
-
-    $this->events->dispatch(new NotificationSent($notifiable, $notification, $channel, $response));
+    return array_values(array_intersect_key($allowed, array_flip($notifiable->notification_channels ?? ['mail'])));
 }
 
-// ChannelManager
-protected function createDriver($driver)
+public function toSms(object $notifiable): string
 {
-    try {
-        return parent::createDriver($driver);              // mail, database, broadcast, vonage...
-    } catch (InvalidArgumentException $e) {
-        if (class_exists($driver)) {
-            return $this->container->make($driver);         // WhatsAppChannel::class
-        }
+    return "Overbooking at {$this->overbooking->booking->property->name}. Details in your email and the app.";
+}
 
-        throw $e;
-    }
+// User: casts 'notification_channels' => 'array'
+public function routeNotificationForSmsChannel(Notification $notification): ?string
+{
+    return $this->phone;                                  // what SmsChannel gets from routeNotificationFor()
 }`,
-      },
-    ],
-  },
+          after: ['For a user, Laravel turns `routeNotificationFor(SmsChannel::class)` into a call to `routeNotificationForSmsChannel()`, named after the class.'],
+        },
+      ],
+    },
+  ],
   tests: {
-    summary: 'Each guest’s channel, each host’s choice, and what WhatsApp receives',
+    summary: 'The incident, each channel chosen, and what SMS and WhatsApp receive',
     blocks: [
       {
         path: 'tests/Feature/GuestChannelsTest.php',
@@ -287,6 +388,7 @@ use App\Jobs\SendScheduledMessage;
 use App\Models\Booking;
 use App\Models\MessageTemplate;
 use App\Models\ScheduledMessage;
+use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Channels\WhatsAppChannel;
 use App\Notifications\GuestMessage;
 use Illuminate\Http\Client\Request;
@@ -301,6 +403,14 @@ function messageFor(GuestChannel $channel): ScheduledMessage
     return ScheduledMessage::forceCreate(['booking_id' => $booking->id, 'message_template_id' => $template->id, 'send_at' => now()]);
 }
 
+it('sends an SMS, and no email, to a guest who chose SMS', function () {
+    Notification::fake();
+
+    app()->call([new SendScheduledMessage(messageFor(GuestChannel::Sms)), 'handle']);
+
+    Notification::assertSentOnDemand(GuestMessage::class, fn (GuestMessage $n, array $channels): bool => $channels === [SmsChannel::class]);
+});
+
 it('delivers by the channel the guest chose', function (GuestChannel $choice, string $channel) {
     Notification::fake();
 
@@ -309,11 +419,22 @@ it('delivers by the channel the guest chose', function (GuestChannel $choice, st
     Notification::assertSentOnDemand(GuestMessage::class, fn (GuestMessage $n, array $channels): bool => $channels === [$channel]);
 })->with([
     [GuestChannel::Mail, 'mail'],
-    [GuestChannel::Sms, 'vonage'],
+    [GuestChannel::Sms, SmsChannel::class],
     [GuestChannel::WhatsApp, WhatsAppChannel::class],
 ]);
 
-it('sends WhatsApp through the approved template, with the rendered text', function () {
+it('sends the rendered text to the guest’s number by SMS', function () {
+    config(['services.sms' => ['url' => 'https://sms.test/messages', 'token' => 't', 'from' => 'NordicStays']]);
+    Http::fake(['sms.test/*' => Http::response(['id' => 'm1'])]);
+
+    app()->call([new SendScheduledMessage(messageFor(GuestChannel::Sms)), 'handle']);
+
+    Http::assertSent(fn (Request $request): bool => $request['to'] === '+4512345678'
+        && $request['from'] === 'NordicStays'
+        && $request['text'] === 'Hi Søren');
+});
+
+it('sends WhatsApp through the approved template, with the rendered text in it', function () {
     config(['services.whatsapp' => ['token' => 't', 'api_version' => 'v21.0', 'phone_number_id' => '10987']]);
     Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.1']]])]);
 

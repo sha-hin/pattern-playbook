@@ -1,12 +1,13 @@
 // Scene 1 · Value Object: Money.
 
 export default {
-  description: 'A guest was charged €450.29 for a €450.30 stay because prices were floats. Fix it with money in cents and a Money value object in Laravel, with an Eloquent cast.',
+  description: 'Every month dozens of bookings were charged a cent less than their invoice, and the books never matched Stripe, because prices were floats. Fix it with money in cents and a Money value object in Laravel, with an Eloquent cast.',
   incident: {
-    channel: '#support',
+    channel: '#finance',
     when: 'Monday 09:12',
     messages: [
-      ['Mona · support', 'A guest booked the Nyhavn flat for 3 nights at €150.10. The confirmation email says €450.30, but Stripe charged **€450.29**. She’s asking if we’re scamming her. It’s the third complaint this month, always one cent.'],
+      ['Lina · finance', 'Closing October. Stripe paid out **€18,412.73**; our invoices for the same bookings add up to **€18,413.11**. 38 bookings are off by exactly one cent, Stripe always lower. One of them: the Nyhavn flat, 3 nights at €150.10, invoice €450.30, Stripe €450.29.'],
+      ['Lina · finance', 'The accountant won’t sign the VAT return until the books match. I need to know which number is right.'],
     ],
   },
   sections: [
@@ -32,7 +33,10 @@ $stripe->paymentIntents->create([
 = 450.29999999999995
 > (int) (150.10 * 3 * 100)
 = 45029`,
-          after: ['A float is stored in binary, and **150.10 has no exact binary form**, just as 1/3 has no exact decimal form. The multiplication lands a hair below 450.30, and `(int)` cuts off the rest instead of rounding. The email rounded for display, Stripe got the cut-off value.'],
+          after: [
+            'A float is stored in binary, and **150.10 has no exact binary form**, just as 1/3 has no exact decimal form. The multiplication lands a hair below 450.30, and `(int)` cuts off the rest instead of rounding. The invoice rounded for display (€450.30); Stripe got the cut-off value (€450.29).',
+            'It only happens for some prices, which is why it took a month-end close to notice: €150.00 × 3 is exact, €150.10 × 3 isn’t. A cent per booking is small money and a big problem: invoices, payouts and the tax return must all agree to the cent.',
+          ],
         },
       ],
     },
@@ -311,5 +315,5 @@ it('writes the amount and the currency together', function () {
       },
     ],
   },
-  next: 'Money is fixed. Tuesday morning, a guest who booked four nights gets an invoice for three.',
+  next: 'The books match Stripe again. Tuesday, a host’s weekly payout comes in a quarter short.',
 };
