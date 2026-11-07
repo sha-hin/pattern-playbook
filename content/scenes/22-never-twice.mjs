@@ -114,10 +114,130 @@ class BookingCancelled implements ShouldDispatchAfterCommit
 }`,
         },
         {
-          path: 'app/Bookings/CancelBooking.php (one line added, after the state changed)',
-          fragment: true,
-          code: String.raw`BookingCancelled::dispatch($booking);`,
-          after: ['Channel bookings cancelled by an import (scene 15) dispatch the same event, so their messages stop too.'],
+          text: ['`CancelBooking` (scene 10) dispatches it right after the state changed:'],
+          path: 'app/Bookings/CancelBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Events\BookingCancelled;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $nothing = Money::zero($booking->total->currency);
+
+            if (! $booking->state()->cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            $this->calendar->bookingChanged($booking);                  // the nights are free again
+            BookingCancelled::dispatch($booking);                        // anyone who cares listens; held until the commit
+
+            $payment = $booking->payments()
+                ->where('status', PaymentStatus::Succeeded)
+                ->whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                ->latest('id')
+                ->first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()->diffInHours($booking->stay->checkInAt($booking->property), false));
+            $refund = $booking->refundPolicy()->refundFor(Money::of($payment->amount_cents, $payment->currency), $hours);
+
+            if ($refund->amount > 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)->afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}`,
+        },
+        {
+          text: ['A booking cancelled on Airbnb or Booking.com arrives through the import (scene 15). It dispatches the same event the first time it sees the cancellation, so those messages stop too:'],
+          path: 'app/Channels/ImportChannelReservation.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Events\BookingCancelled;
+use App\Models\Booking;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\DB;
+
+final class ImportChannelReservation
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return bool true when the reservation was applied, false when it was older than what we have */
+    public function handle(ChannelReservation $reservation): bool
+    {
+        $listing = ChannelListing::query()
+            ->where('channel', $reservation->channel)
+            ->where('external_listing_id', $reservation->externalListingId)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($reservation, $listing): bool {
+            Property::whereKey($listing->property_id)->lockForUpdate()->firstOrFail();   // one change per property at a time
+
+            $booking = Booking::query()
+                ->where('channel', $reservation->channel)
+                ->where('external_id', $reservation->externalId)
+                ->lockForUpdate()
+                ->first() ?? new Booking();
+
+            if ($booking->exists && $booking->external_version >= $reservation->version) {
+                return false;                                      // older or the same: already applied something newer
+            }
+
+            $wasCancelled = $booking->status === BookingStatus::Cancelled;
+
+            $booking->forceFill([
+                'property_id' => $listing->property_id,
+                'channel' => $reservation->channel,
+                'external_id' => $reservation->externalId,
+                'external_version' => $reservation->version,
+                'status' => $reservation->status,                  // the channel decides; our own State rules (scene 9) guard our actions
+                'guest_name' => $reservation->guestName,
+                'guest_email' => $reservation->guestEmail,
+                'guests' => $reservation->guests,
+                'stay' => $reservation->stay,
+                'total' => $reservation->total,
+                'confirmed_at' => $booking->confirmed_at ?? now(),
+                'cancelled_at' => $reservation->status === BookingStatus::Cancelled ? ($booking->cancelled_at ?? now()) : null,
+            ])->save();
+
+            $this->calendar->bookingChanged($booking);                  // clashes are found here, and the channels told
+
+            if ($booking->status === BookingStatus::Cancelled && ! $wasCancelled) {
+                BookingCancelled::dispatch($booking);                    // cancelled on the channel: the same event as ours
+            }
+
+            return true;
+        });
+    }
+}`,
         },
         {
           title: 'Listener 1: stop the messages',

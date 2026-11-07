@@ -13,30 +13,55 @@ export default {
   sections: [
     {
       title: 'The broken code',
-      text: ['Nordic Stays is multi-tenant: many host companies (accounts, from the [foundation](F#table-accounts)) share one database. Three new endpoints were written fast:'],
+      text: ['Nordic Stays is multi-tenant: many host companies (accounts, from the [foundation](F#table-accounts)) share one database. Three new endpoints were added to the booking controller in a hurry: `index`, `show` and `move`.'],
       blocks: [
         {
           path: 'app/Http/Controllers/BookingController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`public function index()
-{
-    return BookingResource::collection(Booking::latest()->paginate());       // every account's bookings
-}
+          broken: true,
+          code: String.raw`<?php
 
-public function show(Booking $booking)
-{
-    return new BookingResource($booking);                                     // any id works: the IDOR
-}
+namespace App\Http\Controllers;
 
-public function move(Request $request, Booking $booking)
+use App\Bookings\CreateBooking;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+use App\Models\Property;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+
+class BookingController extends Controller
 {
-    $request->validate(['property_id' => 'required|exists:properties,id']);  // exists in ANY account
-    $booking->update($request->all());                                        // and every other column too
+    public function store(StoreBookingRequest $request, Property $property, CreateBooking $createBooking): BookingResource
+    {
+        $booking = $createBooking->handle(
+            $property,
+            $request->stay(),
+            $request->safe()->only(['guest_name', 'guest_email', 'guests']),
+        );
+
+        return new BookingResource($booking);
+    }
+
+    public function index(): AnonymousResourceCollection
+    {
+        return BookingResource::collection(Booking::latest()->paginate());       // every account's bookings
+    }
+
+    public function show(Booking $booking): BookingResource
+    {
+        return new BookingResource($booking);                                     // any id works: the IDOR
+    }
+
+    public function move(Request $request, Booking $booking): BookingResource
+    {
+        $request->validate(['property_id' => 'required|exists:properties,id']);  // exists in ANY account
+        $booking->update($request->all());                                        // and every other column too
+
+        return new BookingResource($booking);
+    }
 }`,
-          after: [
-            '**IDOR** (insecure direct object reference) means: the app checks that you’re logged in, but not that the thing you asked for is yours. Ids are sequential, so trying 813, 814, 815 is all it takes.',
-            '`exists:properties,id` checks that the property exists, not that it belongs to you, so a booking can be moved into another account. And `$request->all()` passes whatever the request contains to the model: a crafted request could change `status` or `total_cents`. (The `$fillable` list from the foundation limits that damage; validated input is what stops it.)',
-          ],
+          after: ['**IDOR** (insecure direct object reference) means: the app checks that you’re logged in, but not that the thing you asked for is yours. Ids are sequential, so trying 813, 814, 815 is all it takes.', '`exists:properties,id` checks that the property exists, not that it belongs to you, so a booking can be moved into another account. And `$request->all()` passes whatever the request contains to the model: a crafted request could change `status` or `total_cents`. (The `$fillable` list from the foundation limits that damage; validated input is what stops it.)'],
         },
       ],
     },
@@ -73,7 +98,7 @@ class SetCurrentAccount
         return $next($request);
     }
 }`,
-          after: ['`bootstrap/app.php` adds it to the API group after `auth:sanctum`. Under Octane, where the app stays in memory between requests, register `Account` with `$this->app->scoped()` so it is forgotten after each request (scene 38).'],
+          after: ['The routes in part 3 run it right after `auth:sanctum`. Under Octane, where the app stays in memory between requests, register `Account` with `$this->app->scoped()` so it is forgotten after each request (scene 38).'],
         },
       ],
     },
@@ -84,23 +109,99 @@ class SetCurrentAccount
       ],
       blocks: [
         {
-          path: 'app/Models/Account.php (one relation added)',
-          fragment: true,
-          code: String.raw`/** Bookings of all this account's properties: bookings → properties.account_id */
-public function bookings(): HasManyThrough
+          text: ['The account gets one relation that reaches its bookings through its properties:'],
+          path: 'app/Models/Account.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+
+class Account extends Model
 {
-    return $this->hasManyThrough(Booking::class, Property::class);
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'memberships')
+            ->using(Membership::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this->hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this->hasMany(ChannelConnection::class);
+    }
+
+    /** Bookings of all this account's properties: bookings → properties.account_id */
+    public function bookings(): HasManyThrough
+    {
+        return $this->hasManyThrough(Booking::class, Property::class);
+    }
 }`,
         },
         {
-          path: 'app/Http/Controllers/BookingController.php (index, after)',
-          fragment: true,
-          code: String.raw`public function index(Account $account): AnonymousResourceCollection
+          text: ['The whole controller after this scene; `index()` starts from the account, `show()` and `move()` rely on the policies and the request below:'],
+          path: 'app/Http/Controllers/BookingController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\CreateBooking;
+use App\Http\Requests\MoveBookingRequest;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Resources\BookingResource;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+
+class BookingController extends Controller
 {
-    return BookingResource::collection(
-        $account->bookings()->latest('bookings.id')->cursorPaginate(50),   // the account is injected by the middleware
-    );
+    public function store(StoreBookingRequest $request, Property $property, CreateBooking $createBooking): BookingResource
+    {
+        $booking = $createBooking->handle(
+            $property,
+            $request->stay(),
+            $request->safe()->only(['guest_name', 'guest_email', 'guests']),
+        );
+
+        return new BookingResource($booking);
+    }
+
+    public function index(Account $account): AnonymousResourceCollection
+    {
+        return BookingResource::collection(
+            $account->bookings()->latest('bookings.id')->cursorPaginate(50),   // the account is injected by the middleware
+        );
+    }
+
+    public function show(Booking $booking): BookingResource
+    {
+        return new BookingResource($booking);                                     // the route's policy has checked it
+    }
+
+    public function move(MoveBookingRequest $request, Booking $booking): BookingResource
+    {
+        $booking->property_id = $request->validated('property_id');             // one field, by name, after validation
+        $booking->save();                                                       // (Day 5 adds the availability check)
+
+        return new BookingResource($booking);
+    }
 }`,
+          after: ['There is no `$request->all()` left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 40).'],
         },
       ],
     },
@@ -147,16 +248,40 @@ class BookingPolicy
         },
         {
           title: 'Routes: every id is checked',
-          text: [
-            'For another account’s booking the policy answers **404, not 403**: a 403 would confirm that booking 813 exists. `Response::denyAsNotFound()` does exactly that. A member without the right role gets a 403, because they may know the booking exists.',
-          ],
+          text: ['For another account’s booking the policy answers **404, not 403**: a 403 would confirm that booking 813 exists. `Response::denyAsNotFound()` does exactly that. A member without the right role gets a 403, because they may know the booking exists.', 'Every host route now lives in one group: logged in, inside the current account, and every booking id checked. The cancel, payment and mark-paid routes from earlier scenes move into it too.'],
           path: 'routes/api.php',
-          fragment: true,
-          code: String.raw`Route::middleware(['auth:sanctum', SetCurrentAccount::class])->prefix('v1')->group(function (): void {
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])->prefix('v1')->group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])->can('createBooking', 'property');
+
     Route::get('/bookings', [BookingController::class, 'index']);
     Route::get('/bookings/{booking}', [BookingController::class, 'show'])->can('view', 'booking');
     Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])->can('update', 'booking');
-});`,
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)->can('update', 'booking');
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404`,
         },
       ],
     },
@@ -190,18 +315,6 @@ class MoveBookingRequest extends FormRequest
         ];
     }
 }`,
-        },
-        {
-          path: 'app/Http/Controllers/BookingController.php (move, after)',
-          fragment: true,
-          code: String.raw`public function move(MoveBookingRequest $request, Booking $booking): BookingResource
-{
-    $booking->property_id = $request->validated('property_id');             // one field, by name, after validation
-    $booking->save();                                                       // (Day 5 adds the availability check)
-
-    return new BookingResource($booking);
-}`,
-          after: ['There is no `$request->all()` left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 40).'],
         },
       ],
     },

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 21: Arrival message sent at 3 a.m.","description":"A guest in New Zealand got her arrival instructions at 3 a.m. because \"the day before check-in at 15:00\" was calculated in UTC. Build automatic guest messages in Laravel: templates with a trigger and an offset, send_at calculated in the property’s timezone and stored in UTC, tested across daylight-saving changes, and a scheduler that finds due messages every minute.","url":"https://sha-hin.github.io/pattern-playbook/21-send-times/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/21-send-times/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 21: Arrival message sent at 3 a.m.","item":"https://sha-hin.github.io/pattern-playbook/21-send-times/"}]}]}</script>
 </head>
@@ -58,7 +58,7 @@
 <p class="inc-msg"><span class="inc-who">Guest email, Queenstown chalet</span>Your “see you tomorrow” message with the key box code woke me up at <b>3:04 in the morning</b>. Is that really necessary?</p><p class="inc-msg"><span class="inc-who">Mona · support</span>The template says “1 day before check-in, at 15:00”. Our first host outside Europe, first complaint.</p>
 </section>
 <section><h2>What hosts asked for</h2><p>Hosts send the same messages to every guest: a thank-you when the booking is confirmed, arrival instructions the day before, a goodbye after check-out. Automatic messages are the feature hosts pay a PMS for. Each <b>template</b> has a trigger, a number of days before or after it, and a local time to send.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_04_07_000001_create_messaging_tables.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_04_07_000001_create_messaging_tables.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -96,7 +96,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/MessageTrigger.php · ScheduledMessageStatus.php</span></div>
+<div class="filehead"><span class="path">app/Enums/MessageTrigger.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -108,7 +108,7 @@
     <span class="k">case</span> <span class="t">AfterCheckOut</span> = <span class="s">'after_check_out'</span>;
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/ScheduledMessageStatus.php</span></div>
+<div class="filehead"><span class="path">app/Enums/ScheduledMessageStatus.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -119,13 +119,214 @@
     <span class="k">case</span> <span class="t">Sent</span> = <span class="s">'sent'</span>;
     <span class="k">case</span> <span class="t">Cancelled</span> = <span class="s">'cancelled'</span>;
 }</code></pre>
-</div><p><code>MessageTemplate</code> casts <code>trigger</code> and <code>active</code>; <code>ScheduledMessage</code> casts <code>status</code>, <code>send_at</code> and <code>sent_at</code>, and has a <code>due()</code> scope: pending and <code>send_at &lt;= now()</code>. Both belong to the models you’d expect (<code>Account::messageTemplates()</code>, <code>Booking::scheduledMessages()</code>).</p></div></div></section>
+</div></div><div class="block"><p>The two models. A template belongs to an account:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Models/MessageTemplate.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MessageTrigger</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">MessageTemplate</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'trigger'</span>, <span class="s">'days_offset'</span>, <span class="s">'send_time'</span>, <span class="s">'subject'</span>, <span class="s">'body'</span>, <span class="s">'active'</span>];
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="s">'trigger'</span> =&gt; <span class="t">MessageTrigger</span>::class, <span class="s">'active'</span> =&gt; <span class="s">'boolean'</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);
+    }
+}</code></pre>
+</div></div><div class="block"><p>A scheduled message belongs to a booking and a template, and knows when it is due:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Models/ScheduledMessage.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">ScheduledMessageStatus</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">ScheduledMessage</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [
+            <span class="s">'status'</span> =&gt; <span class="t">ScheduledMessageStatus</span>::class,
+            <span class="s">'send_at'</span> =&gt; <span class="s">'datetime'</span>,
+            <span class="s">'sent_at'</span> =&gt; <span class="s">'datetime'</span>,
+        ];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">booking</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Booking</span>::class);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">template</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">MessageTemplate</span>::class, <span class="s">'message_template_id'</span>);
+    }
+
+    <span class="c">/** Pending, and its time has come: ScheduledMessage::query()-&gt;due() */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeDue</span>(<span class="t">Builder</span> <span class="v">$query</span>): <span class="k">void</span>
+    {
+        <span class="v">$query</span>-&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">ScheduledMessageStatus</span>::<span class="t">Pending</span>)-&gt;<span class="f">where</span>(<span class="s">'send_at'</span>, <span class="s">'&lt;='</span>, <span class="f">now</span>());
+    }
+}</code></pre>
+</div></div><div class="block"><p>An account has its templates:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Account.php</span><span class="badge">changed since scene 19: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+
+class Account extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(User::class, 'memberships')
+            -&gt;using(Membership::class)
+            -&gt;withPivot('role')
+            -&gt;withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this-&gt;hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelConnection::class);
+    }
+
+    /** Bookings of all this account's properties: bookings → properties.account_id */
+    public function bookings(): HasManyThrough
+    {
+        return $this-&gt;hasManyThrough(Booking::class, Property::class);
+    }
+
+    public function messageTemplates(): HasMany
+    {
+        return $this-&gt;hasMany(MessageTemplate::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsToMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasManyThrough</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Account</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">users</span>(): <span class="t">BelongsToMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsToMany</span>(<span class="t">User</span>::class, <span class="s">'memberships'</span>)</span><span class="ln">            -&gt;<span class="f">using</span>(<span class="t">Membership</span>::class)</span><span class="ln">            -&gt;<span class="f">withPivot</span>(<span class="s">'role'</span>)</span><span class="ln">            -&gt;<span class="f">withTimestamps</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">properties</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelConnections</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelConnection</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Bookings of all this account's properties: bookings → properties.account_id */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasManyThrough</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasManyThrough</span>(<span class="t">Booking</span>::class, <span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">messageTemplates</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">MessageTemplate</span>::class);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>And a booking has its scheduled messages:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 14: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' =&gt; CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' =&gt; Channel::class,                           // null for bookings made on Nordic Stays
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this-&gt;hasMany(BookingLineItem::class);
+    }
+
+    public function scheduledMessages(): HasMany
+    {
+        return $this-&gt;hasMany(ScheduledMessage::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query-&gt;whereIn('status', BookingStatus::blocking())
+            -&gt;where('check_in', '&lt;', $stay-&gt;checkOut-&gt;toDateString())     // starts before the new stay ends
+            -&gt;where('check_out', '&gt;', $stay-&gt;checkIn-&gt;toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this-&gt;status) {
+            BookingStatus::Pending =&gt; new PendingState(),
+            BookingStatus::Confirmed =&gt; new ConfirmedState(),
+            BookingStatus::Expired =&gt; new ExpiredState(),
+            BookingStatus::Cancelled =&gt; new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this-&gt;cancellation_policy?-&gt;refundPolicy() ?? new NoAutomaticRefund();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">NoAutomaticRefund</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">RefundPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">BookingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">CancelledState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ConfirmedState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ExpiredState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">PendingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,    <span class="c">// a copy of the property's policy, made at booking time</span></span><span class="ln">            <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::class,                           <span class="c">// null for bookings made on Nordic Stays</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">lineItems</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">BookingLineItem</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">scheduledMessages</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ScheduledMessage</span>::class);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span></span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** What this booking may do now. The status column stays the single source of truth. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">state</span>(): <span class="t">BookingState</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">match</span> (<span class="k">$this</span>-&gt;status) {</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Pending</span> =&gt; <span class="k">new</span> <span class="f">PendingState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Confirmed</span> =&gt; <span class="k">new</span> <span class="f">ConfirmedState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Expired</span> =&gt; <span class="k">new</span> <span class="f">ExpiredState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> =&gt; <span class="k">new</span> <span class="f">CancelledState</span>(),</span><span class="ln">        };                                                        <span class="c">// a new status without a state class fails here, loudly</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundPolicy</span>(): <span class="t">RefundPolicy</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;cancellation_policy?-&gt;<span class="f">refundPolicy</span>() ?? <span class="k">new</span> <span class="f">NoAutomaticRefund</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
 <section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Messaging/ScheduleGuestMessages.php (before)</span><span class="badge">the bug</span></div>
 <pre class="code rejected"><code><span class="v">$sendAt</span> = <span class="v">$booking</span>-&gt;check_in-&gt;<span class="f">subDay</span>()-&gt;<span class="f">setTimeFromTimeString</span>(<span class="v">$template</span>-&gt;send_time);   <span class="c">// 15:00... in UTC</span></code></pre>
 </div><p><code>check_in</code> is a date at midnight UTC (scene 2), so this builds <b>15:00 UTC</b>. In Copenhagen that’s 17:00 in summer, close enough that nobody noticed. In Queenstown, New Zealand, UTC+12 in July, it is <b>03:00</b>.</p><p>A local time only means something together with a place. &quot;15:00&quot; for this property means 15:00 on the clock in Queenstown, whatever that is in UTC on that particular date, daylight saving included.</p></div></div></section>
 <section><h2>The fix: build the moment in the property’s timezone</h2><p>The rule is the same as scene 2’s <code>checkInAt()</code>: take the <b>date</b>, add the <b>local time</b>, interpret both in the <b>property’s timezone</b>, and convert the result to UTC for storage. The database never stores local times; the property’s timezone is applied once, here.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Messaging/SendTime.php</span></div>
+<div class="filehead"><span class="path">app/Messaging/SendTime.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Messaging</span>;
@@ -151,7 +352,7 @@
     }
 }</code></pre>
 </div><p>One edge: on the night clocks jump forward, a local time like 02:30 doesn’t exist. Carbon moves it forward by the gap (to 03:30), which is what a guest would expect. That’s also why templates should send at daytime hours.</p></div><div class="block"><h3>Scheduling when a booking is confirmed</h3><p>One row per active template. <code>insertOrIgnore()</code> and the unique index mean that confirming twice (scene 9) can’t schedule anything twice.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Messaging/ScheduleGuestMessages.php</span></div>
+<div class="filehead"><span class="path">app/Messaging/ScheduleGuestMessages.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Messaging</span>;
@@ -183,9 +384,53 @@
         ])-&gt;<span class="f">all</span>());
     }
 }</code></pre>
-</div><p>Called from the confirmation facade (scene 6), right after the state change, inside its transaction.</p></div></div></section>
+</div></div><div class="block"><p>The confirmation facade (scene 6) calls it right after the state change, inside its transaction:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">changed since scene 18: <span class="plus">+7</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Messaging\ScheduleGuestMessages;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function __construct(
+        private CalendarSync $calendar,
+        private ScheduleGuestMessages $scheduleMessages,
+    ) {
+    }
+
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // fresh, and locked
+
+            if (! $booking-&gt;state()-&gt;confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment-&gt;status = PaymentStatus::Succeeded;               // step 2
+            $payment-&gt;save();
+
+            $this-&gt;scheduleMessages-&gt;handle($booking);                 // the guest's messages, at their local times
+
+            Notification::route('mail', $booking-&gt;guest_email)         // step 3, after the commit
+                -&gt;notify((new BookingConfirmed($booking))-&gt;afterCommit());
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // step 4: the coordinator decides what follows
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">ScheduleGuestMessages</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span></span><span class="ln">{</span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>)</span><span class="ln del">    {</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln add">        <span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>,</span><span class="ln add">        <span class="k">private</span> <span class="t">ScheduleGuestMessages</span> <span class="v">$scheduleMessages</span>,</span><span class="ln add">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span></span><span class="ln">                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span></span><span class="ln">            <span class="v">$payment</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln add">            <span class="k">$this</span>-&gt;scheduleMessages-&gt;<span class="f">handle</span>(<span class="v">$booking</span>);                 <span class="c">// the guest's messages, at their local times</span></span><span class="ln add"> </span><span class="ln">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span></span><span class="ln">                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln"> </span><span class="ln">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// step 4: the coordinator decides what follows</span></span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
 <section><h2>Sending: a scheduler that looks every minute</h2><p>Every minute, one command finds the messages that are due and queues one job each. <code>chunkById()</code> reads them 500 at a time, so a backlog after an outage doesn’t load ten thousand models at once.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Console/Commands/SendDueMessages.php</span></div>
+<div class="filehead"><span class="path">app/Console/Commands/SendDueMessages.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;
@@ -210,11 +455,27 @@
         <span class="k">return</span> <span class="k">self</span>::<span class="t">SUCCESS</span>;
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">routes/console.php (added)</span></div>
-<pre class="code"><code><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'messages:send-due'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>()-&gt;<span class="f">onOneServer</span>();</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/SendScheduledMessage.php</span></div>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">routes/console.php</span><span class="badge">changed since scene 15: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')-&gt;everyMinute()-&gt;withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')-&gt;dailyAt('03:10')-&gt;withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()-&gt;lazyById()-&gt;each(fn (IcalFeed $feed) =&gt; SyncIcalFeed::dispatch($feed));
+})-&gt;everyFifteenMinutes()-&gt;name('sync-ical-feeds')-&gt;withoutOverlapping();
+Schedule::command('channels:poll')-&gt;everyTenMinutes()-&gt;withoutOverlapping();
+Schedule::command('messages:send-due')-&gt;everyMinute()-&gt;withoutOverlapping()-&gt;onOneServer();"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">SyncIcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">IcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schedule</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run</span></span><span class="ln"><span class="c">// Locally:                                     php artisan schedule:work</span></span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'bookings:expire-holds'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'payments:reconcile-refunds'</span>)-&gt;<span class="f">dailyAt</span>(<span class="s">'03:10'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">call</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln">    <span class="t">IcalFeed</span>::<span class="f">query</span>()-&gt;<span class="f">lazyById</span>()-&gt;<span class="f">each</span>(<span class="k">fn</span> (<span class="t">IcalFeed</span> <span class="v">$feed</span>) =&gt; <span class="t">SyncIcalFeed</span>::<span class="f">dispatch</span>(<span class="v">$feed</span>));</span><span class="ln">})-&gt;<span class="f">everyFifteenMinutes</span>()-&gt;<span class="f">name</span>(<span class="s">'sync-ical-feeds'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'channels:poll'</span>)-&gt;<span class="f">everyTenMinutes</span>()-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln add"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'messages:send-due'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>()-&gt;<span class="f">onOneServer</span>();</span></code></pre>
+</div><p><code>onOneServer()</code> matters once there are several app servers: the scheduler runs on each of them, and only one may queue the messages.</p></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">app/Jobs/SendScheduledMessage.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
@@ -245,7 +506,46 @@
         <span class="k">$this</span>-&gt;message-&gt;<span class="f">forceFill</span>([<span class="s">'status'</span> =&gt; <span class="t">ScheduledMessageStatus</span>::<span class="t">Sent</span>, <span class="s">'sent_at'</span> =&gt; <span class="f">now</span>()])-&gt;<span class="f">save</span>();
     }
 }</code></pre>
-</div><p><code>GuestMessage</code> is a mail notification built from the template’s subject and body. Scene 24 fills in its <code>{guest_name}</code> placeholders; scene 25 lets it go by SMS and WhatsApp too.</p></div></div></section>
+</div></div><div class="block"><p>The message itself is a mail notification built from the template’s subject and body. Scene 24 fills in its <code>{guest_name}</code> placeholders; scene 25 lets it go by SMS and WhatsApp too.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Notifications/GuestMessage.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ScheduledMessage</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;
+
+<span class="k">class</span> <span class="t">GuestMessage</span> <span class="k">extends</span> <span class="t">Notification</span>
+{
+    <span class="k">use</span> <span class="t">Queueable</span>;
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ScheduledMessage</span> <span class="v">$message</span>)
+    {
+    }
+
+    <span class="c">/** @return list&lt;string&gt; */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span>
+    {
+        <span class="k">return</span> [<span class="s">'mail'</span>];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span>
+    {
+        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())
+            -&gt;<span class="f">subject</span>(<span class="k">$this</span>-&gt;message-&gt;template-&gt;subject)
+            -&gt;<span class="f">markdown</span>(<span class="s">'mail.guest'</span>, [<span class="s">'body'</span> =&gt; <span class="k">$this</span>-&gt;message-&gt;template-&gt;body]);   <span class="c">// the host's text, as written</span>
+    }
+}</code></pre>
+</div></div><div class="block"><p>Its view uses Laravel’s Markdown mail layout:</p><div class="codebox">
+<div class="filehead"><span class="path">resources/views/mail/guest.blade.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code><span class="k">&lt;x-mail::message</span><span class="k">&gt;</span>
+{!! $body !!}
+
+The Nordic Stays team
+<span class="k">&lt;/x-mail::message</span><span class="k">&gt;</span></code></pre>
+</div></div></div></section>
 <section><h2>Why a table and a scheduler, not delayed jobs</h2><p>Laravel can dispatch a job with <code>-&gt;delay($sendAt)</code>, so why not queue every message at confirmation time? Because messages change after they’re planned. A cancellation must cancel them, new dates must move them (scene 23), and a host editing a template expects future messages to follow. A delayed job can’t be found and changed once it’s in the queue; a row in a table can, with one <code>UPDATE</code>. The table is also what support looks at when a guest asks &quot;did you send it?&quot;.</p><div class="blocks"></div></section>
 <section class="laravel"><h2>Laravel inside: chunkById()</h2><p>Like scene 11’s <code>lazyById()</code>, but it hands your closure one batch at a time instead of one row. Paging by id (<code>WHERE id &gt; ?</code>) instead of by offset matters here: the job may update rows while the loop runs, and an offset would skip some.</p><div class="blocks"><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Database/Concerns/BuildsQueries.php (simplified)</span></div>
@@ -274,7 +574,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Send times in two timezones across daylight saving, and only due messages queued</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/SendTimeTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/SendTimeTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MessageTrigger</span>;
@@ -299,7 +599,7 @@
     <span class="s">'Queenstown, summer (UTC+13)'</span> =&gt; [<span class="s">'Pacific/Auckland'</span>, <span class="s">'2027-09-28'</span>, <span class="s">'2027-09-27 02:00:00'</span>],
 ]);</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/SendDueMessagesTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/SendDueMessagesTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">SendScheduledMessage</span>;

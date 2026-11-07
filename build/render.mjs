@@ -207,6 +207,20 @@ export function diffHtml(oldSrc, newSrc, context = 3) {
   return { html, added, removed };
 }
 
+// A complete file shown again after a change: every line of the new file, the added ones marked,
+// the removed ones shown struck through in place (they are not part of the copied file).
+export function changedFileHtml(oldSrc, newSrc, lang = 'php') {
+  const a = oldSrc.replace(/\n$/, '').split('\n'), b = newSrc.replace(/\n$/, '').split('\n');
+  const ah = codeHtml(oldSrc.replace(/\n$/, ''), lang).split('\n'), bh = codeHtml(newSrc.replace(/\n$/, ''), lang).split('\n');
+  let html = '', added = 0, removed = 0;
+  for (const o of diffLines(a, b)) {
+    if (o[0] === '=') html += `<span class="ln">${bh[o[2]] || ' '}</span>`;
+    else if (o[0] === '+') { added++; html += `<span class="ln add">${bh[o[2]] || ' '}</span>`; }
+    else { removed++; html += `<span class="ln del">${ah[o[1]] || ' '}</span>`; }
+  }
+  return { html, added, removed };
+}
+
 // ── Box-and-arrow drawings (300 x 166 canvas) ──
 // ['b', x, y, w, h, label, kind]   kind: n normal, v pattern, v2 pattern outline, i interface (dashed), x broken
 // ['a', x1, y1, x2, y2, '', kind]  kind: k pattern colour, x broken, d dashed

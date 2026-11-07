@@ -722,18 +722,38 @@ class PaymentFactory extends Factory
         {
           id: 'phpunit',
           title: 'The test environment',
-          path: 'phpunit.xml (php section)',
+          path: 'phpunit.xml',
           lang: 'xml',
-          code: String.raw`<php>
-    <env name="APP_ENV" value="testing"/>
-    <env name="DB_CONNECTION" value="mysql"/>
-    <env name="DB_DATABASE" value="pms_test"/>
-    <env name="QUEUE_CONNECTION" value="sync"/>
-    <env name="CACHE_STORE" value="array"/>
-    <env name="SESSION_DRIVER" value="array"/>
-    <env name="MAIL_MAILER" value="array"/>
-    <env name="BCRYPT_ROUNDS" value="4"/>
-</php>`,
+          code: String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="pms_test"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+    </php>
+</phpunit>`,
         },
         {
           id: 'pest-config',

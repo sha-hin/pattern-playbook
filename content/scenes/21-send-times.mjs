@@ -57,7 +57,7 @@ return new class extends Migration
 };`,
         },
         {
-          path: 'app/Enums/MessageTrigger.php · ScheduledMessageStatus.php',
+          path: 'app/Enums/MessageTrigger.php',
           code: String.raw`<?php
 
 namespace App\Enums;
@@ -81,7 +81,215 @@ enum ScheduledMessageStatus: string
     case Sent = 'sent';
     case Cancelled = 'cancelled';
 }`,
-          after: ['`MessageTemplate` casts `trigger` and `active`; `ScheduledMessage` casts `status`, `send_at` and `sent_at`, and has a `due()` scope: pending and `send_at <= now()`. Both belong to the models you’d expect (`Account::messageTemplates()`, `Booking::scheduledMessages()`).'],
+        },
+        {
+          text: ['The two models. A template belongs to an account:'],
+          path: 'app/Models/MessageTemplate.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\MessageTrigger;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class MessageTemplate extends Model
+{
+    protected $fillable = ['name', 'trigger', 'days_offset', 'send_time', 'subject', 'body', 'active'];
+
+    protected function casts(): array
+    {
+        return ['trigger' => MessageTrigger::class, 'active' => 'boolean'];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+}`,
+        },
+        {
+          text: ['A scheduled message belongs to a booking and a template, and knows when it is due:'],
+          path: 'app/Models/ScheduledMessage.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\ScheduledMessageStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ScheduledMessage extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'status' => ScheduledMessageStatus::class,
+            'send_at' => 'datetime',
+            'sent_at' => 'datetime',
+        ];
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(MessageTemplate::class, 'message_template_id');
+    }
+
+    /** Pending, and its time has come: ScheduledMessage::query()->due() */
+    public function scopeDue(Builder $query): void
+    {
+        $query->where('status', ScheduledMessageStatus::Pending)->where('send_at', '<=', now());
+    }
+}`,
+        },
+        {
+          text: ['An account has its templates:'],
+          path: 'app/Models/Account.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+
+class Account extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'memberships')
+            ->using(Membership::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this->hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this->hasMany(ChannelConnection::class);
+    }
+
+    /** Bookings of all this account's properties: bookings → properties.account_id */
+    public function bookings(): HasManyThrough
+    {
+        return $this->hasManyThrough(Booking::class, Property::class);
+    }
+
+    public function messageTemplates(): HasMany
+    {
+        return $this->hasMany(MessageTemplate::class);
+    }
+}`,
+        },
+        {
+          text: ['And a booking has its scheduled messages:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' => CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' => Channel::class,                           // null for bookings made on Nordic Stays
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    public function scheduledMessages(): HasMany
+    {
+        return $this->hasMany(ScheduledMessage::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();
+    }
+}`,
         },
       ],
     },
@@ -168,7 +376,52 @@ final readonly class ScheduleGuestMessages
         ])->all());
     }
 }`,
-          after: ['Called from the confirmation facade (scene 6), right after the state change, inside its transaction.'],
+        },
+        {
+          text: ['The confirmation facade (scene 6) calls it right after the state change, inside its transaction:'],
+          path: 'app/Bookings/BookingConfirmation.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Messaging\ScheduleGuestMessages;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function __construct(
+        private CalendarSync $calendar,
+        private ScheduleGuestMessages $scheduleMessages,
+    ) {
+    }
+
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();   // fresh, and locked
+
+            if (! $booking->state()->confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment->status = PaymentStatus::Succeeded;               // step 2
+            $payment->save();
+
+            $this->scheduleMessages->handle($booking);                 // the guest's messages, at their local times
+
+            Notification::route('mail', $booking->guest_email)         // step 3, after the commit
+                ->notify((new BookingConfirmed($booking))->afterCommit());
+
+            $this->calendar->bookingChanged($booking);                  // step 4: the coordinator decides what follows
+        });
+    }
+}`,
         },
       ],
     },
@@ -206,9 +459,25 @@ class SendDueMessages extends Command
 }`,
         },
         {
-          path: 'routes/console.php (added)',
-          fragment: true,
-          code: String.raw`Schedule::command('messages:send-due')->everyMinute()->withoutOverlapping()->onOneServer();`,
+          path: 'routes/console.php',
+          code: String.raw`<?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()->lazyById()->each(fn (IcalFeed $feed) => SyncIcalFeed::dispatch($feed));
+})->everyFifteenMinutes()->name('sync-ical-feeds')->withoutOverlapping();
+Schedule::command('channels:poll')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('messages:send-due')->everyMinute()->withoutOverlapping()->onOneServer();`,
+          after: ['`onOneServer()` matters once there are several app servers: the scheduler runs on each of them, and only one may queue the messages.'],
         },
         {
           path: 'app/Jobs/SendScheduledMessage.php',
@@ -242,7 +511,50 @@ class SendScheduledMessage implements ShouldQueue
         $this->message->forceFill(['status' => ScheduledMessageStatus::Sent, 'sent_at' => now()])->save();
     }
 }`,
-          after: ['`GuestMessage` is a mail notification built from the template’s subject and body. Scene 24 fills in its `{guest_name}` placeholders; scene 25 lets it go by SMS and WhatsApp too.'],
+        },
+        {
+          text: ['The message itself is a mail notification built from the template’s subject and body. Scene 24 fills in its `{guest_name}` placeholders; scene 25 lets it go by SMS and WhatsApp too.'],
+          path: 'app/Notifications/GuestMessage.php',
+          code: String.raw`<?php
+
+namespace App\Notifications;
+
+use App\Models\ScheduledMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class GuestMessage extends Notification
+{
+    use Queueable;
+
+    public function __construct(public ScheduledMessage $message)
+    {
+    }
+
+    /** @return list<string> */
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage())
+            ->subject($this->message->template->subject)
+            ->markdown('mail.guest', ['body' => $this->message->template->body]);   // the host's text, as written
+    }
+}`,
+        },
+        {
+          text: ['Its view uses Laravel’s Markdown mail layout:'],
+          path: 'resources/views/mail/guest.blade.php',
+          lang: 'xml',
+          code: String.raw`<x-mail::message>
+{!! $body !!}
+
+The Nordic Stays team
+</x-mail::message>`,
         },
       ],
     },

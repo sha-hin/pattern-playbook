@@ -342,26 +342,111 @@ final class BookingComReservationMapper implements ReservationMapper
       blocks: [
         {
           title: 'The manager builds kits now',
-          text: ['Scene 13’s manager returns a kit per channel instead of only the API. Code that only pushes calendars asks for `->api()`.'],
-          path: 'app/Channels/ChannelManager.php (after)',
+          text: ['Scene 13’s manager returns a kit per channel instead of only the API.'],
+          path: 'app/Channels/ChannelManager.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Channels\Airbnb\AirbnbKit;
+use App\Channels\BookingCom\BookingComKit;
+use App\Enums\Channel;
+use Illuminate\Support\Manager;
+use InvalidArgumentException;
+
+/** @method ChannelKit driver(string|null $driver = null) */
+final class ChannelManager extends Manager
+{
+    public function for(Channel $channel): ChannelKit
+    {
+        return $this->driver($channel->value);               // "booking_com" → createBookingComDriver()
+    }
+
+    public function getDefaultDriver(): string
+    {
+        throw new InvalidArgumentException('There is no default channel: name one.');
+    }
+
+    protected function createAirbnbDriver(): ChannelKit
+    {
+        return new AirbnbKit($this->config->get('services.airbnb'));            // only Airbnb's own settings
+    }
+
+    protected function createBookingComDriver(): ChannelKit
+    {
+        return new BookingComKit($this->config->get('services.booking_com'));   // only Booking.com's own settings
+    }
+}`,
+        },
+        {
+          text: ['Each channel gets its own webhook secret, next to its other credentials:'],
+          path: 'config/services.php',
+          code: String.raw`<?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'version' => env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' => [
+        'base_url' => env('AIRBNB_BASE_URL'),
+        'token_url' => env('AIRBNB_TOKEN_URL'),
+        'client_id' => env('AIRBNB_CLIENT_ID'),
+        'client_secret' => env('AIRBNB_CLIENT_SECRET'),
+        'webhook_secret' => env('AIRBNB_WEBHOOK_SECRET'),
+    ],
+
+    'booking_com' => [
+        'base_url' => env('BOOKING_COM_BASE_URL'),
+        'username' => env('BOOKING_COM_USERNAME'),
+        'password' => env('BOOKING_COM_PASSWORD'),
+        'webhook_secret' => env('BOOKING_COM_WEBHOOK_SECRET'),
+    ],
+
+];`,
+        },
+        {
+          text: ['Each value comes from that channel’s partner dashboard:'],
+          path: '.env (add these lines)',
+          lang: 'env',
           fragment: true,
-          code: String.raw`public function for(Channel $channel): ChannelKit
-{
-    return $this->driver($channel->value);
-}
+          code: String.raw`AIRBNB_WEBHOOK_SECRET=
+BOOKING_COM_WEBHOOK_SECRET=`,
+        },
+        {
+          text: ['Code that only pushes calendars asks the kit for its API:'],
+          path: 'app/Jobs/CloseChannelDates.php',
+          code: String.raw`<?php
 
-protected function createAirbnbDriver(): ChannelKit
-{
-    return new AirbnbKit($this->config->get('services.airbnb'));            // + 'webhook_secret' => env('AIRBNB_WEBHOOK_SECRET')
-}
+namespace App\Jobs;
 
-protected function createBookingComDriver(): ChannelKit
-{
-    return new BookingComKit($this->config->get('services.booking_com'));   // + 'webhook_secret' => env('BOOKING_COM_WEBHOOK_SECRET')
-}
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Models\ChannelListing;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 
-// CloseChannelDates (scene 13): $channels->for($this->listing->channel)->api()`,
-          after: ['Scene 13’s tests change the same way: `->for(Channel::Airbnb)->api()->closeDates(...)`.'],
+class CloseChannelDates implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public ChannelListing $listing, public Stay $nights, public bool $close = true)
+    {
+    }
+
+    public function handle(ChannelManager $channels): void
+    {
+        $api = $channels->for($this->listing->channel)->api();
+
+        $this->close ? $api->closeDates($this->listing, $this->nights) : $api->openDates($this->listing, $this->nights);
+    }
+}`,
         },
         {
           title: 'Bookings know their channel',
@@ -384,7 +469,95 @@ return new class extends Migration
         });
     }
 };`,
-          after: ['`Booking` casts `channel` to the `Channel` enum.'],
+        },
+        {
+          text: ['`Booking` casts the new column to the `Channel` enum:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' => CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' => Channel::class,                           // null for bookings made on Nordic Stays
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();
+    }
+}`,
         },
         {
           title: 'One route per channel',
@@ -403,7 +576,6 @@ use Illuminate\Http\Request;
 
 class ChannelWebhookController extends Controller
 {
-    // Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);
     public function __invoke(Request $request, Channel $channel, ChannelManager $channels): JsonResponse
     {
         $kit = $channels->for($channel);
@@ -426,6 +598,42 @@ class ChannelWebhookController extends Controller
         return response()->json(['received' => true]);
     }
 }`,
+        },
+        {
+          text: ['Its route:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/cancel', CancelBookingController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+
+// {channel} is bound to the Channel enum: /webhooks/channels/vrbo is a 404.
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);`,
         },
         {
           title: 'The job maps with the same kit',
@@ -538,6 +746,74 @@ class ProcessChannelWebhook implements ShouldQueue
   tests: {
     summary: 'Each channel’s signature, no crossing between channels, and exact prices',
     blocks: [
+      {
+        text: ['Scene 13’s tests ask the kit for its API now:'],
+        path: 'tests/Feature/ChannelApiTest.php',
+        code: String.raw`<?php
+
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelConnection;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+
+beforeEach(function () {
+    config([
+        'services.airbnb' => ['base_url' => 'https://airbnb.test/v2', 'token_url' => 'https://airbnb.test/oauth/token', 'client_id' => 'id', 'client_secret' => 'secret'],
+        'services.booking_com' => ['base_url' => 'https://booking.test', 'username' => 'user', 'password' => 'pass'],
+    ]);
+    $this->property = Property::factory()->create();
+    $this->connection = ChannelConnection::forceCreate([
+        'account_id' => $this->property->account_id, 'channel' => Channel::Airbnb,
+        'access_token' => 'old-access', 'refresh_token' => 'old-refresh', 'expires_at' => now()->addHour(),
+    ]);
+    $this->airbnb = ChannelListing::forceCreate(['property_id' => $this->property->id, 'channel' => Channel::Airbnb, 'external_listing_id' => '41793625']);
+    $this->bookingCom = ChannelListing::forceCreate(['property_id' => $this->property->id, 'channel' => Channel::BookingCom, 'external_listing_id' => '1290031']);
+    $this->nights = Stay::fromDates('2027-07-10', '2027-07-13');
+});
+
+it('closes nights on Airbnb as JSON, with the last night inclusive', function () {
+    Http::fake(['airbnb.test/*' => Http::response(['ok' => true])]);
+
+    app(ChannelManager::class)->for(Channel::Airbnb)->api()->closeDates($this->airbnb, $this->nights);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+        && $request->url() === 'https://airbnb.test/v2/calendars/41793625'
+        && $request->hasHeader('Authorization', 'Bearer old-access')
+        && $request['end_date'] === '2027-07-12'
+        && $request['availability'] === 'unavailable');
+});
+
+it('closes nights on Booking.com as XML, and treats an error inside a 200 as a failure', function () {
+    Http::fake(['booking.test/*' => Http::response('<response><error code="401">Bad credentials</error></response>', 200)]);
+
+    expect(fn () => app(ChannelManager::class)->for(Channel::BookingCom)->api()->closeDates($this->bookingCom, $this->nights))
+        ->toThrow(ChannelRequestFailed::class, 'booking_com answered 200');
+});
+
+it('refreshes an expiring token before calling, and stores the new pair', function () {
+    $this->connection->update(['expires_at' => now()->addSeconds(30)]);
+    Http::fake([
+        'airbnb.test/oauth/token' => Http::response(['access_token' => 'new-access', 'refresh_token' => 'new-refresh', 'expires_in' => 3600]),
+        'airbnb.test/v2/*' => Http::response(['ok' => true]),
+    ]);
+
+    app(ChannelManager::class)->for(Channel::Airbnb)->api()->closeDates($this->airbnb, $this->nights);
+
+    expect($this->connection->fresh())
+        ->access_token->toBe('new-access')
+        ->refresh_token->toBe('new-refresh');
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Authorization', 'Bearer new-access'));
+});
+
+it('stores tokens encrypted', function () {
+    expect($this->connection->getRawOriginal('access_token'))->not->toContain('old-access');
+});`,
+      },
       {
         path: 'tests/Feature/ChannelWebhookTest.php',
         code: String.raw`<?php

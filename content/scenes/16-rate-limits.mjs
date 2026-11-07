@@ -54,18 +54,37 @@ final class ChannelRateLimited extends ChannelRequestFailed
 }`,
         },
         {
-          path: 'app/Channels/ChannelRequestFailed.php (from() changed)',
-          fragment: true,
-          code: String.raw`public static function from(Channel $channel, Response $response): self
+          path: 'app/Channels/ChannelRequestFailed.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Enums\Channel;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use RuntimeException;
+use Throwable;
+
+class ChannelRequestFailed extends RuntimeException                     // not final: ChannelRateLimited extends it
 {
-    if ($response->status() === 429) {
-        return ChannelRateLimited::wait($channel->value, (int) ($response->header('Retry-After') ?: 60));
+    public static function from(Channel $channel, Response $response): self
+    {
+        if ($response->status() === 429) {
+            return ChannelRateLimited::wait($channel->value, (int) ($response->header('Retry-After') ?: 60));
+        }
+
+        return new self("{$channel->value} answered {$response->status()}: " . mb_substr($response->body(), 0, 500));
     }
 
-    return new self("{$channel->value} answered {$response->status()}: " . mb_substr($response->body(), 0, 500));
-}
-
-// The class is no longer final: ChannelRateLimited extends it.`,
+    /** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */
+    public static function worthRetrying(Throwable $e): bool
+    {
+        return $e instanceof ConnectionException
+            || ($e instanceof RequestException && $e->response->serverError());
+    }
+}`,
+          after: ['The class is no longer `final`, because `ChannelRateLimited` extends it. `worthRetrying()` is used in part 2.'],
         },
       ],
     },
@@ -76,29 +95,163 @@ final class ChannelRateLimited extends ChannelRequestFailed
       ],
       blocks: [
         {
-          path: 'app/Channels/ChannelRequestFailed.php (added)',
-          fragment: true,
-          code: String.raw`/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */
-public static function worthRetrying(Throwable $e): bool
+          text: ['One rule, `ChannelRequestFailed::worthRetrying()` from part 1, used by both adapters. Airbnb:'],
+          path: 'app/Channels/Airbnb/AirbnbApi.php',
+          code: String.raw`<?php
+
+namespace App\Channels\Airbnb;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class AirbnbApi implements ChannelApi
 {
-    return $e instanceof ConnectionException
-        || ($e instanceof RequestException && $e->response->serverError());
+    public function __construct(
+        private AirbnbTokens $tokens,
+        private string $baseUrl,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->setAvailability($listing, $nights, 'unavailable');
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->setAvailability($listing, $nights, 'available');
+    }
+
+    private function setAvailability(ChannelListing $listing, Stay $nights, string $availability): void
+    {
+        $response = Http::withToken($this->tokens->for($listing))
+            ->timeout(10)
+            ->retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
+            ->acceptJson()
+            ->put("{$this->baseUrl}/calendars/{$listing->external_listing_id}", [
+                'start_date' => $nights->checkIn->toDateString(),
+                'end_date' => $nights->checkOut->subDay()->toDateString(),   // Airbnb counts nights inclusively
+                'availability' => $availability,
+            ]);
+
+        if ($response->failed()) {
+            throw ChannelRequestFailed::from(Channel::Airbnb, $response);  // never a silent 401 again
+        }
+    }
+
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new AirbnbReservationMapper();
+        $cursor = null;
+
+        do {
+            $response = Http::withToken($this->tokens->for($listing))->timeout(10)->acceptJson()
+                ->get("{$this->baseUrl}/reservations", array_filter([
+                    'listing_id' => $listing->external_listing_id,
+                    'updated_since' => $since->toIso8601String(),
+                    'cursor' => $cursor,
+                ]));
+
+            if ($response->failed()) {
+                throw ChannelRequestFailed::from(Channel::Airbnb, $response);
+            }
+
+            foreach ($response->json('reservations') as $reservation) {
+                yield $mapper->reservation(['reservation' => $reservation]);   // the same mapper as the webhooks
+            }
+
+            $cursor = $response->json('next_cursor');
+        } while ($cursor !== null);
+    }
 }`,
-          after: ['It imports `Illuminate\\Http\\Client\\ConnectionException`, `Illuminate\\Http\\Client\\RequestException` and `Throwable`.'],
         },
         {
-          path: 'app/Channels/Airbnb/AirbnbApi.php (after) · the same line in BookingComApi',
-          fragment: true,
-          code: String.raw`$response = Http::withToken($this->tokens->for($listing))
-    ->timeout(10)
-    ->retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
-    ->acceptJson()
-    ->put("{$this->baseUrl}/calendars/{$listing->external_listing_id}", [/* ... */]);
+          text: ['Booking.com, the same line:'],
+          path: 'app/Channels/BookingCom/BookingComApi.php',
+          code: String.raw`<?php
 
-if ($response->failed()) {
-    throw ChannelRequestFailed::from(Channel::Airbnb, $response);   // a 429 becomes ChannelRateLimited (part 1)
+namespace App\Channels\BookingCom;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class BookingComApi implements ChannelApi
+{
+    public function __construct(
+        private string $baseUrl,
+        private string $username,
+        private string $password,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->send($listing, $nights, closed: true);
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->send($listing, $nights, closed: false);
+    }
+
+    private function send(ChannelListing $listing, Stay $nights, bool $closed): void
+    {
+        $xml = sprintf(
+            '<request><hotel_id>%s</hotel_id><date from="%s" to="%s"><closed>%d</closed></date></request>',
+            htmlspecialchars($listing->external_listing_id, ENT_XML1),            // never trust a value inside XML
+            $nights->checkIn->toDateString(),
+            $nights->checkOut->subDay()->toDateString(),
+            $closed ? 1 : 0,
+        );
+
+        $response = Http::withBasicAuth($this->username, $this->password)
+            ->timeout(10)
+            ->retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
+            ->withBody($xml, 'text/xml')
+            ->post("{$this->baseUrl}/hotels/xml/availability");
+
+        // Booking.com-style XML APIs can answer 200 with an error inside the body
+        if ($response->failed() || str_contains($response->body(), '<error')) {
+            throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+        }
+    }
+
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new BookingComReservationMapper();
+        $page = 1;
+
+        do {
+            $response = Http::withBasicAuth($this->username, $this->password)->timeout(10)->acceptJson()
+                ->get("{$this->baseUrl}/hotels/json/reservations", [
+                    'hotel_id' => $listing->external_listing_id,
+                    'last_change' => $since->utc()->format('Y-m-d H:i:s'),
+                    'page' => $page,
+                ]);
+
+            if ($response->failed()) {
+                throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+            }
+
+            foreach ($response->json('reservations') as $reservation) {
+                yield $mapper->reservation(['reservation' => $reservation]);   // the same mapper as the webhooks
+            }
+
+            $page++;
+        } while ($response->json('has_more') === true);
+    }
 }`,
-          after: ['`throw: false` hands the last response back to the adapter, which turns it into our own exception as before. A dropped connection still throws `ConnectionException` after the last attempt.'],
+          after: ['`throw: false` hands the last response back to the adapter, which turns it into our own exception as before. A dropped connection still throws `ConnectionException` after the last attempt. The polls keep their single attempt: a failed poll is retried by the next one.'],
         },
       ],
     },
@@ -158,22 +311,117 @@ final readonly class ThrottledChannelApi implements ChannelApi
         },
         {
           title: 'The kits wrap their API',
-          text: ['Code that receives a `ChannelApi` can’t tell whether it got the plain adapter or the wrapped one, so nothing else changes.'],
-          path: 'app/Channels/Airbnb/AirbnbKit.php (api() changed) · the same in BookingComKit',
-          fragment: true,
-          code: String.raw`public function api(): ChannelApi
-{
-    $airbnb = new AirbnbApi(
-        new AirbnbTokens($this->config['token_url'], $this->config['client_id'], $this->config['client_secret']),
-        $this->config['base_url'],
-    );
+          text: ['Code that receives a `ChannelApi` can’t tell whether it got the plain adapter or the wrapped one, so nothing else changes. Airbnb’s kit:'],
+          path: 'app/Channels/Airbnb/AirbnbKit.php',
+          code: String.raw`<?php
 
-    return new ThrottledChannelApi($airbnb, 'airbnb', perMinute: (int) ($this->config['requests_per_minute'] ?? 60));
+namespace App\Channels\Airbnb;
+
+use App\Channels\ChannelApi;
+use App\Channels\ChannelKit;
+use App\Channels\ReservationMapper;
+use App\Channels\ThrottledChannelApi;
+use App\Channels\WebhookVerifier;
+
+final readonly class AirbnbKit implements ChannelKit
+{
+    /** @param array{base_url: string, token_url: string, client_id: string, client_secret: string, webhook_secret: string, requests_per_minute?: int} $config */
+    public function __construct(private array $config)
+    {
+    }
+
+    public function api(): ChannelApi
+    {
+        $airbnb = new AirbnbApi(
+            new AirbnbTokens($this->config['token_url'], $this->config['client_id'], $this->config['client_secret']),
+            $this->config['base_url'],
+        );
+
+        return new ThrottledChannelApi($airbnb, 'airbnb', perMinute: (int) ($this->config['requests_per_minute'] ?? 60));
+    }
+
+    public function verifier(): WebhookVerifier
+    {
+        return new AirbnbSignature($this->config['webhook_secret']);
+    }
+
+    public function mapper(): ReservationMapper
+    {
+        return new AirbnbReservationMapper();
+    }
 }`,
-          after: [
-            '`requests_per_minute` goes in `config/services.php` next to each channel’s credentials, with 60 when it isn’t set.',
-            'One slot covers one call **with its retries**: at most three requests, and only while the channel is answering 5xx. So the value is set a little under the partner’s published limit, not exactly on it.',
-          ],
+        },
+        {
+          text: ['Booking.com’s:'],
+          path: 'app/Channels/BookingCom/BookingComKit.php',
+          code: String.raw`<?php
+
+namespace App\Channels\BookingCom;
+
+use App\Channels\ChannelApi;
+use App\Channels\ChannelKit;
+use App\Channels\ReservationMapper;
+use App\Channels\ThrottledChannelApi;
+use App\Channels\WebhookVerifier;
+
+final readonly class BookingComKit implements ChannelKit
+{
+    /** @param array{base_url: string, username: string, password: string, webhook_secret: string, requests_per_minute?: int} $config */
+    public function __construct(private array $config)
+    {
+    }
+
+    public function api(): ChannelApi
+    {
+        $bookingCom = new BookingComApi($this->config['base_url'], $this->config['username'], $this->config['password']);
+
+        return new ThrottledChannelApi($bookingCom, 'booking_com', perMinute: (int) ($this->config['requests_per_minute'] ?? 60));
+    }
+
+    public function verifier(): WebhookVerifier
+    {
+        return new BookingComSignature($this->config['webhook_secret']);
+    }
+
+    public function mapper(): ReservationMapper
+    {
+        return new BookingComReservationMapper();
+    }
+}`,
+        },
+        {
+          text: ['Each channel’s limit goes next to its credentials, with 60 when `.env` doesn’t set one:'],
+          path: 'config/services.php',
+          code: String.raw`<?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'version' => env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' => [
+        'base_url' => env('AIRBNB_BASE_URL'),
+        'token_url' => env('AIRBNB_TOKEN_URL'),
+        'client_id' => env('AIRBNB_CLIENT_ID'),
+        'client_secret' => env('AIRBNB_CLIENT_SECRET'),
+        'webhook_secret' => env('AIRBNB_WEBHOOK_SECRET'),
+        'requests_per_minute' => env('AIRBNB_REQUESTS_PER_MINUTE', 60),   // a little under the partner's published limit
+    ],
+
+    'booking_com' => [
+        'base_url' => env('BOOKING_COM_BASE_URL'),
+        'username' => env('BOOKING_COM_USERNAME'),
+        'password' => env('BOOKING_COM_PASSWORD'),
+        'webhook_secret' => env('BOOKING_COM_WEBHOOK_SECRET'),
+        'requests_per_minute' => env('BOOKING_COM_REQUESTS_PER_MINUTE', 60),
+    ],
+
+];`,
+          after: ['One slot covers one call **with its retries**: at most three requests, and only while the channel is answering 5xx. So the value is set a little under the partner’s published limit, not exactly on it.'],
         },
       ],
     },

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 5: Our test suite charged a real card","description":"A developer’s test run charged a real card because the Stripe client was created inside the code and could not be replaced. Fix it with Laravel’s service container: one binding, constructor injection, and a fake in tests. Singleton vs the container’s singleton().","url":"https://sha-hin.github.io/pattern-playbook/05-container/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/05-container/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Singleton pattern","Dependency Injection Container pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 5: Our test suite charged a real card","item":"https://sha-hin.github.io/pattern-playbook/05-container/"}]}]}</script>
 </head>
@@ -59,15 +59,36 @@
 </section>
 <section><h2>The broken code</h2><p>Every class that talks to Stripe builds its own client from the config:</p><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Payments/StartBookingPayment.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span>
-{
-    <span class="v">$stripe</span> = <span class="k">new</span> <span class="f">StripeClient</span>(<span class="f">config</span>(<span class="s">'services.stripe.secret'</span>));   <span class="c">// copy 1 of 5 in the app</span>
+<pre class="code rejected"><code>&lt;?php
 
-    <span class="v">$intent</span> = <span class="v">$stripe</span>-&gt;paymentIntents-&gt;<span class="f">create</span>([
-        <span class="s">'amount'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,
-        <span class="s">'currency'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value),
-    ]);
-    <span class="c">// ...</span>
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;
+
+<span class="k">final</span> <span class="k">class</span> <span class="t">StartBookingPayment</span>
+{
+    <span class="c">/** @return string the client secret the browser needs to confirm the payment with Stripe */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span>
+    {
+        <span class="v">$stripe</span> = <span class="k">new</span> <span class="f">StripeClient</span>(<span class="f">config</span>(<span class="s">'services.stripe.secret'</span>));   <span class="c">// copy 1 of 5 in the app</span>
+
+        <span class="v">$intent</span> = <span class="v">$stripe</span>-&gt;paymentIntents-&gt;<span class="f">create</span>([
+            <span class="s">'amount'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,
+            <span class="s">'currency'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value),
+            <span class="s">'metadata'</span> =&gt; [<span class="s">'booking_id'</span> =&gt; (<span class="k">string</span>) <span class="v">$booking</span>-&gt;id],
+        ]);
+
+        <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([
+            <span class="s">'amount_cents'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,
+            <span class="s">'currency'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value,
+            <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>,
+            <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>-&gt;id,
+        ]);
+
+        <span class="k">return</span> <span class="v">$intent</span>-&gt;client_secret;
+    }
 }</code></pre>
 </div><p>A test that calls this code <b>can’t stop it</b> from reaching Stripe: the <code>new</code> is inside the method, out of the test’s reach. Whatever key is in the environment gets used.</p></div><div class="block"><h3>The first attempt: a static singleton</h3><p>Someone already tried to fix the five copies with the classic Singleton: one shared instance, reachable from anywhere.</p><div class="codebox broken">
 <div class="filehead"><span class="path">app/Payments/Stripe.php (before)</span><span class="badge">the bug</span></div>
@@ -91,18 +112,28 @@
     }
 }</code></pre>
 </div><p>There is now one client instead of five, but the real problem is untouched. Every class still <b>reaches out</b> for <code>Stripe::client()</code>, so a test still can’t hand it a fake, and nothing in a constructor tells you the class charges cards. The static also survives between tests, so a client built in one test leaks into the next.</p></div></div></section>
-<section><h2>The fix: ask for it, don’t build it</h2><div class="blocks"><div class="block"><h3>1. Stripe’s SDK and its configuration</h3><div class="codebox">
-<div class="filehead"><span class="path">terminal · config/services.php · .env</span></div>
-<pre class="code"><code><span class="f">composer</span> require stripe/stripe-php
-<span class="f">
-#</span> config/services.php
-<span class="s">'stripe'</span> =&gt; [<span class="s">'secret'</span> =&gt; env(<span class="s">'STRIPE_SECRET'</span>), <span class="s">'version'</span> =&gt; env(<span class="s">'STRIPE_API_VERSION'</span>)],
-<span class="f">
-#</span> .env
-<span class="f">STRIPE_SECRET=sk_test_...</span>
-<span class="f">STRIPE_API_VERSION=...</span>          <span class="c"># the API version your Stripe account is pinned to</span></code></pre>
-</div></div><div class="block"><h3>2. What the app needs from a payment provider</h3><p>A small interface, in the app’s own words. It has two implementations from day one: the real one, and the fake the tests use.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/PaymentGateway.php</span></div>
+<section><h2>The fix: ask for it, don’t build it</h2><div class="blocks"><div class="block"><h3>1. Stripe’s SDK and its configuration</h3><p>Install the SDK:</p><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">composer</span> require stripe/stripe-php</code></pre>
+</div></div><div class="block"><p>Laravel’s <code>config/services.php</code> holds third-party credentials. The whole file, with Laravel’s unused examples (Postmark, SES, Slack) removed:</p><div class="codebox">
+<div class="filehead"><span class="path">config/services.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="c">// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.</span>
+<span class="k">return</span> [
+
+    <span class="s">'stripe'</span> =&gt; [
+        <span class="s">'secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_SECRET'</span>),
+        <span class="s">'version'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_API_VERSION'</span>),              <span class="c">// the API version your Stripe account is pinned to</span>
+    ],
+
+];</code></pre>
+</div></div><div class="block"><p>And the values, in <code>.env</code>:</p><div class="codebox">
+<div class="filehead"><span class="path">.env (add these lines)</span></div>
+<pre class="code"><code><span class="t">STRIPE_SECRET</span>=<span class="s">sk_test_...</span>
+<span class="t">STRIPE_API_VERSION</span>=<span class="s">2025-06-30.basil</span></code></pre>
+</div><p>Use the API version shown in your Stripe dashboard under Developers → API version.</p></div><div class="block"><h3>2. What the app needs from a payment provider</h3><p>A small interface, in the app’s own words. It has two implementations from day one: the real one, and the fake the tests use.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Payments/PaymentGateway.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
@@ -118,7 +149,7 @@
     <span class="k">public</span> <span class="k">function</span> <span class="f">createPaymentIntent</span>(<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">array</span> <span class="v">$metadata</span> = []): <span class="k">array</span>;
 }</code></pre>
 </div></div><div class="block"><h3>3. The real implementation receives its client</h3><p>It doesn’t build a <code>StripeClient</code>; it asks for one in the constructor. The amount always comes from our own <code>Money</code> (scene 1), never from the browser.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/StripeGateway.php</span></div>
+<div class="filehead"><span class="path">app/Payments/StripeGateway.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
@@ -144,71 +175,104 @@
         <span class="k">return</span> [<span class="s">'id'</span> =&gt; <span class="v">$intent</span>-&gt;id, <span class="s">'client_secret'</span> =&gt; <span class="v">$intent</span>-&gt;client_secret];
     }
 }</code></pre>
-</div></div><div class="block"><h3>4. One place decides what gets built</h3><p><code>singleton()</code> builds the <code>StripeClient</code> the first time anything needs it, and hands out the same one after. <code>bind()</code> says &quot;when someone asks for a <code>PaymentGateway</code>, build a <code>StripeGateway</code>&quot;.</p><p>Bindings go in <code>register()</code>. Nothing is *used* there, because other providers may not have registered yet; <code>boot()</code> runs after all of them, which is why the <a href="../00-foundation/#app-provider">defaults</a> live there.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php (register added)</span></div>
-<pre class="code"><code>&lt;?php
+</div></div><div class="block"><h3>4. One place decides what gets built</h3><p><code>singleton()</code> builds the <code>StripeClient</code> the first time anything needs it, and hands out the same one after. <code>bind()</code> says &quot;when someone asks for a <code>PaymentGateway</code>, build a <code>StripeGateway</code>&quot;.</p><p>Bindings go in <code>register()</code>. Nothing is *used* there, because other providers may not have registered yet; <code>boot()</code> runs after all of them, which is why the <a href="../00-foundation/#app-provider">defaults</a> live there.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php (register added)</span><span class="badge">changed since the foundation: <span class="plus">+14</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;
+namespace App\Providers;
 
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;
-<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;
-<span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
 
-<span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span>
+class AppServiceProvider extends ServiceProvider
 {
-    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span>
+    public function register(): void
     {
-        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([
-            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),
-            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span>
-            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
         ]));
 
-        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span>
+    public function boot(): void
     {
-        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);
-        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
     }
-}</code></pre>
-</div></div><div class="block"><h3>5. The consumer declares what it needs</h3><p>The dependency is now visible in the constructor, and the container fills it in: nobody writes <code>new StartBookingPayment(...)</code> by hand.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/StartBookingPayment.php (after)</span></div>
-<pre class="code"><code>&lt;?php
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln add">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln add">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln add">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln add">        ]));</span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>5. The consumer declares what it needs</h3><p>The dependency is now visible in the constructor, and the container fills it in: nobody writes <code>new StartBookingPayment(...)</code> by hand.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Payments/StartBookingPayment.php (after)</span><span class="badge">changed since the version above: <span class="plus">+10</span> <span class="minus">−13</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;
+namespace App\Payments;
 
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
 
-<span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">StartBookingPayment</span>
+final readonly class StartBookingPayment
 {
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PaymentGateway</span> <span class="v">$gateway</span>)
+    public function __construct(private PaymentGateway $gateway)
     {
     }
 
-    <span class="c">/** @return string the client secret the browser needs to confirm the payment with Stripe */</span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span>
+    /** @return string the client secret the browser needs to confirm the payment with Stripe */
+    public function handle(Booking $booking): string
     {
-        <span class="v">$intent</span> = <span class="k">$this</span>-&gt;gateway-&gt;<span class="f">createPaymentIntent</span>(<span class="v">$booking</span>-&gt;total, [<span class="s">'booking_id'</span> =&gt; (<span class="k">string</span>) <span class="v">$booking</span>-&gt;id]);
+        $intent = $this-&gt;gateway-&gt;createPaymentIntent($booking-&gt;total, ['booking_id' =&gt; (string) $booking-&gt;id]);
 
-        <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([
-            <span class="s">'amount_cents'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,
-            <span class="s">'currency'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value,
-            <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>,
-            <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>[<span class="s">'id'</span>],
+        $booking-&gt;payments()-&gt;create([
+            'amount_cents' =&gt; $booking-&gt;total-&gt;amount,
+            'currency' =&gt; $booking-&gt;total-&gt;currency-&gt;value,
+            'status' =&gt; PaymentStatus::Pending,
+            'provider_payment_id' =&gt; $intent['id'],
         ]);
 
-        <span class="k">return</span> <span class="v">$intent</span>[<span class="s">'client_secret'</span>];
+        return $intent['client_secret'];
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">final</span> <span class="k">class</span> <span class="t">StartBookingPayment</span></span><span class="ln del">{</span><span class="ln add"> </span><span class="ln add"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">StartBookingPayment</span></span><span class="ln add">{</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PaymentGateway</span> <span class="v">$gateway</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** @return string the client secret the browser needs to confirm the payment with Stripe */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">string</span></span><span class="ln">    {</span><span class="ln del">        <span class="v">$stripe</span> = <span class="k">new</span> <span class="f">StripeClient</span>(<span class="f">config</span>(<span class="s">'services.stripe.secret'</span>));   <span class="c">// copy 1 of 5 in the app</span></span><span class="ln del"> </span><span class="ln del">        <span class="v">$intent</span> = <span class="v">$stripe</span>-&gt;paymentIntents-&gt;<span class="f">create</span>([</span><span class="ln del">            <span class="s">'amount'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,</span><span class="ln del">            <span class="s">'currency'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value),</span><span class="ln del">            <span class="s">'metadata'</span> =&gt; [<span class="s">'booking_id'</span> =&gt; (<span class="k">string</span>) <span class="v">$booking</span>-&gt;id],</span><span class="ln del">        ]);</span><span class="ln add">        <span class="v">$intent</span> = <span class="k">$this</span>-&gt;gateway-&gt;<span class="f">createPaymentIntent</span>(<span class="v">$booking</span>-&gt;total, [<span class="s">'booking_id'</span> =&gt; (<span class="k">string</span>) <span class="v">$booking</span>-&gt;id]);</span><span class="ln"> </span><span class="ln">        <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([</span><span class="ln">            <span class="s">'amount_cents'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,</span><span class="ln">            <span class="s">'currency'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>,</span><span class="ln del">            <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>-&gt;id,</span><span class="ln add">            <span class="s">'provider_payment_id'</span> =&gt; <span class="v">$intent</span>[<span class="s">'id'</span>],</span><span class="ln">        ]);</span><span class="ln"> </span><span class="ln del">        <span class="k">return</span> <span class="v">$intent</span>-&gt;client_secret;</span><span class="ln add">        <span class="k">return</span> <span class="v">$intent</span>[<span class="s">'client_secret'</span>];</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Where it is called</h3><p>The checkout page calls one endpoint, unchanged since launch. The container builds <code>StartBookingPayment</code>, and with it the gateway:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Http/Controllers/BookingPaymentController.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StartBookingPayment</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;
+
+<span class="k">class</span> <span class="t">BookingPaymentController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="c">/** The checkout page asks for a client secret, then confirms the card in the browser with Stripe.js. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">StartBookingPayment</span> <span class="v">$startPayment</span>): <span class="t">JsonResponse</span>
+    {
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'client_secret'</span> =&gt; <span class="v">$startPayment</span>-&gt;<span class="f">handle</span>(<span class="v">$booking</span>)], <span class="n">201</span>);
     }
 }</code></pre>
+</div></div><div class="block"><p>Its route, next to the booking route from scene 3:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 3: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    -&gt;middleware('auth:sanctum')
+    -&gt;can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    -&gt;middleware('auth:sanctum');"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)</span><span class="ln">    -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln add"> </span><span class="ln add"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)</span><span class="ln add">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);</span></code></pre>
 </div></div><div class="block"><h3>6. In tests, a fake takes the real one’s place</h3><p>One line in a test swaps the gateway for <b>everything</b> the container builds afterwards. Nothing in the app changes, and nothing reaches Stripe, whatever key is in <code>.env</code>.</p><div class="codebox">
-<div class="filehead"><span class="path">tests/Fakes/FakePaymentGateway.php</span></div>
+<div class="filehead"><span class="path">tests/Fakes/FakePaymentGateway.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Tests</span>\<span class="t">Fakes</span>;
@@ -285,7 +349,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>The payment is started with the fake, and the bindings hold</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/StartBookingPaymentTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/StartBookingPaymentTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;
@@ -319,9 +383,42 @@
 <span class="f">it</span>(<span class="s">'shares one Stripe client across the app'</span>, <span class="k">function</span> () {
     <span class="f">expect</span>(<span class="f">app</span>(<span class="t">StripeClient</span>::class))-&gt;<span class="f">toBe</span>(<span class="f">app</span>(<span class="t">StripeClient</span>::class));   <span class="c">// red if singleton() becomes bind()</span>
 });</code></pre>
-</div><p>Belt and braces: the <a href="../00-foundation/#phpunit">test environment</a> also sets <code>STRIPE_SECRET=sk_test_fake</code>, so even code that slipped past the container would get an authentication error instead of a charge.</p></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">phpunit.xml (one line added)</span></div>
-<pre class="code"><code><span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;sk_test_fake&quot;</span><span class="k">/&gt;</span></code></pre>
+</div><p>Belt and braces: the <a href="../00-foundation/#phpunit">test environment</a> also sets <code>STRIPE_SECRET=sk_test_fake</code>, so even code that slipped past the container would get an authentication error instead of a charge.</p></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">phpunit.xml</span><span class="badge">changed since scene 4: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;phpunit xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:noNamespaceSchemaLocation=&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;
+         bootstrap=&quot;vendor/autoload.php&quot;
+         colors=&quot;true&quot;
+&gt;
+    &lt;testsuites&gt;
+        &lt;testsuite name=&quot;Unit&quot;&gt;
+            &lt;directory&gt;tests/Unit&lt;/directory&gt;
+        &lt;/testsuite&gt;
+        &lt;testsuite name=&quot;Feature&quot;&gt;
+            &lt;directory&gt;tests/Feature&lt;/directory&gt;
+        &lt;/testsuite&gt;
+        &lt;testsuite name=&quot;Concurrency&quot;&gt;
+            &lt;directory&gt;tests/Concurrency&lt;/directory&gt;
+        &lt;/testsuite&gt;
+    &lt;/testsuites&gt;
+    &lt;source&gt;
+        &lt;include&gt;
+            &lt;directory&gt;app&lt;/directory&gt;
+        &lt;/include&gt;
+    &lt;/source&gt;
+    &lt;php&gt;
+        &lt;env name=&quot;APP_ENV&quot; value=&quot;testing&quot;/&gt;
+        &lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot;/&gt;
+        &lt;env name=&quot;DB_DATABASE&quot; value=&quot;pms_test&quot;/&gt;
+        &lt;env name=&quot;QUEUE_CONNECTION&quot; value=&quot;sync&quot;/&gt;
+        &lt;env name=&quot;CACHE_STORE&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;SESSION_DRIVER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;MAIL_MAILER&quot; value=&quot;array&quot;/&gt;
+        &lt;env name=&quot;BCRYPT_ROUNDS&quot; value=&quot;4&quot;/&gt;
+        &lt;env name=&quot;STRIPE_SECRET&quot; value=&quot;sk_test_fake&quot;/&gt;
+    &lt;/php&gt;
+&lt;/phpunit&gt;"><code><span class="ln">&lt;?xml <span class="v">version</span>=<span class="s">&quot;1.0&quot;</span> <span class="v">encoding</span>=<span class="s">&quot;UTF-8&quot;</span>?<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;phpunit</span> <span class="v">xmlns:xsi</span>=<span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span></span><span class="ln">         <span class="v">xsi:noNamespaceSchemaLocation</span>=<span class="s">&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;</span></span><span class="ln">         <span class="v">bootstrap</span>=<span class="s">&quot;vendor/autoload.php&quot;</span></span><span class="ln">         <span class="v">colors</span>=<span class="s">&quot;true&quot;</span></span><span class="ln"><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;testsuites</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Concurrency&quot;</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Concurrency<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/testsuites</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;source</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;include</span><span class="k">&gt;</span></span><span class="ln">            <span class="k">&lt;directory</span><span class="k">&gt;</span>app<span class="k">&lt;/directory</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;/include</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;/source</span><span class="k">&gt;</span></span><span class="ln">    <span class="k">&lt;php</span><span class="k">&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span></span><span class="ln">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span></span><span class="ln add">        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;STRIPE_SECRET&quot;</span> <span class="v">value</span>=<span class="s">&quot;sk_test_fake&quot;</span><span class="k">/&gt;</span></span><span class="ln">    <span class="k">&lt;/php</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/phpunit</span><span class="k">&gt;</span></span></code></pre>
 </div></div></div></div></details></section>
 <section class="nextup"><p>Payments start safely now. Friday afternoon, a host marks a bank transfer as paid, and the guest hears nothing.</p><nav class="pager" aria-label="Scenes">
 <a rel="prev" href="../04-race/"><small>← Scene 4</small>Two guests, same night, same second</a>

@@ -124,7 +124,100 @@ class ChannelListing extends Model
         return $this->belongsTo(Property::class);
     }
 }`,
-          after: ['`Property` gets `channelListings()`, and `Account` gets `channelConnections()`.'],
+        },
+        {
+          text: ['A property has listings:'],
+          path: 'app/Models/Property.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' => MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' => CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this->hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this->hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this->hasMany(ChannelListing::class);
+    }
+}`,
+        },
+        {
+          text: ['An account has its channel connections:'],
+          path: 'app/Models/Account.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Account extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'memberships')
+            ->using(Membership::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this->hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this->hasMany(ChannelConnection::class);
+    }
+}`,
         },
         {
           title: 'The interface',
@@ -402,24 +495,89 @@ final class ChannelManager extends Manager
 }`,
         },
         {
-          path: 'config/services.php · .env · AppServiceProvider::register()',
-          lang: 'shell',
-          code: String.raw`# config/services.php
-'airbnb' => [
-    'base_url' => env('AIRBNB_BASE_URL'), 'token_url' => env('AIRBNB_TOKEN_URL'),
-    'client_id' => env('AIRBNB_CLIENT_ID'), 'client_secret' => env('AIRBNB_CLIENT_SECRET'),
-],
-'booking_com' => [
-    'base_url' => env('BOOKING_COM_BASE_URL'),
-    'username' => env('BOOKING_COM_USERNAME'), 'password' => env('BOOKING_COM_PASSWORD'),
-],
+          title: 'Configuration',
+          text: ['Each channel’s credentials:'],
+          path: 'config/services.php',
+          code: String.raw`<?php
 
-# AppServiceProvider::register(): one manager, so each driver is built once per process
-$this->app->singleton(ChannelManager::class);`,
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'version' => env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' => [
+        'base_url' => env('AIRBNB_BASE_URL'),
+        'token_url' => env('AIRBNB_TOKEN_URL'),
+        'client_id' => env('AIRBNB_CLIENT_ID'),
+        'client_secret' => env('AIRBNB_CLIENT_SECRET'),
+    ],
+
+    'booking_com' => [
+        'base_url' => env('BOOKING_COM_BASE_URL'),
+        'username' => env('BOOKING_COM_USERNAME'),
+        'password' => env('BOOKING_COM_PASSWORD'),
+    ],
+
+];`,
         },
         {
-          title: 'The callers, now',
-          text: ['The push becomes a queued job, dispatched after the commit by the confirmation facade (scene 6), `CancelBooking` (scene 10) and `ExpireHolds` (scene 9). None of them knows a channel exists; scene 17 makes the job itself smarter.'],
+          text: ['Their values. The URLs and credentials come from each channel’s partner programme:'],
+          path: '.env (add these lines)',
+          lang: 'env',
+          fragment: true,
+          code: String.raw`AIRBNB_BASE_URL=https://api.airbnb.com/v2
+AIRBNB_TOKEN_URL=https://api.airbnb.com/oauth2/token
+AIRBNB_CLIENT_ID=
+AIRBNB_CLIENT_SECRET=
+BOOKING_COM_BASE_URL=https://supply-xml.booking.com
+BOOKING_COM_USERNAME=
+BOOKING_COM_PASSWORD=`,
+        },
+        {
+          text: ['And one manager for the whole app, registered in the provider from scene 5:'],
+          path: 'app/Providers/AppServiceProvider.php',
+          code: String.raw`<?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(StripeClient::class, fn (): StripeClient => new StripeClient([
+            'api_key' => config('services.stripe.secret'),
+            'stripe_version' => config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' => 2,
+        ]));
+
+        $this->app->bind(PaymentGateway::class, StripeGateway::class);
+
+        $this->app->singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this->app->isProduction());     // lazy loading, unknown and unfillable attributes throw
+    }
+}`,
+        },
+        {
+          title: 'The push becomes a job',
+          text: ['One queued job per listing: close or open these nights on that channel. Scene 17 makes it smarter.'],
           path: 'app/Jobs/CloseChannelDates.php',
           code: String.raw`<?php
 
@@ -446,6 +604,142 @@ class CloseChannelDates implements ShouldQueue
         $api = $channels->for($this->listing->channel);
 
         $this->close ? $api->closeDates($this->listing, $this->nights) : $api->openDates($this->listing, $this->nights);
+    }
+}`,
+        },
+        {
+          title: 'The callers, now',
+          text: ['The three places that change the calendar dispatch the job after the commit, and none of them knows which channels exist. The confirmation facade (scene 6) closes the nights:'],
+          path: 'app/Bookings/BookingConfirmation.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\CloseChannelDates;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();   // fresh, and locked
+
+            if (! $booking->state()->confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment->status = PaymentStatus::Succeeded;               // step 2
+            $payment->save();
+
+            Notification::route('mail', $booking->guest_email)         // step 3, after the commit
+                ->notify((new BookingConfirmed($booking))->afterCommit());
+
+            foreach ($booking->property->channelListings as $listing) {   // step 4: close the nights on every channel
+                CloseChannelDates::dispatch($listing, $booking->stay)->afterCommit();
+            }
+        });
+    }
+}`,
+        },
+        {
+          text: ['Cancelling (scene 10) opens them again:'],
+          path: 'app/Bookings/CancelBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\CloseChannelDates;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $nothing = Money::zero($booking->total->currency);
+
+            if (! $booking->state()->cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            foreach ($booking->property->channelListings as $listing) {   // the nights are free again everywhere
+                CloseChannelDates::dispatch($listing, $booking->stay, close: false)->afterCommit();
+            }
+
+            $payment = $booking->payments()
+                ->where('status', PaymentStatus::Succeeded)
+                ->whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                ->latest('id')
+                ->first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()->diffInHours($booking->stay->checkInAt($booking->property), false));
+            $refund = $booking->refundPolicy()->refundFor(Money::of($payment->amount_cents, $payment->currency), $hours);
+
+            if ($refund->amount > 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)->afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}`,
+        },
+        {
+          text: ['And so does an expired hold (scene 9):'],
+          path: 'app/Console/Commands/ExpireHolds.php',
+          code: String.raw`<?php
+
+namespace App\Console\Commands;
+
+use App\Enums\BookingStatus;
+use App\Jobs\CloseChannelDates;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(): void
+    {
+        Booking::query()
+            ->where('status', BookingStatus::Pending)
+            ->where('expires_at', '<=', now())
+            ->lazyById()
+            ->each(function (Booking $booking): void {
+                DB::transaction(function () use ($booking): void {
+                    $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+                    if ($booking->status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking->state()->expire($booking);
+
+                    foreach ($booking->property->channelListings as $listing) {
+                        CloseChannelDates::dispatch($listing, $booking->stay, close: false)->afterCommit();
+                    }
+                });
+            });
     }
 }`,
         },

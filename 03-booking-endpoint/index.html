@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 3: 500 error, and a stranger booked our cabin","description":"A 200-line booking controller returned 500 on double bookings and let any user book any property. Split it into a Form Request, a Policy, an action and a Resource, and see why Eloquent’s Active Record is the right home for it.","url":"https://sha-hin.github.io/pattern-playbook/03-booking-endpoint/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/03-booking-endpoint/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Active Record pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 3: 500 error, and a stranger booked our cabin","item":"https://sha-hin.github.io/pattern-playbook/03-booking-endpoint/"}]}]}</script>
 </head>
@@ -57,33 +57,62 @@
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#bugs<span class="inc-when">Wednesday 11:05</span></p>
 <p class="inc-msg"><span class="inc-who">Karim · QA</span>Three things on the booking endpoint. Booking nights that are already taken shows a <b>500 page</b>. A user from a <b>different host account</b> created a booking on our Lake Cabin. And the Airbnb import has its own copy of the &quot;is it free?&quot; check that already gives different answers.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>Before we patch it: the whole thing is one controller method. Let’s give each part a home.</p>
 </section>
-<section><h2>The broken code</h2><div class="blocks"><div class="block"><div class="codebox broken">
+<section><h2>The broken code</h2><div class="blocks"><div class="block"><p>The endpoint as it stands after scenes 1 and 2:</p><div class="codebox broken">
 <div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="k">int</span> <span class="v">$propertyId</span>)
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Exception</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span>
 {
-    <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">findOrFail</span>(<span class="v">$propertyId</span>);                 <span class="c">// anyone logged in, any property</span>
-    <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">all</span>();                                       <span class="c">// no validation, every field accepted</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="k">int</span> <span class="v">$propertyId</span>): <span class="t">JsonResponse</span>
+    {
+        <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">findOrFail</span>(<span class="v">$propertyId</span>);
+        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">all</span>();
 
-    <span class="v">$clash</span> = <span class="t">DB</span>::<span class="f">table</span>(<span class="s">'bookings'</span>)-&gt;<span class="f">where</span>(<span class="s">'property_id'</span>, <span class="v">$propertyId</span>)
-        -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;='</span>, <span class="v">$data</span>[<span class="s">'check_out'</span>])              <span class="c">// blocks back-to-back stays</span>
-        -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;='</span>, <span class="v">$data</span>[<span class="s">'check_in'</span>])
-        -&gt;<span class="f">exists</span>();                                                <span class="c">// cancelled bookings block too</span>
-    <span class="k">if</span> (<span class="v">$clash</span>) {
-        <span class="k">throw</span> <span class="k">new</span> <span class="f">Exception</span>(<span class="s">'Already booked'</span>);                     <span class="c">// becomes a 500</span>
+        <span class="v">$clash</span> = <span class="t">DB</span>::<span class="f">table</span>(<span class="s">'bookings'</span>)-&gt;<span class="f">where</span>(<span class="s">'property_id'</span>, <span class="v">$propertyId</span>)
+            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;='</span>, <span class="v">$data</span>[<span class="s">'check_out'</span>])
+            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;='</span>, <span class="v">$data</span>[<span class="s">'check_in'</span>])
+            -&gt;<span class="f">exists</span>();
+        <span class="k">if</span> (<span class="v">$clash</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">Exception</span>(<span class="s">'Already booked'</span>);
+        }
+
+        <span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$data</span>[<span class="s">'check_in'</span>], <span class="v">$data</span>[<span class="s">'check_out'</span>]);   <span class="c">// throws on 5 → 1 July</span>
+
+        <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$data</span>);
+        <span class="v">$booking</span>-&gt;property_id = <span class="v">$property</span>-&gt;id;
+        <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;                                         <span class="c">// two DATE columns, no time attached</span>
+        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
+        <span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());
+        <span class="v">$booking</span>-&gt;<span class="f">save</span>();
+
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>(<span class="v">$booking</span>);
     }
-
-    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">create</span>(<span class="v">$data</span> + [<span class="s">'property_id'</span> =&gt; <span class="v">$propertyId</span>, <span class="s">'status'</span> =&gt; <span class="s">'pending'</span>]);
-
-    <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>(<span class="v">$booking</span>);                             <span class="c">// 200, every column of the row</span>
 }</code></pre>
-</div><p>Validation, permission, the business rule, saving and the response format are mixed in one method. None can be reused or tested on its own, which is exactly why the Airbnb import copied the overlap rule instead of calling it.</p></div></div></section>
-<section><h2>The fix: one home for each part</h2><p>The request goes through five small pieces, each with one job. Read them in the order a request meets them.</p><div class="blocks"><div class="block"><h3>1. The route</h3><p><code>auth:sanctum</code> answers <b>401</b> without a valid token. Route model binding answers <b>404</b> for an unknown property. <code>can()</code> runs the policy below and answers <b>403</b>.</p><div class="codebox">
-<div class="filehead"><span class="path">routes/api.php</span></div>
-<pre class="code"><code><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])
+</div><p>Four bugs in one method. <code>findOrFail()</code> lets anyone logged in book any property. <code>$request-&gt;all()</code> accepts every field unvalidated. The clash check uses <code>&lt;=</code> and <code>&gt;=</code>, so back-to-back stays are refused, and it counts cancelled bookings. And a clash throws a plain <code>Exception</code>: a 500.</p><p>Validation, permission, the business rule, saving and the response format are mixed in one method. None can be reused or tested on its own, which is exactly why the Airbnb import copied the overlap rule instead of calling it.</p></div></div></section>
+<section><h2>The fix: one home for each part</h2><p>The request goes through five small pieces, each with one job. Read them in the order a request meets them.</p><div class="blocks"><div class="block"><h3>1. The route</h3><p><code>auth:sanctum</code> answers <b>401</b> without a valid token. Route model binding answers <b>404</b> for an unknown property. <code>can()</code> runs the policy below and answers <b>403</b>. The whole file, replacing the launch-week route:</p><div class="codebox">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;
+
+<span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span>
+<span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])
     -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)
     -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</code></pre>
 </div></div><div class="block"><h3>2. Who may book: the Policy</h3><p>Owners and co-hosts of the account that owns the property. Not cleaners, and nobody from another account. <a href="../00-foundation/#model-user"><code>roleIn()</code></a> reads the role from the membership.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Policies/PropertyPolicy.php</span></div>
+<div class="filehead"><span class="path">app/Policies/PropertyPolicy.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Policies</span>;
@@ -102,7 +131,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>3. What a valid request looks like: the Form Request</h3><p>Bad input never reaches the business code: Laravel answers <b>422</b> with the errors. <code>stay()</code> hands the rest of the app scene 2’s value object instead of two strings.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Requests/StoreBookingRequest.php</span></div>
+<div class="filehead"><span class="path">app/Http/Requests/StoreBookingRequest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>;
@@ -133,24 +162,81 @@
         <span class="k">return</span> <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="k">$this</span>-&gt;<span class="f">validated</span>(<span class="s">'check_in'</span>), <span class="k">$this</span>-&gt;<span class="f">validated</span>(<span class="s">'check_out'</span>));
     }
 }</code></pre>
-</div></div><div class="block"><h3>4. Which bookings block a stay: a scope</h3><p>The correct rule, in one place: an existing booking blocks the new stay when it <b>starts before the new one ends</b> and <b>ends after the new one starts</b>. Strict <code>&lt;</code> and <code>&gt;</code>, so back-to-back stays pass. And only pending and confirmed bookings count.</p><p>It lives on the model as a query scope, so every caller (this endpoint, the Airbnb import, an admin tool) uses the same rule, and the database runs it with the <a href="../00-foundation/#table-bookings">composite index</a>.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/BookingStatus.php · app/Models/Booking.php (added)</span></div>
-<pre class="code"><code><span class="c">// BookingStatus: the statuses that occupy the calendar</span>
-<span class="c">/** @return list&lt;self&gt; */</span>
-<span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">blocking</span>(): <span class="k">array</span>
-{
-    <span class="k">return</span> [<span class="k">self</span>::<span class="t">Pending</span>, <span class="k">self</span>::<span class="t">Confirmed</span>];
-}
+</div></div><div class="block"><h3>4. Which bookings block a stay: a scope</h3><p>The correct rule, in one place: an existing booking blocks the new stay when it <b>starts before the new one ends</b> and <b>ends after the new one starts</b>. Strict <code>&lt;</code> and <code>&gt;</code>, so back-to-back stays pass. And only pending and confirmed bookings count.</p><p>First, the statuses that occupy the calendar, on the enum:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Enums/BookingStatus.php</span><span class="badge">changed since the foundation: <span class="plus">+6</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">// Booking</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span>
+namespace App\Enums;
+
+enum BookingStatus: string
 {
-    <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())
-        -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span>
-        -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span>
-}</code></pre>
+    case Pending = 'pending';                 // a hold, waiting for payment
+    case Confirmed = 'confirmed';
+    case Cancelled = 'cancelled';
+    case Expired = 'expired';                 // a hold that was never paid
+
+    /** The statuses that occupy the calendar. @return list&lt;self&gt; */
+    public static function blocking(): array
+    {
+        return [self::Pending, self::Confirmed];
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;</span><span class="ln"> </span><span class="ln"><span class="k">enum</span> <span class="t">BookingStatus</span>: <span class="k">string</span></span><span class="ln">{</span><span class="ln">    <span class="k">case</span> <span class="t">Pending</span> = <span class="s">'pending'</span>;                 <span class="c">// a hold, waiting for payment</span></span><span class="ln">    <span class="k">case</span> <span class="t">Confirmed</span> = <span class="s">'confirmed'</span>;</span><span class="ln">    <span class="k">case</span> <span class="t">Cancelled</span> = <span class="s">'cancelled'</span>;</span><span class="ln">    <span class="k">case</span> <span class="t">Expired</span> = <span class="s">'expired'</span>;                 <span class="c">// a hold that was never paid</span></span><span class="ln add"> </span><span class="ln add">    <span class="c">/** The statuses that occupy the calendar. @return list&lt;self&gt; */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">blocking</span>(): <span class="k">array</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> [<span class="k">self</span>::<span class="t">Pending</span>, <span class="k">self</span>::<span class="t">Confirmed</span>];</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Then the rule, as a query scope on the model, so every caller (this endpoint, the Airbnb import, an admin tool) uses the same rule, and the database runs it with the <a href="../00-foundation/#table-bookings">composite index</a>:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 2: <span class="plus">+10</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query-&gt;whereIn('status', BookingStatus::blocking())
+            -&gt;where('check_in', '&lt;', $stay-&gt;checkOut-&gt;toDateString())     // starts before the new stay ends
+            -&gt;where('check_out', '&gt;', $stay-&gt;checkIn-&gt;toDateString());    // ends after the new stay starts
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln add">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span></span><span class="ln add">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span></span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div></div><div class="block"><h3>5. The business rule: an action</h3><p>One class, one public method: create a booking if the nights are free. It knows nothing about HTTP, so the Airbnb import can call the same <code>handle()</code>.</p><p>A new booking is a <b>pending hold</b> for 30 minutes while the guest pays; scene 9 expires unpaid holds.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span></div>
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
@@ -181,7 +267,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>6. A conflict is a clear 409</h3><p>A domain exception that knows its HTTP meaning. Laravel’s exception handler calls <code>render()</code>, so the controller never catches anything.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/BookingConflict.php</span></div>
+<div class="filehead"><span class="path">app/Bookings/BookingConflict.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
@@ -202,7 +288,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>7. Only what the client needs: the Resource</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Resources/BookingResource.php</span></div>
+<div class="filehead"><span class="path">app/Http/Resources/BookingResource.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>;
@@ -228,7 +314,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>8. The controller is now three lines</h3><p>It translates HTTP into a call and back. Returning a resource for a model that was just created answers <b>201</b> on its own (see below).</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (after)</span></div>
+<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (after)</span><span class="badge new">rewritten</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
@@ -291,7 +377,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Every status code, and the two trap tests</small></summary>
 <div class="testbody"><p>Written one at a time, red then green. The two <b>trap tests</b> matter most: with no overlap check at all they already pass, and they turn red the moment someone writes the naive <code>&lt;=</code> rule from the broken code, or forgets the status. That’s why the <b>whole</b> suite runs after every change, not just the newest test.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/CreateBookingTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/CreateBookingTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;

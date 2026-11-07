@@ -7,7 +7,7 @@ export default {
     when: 'Wednesday 15:10',
     messages: [
       ['Ahmed · host', 'Two families are booked into the Lake Cabin for 12–15 July: one from **Airbnb**, one from **Booking.com**, made 40 seconds apart last night. Nordic Stays showed both as confirmed and warned nobody.'],
-      ['Karim · developer', 'The Airbnb import (scene 15) saves the booking, but never pushes to the other channels: only our own confirmations do. And the overlap check only runs for direct bookings.'],
+      ['Karim · developer', 'Our push closed the nights on Booking.com 40 seconds after the Airbnb booking arrived, and Booking.com had sold them in between. Two channels can always sell the same night inside that window. What hurts is that nothing looks for a clash when a channel booking arrives, so nobody was warned.'],
     ],
   },
   sections: [
@@ -16,19 +16,18 @@ export default {
       text: ['Everything that changes the calendar has to remember what else must happen. Each one remembers a different part:'],
       blocks: [
         {
-          path: 'four classes (before)',
+          path: 'five classes (before)',
           broken: true, fragment: true,
-          code: String.raw`// BookingConfirmation (scene 6): pushes to the channels
+          code: String.raw`// BookingConfirmation, CancelBooking, ExpireHolds (scene 17): push
 PushAvailability::forProperty($booking->property);
 
-// CancelBooking (scene 10): pushes, and frees the nights
+// ImportChannelReservation (scene 17): pushes too, but never looks for a clash
 PushAvailability::forProperty($booking->property);
 
-// ExpireHolds (scene 9): forgot to push, so expired holds stay closed on Airbnb
-
-// ImportChannelReservation (scene 15): saves the booking, pushes nothing, checks nothing`,
+// SyncIcalFeed (scene 12): changes the blocks and pushes nothing,
+// so a block from Airbnb's feed never reaches Booking.com`,
           after: [
-            'Four colleagues, each wired to some of the others. When the team added overbooking detection, it went into one of the four. When it adds a fifth source of bookings (a Vrbo import, an admin tool), the list of "what to remember" has to be copied again.',
+            'Five colleagues, each remembering its own part of what must follow a calendar change. One forgot to push; none checks for a clash. Adding overbooking detection would mean adding it to all five, and the next source of bookings (a Vrbo import, an admin tool) would have to copy the whole list again.',
             'A channel booking can’t be refused the way a direct one can (scene 3 answers 409): the guest has already paid the channel. The best Nordic Stays can do is **notice instantly**, tell the host, and close the nights everywhere else.',
           ],
         },
@@ -198,23 +197,247 @@ final class CalendarSync
         },
         {
           title: 'The colleagues, now',
-          text: ['Each one reports what happened, in one line, inside its own transaction; the pushes and emails it triggers wait for the commit. `CalendarSync` is injected by the container (scene 5).'],
-          path: 'the same four classes (after)',
-          fragment: true,
-          code: String.raw`// BookingConfirmation, after the state changed (scene 9)
-$this->calendar->bookingChanged($booking);
+          text: ['Each one reports what happened, in one line, inside its own transaction; the pushes and emails it triggers wait for the commit. The container injects `CalendarSync` (scene 5). Confirming:'],
+          path: 'app/Bookings/BookingConfirmation.php',
+          code: String.raw`<?php
 
-// CancelBooking, after the state changed (scene 10)
-$this->calendar->bookingChanged($booking);
+namespace App\Bookings;
 
-// ExpireHolds, after each expiry
-$this->calendar->bookingChanged($booking);
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
-// ImportChannelReservation, after saving (only when the reservation was applied)
-$this->calendar->bookingChanged($booking);
+final class BookingConfirmation
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
 
-// SyncIcalFeed, after the import
-$this->calendar->blocksChanged($this->feed->property);`,
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();   // fresh, and locked
+
+            if (! $booking->state()->confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment->status = PaymentStatus::Succeeded;               // step 2
+            $payment->save();
+
+            Notification::route('mail', $booking->guest_email)         // step 3, after the commit
+                ->notify((new BookingConfirmed($booking))->afterCommit());
+
+            $this->calendar->bookingChanged($booking);                  // step 4: the coordinator decides what follows
+        });
+    }
+}`,
+        },
+        {
+          text: ['Cancelling:'],
+          path: 'app/Bookings/CancelBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $nothing = Money::zero($booking->total->currency);
+
+            if (! $booking->state()->cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            $this->calendar->bookingChanged($booking);                  // the nights are free again
+
+            $payment = $booking->payments()
+                ->where('status', PaymentStatus::Succeeded)
+                ->whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                ->latest('id')
+                ->first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()->diffInHours($booking->stay->checkInAt($booking->property), false));
+            $refund = $booking->refundPolicy()->refundFor(Money::of($payment->amount_cents, $payment->currency), $hours);
+
+            if ($refund->amount > 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)->afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}`,
+        },
+        {
+          text: ['An expired hold. A command receives the coordinator in `handle()`:'],
+          path: 'app/Console/Commands/ExpireHolds.php',
+          code: String.raw`<?php
+
+namespace App\Console\Commands;
+
+use App\Channels\CalendarSync;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(CalendarSync $calendar): void
+    {
+        Booking::query()
+            ->where('status', BookingStatus::Pending)
+            ->where('expires_at', '<=', now())
+            ->lazyById()
+            ->each(function (Booking $booking) use ($calendar): void {
+                DB::transaction(function () use ($booking, $calendar): void {
+                    $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+                    if ($booking->status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking->state()->expire($booking);
+
+                    $calendar->bookingChanged($booking);
+                });
+            });
+    }
+}`,
+        },
+        {
+          text: ['The channel import, only when the reservation was applied:'],
+          path: 'app/Channels/ImportChannelReservation.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\DB;
+
+final class ImportChannelReservation
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return bool true when the reservation was applied, false when it was older than what we have */
+    public function handle(ChannelReservation $reservation): bool
+    {
+        $listing = ChannelListing::query()
+            ->where('channel', $reservation->channel)
+            ->where('external_listing_id', $reservation->externalListingId)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($reservation, $listing): bool {
+            Property::whereKey($listing->property_id)->lockForUpdate()->firstOrFail();   // one change per property at a time
+
+            $booking = Booking::query()
+                ->where('channel', $reservation->channel)
+                ->where('external_id', $reservation->externalId)
+                ->lockForUpdate()
+                ->first() ?? new Booking();
+
+            if ($booking->exists && $booking->external_version >= $reservation->version) {
+                return false;                                      // older or the same: already applied something newer
+            }
+
+            $booking->forceFill([
+                'property_id' => $listing->property_id,
+                'channel' => $reservation->channel,
+                'external_id' => $reservation->externalId,
+                'external_version' => $reservation->version,
+                'status' => $reservation->status,                  // the channel decides; our own State rules (scene 9) guard our actions
+                'guest_name' => $reservation->guestName,
+                'guest_email' => $reservation->guestEmail,
+                'guests' => $reservation->guests,
+                'stay' => $reservation->stay,
+                'total' => $reservation->total,
+                'confirmed_at' => $booking->confirmed_at ?? now(),
+                'cancelled_at' => $reservation->status === BookingStatus::Cancelled ? ($booking->cancelled_at ?? now()) : null,
+            ])->save();
+
+            $this->calendar->bookingChanged($booking);                  // clashes are found here, and the channels told
+
+            return true;
+        });
+    }
+}`,
+        },
+        {
+          text: ['And the iCal sync, which changes blocks rather than bookings:'],
+          path: 'app/Jobs/SyncIcalFeed.php',
+          code: String.raw`<?php
+
+namespace App\Jobs;
+
+use App\Channels\CalendarSync;
+use App\Channels\Ical\IcalImporter;
+use App\Models\IcalFeed;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+
+class SyncIcalFeed implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public function __construct(public IcalFeed $feed)
+    {
+    }
+
+    /** @return list<int> */
+    public function backoff(): array
+    {
+        return [60, 300];
+    }
+
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping("ical-feed-{$this->feed->id}"))->expireAfter(120)];
+    }
+
+    public function handle(IcalImporter $importer, CalendarSync $calendar): void
+    {
+        $importer->sync($this->feed);
+
+        $calendar->blocksChanged($this->feed->property);               // blocks from Airbnb's feed close Booking.com too
+    }
+}`,
         },
       ],
     },

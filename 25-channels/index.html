@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 25: SMS guests got an email instead","description":"Guests who chose SMS or WhatsApp still got every message by email, because the booking form saved their choice and every message ignored it. Fix it with Laravel Notifications, which are a Bridge: messages on one side, delivery channels on the other. Mail is built in; SMS and WhatsApp are one small channel class each.","url":"https://sha-hin.github.io/pattern-playbook/25-channels/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/25-channels/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Bridge pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 25: SMS guests got an email instead","item":"https://sha-hin.github.io/pattern-playbook/25-channels/"}]}]}</script>
 </head>
@@ -79,8 +79,8 @@
     <span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$booking</span>-&gt;guest_email)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">GuestMail</span>(<span class="v">$booking</span>));
 }</code></pre>
 </div><p>It works for this one message. But the cancellation notice (scene 22) and the overbooking alert (scene 18) need the same three branches, so the sending code is copied into every message: <b>3 messages × 3 channels = 9 places</b> that send. A fourth channel means editing every message again, and a fix to how SMS is sent has to be made three times.</p><p>Two things are mixed that change for different reasons: <b>what</b> a message says, and <b>how</b> it is delivered.</p></div></div></section>
-<section><h2>The fix, part 1: the guest’s choice, with an address</h2><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_04_14_000001_add_contact_channel_to_bookings_table.php</span></div>
+<section><h2>The fix, part 1: the guest’s choice, with an address</h2><p>Last week’s release added two columns for the form. They stay as they are:</p><div class="blocks"><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_04_14_000001_add_contact_channel_to_bookings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -93,12 +93,12 @@
     {
         <span class="t">Schema</span>::<span class="f">table</span>(<span class="s">'bookings'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
             <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'guest_phone'</span>)-&gt;<span class="f">nullable</span>();                 <span class="c">// E.164, e.g. +4512345678</span>
-            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'guest_channel'</span>)-&gt;<span class="f">default</span>(<span class="s">'mail'</span>);          <span class="c">// mail, sms, whatsapp</span>
+            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'guest_channel'</span>)-&gt;<span class="f">default</span>(<span class="s">'email'</span>);         <span class="c">// email, sms, whatsapp</span>
         });
     }
 };</code></pre>
-</div></div><div class="block"><h3>Our words in the database, Laravel’s names in the code</h3><p>The database stores <b>our</b> words (<code>sms</code>), never class names: a class can be renamed or moved, a stored value can’t follow it. The enum translates our word into the name Laravel uses for that channel: <code>mail</code> is built in, and a custom channel is named by its class.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/GuestChannel.php</span></div>
+</div></div><div class="block"><h3>Our words in the database, Laravel’s names in the code</h3><p>The database stores <b>our</b> words (<code>email</code>, <code>sms</code>, <code>whatsapp</code>), never class names: a class can be renamed or moved, a stored value can’t follow it. The enum translates our word into the name Laravel uses for that channel: <code>mail</code> is built in, and a custom channel is named by its class.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Enums/GuestChannel.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -108,7 +108,7 @@
 
 <span class="k">enum</span> <span class="t">GuestChannel</span>: <span class="k">string</span>
 {
-    <span class="k">case</span> <span class="t">Mail</span> = <span class="s">'mail'</span>;
+    <span class="k">case</span> <span class="t">Mail</span> = <span class="s">'email'</span>;
     <span class="k">case</span> <span class="t">Sms</span> = <span class="s">'sms'</span>;
     <span class="k">case</span> <span class="t">WhatsApp</span> = <span class="s">'whatsapp'</span>;
 
@@ -121,58 +121,326 @@
         };
     }
 }</code></pre>
-</div><p><code>Booking</code> casts <code>guest_channel</code> to it; the booking form saves the guest’s choice and phone number.</p></div></div></section>
-<section><h2>The fix, part 2: a message says what, never how</h2><p>A notification answers two questions: <b>which channel</b> this recipient wants (<code>via()</code>), and <b>what the message looks like</b> on each channel (<code>toMail()</code>, <code>toSms()</code>, <code>toWhatsApp()</code>). It never sends anything.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/GuestMessage.php (after)</span></div>
-<pre class="code"><code>&lt;?php
+</div></div><div class="block"><p>The booking casts the column to it:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 24: <span class="plus">+3</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
+namespace App\Models;
 
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">TemplateRenderer</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ScheduledMessage</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;
+use App\Bookings\BookingSnapshot;
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use App\Enums\GuestChannel;
+use App\Money\Money;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-<span class="k">class</span> <span class="t">GuestMessage</span> <span class="k">extends</span> <span class="t">Notification</span>
+class Booking extends Model
 {
-    <span class="k">use</span> <span class="t">Queueable</span>;
+    use HasFactory;
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ScheduledMessage</span> <span class="v">$message</span>)
+    protected $fillable = ['guest_name', 'guest_email', 'guest_phone', 'guest_channel', 'check_in', 'check_out', 'guests'];
+
+    protected $hidden = ['door_code'];                             // never in JSON, logs or toArray()
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' =&gt; CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' =&gt; Channel::class,                           // null for bookings made on Nordic Stays
+            'door_code' =&gt; 'encrypted',                            // encrypted with APP_KEY in the database
+            'guest_channel' =&gt; GuestChannel::class,                // how the guest wants to hear from us
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this-&gt;hasMany(BookingLineItem::class);
+    }
+
+    public function scheduledMessages(): HasMany
+    {
+        return $this-&gt;hasMany(ScheduledMessage::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query-&gt;whereIn('status', BookingStatus::blocking())
+            -&gt;where('check_in', '&lt;', $stay-&gt;checkOut-&gt;toDateString())     // starts before the new stay ends
+            -&gt;where('check_out', '&gt;', $stay-&gt;checkIn-&gt;toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this-&gt;status) {
+            BookingStatus::Pending =&gt; new PendingState(),
+            BookingStatus::Confirmed =&gt; new ConfirmedState(),
+            BookingStatus::Expired =&gt; new ExpiredState(),
+            BookingStatus::Cancelled =&gt; new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this-&gt;cancellation_policy?-&gt;refundPolicy() ?? new NoAutomaticRefund();
+    }
+
+    /** Everything a date change can alter, as a plain value that can be stored and handed back. */
+    public function snapshot(): BookingSnapshot
+    {
+        return new BookingSnapshot(
+            $this-&gt;stay-&gt;checkIn-&gt;toDateString(),
+            $this-&gt;stay-&gt;checkOut-&gt;toDateString(),
+            $this-&gt;total-&gt;amount,
+            $this-&gt;total-&gt;currency-&gt;value,
+            $this-&gt;lineItems()-&gt;orderBy('id')-&gt;get(['type', 'description', 'amount_cents', 'currency'])
+                -&gt;map(fn (BookingLineItem $line): array =&gt; [
+                    'type' =&gt; $line-&gt;type-&gt;value, 'description' =&gt; $line-&gt;description,
+                    'amount_cents' =&gt; $line-&gt;amount_cents, 'currency' =&gt; $line-&gt;currency,
+                ])-&gt;all(),
+        );
+    }
+
+    public function restore(BookingSnapshot $snapshot): void
+    {
+        $this-&gt;stay = Stay::fromDates($snapshot-&gt;checkIn, $snapshot-&gt;checkOut);
+        $this-&gt;total = Money::of($snapshot-&gt;totalCents, $snapshot-&gt;currency);
+        $this-&gt;save();
+
+        $this-&gt;lineItems()-&gt;delete();                                          // the bill goes back line by line
+        $this-&gt;lineItems()-&gt;createMany(array_map(fn (array $line): array =&gt; [
+            'type' =&gt; $line['type'],
+            'description' =&gt; $line['description'],
+            'amount' =&gt; Money::of($line['amount_cents'], $line['currency']),
+        ], $snapshot-&gt;lines));
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">BookingSnapshot</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">NoAutomaticRefund</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">RefundPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">BookingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">CancelledState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ConfirmedState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ExpiredState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">PendingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">GuestChannel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln del">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln add">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'guest_phone'</span>, <span class="s">'guest_channel'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$hidden</span> = [<span class="s">'door_code'</span>];                             <span class="c">// never in JSON, logs or toArray()</span></span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,    <span class="c">// a copy of the property's policy, made at booking time</span></span><span class="ln">            <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::class,                           <span class="c">// null for bookings made on Nordic Stays</span></span><span class="ln">            <span class="s">'door_code'</span> =&gt; <span class="s">'encrypted'</span>,                            <span class="c">// encrypted with APP_KEY in the database</span></span><span class="ln add">            <span class="s">'guest_channel'</span> =&gt; <span class="t">GuestChannel</span>::class,                <span class="c">// how the guest wants to hear from us</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">lineItems</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">BookingLineItem</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scheduledMessages</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ScheduledMessage</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span></span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** What this booking may do now. The status column stays the single source of truth. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">state</span>(): <span class="t">BookingState</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">match</span> (<span class="k">$this</span>-&gt;status) {</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Pending</span> =&gt; <span class="k">new</span> <span class="f">PendingState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Confirmed</span> =&gt; <span class="k">new</span> <span class="f">ConfirmedState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Expired</span> =&gt; <span class="k">new</span> <span class="f">ExpiredState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> =&gt; <span class="k">new</span> <span class="f">CancelledState</span>(),</span><span class="ln">        };                                                        <span class="c">// a new status without a state class fails here, loudly</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundPolicy</span>(): <span class="t">RefundPolicy</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;cancellation_policy?-&gt;<span class="f">refundPolicy</span>() ?? <span class="k">new</span> <span class="f">NoAutomaticRefund</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Everything a date change can alter, as a plain value that can be stored and handed back. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">snapshot</span>(): <span class="t">BookingSnapshot</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingSnapshot</span>(</span><span class="ln">            <span class="k">$this</span>-&gt;stay-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="k">$this</span>-&gt;stay-&gt;checkOut-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="k">$this</span>-&gt;total-&gt;amount,</span><span class="ln">            <span class="k">$this</span>-&gt;total-&gt;currency-&gt;value,</span><span class="ln">            <span class="k">$this</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">orderBy</span>(<span class="s">'id'</span>)-&gt;<span class="f">get</span>([<span class="s">'type'</span>, <span class="s">'description'</span>, <span class="s">'amount_cents'</span>, <span class="s">'currency'</span>])</span><span class="ln">                -&gt;<span class="f">map</span>(<span class="k">fn</span> (<span class="t">BookingLineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                    <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type-&gt;value, <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,</span><span class="ln">                    <span class="s">'amount_cents'</span> =&gt; <span class="v">$line</span>-&gt;amount_cents, <span class="s">'currency'</span> =&gt; <span class="v">$line</span>-&gt;currency,</span><span class="ln">                ])-&gt;<span class="f">all</span>(),</span><span class="ln">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">restore</span>(<span class="t">BookingSnapshot</span> <span class="v">$snapshot</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;stay = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$snapshot</span>-&gt;checkIn, <span class="v">$snapshot</span>-&gt;checkOut);</span><span class="ln">        <span class="k">$this</span>-&gt;total = <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$snapshot</span>-&gt;totalCents, <span class="v">$snapshot</span>-&gt;currency);</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">delete</span>();                                          <span class="c">// the bill goes back line by line</span></span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="k">array</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">            <span class="s">'type'</span> =&gt; <span class="v">$line</span>[<span class="s">'type'</span>],</span><span class="ln">            <span class="s">'description'</span> =&gt; <span class="v">$line</span>[<span class="s">'description'</span>],</span><span class="ln">            <span class="s">'amount'</span> =&gt; <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$line</span>[<span class="s">'amount_cents'</span>], <span class="v">$line</span>[<span class="s">'currency'</span>]),</span><span class="ln">        ], <span class="v">$snapshot</span>-&gt;lines));</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>The form validates the choice against the enum, and a phone number whenever the choice isn’t email:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Requests/StoreBookingRequest.php</span><span class="badge">changed since scene 3: <span class="plus">+5</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Requests;
+
+use App\Bookings\Stay;
+use App\Enums\GuestChannel;
+use App\Models\Property;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreBookingRequest extends FormRequest
+{
+    /** @return array&lt;string, list&lt;mixed&gt;&gt; */
+    public function rules(): array
+    {
+        /** @var Property $property */
+        $property = $this-&gt;route('property');
+
+        return [
+            'check_in' =&gt; ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_out' =&gt; ['required', 'date_format:Y-m-d', 'after:check_in'],
+            'guests' =&gt; ['required', 'integer', 'min:1', &quot;max:{$property-&gt;max_guests}&quot;],
+            'guest_name' =&gt; ['required', 'string', 'max:120'],
+            'guest_email' =&gt; ['required', 'email:rfc', 'max:254'],
+            'contact_channel' =&gt; ['required', Rule::enum(GuestChannel::class)],            // email, sms or whatsapp
+            'guest_phone' =&gt; ['required_unless:contact_channel,email', 'nullable', 'regex:/^\+[1-9]\d{7,14}$/'],   // E.164: +4512345678
+        ];
+    }
+
+    public function stay(): Stay
+    {
+        return Stay::fromDates($this-&gt;validated('check_in'), $this-&gt;validated('check_out'));
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">GuestChannel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Http</span>\<span class="t">FormRequest</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Validation</span>\<span class="t">Rule</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">StoreBookingRequest</span> <span class="k">extends</span> <span class="t">FormRequest</span></span><span class="ln">{</span><span class="ln del">    <span class="c">/** @return array&lt;string, list&lt;string&gt;&gt; */</span></span><span class="ln add">    <span class="c">/** @return array&lt;string, list&lt;mixed&gt;&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">rules</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="c">/** @var Property $property */</span></span><span class="ln">        <span class="v">$property</span> = <span class="k">$this</span>-&gt;<span class="f">route</span>(<span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after_or_equal:today'</span>],</span><span class="ln">            <span class="s">'check_out'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'date_format:Y-m-d'</span>, <span class="s">'after:check_in'</span>],</span><span class="ln">            <span class="s">'guests'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'integer'</span>, <span class="s">'min:1'</span>, <span class="s">&quot;max:{$property-&gt;max_guests}&quot;</span>],</span><span class="ln">            <span class="s">'guest_name'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'string'</span>, <span class="s">'max:120'</span>],</span><span class="ln">            <span class="s">'guest_email'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'email:rfc'</span>, <span class="s">'max:254'</span>],</span><span class="ln add">            <span class="s">'contact_channel'</span> =&gt; [<span class="s">'required'</span>, <span class="t">Rule</span>::<span class="f">enum</span>(<span class="t">GuestChannel</span>::class)],            <span class="c">// email, sms or whatsapp</span></span><span class="ln add">            <span class="s">'guest_phone'</span> =&gt; [<span class="s">'required_unless:contact_channel,email'</span>, <span class="s">'nullable'</span>, <span class="s">'regex:/^\+[1-9]\d{7,14}$/'</span>],   <span class="c">// E.164: +4512345678</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">stay</span>(): <span class="t">Stay</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="k">$this</span>-&gt;<span class="f">validated</span>(<span class="s">'check_in'</span>), <span class="k">$this</span>-&gt;<span class="f">validated</span>(<span class="s">'check_out'</span>));</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>The controller passes both on with the guest’s other details:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php</span><span class="badge">changed since scene 19: <span class="plus">+2</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\CreateBooking;
+use App\Http\Requests\MoveBookingRequest;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Resources\BookingResource;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+
+class BookingController extends Controller
+{
+    public function store(StoreBookingRequest $request, Property $property, CreateBooking $createBooking): BookingResource
+    {
+        $booking = $createBooking-&gt;handle(
+            $property,
+            $request-&gt;stay(),
+            $request-&gt;safe()-&gt;only(['guest_name', 'guest_email', 'guest_phone', 'guests'])
+                + ['guest_channel' =&gt; $request-&gt;validated('contact_channel')],
+        );
+
+        return new BookingResource($booking);
+    }
+
+    public function index(Account $account): AnonymousResourceCollection
+    {
+        return BookingResource::collection(
+            $account-&gt;bookings()-&gt;latest('bookings.id')-&gt;cursorPaginate(50),   // the account is injected by the middleware
+        );
+    }
+
+    public function show(Booking $booking): BookingResource
+    {
+        return new BookingResource($booking);                                     // the route's policy has checked it
+    }
+
+    public function move(MoveBookingRequest $request, Booking $booking): BookingResource
+    {
+        $booking-&gt;property_id = $request-&gt;validated('property_id');             // one field, by name, after validation
+        $booking-&gt;save();                                                       // (Day 5 adds the availability check)
+
+        return new BookingResource($booking);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CreateBooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>\<span class="t">MoveBookingRequest</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>\<span class="t">StoreBookingRequest</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">BookingResource</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">AnonymousResourceCollection</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">StoreBookingRequest</span> <span class="v">$request</span>, <span class="t">Property</span> <span class="v">$property</span>, <span class="t">CreateBooking</span> <span class="v">$createBooking</span>): <span class="t">BookingResource</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$booking</span> = <span class="v">$createBooking</span>-&gt;<span class="f">handle</span>(</span><span class="ln">            <span class="v">$property</span>,</span><span class="ln">            <span class="v">$request</span>-&gt;<span class="f">stay</span>(),</span><span class="ln del">            <span class="v">$request</span>-&gt;<span class="f">safe</span>()-&gt;<span class="f">only</span>([<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'guests'</span>]),</span><span class="ln add">            <span class="v">$request</span>-&gt;<span class="f">safe</span>()-&gt;<span class="f">only</span>([<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'guest_phone'</span>, <span class="s">'guests'</span>])</span><span class="ln add">                + [<span class="s">'guest_channel'</span> =&gt; <span class="v">$request</span>-&gt;<span class="f">validated</span>(<span class="s">'contact_channel'</span>)],</span><span class="ln">        );</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">AnonymousResourceCollection</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(</span><span class="ln">            <span class="v">$account</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">latest</span>(<span class="s">'bookings.id'</span>)-&gt;<span class="f">cursorPaginate</span>(<span class="n">50</span>),   <span class="c">// the account is injected by the middleware</span></span><span class="ln">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);                                     <span class="c">// the route's policy has checked it</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">MoveBookingRequest</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$booking</span>-&gt;property_id = <span class="v">$request</span>-&gt;<span class="f">validated</span>(<span class="s">'property_id'</span>);             <span class="c">// one field, by name, after validation</span></span><span class="ln">        <span class="v">$booking</span>-&gt;<span class="f">save</span>();                                                       <span class="c">// (Day 5 adds the availability check)</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p><code>CreateBooking</code> saves them with the rest; only its description of <code>$guest</code> changes:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge">changed since scene 12: <span class="plus">+1</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
     {
     }
 
-    <span class="c">/** @return list&lt;string&gt; */</span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span>
+    /** @param array{guest_name: string, guest_email: string, guest_phone: ?string, guest_channel: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
     {
-        <span class="k">return</span> [<span class="k">$this</span>-&gt;message-&gt;booking-&gt;guest_channel-&gt;<span class="f">notificationChannel</span>()];   <span class="c">// the fix for the incident</span>
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // others wait here
+
+            $taken = $property-&gt;bookings()-&gt;overlapping($stay)-&gt;exists()
+                || $property-&gt;externalBlocks()-&gt;overlapping($stay)-&gt;exists();   // nights sold on Airbnb or Booking.com
+            if ($taken) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this-&gt;quoter-&gt;quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking-&gt;stay = $stay;
+            $booking-&gt;total = $quote-&gt;total();
+            $booking-&gt;cancellation_policy = $property-&gt;cancellation_policy;   // the terms the guest agreed to, frozen
+            $booking-&gt;status = BookingStatus::Pending;
+            $booking-&gt;expires_at = now()-&gt;addMinutes(self::HOLD_MINUTES);
+            $property-&gt;bookings()-&gt;save($booking);
+
+            $booking-&gt;lineItems()-&gt;createMany(array_map(fn (LineItem $line): array =&gt; [
+                'type' =&gt; $line-&gt;type,
+                'description' =&gt; $line-&gt;description,
+                'amount' =&gt; $line-&gt;amount,
+            ], $quote-&gt;lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln del">    <span class="c">/** @param array{guest_name: string, guest_email: string, guests: int} $guest */</span></span><span class="ln add">    <span class="c">/** @param array{guest_name: string, guest_email: string, guest_phone: ?string, guest_channel: string, guests: int} $guest */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span></span><span class="ln"> </span><span class="ln">            <span class="v">$taken</span> = <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()</span><span class="ln">                || <span class="v">$property</span>-&gt;<span class="f">externalBlocks</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>();   <span class="c">// nights sold on Airbnb or Booking.com</span></span><span class="ln">            <span class="k">if</span> (<span class="v">$taken</span>) {</span><span class="ln">                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);              <span class="c">// the same price the page showed</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);</span><span class="ln">            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;cancellation_policy = <span class="v">$property</span>-&gt;cancellation_policy;   <span class="c">// the terms the guest agreed to, frozen</span></span><span class="ln">            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);</span><span class="ln">            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,</span><span class="ln">                <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,</span><span class="ln">                <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,</span><span class="ln">            ], <span class="v">$quote</span>-&gt;lines));                                           <span class="c">// every line of the bill, kept</span></span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$booking</span>;</span><span class="ln">        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 2: a message says what, never how</h2><p>A notification answers two questions: <b>which channel</b> this recipient wants (<code>via()</code>), and <b>what the message looks like</b> on each channel (<code>toMail()</code>, <code>toSms()</code>, <code>toWhatsApp()</code>). It never sends anything.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Notifications/GuestMessage.php (after)</span><span class="badge">changed since scene 24: <span class="plus">+16</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Notifications;
+
+use App\Messaging\TemplateRenderer;
+use App\Models\ScheduledMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class GuestMessage extends Notification
+{
+    use Queueable;
+
+    public function __construct(public ScheduledMessage $message)
+    {
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span>
+    /** @return list&lt;string&gt; */
+    public function via(object $notifiable): array
     {
-        <span class="v">$renderer</span> = <span class="f">app</span>(<span class="t">TemplateRenderer</span>::class);
-        <span class="v">$booking</span> = <span class="k">$this</span>-&gt;message-&gt;booking;
-
-        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())
-            -&gt;<span class="f">subject</span>(<span class="v">$renderer</span>-&gt;<span class="f">text</span>(<span class="k">$this</span>-&gt;message-&gt;template-&gt;subject, <span class="v">$booking</span>, <span class="f">now</span>()))
-            -&gt;<span class="f">view</span>(<span class="s">'mail.guest'</span>, [<span class="s">'html'</span> =&gt; <span class="v">$renderer</span>-&gt;<span class="f">html</span>(<span class="k">$this</span>-&gt;message-&gt;template-&gt;body, <span class="v">$booking</span>, <span class="f">now</span>())]);
+        return [$this-&gt;message-&gt;booking-&gt;guest_channel-&gt;notificationChannel()];   // the fix for the incident
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">toSms</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span>
+    public function toMail(object $notifiable): MailMessage
     {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">plainText</span>();
+        $template = $this-&gt;message-&gt;template;
+        $booking = $this-&gt;message-&gt;booking;
+        $renderer = app(TemplateRenderer::class);                         // resolved here, so the notification stays small
+
+        return (new MailMessage())
+            -&gt;subject($renderer-&gt;text($template-&gt;subject, $booking, now()))               // a subject is plain text
+            -&gt;view('mail.guest', ['html' =&gt; $renderer-&gt;html($template-&gt;body, $booking, now())]);
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">toWhatsApp</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span>
+    public function toSms(object $notifiable): string
     {
-        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">plainText</span>();
+        return $this-&gt;plainText();
     }
 
-    <span class="k">private</span> <span class="k">function</span> <span class="f">plainText</span>(): <span class="k">string</span>
+    public function toWhatsApp(object $notifiable): string
     {
-        <span class="k">return</span> <span class="f">app</span>(<span class="t">TemplateRenderer</span>::class)-&gt;<span class="f">text</span>(<span class="k">$this</span>-&gt;message-&gt;template-&gt;body, <span class="k">$this</span>-&gt;message-&gt;booking, <span class="f">now</span>());   <span class="c">// scene 24</span>
+        return $this-&gt;plainText();
     }
-}</code></pre>
+
+    private function plainText(): string
+    {
+        return app(TemplateRenderer::class)-&gt;text($this-&gt;message-&gt;template-&gt;body, $this-&gt;message-&gt;booking, now());   // scene 24
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Messaging</span>\<span class="t">TemplateRenderer</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ScheduledMessage</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">GuestMessage</span> <span class="k">extends</span> <span class="t">Notification</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ScheduledMessage</span> <span class="v">$message</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return list&lt;string&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> [<span class="s">'mail'</span>];</span><span class="ln add">        <span class="k">return</span> [<span class="k">$this</span>-&gt;message-&gt;booking-&gt;guest_channel-&gt;<span class="f">notificationChannel</span>()];   <span class="c">// the fix for the incident</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$template</span> = <span class="k">$this</span>-&gt;message-&gt;template;</span><span class="ln">        <span class="v">$booking</span> = <span class="k">$this</span>-&gt;message-&gt;booking;</span><span class="ln">        <span class="v">$renderer</span> = <span class="f">app</span>(<span class="t">TemplateRenderer</span>::class);                         <span class="c">// resolved here, so the notification stays small</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())</span><span class="ln">            -&gt;<span class="f">subject</span>(<span class="v">$renderer</span>-&gt;<span class="f">text</span>(<span class="v">$template</span>-&gt;subject, <span class="v">$booking</span>, <span class="f">now</span>()))               <span class="c">// a subject is plain text</span></span><span class="ln">            -&gt;<span class="f">view</span>(<span class="s">'mail.guest'</span>, [<span class="s">'html'</span> =&gt; <span class="v">$renderer</span>-&gt;<span class="f">html</span>(<span class="v">$template</span>-&gt;body, <span class="v">$booking</span>, <span class="f">now</span>())]);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">toSms</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">plainText</span>();</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">toWhatsApp</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">plainText</span>();</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">private</span> <span class="k">function</span> <span class="f">plainText</span>(): <span class="k">string</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="f">app</span>(<span class="t">TemplateRenderer</span>::class)-&gt;<span class="f">text</span>(<span class="k">$this</span>-&gt;message-&gt;template-&gt;body, <span class="k">$this</span>-&gt;message-&gt;booking, <span class="f">now</span>());   <span class="c">// scene 24</span></span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div></div></div></section>
 <section><h2>Where the two sides meet</h2><p>For each channel <code>via()</code> returns, Laravel asks its notification channel manager (a Manager, like scene 13’s) for that channel, and calls its <code>send()</code> with the recipient and the message. <code>mail</code> is a built-in driver; a class name is built from the container. <b>This one line is the bridge</b>: on its left, any message; on its right, any channel.</p><div class="blocks"><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Notifications/NotificationSender.php · ChannelManager.php (simplified)</span></div>
@@ -198,17 +466,57 @@
     }
 }</code></pre>
 </div></div></div></section>
-<section><h2>The fix, part 3: the recipient carries every address</h2><p>A guest isn’t a user, so the send job (scene 22) builds the recipient on the spot. It gives it an address for <b>every</b> channel, because the recipient knows *where* each channel can reach it, and the message decides *which* channel is used. Each channel then asks the recipient for its own address.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/SendScheduledMessage.php (the send line, after)</span></div>
-<pre class="code"><code><span class="v">$booking</span> = <span class="k">$this</span>-&gt;message-&gt;booking;
+<section><h2>The fix, part 3: the recipient carries every address</h2><p>A guest isn’t a user, so the send job (scene 22) builds the recipient on the spot. It gives it an address for <b>every</b> channel, because the recipient knows *where* each channel can reach it, and the message decides *which* channel is used. Each channel then asks the recipient for its own address.</p><div class="blocks"><div class="block"><p>The routes are named after our words (<code>sms</code>, <code>whatsapp</code>), and each channel asks for its own by that name.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Jobs/SendScheduledMessage.php</span><span class="badge">changed since scene 22: <span class="plus">+6</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)
-    -&gt;<span class="f">route</span>(<span class="t">SmsChannel</span>::class, <span class="v">$booking</span>-&gt;guest_phone)
-    -&gt;<span class="f">route</span>(<span class="t">WhatsAppChannel</span>::class, <span class="v">$booking</span>-&gt;guest_phone)
-    -&gt;<span class="f">notifyNow</span>(<span class="k">new</span> <span class="f">GuestMessage</span>(<span class="k">$this</span>-&gt;message));</code></pre>
+namespace App\Jobs;
+
+use App\Enums\ScheduledMessageStatus;
+use App\Models\ScheduledMessage;
+use App\Notifications\GuestMessage;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Notification;
+use Throwable;
+
+class SendScheduledMessage implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public function __construct(public ScheduledMessage $message)
+    {
+    }
+
+    public function handle(): void
+    {
+        $claimed = ScheduledMessage::query()
+            -&gt;whereKey($this-&gt;message-&gt;id)
+            -&gt;where('status', ScheduledMessageStatus::Pending)                       // only if nobody got here first
+            -&gt;update(['status' =&gt; ScheduledMessageStatus::Sent, 'sent_at' =&gt; now()]);
+
+        if ($claimed === 0) {
+            return;                                                                   // already sent, or cancelled
+        }
+
+        try {
+            $booking = $this-&gt;message-&gt;booking;
+
+            Notification::route('mail', $booking-&gt;guest_email)             // an address for every channel;
+                -&gt;route('sms', $booking-&gt;guest_phone)                       // the message picks which one is used
+                -&gt;route('whatsapp', $booking-&gt;guest_phone)
+                -&gt;notifyNow(new GuestMessage($this-&gt;message));
+        } catch (Throwable $e) {
+            ScheduledMessage::query()-&gt;whereKey($this-&gt;message-&gt;id)-&gt;update(['status' =&gt; ScheduledMessageStatus::Pending, 'sent_at' =&gt; null]);
+            throw $e;                                                                 // give it back, so the retry can claim it
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">ScheduledMessageStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ScheduledMessage</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">GuestMessage</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Throwable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">SendScheduledMessage</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">3</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ScheduledMessage</span> <span class="v">$message</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$claimed</span> = <span class="t">ScheduledMessage</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">whereKey</span>(<span class="k">$this</span>-&gt;message-&gt;id)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">ScheduledMessageStatus</span>::<span class="t">Pending</span>)                       <span class="c">// only if nobody got here first</span></span><span class="ln">            -&gt;<span class="f">update</span>([<span class="s">'status'</span> =&gt; <span class="t">ScheduledMessageStatus</span>::<span class="t">Sent</span>, <span class="s">'sent_at'</span> =&gt; <span class="f">now</span>()]);</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$claimed</span> === <span class="n">0</span>) {</span><span class="ln">            <span class="k">return</span>;                                                                   <span class="c">// already sent, or cancelled</span></span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">try</span> {</span><span class="ln del">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="k">$this</span>-&gt;message-&gt;booking-&gt;guest_email)-&gt;<span class="f">notifyNow</span>(<span class="k">new</span> <span class="f">GuestMessage</span>(<span class="k">$this</span>-&gt;message));</span><span class="ln add">            <span class="v">$booking</span> = <span class="k">$this</span>-&gt;message-&gt;booking;</span><span class="ln add"> </span><span class="ln add">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)             <span class="c">// an address for every channel;</span></span><span class="ln add">                -&gt;<span class="f">route</span>(<span class="s">'sms'</span>, <span class="v">$booking</span>-&gt;guest_phone)                       <span class="c">// the message picks which one is used</span></span><span class="ln add">                -&gt;<span class="f">route</span>(<span class="s">'whatsapp'</span>, <span class="v">$booking</span>-&gt;guest_phone)</span><span class="ln add">                -&gt;<span class="f">notifyNow</span>(<span class="k">new</span> <span class="f">GuestMessage</span>(<span class="k">$this</span>-&gt;message));</span><span class="ln">        } <span class="k">catch</span> (<span class="t">Throwable</span> <span class="v">$e</span>) {</span><span class="ln">            <span class="t">ScheduledMessage</span>::<span class="f">query</span>()-&gt;<span class="f">whereKey</span>(<span class="k">$this</span>-&gt;message-&gt;id)-&gt;<span class="f">update</span>([<span class="s">'status'</span> =&gt; <span class="t">ScheduledMessageStatus</span>::<span class="t">Pending</span>, <span class="s">'sent_at'</span> =&gt; <span class="k">null</span>]);</span><span class="ln">            <span class="k">throw</span> <span class="v">$e</span>;                                                                 <span class="c">// give it back, so the retry can claim it</span></span><span class="ln">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 4: an SMS channel</h2><p>A channel is any class with a <code>send($notifiable, $notification)</code> method. This one asks the message for its SMS text, asks the recipient for its number, and posts both to the SMS provider. Every SMS provider has an HTTP API of this shape: a token, a sender, a number and a text. Only the field names differ, so switching providers changes this one class.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/Channels/SmsChannel.php</span></div>
+<div class="filehead"><span class="path">app/Notifications/Channels/SmsChannel.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">Channels</span>;
@@ -221,7 +529,7 @@
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">object</span> <span class="v">$notifiable</span>, <span class="t">Notification</span> <span class="v">$notification</span>): <span class="k">void</span>
     {
-        <span class="v">$to</span> = <span class="v">$notifiable</span>-&gt;<span class="f">routeNotificationFor</span>(<span class="k">self</span>::class, <span class="v">$notification</span>)
+        <span class="v">$to</span> = <span class="v">$notifiable</span>-&gt;<span class="f">routeNotificationFor</span>(<span class="s">'sms'</span>, <span class="v">$notification</span>)
             ?? <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'No phone number for this recipient.'</span>);   <span class="c">// loud: the guest asked for SMS</span>
 
         <span class="t">Http</span>::<span class="f">withToken</span>(<span class="f">config</span>(<span class="s">'services.sms.token'</span>))
@@ -234,10 +542,10 @@
             -&gt;<span class="f">throw</span>();                                                         <span class="c">// a failed send fails the job, which retries</span>
     }
 }</code></pre>
-</div><p><code>config/services.php</code> gets an <code>sms</code> entry with <code>url</code>, <code>token</code> and <code>from</code>, read from <code>.env</code>.</p></div></div></section>
+</div></div></div></section>
 <section><h2>The fix, part 5: WhatsApp, without touching a single message</h2><p>WhatsApp needs one more class of the same shape, posting to Meta’s WhatsApp Cloud API. One rule of WhatsApp shapes the request:</p><div class="blocks"><div class="block"><div class="tablewrap"><table><thead><tr><th scope="col">Step</th><th scope="col">What it means here</th></tr></thead>
 <tbody><tr><th scope="row">1. A business may only <b>start</b> a conversation with a template Meta has approved</th><td>Our arrival message is sent before the guest ever writes to us, so it must be a template</td></tr><tr><th scope="row">2. We register one template, <code>guest_message</code>, whose whole body is one placeholder</th><td>Meta approves it once, in the Meta business dashboard</td></tr><tr><th scope="row">3. Each message’s text goes into that placeholder</th><td>The hosts’ own templates (scene 24) keep working unchanged</td></tr></tbody></table></div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/Channels/WhatsAppChannel.php</span></div>
+<div class="filehead"><span class="path">app/Notifications/Channels/WhatsAppChannel.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">Channels</span>;
@@ -250,7 +558,7 @@
 {
     <span class="k">public</span> <span class="k">function</span> <span class="f">send</span>(<span class="k">object</span> <span class="v">$notifiable</span>, <span class="t">Notification</span> <span class="v">$notification</span>): <span class="k">void</span>
     {
-        <span class="v">$to</span> = <span class="v">$notifiable</span>-&gt;<span class="f">routeNotificationFor</span>(<span class="k">self</span>::class, <span class="v">$notification</span>)
+        <span class="v">$to</span> = <span class="v">$notifiable</span>-&gt;<span class="f">routeNotificationFor</span>(<span class="s">'whatsapp'</span>, <span class="v">$notification</span>)
             ?? <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">'No WhatsApp number for this recipient.'</span>);
 
         <span class="v">$config</span> = <span class="f">config</span>(<span class="s">'services.whatsapp'</span>);                                 <span class="c">// token, api_version, phone_number_id</span>
@@ -273,7 +581,58 @@
             -&gt;<span class="f">throw</span>();
     }
 }</code></pre>
-</div><p>Adding WhatsApp took this one class and the <code>toWhatsApp()</code> method on the messages that support it. No existing message, and no other channel, changed.</p></div></div></section>
+</div><p>Adding WhatsApp took this one class and the <code>toWhatsApp()</code> method on the messages that support it. No existing message, and no other channel, changed.</p></div><div class="block"><h3>Configuration</h3><p>Both channels read their settings from <code>config/services.php</code>:</p><div class="codebox changed">
+<div class="filehead"><span class="path">config/services.php</span><span class="badge">changed since scene 16: <span class="plus">+12</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' =&gt; [
+        'secret' =&gt; env('STRIPE_SECRET'),
+        'version' =&gt; env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' =&gt; env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' =&gt; [
+        'base_url' =&gt; env('AIRBNB_BASE_URL'),
+        'token_url' =&gt; env('AIRBNB_TOKEN_URL'),
+        'client_id' =&gt; env('AIRBNB_CLIENT_ID'),
+        'client_secret' =&gt; env('AIRBNB_CLIENT_SECRET'),
+        'webhook_secret' =&gt; env('AIRBNB_WEBHOOK_SECRET'),
+        'requests_per_minute' =&gt; env('AIRBNB_REQUESTS_PER_MINUTE', 60),   // a little under the partner's published limit
+    ],
+
+    'booking_com' =&gt; [
+        'base_url' =&gt; env('BOOKING_COM_BASE_URL'),
+        'username' =&gt; env('BOOKING_COM_USERNAME'),
+        'password' =&gt; env('BOOKING_COM_PASSWORD'),
+        'webhook_secret' =&gt; env('BOOKING_COM_WEBHOOK_SECRET'),
+        'requests_per_minute' =&gt; env('BOOKING_COM_REQUESTS_PER_MINUTE', 60),
+    ],
+
+    'sms' =&gt; [
+        'url' =&gt; env('SMS_API_URL'),                          // your SMS provider's &quot;send message&quot; endpoint
+        'token' =&gt; env('SMS_API_TOKEN'),
+        'from' =&gt; env('SMS_FROM', 'NordicStays'),             // the sender name guests see
+    ],
+
+    'whatsapp' =&gt; [
+        'token' =&gt; env('WHATSAPP_TOKEN'),
+        'api_version' =&gt; env('WHATSAPP_API_VERSION', 'v21.0'),
+        'phone_number_id' =&gt; env('WHATSAPP_PHONE_NUMBER_ID'),   // the business number, from Meta's dashboard
+    ],
+
+];"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="c">// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.</span></span><span class="ln"><span class="k">return</span> [</span><span class="ln"> </span><span class="ln">    <span class="s">'stripe'</span> =&gt; [</span><span class="ln">        <span class="s">'secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_SECRET'</span>),</span><span class="ln">        <span class="s">'version'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_API_VERSION'</span>),              <span class="c">// the API version your Stripe account is pinned to</span></span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_WEBHOOK_SECRET'</span>),     <span class="c">// checks that a webhook really comes from Stripe</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'airbnb'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_BASE_URL'</span>),</span><span class="ln">        <span class="s">'token_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_TOKEN_URL'</span>),</span><span class="ln">        <span class="s">'client_id'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_ID'</span>),</span><span class="ln">        <span class="s">'client_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_SECRET'</span>),</span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_WEBHOOK_SECRET'</span>),</span><span class="ln">        <span class="s">'requests_per_minute'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_REQUESTS_PER_MINUTE'</span>, <span class="n">60</span>),   <span class="c">// a little under the partner's published limit</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'booking_com'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_BASE_URL'</span>),</span><span class="ln">        <span class="s">'username'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_USERNAME'</span>),</span><span class="ln">        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_PASSWORD'</span>),</span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_WEBHOOK_SECRET'</span>),</span><span class="ln">        <span class="s">'requests_per_minute'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_REQUESTS_PER_MINUTE'</span>, <span class="n">60</span>),</span><span class="ln">    ],</span><span class="ln"> </span><span class="ln add">    <span class="s">'sms'</span> =&gt; [</span><span class="ln add">        <span class="s">'url'</span> =&gt; <span class="f">env</span>(<span class="s">'SMS_API_URL'</span>),                          <span class="c">// your SMS provider's &quot;send message&quot; endpoint</span></span><span class="ln add">        <span class="s">'token'</span> =&gt; <span class="f">env</span>(<span class="s">'SMS_API_TOKEN'</span>),</span><span class="ln add">        <span class="s">'from'</span> =&gt; <span class="f">env</span>(<span class="s">'SMS_FROM'</span>, <span class="s">'NordicStays'</span>),             <span class="c">// the sender name guests see</span></span><span class="ln add">    ],</span><span class="ln add"> </span><span class="ln add">    <span class="s">'whatsapp'</span> =&gt; [</span><span class="ln add">        <span class="s">'token'</span> =&gt; <span class="f">env</span>(<span class="s">'WHATSAPP_TOKEN'</span>),</span><span class="ln add">        <span class="s">'api_version'</span> =&gt; <span class="f">env</span>(<span class="s">'WHATSAPP_API_VERSION'</span>, <span class="s">'v21.0'</span>),</span><span class="ln add">        <span class="s">'phone_number_id'</span> =&gt; <span class="f">env</span>(<span class="s">'WHATSAPP_PHONE_NUMBER_ID'</span>),   <span class="c">// the business number, from Meta's dashboard</span></span><span class="ln add">    ],</span><span class="ln add"> </span><span class="ln">];</span></code></pre>
+</div></div><div class="block"><p>The values come from your SMS provider’s dashboard and from Meta’s WhatsApp Business dashboard:</p><div class="codebox">
+<div class="filehead"><span class="path">.env (add these lines)</span></div>
+<pre class="code"><code><span class="t">SMS_API_URL</span>=<span class="s">https://api.your-sms-provider.example/v1/messages</span>
+<span class="t">SMS_API_TOKEN</span>=
+<span class="t">SMS_FROM</span>=<span class="s">NordicStays</span>
+<span class="t">WHATSAPP_TOKEN</span>=
+<span class="t">WHATSAPP_API_VERSION</span>=<span class="s">v21.0</span>
+<span class="t">WHATSAPP_PHONE_NUMBER_ID</span>=</code></pre>
+</div></div></div></section>
 <section class="reveal"><h2>You just wrote the Bridge pattern</h2>
 <p class="rule"><span>Bridge</span>When something varies in two directions, keep each direction in its own set of classes and connect them through one interface, so either side can grow without the other.</p>
 
@@ -285,30 +644,127 @@
 <ul class="points"><li>One side is <b>what is said</b>: <code>GuestMessage</code>, <code>BookingCancelledNotice</code>, <code>OverbookingDetected</code>. The other is <b>how it’s delivered</b>: mail, SMS, WhatsApp.</li><li>A new message works on every channel at once. A new channel (push notifications, say) is one class, plus one <code>toX()</code> method on the messages that should use it.</li><li>Laravel built the bridge; your part is to keep the sides apart: no HTTP calls inside a message, no wording inside a channel.</li></ul>
 <p class="whennot-label">When not to use it</p><ul class="whennot"><li>One message, one way of delivering it: a plain Mailable is simpler.</li><li>Two sides that don’t really vary on their own. The test: can every item on one side work with every item on the other?</li></ul>
 </section>
-<section><h2>Hosts choose too</h2><p>Hosts are users, so their choice lives on their own row (a <code>notification_channels</code> JSON column and a <code>phone</code> column on <code>users</code>), and the overbooking alert from scene 18 reads it in <code>via()</code>. The same two channels deliver it; only the message is different.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/OverbookingDetected.php (via, after) · app/Models/User.php (added)</span></div>
-<pre class="code"><code><span class="c">// OverbookingDetected</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span>
-{
-    <span class="v">$allowed</span> = [<span class="s">'mail'</span> =&gt; <span class="s">'mail'</span>, <span class="s">'sms'</span> =&gt; <span class="t">SmsChannel</span>::class];
+<section><h2>Hosts choose too</h2><p>Hosts are users, so their choice lives on their own row, and the overbooking alert reads it. The same SMS channel delivers it; only the message is different.</p><div class="blocks"><div class="block"><p>Two columns on <code>users</code>:</p><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_04_15_000001_add_notification_settings_to_users_table.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
 
-    <span class="k">return</span> <span class="f">array_values</span>(<span class="f">array_intersect_key</span>(<span class="v">$allowed</span>, <span class="f">array_flip</span>(<span class="v">$notifiable</span>-&gt;notification_channels ?? [<span class="s">'mail'</span>])));
-}
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Schema</span>\<span class="t">Blueprint</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schema</span>;
 
-<span class="k">public</span> <span class="k">function</span> <span class="f">toSms</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span>
+<span class="k">return</span> <span class="k">new</span> <span class="k">class</span> <span class="k">extends</span> <span class="t">Migration</span>
 {
-    <span class="k">return</span> <span class="s">&quot;Overbooking at {$this-&gt;overbooking-&gt;booking-&gt;property-&gt;name}. Details in your email and the app.&quot;</span>;
-}
+    <span class="k">public</span> <span class="k">function</span> <span class="f">up</span>(): <span class="k">void</span>
+    {
+        <span class="t">Schema</span>::<span class="f">table</span>(<span class="s">'users'</span>, <span class="k">function</span> (<span class="t">Blueprint</span> <span class="v">$table</span>) {
+            <span class="v">$table</span>-&gt;<span class="f">string</span>(<span class="s">'phone'</span>)-&gt;<span class="f">nullable</span>();                           <span class="c">// E.164</span>
+            <span class="v">$table</span>-&gt;<span class="f">json</span>(<span class="s">'notification_channels'</span>)-&gt;<span class="f">nullable</span>();            <span class="c">// e.g. [&quot;mail&quot;, &quot;sms&quot;]; null = mail only</span>
+        });
+    }
+};</code></pre>
+</div></div><div class="block"><p>The user casts the list, and tells <code>SmsChannel</code> where to send:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/User.php</span><span class="badge">changed since the foundation: <span class="plus">+8</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">// User: casts 'notification_channels' =&gt; 'array'</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">routeNotificationForSmsChannel</span>(<span class="t">Notification</span> <span class="v">$notification</span>): ?<span class="k">string</span>
+namespace App\Models;
+
+use App\Enums\MembershipRole;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Notifications\Notification;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
 {
-    <span class="k">return</span> <span class="k">$this</span>-&gt;phone;                                  <span class="c">// what SmsChannel gets from routeNotificationFor()</span>
-}</code></pre>
-</div><p>For a user, Laravel turns <code>routeNotificationFor(SmsChannel::class)</code> into a call to <code>routeNotificationForSmsChannel()</code>, named after the class.</p></div></div></section>
+    use HasApiTokens, HasFactory, Notifiable;
+
+    protected $fillable = ['name', 'email', 'password'];
+
+    protected $hidden = ['password', 'remember_token'];
+
+    protected function casts(): array
+    {
+        return ['email_verified_at' =&gt; 'datetime', 'password' =&gt; 'hashed', 'notification_channels' =&gt; 'array'];
+    }
+
+    public function accounts(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(Account::class, 'memberships')
+            -&gt;using(Membership::class)
+            -&gt;withPivot('role')
+            -&gt;withTimestamps();
+    }
+
+    public function currentAccount(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class, 'current_account_id');
+    }
+
+    /** The user's role in an account, or null when they are not a member. */
+    public function roleIn(int $accountId): ?MembershipRole
+    {
+        return $this-&gt;accounts-&gt;firstWhere('id', $accountId)?-&gt;pivot-&gt;role;
+    }
+
+    /** The number SmsChannel sends to: $notifiable-&gt;routeNotificationFor('sms') calls this. */
+    public function routeNotificationForSms(Notification $notification): ?string
+    {
+        return $this-&gt;phone;
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsToMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Auth</span>\<span class="t">User</span> <span class="k">as</span> <span class="t">Authenticatable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notifiable</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Laravel</span>\<span class="t">Sanctum</span>\<span class="t">HasApiTokens</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">User</span> <span class="k">extends</span> <span class="t">Authenticatable</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasApiTokens</span>, <span class="t">HasFactory</span>, <span class="t">Notifiable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>, <span class="s">'email'</span>, <span class="s">'password'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$hidden</span> = [<span class="s">'password'</span>, <span class="s">'remember_token'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> [<span class="s">'email_verified_at'</span> =&gt; <span class="s">'datetime'</span>, <span class="s">'password'</span> =&gt; <span class="s">'hashed'</span>];</span><span class="ln add">        <span class="k">return</span> [<span class="s">'email_verified_at'</span> =&gt; <span class="s">'datetime'</span>, <span class="s">'password'</span> =&gt; <span class="s">'hashed'</span>, <span class="s">'notification_channels'</span> =&gt; <span class="s">'array'</span>];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">accounts</span>(): <span class="t">BelongsToMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsToMany</span>(<span class="t">Account</span>::class, <span class="s">'memberships'</span>)</span><span class="ln">            -&gt;<span class="f">using</span>(<span class="t">Membership</span>::class)</span><span class="ln">            -&gt;<span class="f">withPivot</span>(<span class="s">'role'</span>)</span><span class="ln">            -&gt;<span class="f">withTimestamps</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">currentAccount</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class, <span class="s">'current_account_id'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The user's role in an account, or null when they are not a member. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">roleIn</span>(<span class="k">int</span> <span class="v">$accountId</span>): ?<span class="t">MembershipRole</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;accounts-&gt;<span class="f">firstWhere</span>(<span class="s">'id'</span>, <span class="v">$accountId</span>)?-&gt;pivot-&gt;role;</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** The number SmsChannel sends to: $notifiable-&gt;routeNotificationFor('sms') calls this. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">routeNotificationForSms</span>(<span class="t">Notification</span> <span class="v">$notification</span>): ?<span class="k">string</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;phone;</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div><p>For a user, Laravel turns <code>routeNotificationFor('sms')</code> into a call to <code>routeNotificationForSms()</code>.</p></div><div class="block"><p>The overbooking alert from scene 18 reads the host’s choice in <code>via()</code>, and gets a short SMS version:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Notifications/OverbookingDetected.php</span><span class="badge">changed since scene 18: <span class="plus">+9</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Notifications;
+
+use App\Models\Overbooking;
+use App\Notifications\Channels\SmsChannel;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class OverbookingDetected extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public Overbooking $overbooking)
+    {
+    }
+
+    /** @return list&lt;string&gt; */
+    public function via(object $notifiable): array
+    {
+        $allowed = ['mail' =&gt; 'mail', 'sms' =&gt; SmsChannel::class];            // what a host can choose for this alert
+
+        return array_values(array_intersect_key($allowed, array_flip($notifiable-&gt;notification_channels ?? ['mail'])));
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $later = $this-&gt;overbooking-&gt;booking;
+        $earlier = $this-&gt;overbooking-&gt;conflictingBooking;
+
+        return (new MailMessage())
+            -&gt;error()
+            -&gt;subject(&quot;Overbooking at {$later-&gt;property-&gt;name}&quot;)
+            -&gt;line(&quot;{$later-&gt;guest_name} ({$later-&gt;channel?-&gt;value}) and {$earlier-&gt;guest_name} ({$earlier-&gt;channel?-&gt;value}) are both booked for nights between {$later-&gt;check_in-&gt;toDateString()} and {$later-&gt;check_out-&gt;toDateString()}.&quot;)
+            -&gt;line('The earlier booking keeps the property. Please contact the later guest about another property or a cancellation through their channel.');
+    }
+
+    public function toSms(object $notifiable): string
+    {
+        return &quot;Overbooking at {$this-&gt;overbooking-&gt;booking-&gt;property-&gt;name}. Details in your email and the app.&quot;;
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Overbooking</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">Channels</span>\<span class="t">SmsChannel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Bus</span>\<span class="t">Queueable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Messages</span>\<span class="t">MailMessage</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Notifications</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">OverbookingDetected</span> <span class="k">extends</span> <span class="t">Notification</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">Overbooking</span> <span class="v">$overbooking</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return list&lt;string&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">via</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> [<span class="s">'mail'</span>];</span><span class="ln add">        <span class="v">$allowed</span> = [<span class="s">'mail'</span> =&gt; <span class="s">'mail'</span>, <span class="s">'sms'</span> =&gt; <span class="t">SmsChannel</span>::class];            <span class="c">// what a host can choose for this alert</span></span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="f">array_values</span>(<span class="f">array_intersect_key</span>(<span class="v">$allowed</span>, <span class="f">array_flip</span>(<span class="v">$notifiable</span>-&gt;notification_channels ?? [<span class="s">'mail'</span>])));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">toMail</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="t">MailMessage</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$later</span> = <span class="k">$this</span>-&gt;overbooking-&gt;booking;</span><span class="ln">        <span class="v">$earlier</span> = <span class="k">$this</span>-&gt;overbooking-&gt;conflictingBooking;</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> (<span class="k">new</span> <span class="f">MailMessage</span>())</span><span class="ln">            -&gt;<span class="f">error</span>()</span><span class="ln">            -&gt;<span class="f">subject</span>(<span class="s">&quot;Overbooking at {$later-&gt;property-&gt;name}&quot;</span>)</span><span class="ln">            -&gt;<span class="f">line</span>(<span class="s">&quot;{$later-&gt;guest_name} ({$later-&gt;channel?-&gt;value}) and {$earlier-&gt;guest_name} ({$earlier-&gt;channel?-&gt;value}) are both booked for nights between {$later-&gt;check_in-&gt;toDateString()} and {$later-&gt;check_out-&gt;toDateString()}.&quot;</span>)</span><span class="ln">            -&gt;<span class="f">line</span>(<span class="s">'The earlier booking keeps the property. Please contact the later guest about another property or a cancellation through their channel.'</span>);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">toSms</span>(<span class="k">object</span> <span class="v">$notifiable</span>): <span class="k">string</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="s">&quot;Overbooking at {$this-&gt;overbooking-&gt;booking-&gt;property-&gt;name}. Details in your email and the app.&quot;</span>;</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>The incident, each channel chosen, and what SMS and WhatsApp receive</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/GuestChannelsTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/GuestChannelsTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">GuestChannel</span>;

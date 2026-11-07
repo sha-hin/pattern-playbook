@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 2: Every stay billed one night short","description":"After a release, every stay was billed one night short and shown a day early, because nights were counted between two moments. Fix it with a Stay value object of calendar dates in Laravel, and build real moments from the property timezone.","url":"https://sha-hin.github.io/pattern-playbook/02-stay/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/02-stay/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Value Object pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 2: Every stay billed one night short","item":"https://sha-hin.github.io/pattern-playbook/02-stay/"}]}]}</script>
 </head>
@@ -57,14 +57,51 @@
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Tuesday 08:40</span></p>
 <p class="inc-msg"><span class="inc-who">Ahmed · host</span>My payout for this week is a quarter lower than it should be. A guest booked <b>1 to 5 July</b>, four nights; your system billed her for <b>3</b>. And her booking page says she arrives on <b>30 June</b>: she just emailed asking if her dates were changed.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Every booking since Monday’s release has one night too few. That release added check-in and check-out times to bookings.</p>
 </section>
-<section><h2>The broken code</h2><p>Monday’s release turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<section><h2>The broken code</h2><p>Monday’s release turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them. The whole file, after that release:</p><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="v">$arrival</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$request-&gt;check_in} {$property-&gt;check_in_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);
-<span class="v">$departure</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$request-&gt;check_out} {$property-&gt;check_out_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);
+<pre class="code rejected"><code>&lt;?php
 
-<span class="v">$booking</span>-&gt;check_in = <span class="v">$arrival</span>-&gt;<span class="f">utc</span>();                 <span class="c">// stored as a moment</span>
-<span class="v">$booking</span>-&gt;check_out = <span class="v">$departure</span>-&gt;<span class="f">utc</span>();
-<span class="v">$booking</span>-&gt;nights = (<span class="k">int</span>) <span class="v">$arrival</span>-&gt;<span class="f">diffInDays</span>(<span class="v">$departure</span>);</code></pre>
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
+<span class="k">use</span> <span class="t">Exception</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
+
+<span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="k">int</span> <span class="v">$propertyId</span>): <span class="t">JsonResponse</span>
+    {
+        <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">findOrFail</span>(<span class="v">$propertyId</span>);
+        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">all</span>();
+
+        <span class="v">$clash</span> = <span class="t">DB</span>::<span class="f">table</span>(<span class="s">'bookings'</span>)-&gt;<span class="f">where</span>(<span class="s">'property_id'</span>, <span class="v">$propertyId</span>)
+            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;='</span>, <span class="v">$data</span>[<span class="s">'check_out'</span>])
+            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;='</span>, <span class="v">$data</span>[<span class="s">'check_in'</span>])
+            -&gt;<span class="f">exists</span>();
+        <span class="k">if</span> (<span class="v">$clash</span>) {
+            <span class="k">throw</span> <span class="k">new</span> <span class="f">Exception</span>(<span class="s">'Already booked'</span>);
+        }
+
+        <span class="v">$arrival</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$data['check_in']} {$property-&gt;check_in_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);
+        <span class="v">$departure</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$data['check_out']} {$property-&gt;check_out_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);
+        <span class="v">$nights</span> = (<span class="k">int</span>) <span class="v">$arrival</span>-&gt;<span class="f">diffInDays</span>(<span class="v">$departure</span>);                <span class="c">// 3.83 days → 3</span>
+
+        <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$data</span>);
+        <span class="v">$booking</span>-&gt;property_id = <span class="v">$property</span>-&gt;id;
+        <span class="v">$booking</span>-&gt;check_in = <span class="v">$arrival</span>-&gt;<span class="f">utc</span>();                          <span class="c">// a date stored as a moment</span>
+        <span class="v">$booking</span>-&gt;check_out = <span class="v">$departure</span>-&gt;<span class="f">utc</span>();
+        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
+        <span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$nights</span>);   <span class="c">// Money(45030, EUR): integers all the way</span>
+        <span class="v">$booking</span>-&gt;<span class="f">save</span>();
+
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>(<span class="v">$booking</span>);
+    }
+}</code></pre>
 </div></div><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">php artisan tinker</span></div>
 <pre class="code"><code><span class="f">&gt;</span> $arrival-&gt;diffInDays($departure)            // 1 July 15:00 → 5 July 11:00
@@ -73,7 +110,7 @@
 <span class="f">=</span> 2027-06-30 22:00:00</code></pre>
 </div><p><b>Two bugs, one cause.</b> From 15:00 on the 1st to 11:00 on the 5th is 3 days and 20 hours, and <code>(int)</code> drops the 20 hours. And a date at midnight in Copenhagen is 22:00 the *day before* in UTC, so the booking page shows 30 June.</p><p>The cause: <b>a stay is not two moments. It is two calendar dates.</b> &quot;1 to 5 July&quot; is four nights whatever the clock says, in any timezone.</p></div></div></section>
 <section><h2>The fix: a Stay made of dates</h2><p>The <a href="../00-foundation/#table-bookings"><code>bookings</code></a> table already stores <code>check_in</code> and <code>check_out</code> as <code>DATE</code> columns. What’s missing is one object that holds the two dates, refuses an impossible range, and knows how many nights it covers.</p><div class="blocks"><div class="block"><h3>Stay</h3><p>Both dates are kept at midnight UTC on purpose: they are calendar dates, not moments, and UTC has no daylight-saving changes, so the difference between them is always a whole number of days.</p><p>A stay is <code>[check_in, check_out)</code>: the check-in night counts, the check-out day doesn’t. That’s what lets the next guest arrive on the day this one leaves.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/Stay.php</span></div>
+<div class="filehead"><span class="path">app/Bookings/Stay.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
@@ -118,20 +155,64 @@
         <span class="k">return</span> <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkIn) &amp;&amp; <span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkOut);
     }
 }</code></pre>
-</div></div><div class="block"><h3>When you do need a moment</h3><p>Some things really happen at a moment: the arrival message goes out &quot;the day before check-in, at 15:00&quot;. The moment is <b>built</b> from the date, the property’s check-in time and the property’s timezone, and returned in UTC, which is how the database stores times. It is never stored in place of the date.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/Stay.php (one more method)</span></div>
-<pre class="code"><code><span class="c">// at the top of the file: use App\Models\Property;</span>
+</div></div><div class="block"><h3>When you do need a moment</h3><p>Some things really happen at a moment: the arrival message goes out &quot;the day before check-in, at 15:00&quot;. The moment is <b>built</b> from the date, the property’s check-in time and the property’s timezone, and returned in UTC, which is how the database stores times. It is never stored in place of the date. One more method on <code>Stay</code>:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/Stay.php</span><span class="badge">changed since the version above: <span class="plus">+10</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">/** The moment the guest can arrive, e.g. 1 July 15:00 in Europe/Copenhagen, returned in UTC. */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">checkInAt</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="t">CarbonImmutable</span>
+namespace App\Bookings;
+
+use App\Models\Property;
+use Carbon\CarbonImmutable;
+use InvalidArgumentException;
+
+final readonly class Stay
 {
-    <span class="k">return</span> <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(
-        <span class="s">&quot;{$this-&gt;checkIn-&gt;toDateString()} {$property-&gt;check_in_time}&quot;</span>,
-        <span class="v">$property</span>-&gt;timezone,                          <span class="c">// the property's clock, not the server's</span>
-    )-&gt;<span class="f">utc</span>();
-}</code></pre>
+    private function __construct(
+        public CarbonImmutable $checkIn,
+        public CarbonImmutable $checkOut,
+    ) {
+    }
+
+    /** @param string $checkIn e.g. &quot;2027-07-01&quot; */
+    public static function fromDates(string $checkIn, string $checkOut): self
+    {
+        $in = CarbonImmutable::parse($checkIn, 'UTC')-&gt;startOfDay();      // a calendar date: midnight UTC
+        $out = CarbonImmutable::parse($checkOut, 'UTC')-&gt;startOfDay();
+
+        if ($out-&gt;lessThanOrEqualTo($in)) {
+            throw new InvalidArgumentException('Check-out must be after check-in.');
+        }
+
+        return new self($in, $out);
+    }
+
+    public function nights(): int
+    {
+        return (int) $this-&gt;checkIn-&gt;diffInDays($this-&gt;checkOut);       // exact: two UTC midnights
+    }
+
+    /** True when the two stays share at least one night. Back-to-back stays don't overlap. */
+    public function overlaps(self $other): bool
+    {
+        return $this-&gt;checkIn-&gt;lessThan($other-&gt;checkOut) &amp;&amp; $this-&gt;checkOut-&gt;greaterThan($other-&gt;checkIn);
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this-&gt;checkIn-&gt;equalTo($other-&gt;checkIn) &amp;&amp; $this-&gt;checkOut-&gt;equalTo($other-&gt;checkOut);
+    }
+
+    /** The moment the guest can arrive, e.g. 1 July 15:00 in Europe/Copenhagen, returned in UTC. */
+    public function checkInAt(Property $property): CarbonImmutable
+    {
+        return CarbonImmutable::parse(
+            &quot;{$this-&gt;checkIn-&gt;toDateString()} {$property-&gt;check_in_time}&quot;,
+            $property-&gt;timezone,                          // the property's clock, not the server's
+        )-&gt;utc();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">InvalidArgumentException</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Stay</span></span><span class="ln">{</span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">public</span> <span class="t">CarbonImmutable</span> <span class="v">$checkIn</span>,</span><span class="ln">        <span class="k">public</span> <span class="t">CarbonImmutable</span> <span class="v">$checkOut</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @param string $checkIn e.g. &quot;2027-07-01&quot; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">fromDates</span>(<span class="k">string</span> <span class="v">$checkIn</span>, <span class="k">string</span> <span class="v">$checkOut</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$in</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="v">$checkIn</span>, <span class="s">'UTC'</span>)-&gt;<span class="f">startOfDay</span>();      <span class="c">// a calendar date: midnight UTC</span></span><span class="ln">        <span class="v">$out</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="v">$checkOut</span>, <span class="s">'UTC'</span>)-&gt;<span class="f">startOfDay</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$out</span>-&gt;<span class="f">lessThanOrEqualTo</span>(<span class="v">$in</span>)) {</span><span class="ln">            <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'Check-out must be after check-in.'</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$in</span>, <span class="v">$out</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">nights</span>(): <span class="k">int</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> (<span class="k">int</span>) <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">diffInDays</span>(<span class="k">$this</span>-&gt;checkOut);       <span class="c">// exact: two UTC midnights</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** True when the two stays share at least one night. Back-to-back stays don't overlap. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">overlaps</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">lessThan</span>(<span class="v">$other</span>-&gt;checkOut) &amp;&amp; <span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">greaterThan</span>(<span class="v">$other</span>-&gt;checkIn);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">equals</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;checkIn-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkIn) &amp;&amp; <span class="k">$this</span>-&gt;checkOut-&gt;<span class="f">equalTo</span>(<span class="v">$other</span>-&gt;checkOut);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** The moment the guest can arrive, e.g. 1 July 15:00 in Europe/Copenhagen, returned in UTC. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">checkInAt</span>(<span class="t">Property</span> <span class="v">$property</span>): <span class="t">CarbonImmutable</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(</span><span class="ln add">            <span class="s">&quot;{$this-&gt;checkIn-&gt;toDateString()} {$property-&gt;check_in_time}&quot;</span>,</span><span class="ln add">            <span class="v">$property</span>-&gt;timezone,                          <span class="c">// the property's clock, not the server's</span></span><span class="ln add">        )-&gt;<span class="f">utc</span>();</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div><p>The same 15:00 is 13:00 UTC in summer and 14:00 UTC in winter. Building it from the timezone gets that right on its own; a stored UTC time would be wrong for half the year.</p></div><div class="block"><h3>A cast: the booking hands out a Stay</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Casts/StayCast.php</span></div>
+<div class="filehead"><span class="path">app/Casts/StayCast.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Casts</span>;
@@ -163,16 +244,93 @@
         <span class="k">return</span> [<span class="s">'check_in'</span> =&gt; <span class="v">$value</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(), <span class="s">'check_out'</span> =&gt; <span class="v">$value</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>()];
     }
 }</code></pre>
-</div></div><div class="block"><h3>On the booking</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Booking.php (casts)</span></div>
-<pre class="code"><code><span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                <span class="c">// one line added: Stay from check_in + check_out</span></code></pre>
-</div></div><div class="block"><h3>The booking, fixed</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (after)</span></div>
-<pre class="code"><code><span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$request</span>-&gt;check_in, <span class="v">$request</span>-&gt;check_out);   <span class="c">// throws on 5 → 1 July</span>
+</div></div><div class="block"><h3>On the booking</h3><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 1: <span class="plus">+2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;                                           <span class="c">// writes two DATE columns</span>
-<span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>()); <span class="c">// 4 nights, from scene 1's Money</span></code></pre>
-</div><p>No stored <code>nights</code> column any more: it can always be computed from the dates, so it can never disagree with them.</p></div></div></section>
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln add">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>The booking, fixed</h3><p>The whole file; the highlighted lines are the fix. The date check and the overlap check are scene 3’s.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (after)</span><span class="badge">changed since the version above: <span class="plus">+4</span> <span class="minus">−7</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\Stay;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
+{
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request-&gt;all();
+
+        $clash = DB::table('bookings')-&gt;where('property_id', $propertyId)
+            -&gt;where('check_in', '&lt;=', $data['check_out'])
+            -&gt;where('check_out', '&gt;=', $data['check_in'])
+            -&gt;exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $stay = Stay::fromDates($data['check_in'], $data['check_out']);   // throws on 5 → 1 July
+
+        $booking = new Booking($data);
+        $booking-&gt;property_id = $property-&gt;id;
+        $booking-&gt;stay = $stay;                                         // two DATE columns, no time attached
+        $booking-&gt;status = BookingStatus::Pending;
+        $booking-&gt;total = $property-&gt;nightly_rate-&gt;times($stay-&gt;nights());
+        $booking-&gt;save();
+
+        return response()-&gt;json($booking);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Exception</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="k">int</span> <span class="v">$propertyId</span>): <span class="t">JsonResponse</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$property</span> = <span class="t">Property</span>::<span class="f">findOrFail</span>(<span class="v">$propertyId</span>);</span><span class="ln">        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">all</span>();</span><span class="ln"> </span><span class="ln">        <span class="v">$clash</span> = <span class="t">DB</span>::<span class="f">table</span>(<span class="s">'bookings'</span>)-&gt;<span class="f">where</span>(<span class="s">'property_id'</span>, <span class="v">$propertyId</span>)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;='</span>, <span class="v">$data</span>[<span class="s">'check_out'</span>])</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;='</span>, <span class="v">$data</span>[<span class="s">'check_in'</span>])</span><span class="ln">            -&gt;<span class="f">exists</span>();</span><span class="ln">        <span class="k">if</span> (<span class="v">$clash</span>) {</span><span class="ln">            <span class="k">throw</span> <span class="k">new</span> <span class="f">Exception</span>(<span class="s">'Already booked'</span>);</span><span class="ln">        }</span><span class="ln"> </span><span class="ln del">        <span class="v">$arrival</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$data['check_in']} {$property-&gt;check_in_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);</span><span class="ln del">        <span class="v">$departure</span> = <span class="t">CarbonImmutable</span>::<span class="f">parse</span>(<span class="s">&quot;{$data['check_out']} {$property-&gt;check_out_time}&quot;</span>, <span class="v">$property</span>-&gt;timezone);</span><span class="ln del">        <span class="v">$nights</span> = (<span class="k">int</span>) <span class="v">$arrival</span>-&gt;<span class="f">diffInDays</span>(<span class="v">$departure</span>);                <span class="c">// 3.83 days → 3</span></span><span class="ln add">        <span class="v">$stay</span> = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="v">$data</span>[<span class="s">'check_in'</span>], <span class="v">$data</span>[<span class="s">'check_out'</span>]);   <span class="c">// throws on 5 → 1 July</span></span><span class="ln"> </span><span class="ln">        <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$data</span>);</span><span class="ln">        <span class="v">$booking</span>-&gt;property_id = <span class="v">$property</span>-&gt;id;</span><span class="ln del">        <span class="v">$booking</span>-&gt;check_in = <span class="v">$arrival</span>-&gt;<span class="f">utc</span>();                          <span class="c">// a date stored as a moment</span></span><span class="ln del">        <span class="v">$booking</span>-&gt;check_out = <span class="v">$departure</span>-&gt;<span class="f">utc</span>();</span><span class="ln add">        <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;                                         <span class="c">// two DATE columns, no time attached</span></span><span class="ln">        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;</span><span class="ln del">        <span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$nights</span>);   <span class="c">// Money(45030, EUR): integers all the way</span></span><span class="ln add">        <span class="v">$booking</span>-&gt;total = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());</span><span class="ln">        <span class="v">$booking</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>(<span class="v">$booking</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Nights are never stored: they are always computed from the dates, so they can never disagree with them.</p></div></div></section>
 <section class="reveal"><h2>You just wrote the Value Object pattern</h2>
 <p class="rule"><span>Value Object, again</span>The same pattern as <code>Money</code>, for a different value: a stay is defined by its two dates, can’t exist in an invalid state, and never changes.</p>
 
@@ -190,7 +348,7 @@
 </div></div><div class="block"><p>Second, Laravel 11 and later ship <b>Carbon 3</b>, where <code>diffInDays()</code> returns a <b>float</b> (3.8333…), not an integer as it did in Carbon 2. Code that relied on the old rounding broke silently on upgrade. Counting days between two midnights, as <code>Stay</code> does, gives a whole number in both versions.</p></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Nights, invalid ranges, overlap, arrival across daylight saving, and the cast</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Unit/StayTest.php</span></div>
+<div class="filehead"><span class="path">tests/Unit/StayTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
@@ -210,7 +368,7 @@
         -&gt;<span class="f">and</span>(<span class="v">$first</span>-&gt;<span class="f">overlaps</span>(<span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-04'</span>, <span class="s">'2027-07-08'</span>)))-&gt;<span class="f">toBeTrue</span>();
 });</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/StayTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/StayTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;

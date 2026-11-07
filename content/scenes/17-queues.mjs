@@ -194,7 +194,201 @@ class PushAvailability implements ShouldQueue, ShouldBeUniqueUntilProcessing
         $this->listing->forceFill(['last_push_error' => $exception->getMessage()])->save();
     }
 }`,
-          after: ['Every caller that used `CloseChannelDates` now calls `PushAvailability::forProperty($property)`, and `CloseChannelDates` is deleted.'],
+        },
+        {
+          title: 'Every caller pushes the state',
+          text: ['The four places that change the calendar call `PushAvailability::forProperty()`. Confirming:'],
+          path: 'app/Bookings/BookingConfirmation.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();   // fresh, and locked
+
+            if (! $booking->state()->confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment->status = PaymentStatus::Succeeded;               // step 2
+            $payment->save();
+
+            Notification::route('mail', $booking->guest_email)         // step 3, after the commit
+                ->notify((new BookingConfirmed($booking))->afterCommit());
+
+            PushAvailability::forProperty($booking->property);          // step 4: every channel gets the calendar as it is now
+        });
+    }
+}`,
+        },
+        {
+          text: ['Cancelling:'],
+          path: 'app/Bookings/CancelBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\PushAvailability;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $nothing = Money::zero($booking->total->currency);
+
+            if (! $booking->state()->cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            PushAvailability::forProperty($booking->property);          // the nights are free again everywhere
+
+            $payment = $booking->payments()
+                ->where('status', PaymentStatus::Succeeded)
+                ->whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                ->latest('id')
+                ->first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()->diffInHours($booking->stay->checkInAt($booking->property), false));
+            $refund = $booking->refundPolicy()->refundFor(Money::of($payment->amount_cents, $payment->currency), $hours);
+
+            if ($refund->amount > 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)->afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}`,
+        },
+        {
+          text: ['An expired hold:'],
+          path: 'app/Console/Commands/ExpireHolds.php',
+          code: String.raw`<?php
+
+namespace App\Console\Commands;
+
+use App\Enums\BookingStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(): void
+    {
+        Booking::query()
+            ->where('status', BookingStatus::Pending)
+            ->where('expires_at', '<=', now())
+            ->lazyById()
+            ->each(function (Booking $booking): void {
+                DB::transaction(function () use ($booking): void {
+                    $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+                    if ($booking->status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking->state()->expire($booking);
+
+                    PushAvailability::forProperty($booking->property);
+                });
+            });
+    }
+}`,
+        },
+        {
+          text: ['And the channel import, whose 321 reservations started the incident. Now they queue at most one push per listing:'],
+          path: 'app/Channels/ImportChannelReservation.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\DB;
+
+final class ImportChannelReservation
+{
+    /** @return bool true when the reservation was applied, false when it was older than what we have */
+    public function handle(ChannelReservation $reservation): bool
+    {
+        $listing = ChannelListing::query()
+            ->where('channel', $reservation->channel)
+            ->where('external_listing_id', $reservation->externalListingId)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($reservation, $listing): bool {
+            Property::whereKey($listing->property_id)->lockForUpdate()->firstOrFail();   // one change per property at a time
+
+            $booking = Booking::query()
+                ->where('channel', $reservation->channel)
+                ->where('external_id', $reservation->externalId)
+                ->lockForUpdate()
+                ->first() ?? new Booking();
+
+            if ($booking->exists && $booking->external_version >= $reservation->version) {
+                return false;                                      // older or the same: already applied something newer
+            }
+
+            $booking->forceFill([
+                'property_id' => $listing->property_id,
+                'channel' => $reservation->channel,
+                'external_id' => $reservation->externalId,
+                'external_version' => $reservation->version,
+                'status' => $reservation->status,                  // the channel decides; our own State rules (scene 9) guard our actions
+                'guest_name' => $reservation->guestName,
+                'guest_email' => $reservation->guestEmail,
+                'guests' => $reservation->guests,
+                'stay' => $reservation->stay,
+                'total' => $reservation->total,
+                'confirmed_at' => $booking->confirmed_at ?? now(),
+                'cancelled_at' => $reservation->status === BookingStatus::Cancelled ? ($booking->cancelled_at ?? now()) : null,
+            ])->save();
+
+            PushAvailability::forProperty($booking->property);          // one coalesced push per listing, not one per change
+
+            return true;
+        });
+    }
+}`,
+        },
+        {
+          text: ['`CloseChannelDates` has no callers left. Delete it and its test:'],
+          path: 'terminal',
+          lang: 'shell',
+          code: String.raw`rm app/Jobs/CloseChannelDates.php tests/Feature/CloseChannelDatesTest.php`,
         },
       ],
     },
@@ -206,23 +400,28 @@ class PushAvailability implements ShouldQueue, ShouldBeUniqueUntilProcessing
       ],
       blocks: [
         {
-          path: 'terminal · config/queue.php (redis connection)',
+          text: ['Install Horizon. `horizon:install` creates `config/horizon.php`:'],
+          path: 'terminal',
           lang: 'shell',
           code: String.raw`composer require laravel/horizon
-php artisan horizon:install
-
-# config/queue.php
-'redis' => [
+php artisan horizon:install`,
+        },
+        {
+          text: ['In `config/queue.php`, replace the `redis` entry inside `connections` with this one. The other connections stay as they are:'],
+          path: 'config/queue.php (the redis entry under connections)',
+          fragment: true,
+          code: String.raw`'redis' => [
     'driver' => 'redis',
-    'connection' => 'default',
-    'queue' => 'default',
-    'retry_after' => 660,            # longer than the slowest job's timeout (600 below)
-    'block_for' => 5,                # wait up to 5 s for a job instead of polling Redis in a tight loop
-    'after_commit' => true,          # every dispatch waits for the open transaction to commit
+    'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+    'queue' => env('REDIS_QUEUE', 'default'),
+    'retry_after' => 660,            // longer than the slowest job's timeout (600 below)
+    'block_for' => 5,                // wait up to 5 s for a job instead of polling Redis in a tight loop
+    'after_commit' => true,          // every dispatch waits for the open transaction to commit
 ],`,
         },
         {
-          path: 'config/horizon.php (environments)',
+          text: ['In `config/horizon.php`, replace the whole `environments` array with this one. Everything else in the file stays as Horizon created it:'],
+          path: 'config/horizon.php (the environments array)',
           fragment: true,
           code: String.raw`'environments' => [
     'production' => [

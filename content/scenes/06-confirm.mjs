@@ -12,27 +12,65 @@ export default {
   sections: [
     {
       title: 'The broken code',
-      text: ['Confirming a booking is several steps. Each place that confirms one knows a different subset of them:'],
+      text: ['Confirming a booking is several steps. Each place that confirms one knows a different subset of them. The card payment’s return page:'],
       blocks: [
         {
           path: 'app/Http/Controllers/PaymentReturnController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`// after a card payment: three steps
-$booking->status = BookingStatus::Confirmed;
-$booking->confirmed_at = now();
-$booking->save();
-$payment->update(['status' => PaymentStatus::Succeeded]);
-Mail::to($booking->guest_email)->send(new BookingConfirmedMail($booking));`,
+          broken: true,
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
+use App\Mail\BookingConfirmedMail;
+use App\Models\Payment;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+
+class PaymentReturnController extends Controller
+{
+    // Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...
+    public function __invoke(Request $request): View
+    {
+        $payment = Payment::where('provider_payment_id', $request->query('payment_intent'))->firstOrFail();
+        $booking = $payment->booking;
+
+        $booking->status = BookingStatus::Confirmed;                       // three steps, no transaction
+        $booking->confirmed_at = now();
+        $booking->save();
+        $payment->update(['status' => PaymentStatus::Succeeded]);
+        Mail::to($booking->guest_email)->send(new BookingConfirmedMail($booking));
+
+        return view('bookings.thank-you');
+    }
+}`,
         },
         {
+          text: ['And the "Mark as paid" button for bank transfers, added later by someone else:'],
           path: 'app/Http/Controllers/MarkBookingPaidController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`// "Mark as paid" for a bank transfer: one step, written later by someone else
-$booking->status = BookingStatus::Confirmed;
-$booking->save();`,
-          after: [
-            'Nothing here is hard. The problem is that **"confirm a booking" has no home**, so every caller has to know all the steps, in the right order, inside a transaction. The next scenes add more steps (close the dates on Airbnb, schedule guest messages, plan the cleaning). Each one would have to be added to every caller, and one will always be forgotten.',
-          ],
+          broken: true,
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\BookingStatus;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+
+class MarkBookingPaidController extends Controller
+{
+    // The host received a bank transfer and clicks "Mark as paid"
+    public function __invoke(Booking $booking): BookingResource
+    {
+        $booking->status = BookingStatus::Confirmed;                       // one step, written later by someone else
+        $booking->save();
+
+        return new BookingResource($booking);
+    }
+}`,
+          after: ['Nothing here is hard. The problem is that **"confirm a booking" has no home**, so every caller has to know all the steps, in the right order, inside a transaction. The next scenes add more steps (close the dates on Airbnb, schedule guest messages, plan the cleaning). Each one would have to be added to every caller, and one will always be forgotten.'],
         },
       ],
     },
@@ -131,20 +169,94 @@ final class BookingConfirmation
         },
         {
           title: 'Every caller is now one line',
-          text: ['The card payment and the bank transfer both go through the same door. When Day 3 adds "close the dates on Airbnb", it is added once, inside `confirm()`, and no caller changes.'],
-          path: 'app/Http/Controllers/PaymentReturnController.php · MarkBookingPaidController.php (after)',
-          fragment: true,
-          code: String.raw`// after a card payment
-$confirmation->confirm($booking, $payment);
+          text: ['The card payment and the bank transfer both go through the same door. When Day 3 adds "close the dates on Airbnb", it is added once, inside `confirm()`, and no caller changes. The container fills in `BookingConfirmation $confirmation` (scene 5).'],
+          path: 'app/Http/Controllers/PaymentReturnController.php (after)',
+          code: String.raw`<?php
 
-// "Mark as paid" for a bank transfer: record the transfer, then the same door
-$payment = $booking->payments()->create([
-    'amount_cents' => $booking->total->amount,
-    'currency' => $booking->total->currency->value,
-    'status' => PaymentStatus::Pending,                             // no Stripe id: paid outside Stripe
-]);
-$confirmation->confirm($booking, $payment);`,
-          after: ['Both controllers receive `BookingConfirmation $confirmation` as a parameter, filled in by the container (scene 5).'],
+namespace App\Http\Controllers;
+
+use App\Bookings\BookingConfirmation;
+use App\Models\Payment;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+
+class PaymentReturnController extends Controller
+{
+    // Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...
+    public function __invoke(Request $request, BookingConfirmation $confirmation): View
+    {
+        $payment = Payment::where('provider_payment_id', $request->query('payment_intent'))->firstOrFail();
+
+        $confirmation->confirm($payment->booking, $payment);              // every step, in one place
+
+        return view('bookings.thank-you');
+    }
+}`,
+        },
+        {
+          text: ['A bank transfer has no Stripe payment, so the controller records one first, then uses the same door:'],
+          path: 'app/Http/Controllers/MarkBookingPaidController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\BookingConfirmation;
+use App\Enums\PaymentStatus;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+
+class MarkBookingPaidController extends Controller
+{
+    // The host received a bank transfer and clicks "Mark as paid"
+    public function __invoke(Booking $booking, BookingConfirmation $confirmation): BookingResource
+    {
+        $payment = $booking->payments()->create([                         // record the transfer first
+            'amount_cents' => $booking->total->amount,
+            'currency' => $booking->total->currency->value,
+            'status' => PaymentStatus::Pending,                            // no Stripe id: paid outside Stripe
+        ]);
+
+        $confirmation->confirm($booking, $payment);                        // then the same door as a card payment
+
+        return new BookingResource($booking->refresh());
+    }
+}`,
+          after: ['Who may press "Mark as paid" is a policy question; scenes 19 and 20 add it to this route.'],
+        },
+        {
+          title: 'Their routes',
+          text: ['Both controllers have been routed since launch. Here are the two route files in full, so your app has them too. The API route:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\MarkBookingPaidController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20`,
+        },
+        {
+          text: ['The return page is a web route, because it is the guest’s browser that arrives there:'],
+          path: 'routes/web.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\PaymentReturnController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => view('welcome'));
+
+// Stripe sends the guest's browser here after a card payment (the return_url of the payment).
+Route::get('/payments/return', PaymentReturnController::class)->name('payments.return');`,
         },
       ],
     },

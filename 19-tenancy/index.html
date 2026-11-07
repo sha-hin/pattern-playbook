@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 19: A host saw another host’s bookings","description":"A host changed a number in the URL and saw another company’s bookings, guests and prices. Fix it in Laravel the way multi-tenant SaaS apps must: policies on every record, queries that start from the current account, scoped exists rules and route bindings, no mass assignment, and a test that tries every endpoint as the wrong account.","url":"https://sha-hin.github.io/pattern-playbook/19-tenancy/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/19-tenancy/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 19: A host saw another host’s bookings","item":"https://sha-hin.github.io/pattern-playbook/19-tenancy/"}]}]}</script>
 </head>
@@ -57,26 +57,54 @@
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#security<span class="inc-when">Monday 09:00</span></p>
 <p class="inc-msg"><span class="inc-who">Email from a host</span>Hi, I opened one of my bookings and changed the 812 in the address to 813. I can now see a booking for a property that isn’t mine: the guest’s name, email and what they paid. I stopped there. You might want to look at this.</p><p class="inc-msg"><span class="inc-who">Sara · tech lead</span>That’s an IDOR. Every account’s data is one number away from every other account. Nobody touches anything else until this is closed.</p>
 </section>
-<section><h2>The broken code</h2><p>Nordic Stays is multi-tenant: many host companies (accounts, from the <a href="../00-foundation/#table-accounts">foundation</a>) share one database. Three new endpoints were written fast:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<section><h2>The broken code</h2><p>Nordic Stays is multi-tenant: many host companies (accounts, from the <a href="../00-foundation/#table-accounts">foundation</a>) share one database. Three new endpoints were added to the booking controller in a hurry: <code>index</code>, <code>show</code> and <code>move</code>.</p><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="k">public</span> <span class="k">function</span> <span class="f">index</span>()
-{
-    <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(<span class="t">Booking</span>::<span class="f">latest</span>()-&gt;<span class="f">paginate</span>());       <span class="c">// every account's bookings</span>
-}
+<pre class="code rejected"><code>&lt;?php
 
-<span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="t">Booking</span> <span class="v">$booking</span>)
-{
-    <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);                                     <span class="c">// any id works: the IDOR</span>
-}
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
 
-<span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>)
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CreateBooking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>\<span class="t">StoreBookingRequest</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">BookingResource</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">AnonymousResourceCollection</span>;
+
+<span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span>
 {
-    <span class="v">$request</span>-&gt;<span class="f">validate</span>([<span class="s">'property_id'</span> =&gt; <span class="s">'required|exists:properties,id'</span>]);  <span class="c">// exists in ANY account</span>
-    <span class="v">$booking</span>-&gt;<span class="f">update</span>(<span class="v">$request</span>-&gt;<span class="f">all</span>());                                        <span class="c">// and every other column too</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">StoreBookingRequest</span> <span class="v">$request</span>, <span class="t">Property</span> <span class="v">$property</span>, <span class="t">CreateBooking</span> <span class="v">$createBooking</span>): <span class="t">BookingResource</span>
+    {
+        <span class="v">$booking</span> = <span class="v">$createBooking</span>-&gt;<span class="f">handle</span>(
+            <span class="v">$property</span>,
+            <span class="v">$request</span>-&gt;<span class="f">stay</span>(),
+            <span class="v">$request</span>-&gt;<span class="f">safe</span>()-&gt;<span class="f">only</span>([<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'guests'</span>]),
+        );
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(): <span class="t">AnonymousResourceCollection</span>
+    {
+        <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(<span class="t">Booking</span>::<span class="f">latest</span>()-&gt;<span class="f">paginate</span>());       <span class="c">// every account's bookings</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span>
+    {
+        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);                                     <span class="c">// any id works: the IDOR</span>
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span>
+    {
+        <span class="v">$request</span>-&gt;<span class="f">validate</span>([<span class="s">'property_id'</span> =&gt; <span class="s">'required|exists:properties,id'</span>]);  <span class="c">// exists in ANY account</span>
+        <span class="v">$booking</span>-&gt;<span class="f">update</span>(<span class="v">$request</span>-&gt;<span class="f">all</span>());                                        <span class="c">// and every other column too</span>
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);
+    }
 }</code></pre>
 </div><p><b>IDOR</b> (insecure direct object reference) means: the app checks that you’re logged in, but not that the thing you asked for is yours. Ids are sequential, so trying 813, 814, 815 is all it takes.</p><p><code>exists:properties,id</code> checks that the property exists, not that it belongs to you, so a booking can be moved into another account. And <code>$request-&gt;all()</code> passes whatever the request contains to the model: a crafted request could change <code>status</code> or <code>total_cents</code>. (The <code>$fillable</code> list from the foundation limits that damage; validated input is what stops it.)</p></div></div></section>
 <section><h2>The fix, part 1: one current account per request</h2><p>A user can belong to several accounts (<a href="../00-foundation/#table-memberships">memberships</a>) and works in one at a time (<code>current_account_id</code>). A middleware resolves that account once per request and refuses the request if the user isn’t actually a member, for example after being removed (scene 20).</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Middleware/SetCurrentAccount.php</span></div>
+<div class="filehead"><span class="path">app/Http/Middleware/SetCurrentAccount.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Middleware</span>;
@@ -102,25 +130,100 @@
         <span class="k">return</span> <span class="v">$next</span>(<span class="v">$request</span>);
     }
 }</code></pre>
-</div><p><code>bootstrap/app.php</code> adds it to the API group after <code>auth:sanctum</code>. Under Octane, where the app stays in memory between requests, register <code>Account</code> with <code>$this-&gt;app-&gt;scoped()</code> so it is forgotten after each request (scene 38).</p></div></div></section>
-<section><h2>The fix, part 2: lists start from the account</h2><p>The rule that prevents most leaks is about <b>where a query starts</b>. <code>Booking::query()</code> starts from every booking in the database. <code>$account-&gt;bookings()</code> starts from this account’s bookings, so forgetting a <code>where</code> can only ever show too little.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Account.php (one relation added)</span></div>
-<pre class="code"><code><span class="c">/** Bookings of all this account's properties: bookings → properties.account_id */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasManyThrough</span>
+</div><p>The routes in part 3 run it right after <code>auth:sanctum</code>. Under Octane, where the app stays in memory between requests, register <code>Account</code> with <code>$this-&gt;app-&gt;scoped()</code> so it is forgotten after each request (scene 38).</p></div></div></section>
+<section><h2>The fix, part 2: lists start from the account</h2><p>The rule that prevents most leaks is about <b>where a query starts</b>. <code>Booking::query()</code> starts from every booking in the database. <code>$account-&gt;bookings()</code> starts from this account’s bookings, so forgetting a <code>where</code> can only ever show too little.</p><div class="blocks"><div class="block"><p>The account gets one relation that reaches its bookings through its properties:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Account.php</span><span class="badge">changed since scene 13: <span class="plus">+7</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+
+class Account extends Model
 {
-    <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasManyThrough</span>(<span class="t">Booking</span>::class, <span class="t">Property</span>::class);
-}</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (index, after)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">AnonymousResourceCollection</span>
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(User::class, 'memberships')
+            -&gt;using(Membership::class)
+            -&gt;withPivot('role')
+            -&gt;withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this-&gt;hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelConnection::class);
+    }
+
+    /** Bookings of all this account's properties: bookings → properties.account_id */
+    public function bookings(): HasManyThrough
+    {
+        return $this-&gt;hasManyThrough(Booking::class, Property::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsToMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasManyThrough</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Account</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">users</span>(): <span class="t">BelongsToMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsToMany</span>(<span class="t">User</span>::class, <span class="s">'memberships'</span>)</span><span class="ln">            -&gt;<span class="f">using</span>(<span class="t">Membership</span>::class)</span><span class="ln">            -&gt;<span class="f">withPivot</span>(<span class="s">'role'</span>)</span><span class="ln">            -&gt;<span class="f">withTimestamps</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">properties</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelConnections</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelConnection</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Bookings of all this account's properties: bookings → properties.account_id */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasManyThrough</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasManyThrough</span>(<span class="t">Booking</span>::class, <span class="t">Property</span>::class);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>The whole controller after this scene; <code>index()</code> starts from the account, <code>show()</code> and <code>move()</code> rely on the policies and the request below:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (after)</span><span class="badge">changed since the version above: <span class="plus">+14</span> <span class="minus">−11</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\CreateBooking;
+use App\Http\Requests\MoveBookingRequest;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Resources\BookingResource;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+
+class BookingController extends Controller
 {
-    <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(
-        <span class="v">$account</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">latest</span>(<span class="s">'bookings.id'</span>)-&gt;<span class="f">cursorPaginate</span>(<span class="n">50</span>),   <span class="c">// the account is injected by the middleware</span>
-    );
-}</code></pre>
-</div></div></div></section>
+    public function store(StoreBookingRequest $request, Property $property, CreateBooking $createBooking): BookingResource
+    {
+        $booking = $createBooking-&gt;handle(
+            $property,
+            $request-&gt;stay(),
+            $request-&gt;safe()-&gt;only(['guest_name', 'guest_email', 'guests']),
+        );
+
+        return new BookingResource($booking);
+    }
+
+    public function index(Account $account): AnonymousResourceCollection
+    {
+        return BookingResource::collection(
+            $account-&gt;bookings()-&gt;latest('bookings.id')-&gt;cursorPaginate(50),   // the account is injected by the middleware
+        );
+    }
+
+    public function show(Booking $booking): BookingResource
+    {
+        return new BookingResource($booking);                                     // the route's policy has checked it
+    }
+
+    public function move(MoveBookingRequest $request, Booking $booking): BookingResource
+    {
+        $booking-&gt;property_id = $request-&gt;validated('property_id');             // one field, by name, after validation
+        $booking-&gt;save();                                                       // (Day 5 adds the availability check)
+
+        return new BookingResource($booking);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">CreateBooking</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>\<span class="t">MoveBookingRequest</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>\<span class="t">StoreBookingRequest</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">BookingResource</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">AnonymousResourceCollection</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">BookingController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">StoreBookingRequest</span> <span class="v">$request</span>, <span class="t">Property</span> <span class="v">$property</span>, <span class="t">CreateBooking</span> <span class="v">$createBooking</span>): <span class="t">BookingResource</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$booking</span> = <span class="v">$createBooking</span>-&gt;<span class="f">handle</span>(</span><span class="ln">            <span class="v">$property</span>,</span><span class="ln">            <span class="v">$request</span>-&gt;<span class="f">stay</span>(),</span><span class="ln">            <span class="v">$request</span>-&gt;<span class="f">safe</span>()-&gt;<span class="f">only</span>([<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'guests'</span>]),</span><span class="ln">        );</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(): <span class="t">AnonymousResourceCollection</span></span><span class="ln del">    {</span><span class="ln del">        <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(<span class="t">Booking</span>::<span class="f">latest</span>()-&gt;<span class="f">paginate</span>());       <span class="c">// every account's bookings</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">index</span>(<span class="t">Account</span> <span class="v">$account</span>): <span class="t">AnonymousResourceCollection</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="t">BookingResource</span>::<span class="f">collection</span>(</span><span class="ln add">            <span class="v">$account</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">latest</span>(<span class="s">'bookings.id'</span>)-&gt;<span class="f">cursorPaginate</span>(<span class="n">50</span>),   <span class="c">// the account is injected by the middleware</span></span><span class="ln add">        );</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">show</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);                                     <span class="c">// any id works: the IDOR</span></span><span class="ln del">    }</span><span class="ln del"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln del">    {</span><span class="ln del">        <span class="v">$request</span>-&gt;<span class="f">validate</span>([<span class="s">'property_id'</span> =&gt; <span class="s">'required|exists:properties,id'</span>]);  <span class="c">// exists in ANY account</span></span><span class="ln del">        <span class="v">$booking</span>-&gt;<span class="f">update</span>(<span class="v">$request</span>-&gt;<span class="f">all</span>());                                        <span class="c">// and every other column too</span></span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);                                     <span class="c">// the route's policy has checked it</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">MoveBookingRequest</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$booking</span>-&gt;property_id = <span class="v">$request</span>-&gt;<span class="f">validated</span>(<span class="s">'property_id'</span>);             <span class="c">// one field, by name, after validation</span></span><span class="ln add">        <span class="v">$booking</span>-&gt;<span class="f">save</span>();                                                       <span class="c">// (Day 5 adds the availability check)</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>There is no <code>$request-&gt;all()</code> left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 40).</p></div></div></section>
 <section><h2>The fix, part 3: single records go through a policy</h2><p>A record found by its id in the URL gets the same check every time: is the user a member of the account that owns it? The policy is the one place that answers. <code>can()</code> on the route runs it before the controller, so a controller can’t forget.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Policies/BookingPolicy.php</span></div>
+<div class="filehead"><span class="path">app/Policies/BookingPolicy.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Policies</span>;
@@ -153,16 +256,43 @@
         <span class="k">return</span> <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$booking</span>-&gt;property-&gt;account_id) !== <span class="k">null</span>;
     }
 }</code></pre>
-</div></div><div class="block"><h3>Routes: every id is checked</h3><p>For another account’s booking the policy answers <b>404, not 403</b>: a 403 would confirm that booking 813 exists. <code>Response::denyAsNotFound()</code> does exactly that. A member without the right role gets a 403, because they may know the booking exists.</p><div class="codebox">
-<div class="filehead"><span class="path">routes/api.php</span></div>
-<pre class="code"><code><span class="t">Route</span>::<span class="f">middleware</span>([<span class="s">'auth:sanctum'</span>, <span class="t">SetCurrentAccount</span>::class])-&gt;<span class="f">prefix</span>(<span class="s">'v1'</span>)-&gt;<span class="f">group</span>(<span class="k">function</span> (): <span class="k">void</span> {
-    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'index'</span>]);
-    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings/{booking}'</span>, [<span class="t">BookingController</span>::class, <span class="s">'show'</span>])-&gt;<span class="f">can</span>(<span class="s">'view'</span>, <span class="s">'booking'</span>);
-    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/bookings/{booking}/property'</span>, [<span class="t">BookingController</span>::class, <span class="s">'move'</span>])-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);
-});</code></pre>
+</div></div><div class="block"><h3>Routes: every id is checked</h3><p>For another account’s booking the policy answers <b>404, not 403</b>: a 403 would confirm that booking 813 exists. <code>Response::denyAsNotFound()</code> does exactly that. A member without the right role gets a 403, because they may know the booking exists.</p><p>Every host route now lives in one group: logged in, inside the current account, and every booking id checked. The cancel, payment and mark-paid routes from earlier scenes move into it too.</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 14: <span class="plus">+20</span> <span class="minus">−20</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])-&gt;prefix('v1')-&gt;group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])-&gt;can('createBooking', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])-&gt;can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)-&gt;can('update', 'booking');
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">CancelBookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">ChannelWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">StripeWebhookController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Middleware</span>\<span class="t">SetCurrentAccount</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln del"><span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span></span><span class="ln del"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);   <span class="c">// public: guests aren't logged in</span></span><span class="ln del"> </span><span class="ln del"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])</span><span class="ln del">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)</span><span class="ln del">    -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln del"> </span><span class="ln del"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)</span><span class="ln del">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);</span><span class="ln del"> </span><span class="ln del"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/cancel'</span>, <span class="t">CancelBookingController</span>::class)</span><span class="ln del">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span><span class="ln del"> </span><span class="ln del"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)</span><span class="ln del">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span><span class="ln del"> </span><span class="ln del"><span class="c">// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.</span></span><span class="ln add"><span class="c">// Laravel serves this file under /api.</span></span><span class="ln add"> </span><span class="ln add"><span class="c">// Public: guests aren't logged in when they look at prices.</span></span><span class="ln add"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);</span><span class="ln add"> </span><span class="ln add"><span class="c">// Everything a host does: logged in, inside one current account, every id checked by a policy.</span></span><span class="ln add"><span class="t">Route</span>::<span class="f">middleware</span>([<span class="s">'auth:sanctum'</span>, <span class="t">SetCurrentAccount</span>::class])-&gt;<span class="f">prefix</span>(<span class="s">'v1'</span>)-&gt;<span class="f">group</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln add">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])-&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln add"> </span><span class="ln add">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'index'</span>]);</span><span class="ln add">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings/{booking}'</span>, [<span class="t">BookingController</span>::class, <span class="s">'show'</span>])-&gt;<span class="f">can</span>(<span class="s">'view'</span>, <span class="s">'booking'</span>);</span><span class="ln add">    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/bookings/{booking}/property'</span>, [<span class="t">BookingController</span>::class, <span class="s">'move'</span>])-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln add">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln add">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/cancel'</span>, <span class="t">CancelBookingController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln add">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln add">});</span><span class="ln add"> </span><span class="ln add"><span class="c">// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/stripe'</span>, <span class="t">StripeWebhookController</span>::class);</span><span class="ln del"> </span><span class="ln del"><span class="c">// {channel} is bound to the Channel enum: /webhooks/channels/vrbo is a 404.</span></span><span class="ln del"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/channels/{channel}'</span>, <span class="t">ChannelWebhookController</span>::class);</span><span class="ln add"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/channels/{channel}'</span>, <span class="t">ChannelWebhookController</span>::class);   <span class="c">// {channel} is the Channel enum: vrbo is a 404</span></span></code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 4: input is scoped too</h2><p>Ids that arrive in the <b>body</b> need the same care as ids in the URL. The <code>exists</code> rule gets a <code>where</code> for the account, and only validated fields reach the model.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Requests/MoveBookingRequest.php</span></div>
+<div class="filehead"><span class="path">app/Http/Requests/MoveBookingRequest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Requests</span>;
@@ -185,16 +315,7 @@
         ];
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/BookingController.php (move, after)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">move</span>(<span class="t">MoveBookingRequest</span> <span class="v">$request</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span>
-{
-    <span class="v">$booking</span>-&gt;property_id = <span class="v">$request</span>-&gt;<span class="f">validated</span>(<span class="s">'property_id'</span>);             <span class="c">// one field, by name, after validation</span>
-    <span class="v">$booking</span>-&gt;<span class="f">save</span>();                                                       <span class="c">// (Day 5 adds the availability check)</span>
-
-    <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);
-}</code></pre>
-</div><p>There is no <code>$request-&gt;all()</code> left anywhere in the app, and a Larastan rule or a simple CI grep keeps it that way (scene 40).</p></div></div></section>
+</div></div></div></section>
 <section class="laravel"><h2>Laravel inside: scoped route bindings</h2><p>For nested routes like <code>/properties/{property}/bookings/{booking}</code>, Laravel can find the child <b>through</b> the parent instead of by its id alone. With <code>-&gt;scopeBindings()</code>, booking 813 is looked up as <code>$property-&gt;bookings()-&gt;where(&quot;id&quot;, 813)</code>, so a booking of another property is a 404 before any policy runs.</p><div class="blocks"><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Database/Eloquent/Model.php (simplified)</span></div>
 <pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">resolveChildRouteBinding</span>(<span class="v">$childType</span>, <span class="v">$value</span>, <span class="v">$field</span>)
@@ -208,7 +329,7 @@
 </div><p>A <b>global scope</b> (<code>where account_id = current</code> added to every query of a model) is the other common tool. It’s safe in web requests, but queued jobs and commands have no current account, so it either has to throw there or be switched off, and code that switches it off is where the next leak hides. Nordic Stays keeps the scoping visible instead: queries start from the account, and policies guard records.</p></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Every endpoint, tried as the wrong account</small></summary>
 <div class="testbody"><p>One dataset lists every route that takes an id. Each new endpoint is added to it, so &quot;can another account reach this?&quot; is answered by the suite, not by a reviewer’s memory.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/TenancyTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/TenancyTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;

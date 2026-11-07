@@ -13,17 +13,54 @@ export default {
   sections: [
     {
       title: 'The broken code',
-      text: ['Monday’s release turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them:'],
+      text: ['Monday’s release turned the dates into the exact moments of arrival and departure, stored them, and counted the nights between them. The whole file, after that release:'],
       blocks: [
         {
           path: 'app/Http/Controllers/BookingController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`$arrival = CarbonImmutable::parse("{$request->check_in} {$property->check_in_time}", $property->timezone);
-$departure = CarbonImmutable::parse("{$request->check_out} {$property->check_out_time}", $property->timezone);
+          broken: true,
+          code: String.raw`<?php
 
-$booking->check_in = $arrival->utc();                 // stored as a moment
-$booking->check_out = $departure->utc();
-$booking->nights = (int) $arrival->diffInDays($departure);`,
+namespace App\Http\Controllers;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Carbon\CarbonImmutable;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
+{
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request->all();
+
+        $clash = DB::table('bookings')->where('property_id', $propertyId)
+            ->where('check_in', '<=', $data['check_out'])
+            ->where('check_out', '>=', $data['check_in'])
+            ->exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $arrival = CarbonImmutable::parse("{$data['check_in']} {$property->check_in_time}", $property->timezone);
+        $departure = CarbonImmutable::parse("{$data['check_out']} {$property->check_out_time}", $property->timezone);
+        $nights = (int) $arrival->diffInDays($departure);                // 3.83 days → 3
+
+        $booking = new Booking($data);
+        $booking->property_id = $property->id;
+        $booking->check_in = $arrival->utc();                          // a date stored as a moment
+        $booking->check_out = $departure->utc();
+        $booking->status = BookingStatus::Pending;
+        $booking->total = $property->nightly_rate->times($nights);   // Money(45030, EUR): integers all the way
+        $booking->save();
+
+        return response()->json($booking);
+    }
+}`,
         },
         {
           path: 'php artisan tinker',
@@ -99,20 +136,61 @@ final readonly class Stay
         },
         {
           title: 'When you do need a moment',
-          text: [
-            'Some things really happen at a moment: the arrival message goes out "the day before check-in, at 15:00". The moment is **built** from the date, the property’s check-in time and the property’s timezone, and returned in UTC, which is how the database stores times. It is never stored in place of the date.',
-          ],
-          path: 'app/Bookings/Stay.php (one more method)',
-          fragment: true,
-          code: String.raw`// at the top of the file: use App\Models\Property;
+          text: ['Some things really happen at a moment: the arrival message goes out "the day before check-in, at 15:00". The moment is **built** from the date, the property’s check-in time and the property’s timezone, and returned in UTC, which is how the database stores times. It is never stored in place of the date. One more method on `Stay`:'],
+          path: 'app/Bookings/Stay.php',
+          code: String.raw`<?php
 
-/** The moment the guest can arrive, e.g. 1 July 15:00 in Europe/Copenhagen, returned in UTC. */
-public function checkInAt(Property $property): CarbonImmutable
+namespace App\Bookings;
+
+use App\Models\Property;
+use Carbon\CarbonImmutable;
+use InvalidArgumentException;
+
+final readonly class Stay
 {
-    return CarbonImmutable::parse(
-        "{$this->checkIn->toDateString()} {$property->check_in_time}",
-        $property->timezone,                          // the property's clock, not the server's
-    )->utc();
+    private function __construct(
+        public CarbonImmutable $checkIn,
+        public CarbonImmutable $checkOut,
+    ) {
+    }
+
+    /** @param string $checkIn e.g. "2027-07-01" */
+    public static function fromDates(string $checkIn, string $checkOut): self
+    {
+        $in = CarbonImmutable::parse($checkIn, 'UTC')->startOfDay();      // a calendar date: midnight UTC
+        $out = CarbonImmutable::parse($checkOut, 'UTC')->startOfDay();
+
+        if ($out->lessThanOrEqualTo($in)) {
+            throw new InvalidArgumentException('Check-out must be after check-in.');
+        }
+
+        return new self($in, $out);
+    }
+
+    public function nights(): int
+    {
+        return (int) $this->checkIn->diffInDays($this->checkOut);       // exact: two UTC midnights
+    }
+
+    /** True when the two stays share at least one night. Back-to-back stays don't overlap. */
+    public function overlaps(self $other): bool
+    {
+        return $this->checkIn->lessThan($other->checkOut) && $this->checkOut->greaterThan($other->checkIn);
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->checkIn->equalTo($other->checkIn) && $this->checkOut->equalTo($other->checkOut);
+    }
+
+    /** The moment the guest can arrive, e.g. 1 July 15:00 in Europe/Copenhagen, returned in UTC. */
+    public function checkInAt(Property $property): CarbonImmutable
+    {
+        return CarbonImmutable::parse(
+            "{$this->checkIn->toDateString()} {$property->check_in_time}",
+            $property->timezone,                          // the property's clock, not the server's
+        )->utc();
+    }
 }`,
           after: ['The same 15:00 is 13:00 UTC in summer and 14:00 UTC in winter. Building it from the timezone gets that right on its own; a stored UTC time would be wrong for half the year.'],
         },
@@ -153,19 +231,95 @@ final class StayCast implements CastsAttributes
         },
         {
           title: 'On the booking',
-          path: 'app/Models/Booking.php (casts)',
-          fragment: true,
-          code: String.raw`'stay' => StayCast::class,                // one line added: Stay from check_in + check_out`,
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+}`,
         },
         {
           title: 'The booking, fixed',
+          text: ['The whole file; the highlighted lines are the fix. The date check and the overlap check are scene 3’s.'],
           path: 'app/Http/Controllers/BookingController.php (after)',
-          fragment: true,
-          code: String.raw`$stay = Stay::fromDates($request->check_in, $request->check_out);   // throws on 5 → 1 July
+          code: String.raw`<?php
 
-$booking->stay = $stay;                                           // writes two DATE columns
-$booking->total = $property->nightly_rate->times($stay->nights()); // 4 nights, from scene 1's Money`,
-          after: ['No stored `nights` column any more: it can always be computed from the dates, so it can never disagree with them.'],
+namespace App\Http\Controllers;
+
+use App\Bookings\Stay;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
+{
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request->all();
+
+        $clash = DB::table('bookings')->where('property_id', $propertyId)
+            ->where('check_in', '<=', $data['check_out'])
+            ->where('check_out', '>=', $data['check_in'])
+            ->exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $stay = Stay::fromDates($data['check_in'], $data['check_out']);   // throws on 5 → 1 July
+
+        $booking = new Booking($data);
+        $booking->property_id = $property->id;
+        $booking->stay = $stay;                                         // two DATE columns, no time attached
+        $booking->status = BookingStatus::Pending;
+        $booking->total = $property->nightly_rate->times($stay->nights());
+        $booking->save();
+
+        return response()->json($booking);
+    }
+}`,
+          after: ['Nights are never stored: they are always computed from the dates, so they can never disagree with them.'],
         },
       ],
     },

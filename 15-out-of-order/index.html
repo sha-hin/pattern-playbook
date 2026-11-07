@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 15: A cancellation arrived before the booking","description":"A cancelled Booking.com reservation came back to life because its creation event arrived after the cancellation. Fix it in Laravel with versioned upserts under a lock, tombstones for early cancellations, a polling fallback for missed webhooks, and tests on recorded payloads.","url":"https://sha-hin.github.io/pattern-playbook/15-out-of-order/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/15-out-of-order/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 15: A cancellation arrived before the booking","item":"https://sha-hin.github.io/pattern-playbook/15-out-of-order/"}]}]}</script>
 </head>
@@ -65,7 +65,7 @@
 <span class="v">$booking</span>-&gt;<span class="f">forceFill</span>([<span class="c">/* status, stay, total ... from this message */</span>])-&gt;<span class="f">save</span>();   <span class="c">// the last message to arrive wins</span></code></pre>
 </div><p>Networks don’t deliver in order. Channels retry failed deliveries, our workers process jobs in parallel, and a slow job can finish after a faster, newer one. &quot;Last to arrive wins&quot; means an old message can undo a newer one.</p><p>And sometimes a message never arrives at all: the channel had an outage, or our endpoint was down for a deploy longer than their retry window.</p></div></div></section>
 <section><h2>The fix, part 1: newer always wins, whatever arrives last</h2><p>Every reservation message carries the channel’s own &quot;last modified&quot; time, which scene 14’s mappers turn into <code>version</code>. We store the version we applied, and only apply a message whose version is <b>higher</b>. An older message is acknowledged and ignored.</p><p>Two workers can process two messages for the same reservation at the same moment, so the read and the write happen under a row lock, like scene 4. A cancellation that arrives <b>before</b> its booking creates the booking already cancelled, a <b>tombstone</b>, so the late original finds a newer version and is ignored.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_05_000001_add_external_version_to_bookings_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_03_05_000001_add_external_version_to_bookings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -86,12 +86,13 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ImportChannelReservation.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ImportChannelReservation.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
@@ -135,43 +136,253 @@
                 <span class="s">'cancelled_at'</span> =&gt; <span class="v">$reservation</span>-&gt;status === <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> ? (<span class="v">$booking</span>-&gt;cancelled_at ?? <span class="f">now</span>()) : <span class="k">null</span>,
             ])-&gt;<span class="f">save</span>();
 
+            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$other</span>) {     <span class="c">// tell the other channels</span>
+                <span class="k">if</span> (<span class="v">$other</span>-&gt;channel !== <span class="v">$reservation</span>-&gt;channel) {
+                    <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$other</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="v">$booking</span>-&gt;status !== <span class="t">BookingStatus</span>::<span class="t">Cancelled</span>)-&gt;<span class="f">afterCommit</span>();
+                }
+            }
+
             <span class="k">return</span> <span class="k">true</span>;
         });
     }
 }</code></pre>
-</div><p>Scene 14’s job now ends with one line: <code>app(ImportChannelReservation::class)-&gt;handle($reservation);</code>. Because it is idempotent and ordered, it doesn’t matter how many times, or in which order, a message arrives.</p></div></div></section>
-<section><h2>The fix, part 2: don’t rely on webhooks alone</h2><p>Webhooks are the fast path. A <b>poll</b> is the safety net: every 10 minutes, ask each channel for the reservations that changed since the last poll, and import them through the same class. A reservation that already came by webhook has the same version and is ignored, so polling can never do harm.</p><p>The API interface from scene 13 gains one method, and each adapter returns a generator (scene 11), so many pages of reservations never sit in memory at once.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelApi.php (one method added)</span></div>
-<pre class="code"><code><span class="c">/** @return iterable&lt;ChannelReservation&gt; every reservation of the listing modified since $since */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>;</code></pre>
-</div></div><div class="block"><h3>Airbnb: pages until there is no next cursor</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php (added)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>
+</div></div><div class="block"><p>Scene 14’s job keeps mapping with the kit, and hands the saving to the import. Because the import is idempotent and ordered, it doesn’t matter how many times, or in which order, a message arrives:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Jobs/ProcessChannelWebhook.php</span><span class="badge">changed since scene 14: <span class="plus">+2</span> <span class="minus">−24</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Jobs;
+
+use App\Channels\ChannelManager;
+use App\Channels\ImportChannelReservation;
+use App\Enums\Channel;
+use App\Models\WebhookEvent;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
+
+class ProcessChannelWebhook implements ShouldQueue
 {
-    <span class="v">$mapper</span> = <span class="k">new</span> <span class="f">AirbnbReservationMapper</span>();
-    <span class="v">$cursor</span> = <span class="k">null</span>;
+    use Queueable;
 
-    <span class="k">do</span> {
-        <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))-&gt;<span class="f">timeout</span>(<span class="n">10</span>)-&gt;<span class="f">acceptJson</span>()
-            -&gt;<span class="f">get</span>(<span class="s">&quot;{$this-&gt;baseUrl}/reservations&quot;</span>, <span class="f">array_filter</span>([
-                <span class="s">'listing_id'</span> =&gt; <span class="v">$listing</span>-&gt;external_listing_id,
-                <span class="s">'updated_since'</span> =&gt; <span class="v">$since</span>-&gt;<span class="f">toIso8601String</span>(),
-                <span class="s">'cursor'</span> =&gt; <span class="v">$cursor</span>,
-            ]));
+    public int $tries = 5;
 
-        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {
-            <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);
+    public function __construct(public WebhookEvent $webhook)
+    {
+    }
+
+    public function handle(ChannelManager $channels): void
+    {
+        $reservation = $channels-&gt;for(Channel::from($this-&gt;webhook-&gt;provider))-&gt;mapper()-&gt;reservation($this-&gt;webhook-&gt;payload);
+
+        app(ImportChannelReservation::class)-&gt;handle($reservation);        // ordered and idempotent: any order, any number of times
+
+        $this-&gt;webhook-&gt;markProcessed();
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this-&gt;webhook-&gt;markFailed($exception-&gt;getMessage());
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ImportChannelReservation</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">WebhookEvent</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Throwable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">ProcessChannelWebhook</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">WebhookEvent</span> <span class="v">$webhook</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$reservation</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="f">from</span>(<span class="k">$this</span>-&gt;webhook-&gt;provider))-&gt;<span class="f">mapper</span>()-&gt;<span class="f">reservation</span>(<span class="k">$this</span>-&gt;webhook-&gt;payload);</span><span class="ln"> </span><span class="ln del">        <span class="v">$listing</span> = <span class="t">ChannelListing</span>::<span class="f">query</span>()</span><span class="ln del">            -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)</span><span class="ln del">            -&gt;<span class="f">where</span>(<span class="s">'external_listing_id'</span>, <span class="v">$reservation</span>-&gt;externalListingId)</span><span class="ln del">            -&gt;<span class="f">firstOrFail</span>();                                               <span class="c">// an unknown listing is an error, not a skip</span></span><span class="ln del"> </span><span class="ln del">        <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln del">            -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)                      <span class="c">// the pair, never the id alone</span></span><span class="ln del">            -&gt;<span class="f">where</span>(<span class="s">'external_id'</span>, <span class="v">$reservation</span>-&gt;externalId)</span><span class="ln del">            -&gt;<span class="f">first</span>() ?? <span class="k">new</span> <span class="f">Booking</span>();</span><span class="ln del"> </span><span class="ln del">        <span class="v">$booking</span>-&gt;<span class="f">forceFill</span>([</span><span class="ln del">            <span class="s">'property_id'</span> =&gt; <span class="v">$listing</span>-&gt;property_id,</span><span class="ln del">            <span class="s">'channel'</span> =&gt; <span class="v">$reservation</span>-&gt;channel,</span><span class="ln del">            <span class="s">'external_id'</span> =&gt; <span class="v">$reservation</span>-&gt;externalId,</span><span class="ln del">            <span class="s">'status'</span> =&gt; <span class="v">$reservation</span>-&gt;status,</span><span class="ln del">            <span class="s">'guest_name'</span> =&gt; <span class="v">$reservation</span>-&gt;guestName,</span><span class="ln del">            <span class="s">'guest_email'</span> =&gt; <span class="v">$reservation</span>-&gt;guestEmail,</span><span class="ln del">            <span class="s">'guests'</span> =&gt; <span class="v">$reservation</span>-&gt;guests,</span><span class="ln del">            <span class="s">'stay'</span> =&gt; <span class="v">$reservation</span>-&gt;stay,</span><span class="ln del">            <span class="s">'total'</span> =&gt; <span class="v">$reservation</span>-&gt;total,</span><span class="ln del">            <span class="s">'confirmed_at'</span> =&gt; <span class="v">$booking</span>-&gt;confirmed_at ?? <span class="f">now</span>(),</span><span class="ln del">        ])-&gt;<span class="f">save</span>();</span><span class="ln add">        <span class="f">app</span>(<span class="t">ImportChannelReservation</span>::class)-&gt;<span class="f">handle</span>(<span class="v">$reservation</span>);        <span class="c">// ordered and idempotent: any order, any number of times</span></span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;webhook-&gt;<span class="f">markProcessed</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">failed</span>(<span class="t">Throwable</span> <span class="v">$exception</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;webhook-&gt;<span class="f">markFailed</span>(<span class="v">$exception</span>-&gt;<span class="f">getMessage</span>());</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 2: don’t rely on webhooks alone</h2><p>Webhooks are the fast path. A <b>poll</b> is the safety net: every 10 minutes, ask each channel for the reservations that changed since the last poll, and import them through the same class. A reservation that already came by webhook has the same version and is ignored, so polling can never do harm.</p><p>The API interface from scene 13 gains one method, and each adapter returns a generator (scene 11), so many pages of reservations never sit in memory at once.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/ChannelApi.php</span><span class="badge">changed since scene 13: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Bookings\Stay;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+
+interface ChannelApi
+{
+    /** Make these nights unbookable on the channel. Throws ChannelRequestFailed when the channel refuses. */
+    public function closeDates(ChannelListing $listing, Stay $nights): void;
+
+    public function openDates(ChannelListing $listing, Stay $nights): void;
+
+    /** @return iterable&lt;ChannelReservation&gt; every reservation of the listing modified since $since */
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable;
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">interface</span> <span class="t">ChannelApi</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** Make these nights unbookable on the channel. Throws ChannelRequestFailed when the channel refuses. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>;</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** @return iterable&lt;ChannelReservation&gt; every reservation of the listing modified since $since */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span>;</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Airbnb: pages until there is no next cursor</h3><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php</span><span class="badge">changed since scene 13: <span class="plus">+26</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels\Airbnb;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class AirbnbApi implements ChannelApi
+{
+    public function __construct(
+        private AirbnbTokens $tokens,
+        private string $baseUrl,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;setAvailability($listing, $nights, 'unavailable');
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;setAvailability($listing, $nights, 'available');
+    }
+
+    private function setAvailability(ChannelListing $listing, Stay $nights, string $availability): void
+    {
+        $response = Http::withToken($this-&gt;tokens-&gt;for($listing))
+            -&gt;timeout(10)
+            -&gt;acceptJson()
+            -&gt;put(&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;, [
+                'start_date' =&gt; $nights-&gt;checkIn-&gt;toDateString(),
+                'end_date' =&gt; $nights-&gt;checkOut-&gt;subDay()-&gt;toDateString(),   // Airbnb counts nights inclusively
+                'availability' =&gt; $availability,
+            ]);
+
+        if ($response-&gt;failed()) {
+            throw ChannelRequestFailed::from(Channel::Airbnb, $response);  // never a silent 401 again
         }
+    }
 
-        <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'reservations'</span>) <span class="k">as</span> <span class="v">$reservation</span>) {
-            <span class="k">yield</span> <span class="v">$mapper</span>-&gt;<span class="f">reservation</span>([<span class="s">'reservation'</span> =&gt; <span class="v">$reservation</span>]);   <span class="c">// the same mapper as the webhooks</span>
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new AirbnbReservationMapper();
+        $cursor = null;
+
+        do {
+            $response = Http::withToken($this-&gt;tokens-&gt;for($listing))-&gt;timeout(10)-&gt;acceptJson()
+                -&gt;get(&quot;{$this-&gt;baseUrl}/reservations&quot;, array_filter([
+                    'listing_id' =&gt; $listing-&gt;external_listing_id,
+                    'updated_since' =&gt; $since-&gt;toIso8601String(),
+                    'cursor' =&gt; $cursor,
+                ]));
+
+            if ($response-&gt;failed()) {
+                throw ChannelRequestFailed::from(Channel::Airbnb, $response);
+            }
+
+            foreach ($response-&gt;json('reservations') as $reservation) {
+                yield $mapper-&gt;reservation(['reservation' =&gt; $reservation]);   // the same mapper as the webhooks
+            }
+
+            $cursor = $response-&gt;json('next_cursor');
+        } while ($cursor !== null);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">AirbnbApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="t">AirbnbTokens</span> <span class="v">$tokens</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$baseUrl</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">setAvailability</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, <span class="s">'unavailable'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">setAvailability</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, <span class="s">'available'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">setAvailability</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">string</span> <span class="v">$availability</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))</span><span class="ln">            -&gt;<span class="f">timeout</span>(<span class="n">10</span>)</span><span class="ln">            -&gt;<span class="f">acceptJson</span>()</span><span class="ln">            -&gt;<span class="f">put</span>(<span class="s">&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;</span>, [</span><span class="ln">                <span class="s">'start_date'</span> =&gt; <span class="v">$nights</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">                <span class="s">'end_date'</span> =&gt; <span class="v">$nights</span>-&gt;checkOut-&gt;<span class="f">subDay</span>()-&gt;<span class="f">toDateString</span>(),   <span class="c">// Airbnb counts nights inclusively</span></span><span class="ln">                <span class="s">'availability'</span> =&gt; <span class="v">$availability</span>,</span><span class="ln">            ]);</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln">            <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);  <span class="c">// never a silent 401 again</span></span><span class="ln">        }</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$mapper</span> = <span class="k">new</span> <span class="f">AirbnbReservationMapper</span>();</span><span class="ln add">        <span class="v">$cursor</span> = <span class="k">null</span>;</span><span class="ln add"> </span><span class="ln add">        <span class="k">do</span> {</span><span class="ln add">            <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))-&gt;<span class="f">timeout</span>(<span class="n">10</span>)-&gt;<span class="f">acceptJson</span>()</span><span class="ln add">                -&gt;<span class="f">get</span>(<span class="s">&quot;{$this-&gt;baseUrl}/reservations&quot;</span>, <span class="f">array_filter</span>([</span><span class="ln add">                    <span class="s">'listing_id'</span> =&gt; <span class="v">$listing</span>-&gt;external_listing_id,</span><span class="ln add">                    <span class="s">'updated_since'</span> =&gt; <span class="v">$since</span>-&gt;<span class="f">toIso8601String</span>(),</span><span class="ln add">                    <span class="s">'cursor'</span> =&gt; <span class="v">$cursor</span>,</span><span class="ln add">                ]));</span><span class="ln add"> </span><span class="ln add">            <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln add">                <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);</span><span class="ln add">            }</span><span class="ln add"> </span><span class="ln add">            <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'reservations'</span>) <span class="k">as</span> <span class="v">$reservation</span>) {</span><span class="ln add">                <span class="k">yield</span> <span class="v">$mapper</span>-&gt;<span class="f">reservation</span>([<span class="s">'reservation'</span> =&gt; <span class="v">$reservation</span>]);   <span class="c">// the same mapper as the webhooks</span></span><span class="ln add">            }</span><span class="ln add"> </span><span class="ln add">            <span class="v">$cursor</span> = <span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'next_cursor'</span>);</span><span class="ln add">        } <span class="k">while</span> (<span class="v">$cursor</span> !== <span class="k">null</span>);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Booking.com: numbered pages</h3><p>Booking.com pages by number and says when there are more. Both adapters reuse the mapper from their kit, so a polled reservation is identical to the same reservation from a webhook:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComApi.php</span><span class="badge">changed since scene 13: <span class="plus">+26</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels\BookingCom;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class BookingComApi implements ChannelApi
+{
+    public function __construct(
+        private string $baseUrl,
+        private string $username,
+        private string $password,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;send($listing, $nights, closed: true);
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;send($listing, $nights, closed: false);
+    }
+
+    private function send(ChannelListing $listing, Stay $nights, bool $closed): void
+    {
+        $xml = sprintf(
+            '&lt;request&gt;&lt;hotel_id&gt;%s&lt;/hotel_id&gt;&lt;date from=&quot;%s&quot; to=&quot;%s&quot;&gt;&lt;closed&gt;%d&lt;/closed&gt;&lt;/date&gt;&lt;/request&gt;',
+            htmlspecialchars($listing-&gt;external_listing_id, ENT_XML1),            // never trust a value inside XML
+            $nights-&gt;checkIn-&gt;toDateString(),
+            $nights-&gt;checkOut-&gt;subDay()-&gt;toDateString(),
+            $closed ? 1 : 0,
+        );
+
+        $response = Http::withBasicAuth($this-&gt;username, $this-&gt;password)
+            -&gt;timeout(10)
+            -&gt;withBody($xml, 'text/xml')
+            -&gt;post(&quot;{$this-&gt;baseUrl}/hotels/xml/availability&quot;);
+
+        // Booking.com-style XML APIs can answer 200 with an error inside the body
+        if ($response-&gt;failed() || str_contains($response-&gt;body(), '&lt;error')) {
+            throw ChannelRequestFailed::from(Channel::BookingCom, $response);
         }
+    }
 
-        <span class="v">$cursor</span> = <span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'next_cursor'</span>);
-    } <span class="k">while</span> (<span class="v">$cursor</span> !== <span class="k">null</span>);
-}</code></pre>
-</div><p>Booking.com’s adapter does the same with its own paging. Both reuse the mapper from their kit, so a polled reservation is identical to the same reservation from a webhook.</p></div><div class="block"><h3>The poll</h3><p><code>$startedAt</code> is taken <b>before</b> the request: a reservation modified while we are fetching is picked up again next time, instead of falling between two polls.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Console/Commands/PollChannelReservations.php</span></div>
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new BookingComReservationMapper();
+        $page = 1;
+
+        do {
+            $response = Http::withBasicAuth($this-&gt;username, $this-&gt;password)-&gt;timeout(10)-&gt;acceptJson()
+                -&gt;get(&quot;{$this-&gt;baseUrl}/hotels/json/reservations&quot;, [
+                    'hotel_id' =&gt; $listing-&gt;external_listing_id,
+                    'last_change' =&gt; $since-&gt;utc()-&gt;format('Y-m-d H:i:s'),
+                    'page' =&gt; $page,
+                ]);
+
+            if ($response-&gt;failed()) {
+                throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+            }
+
+            foreach ($response-&gt;json('reservations') as $reservation) {
+                yield $mapper-&gt;reservation(['reservation' =&gt; $reservation]);   // the same mapper as the webhooks
+            }
+
+            $page++;
+        } while ($response-&gt;json('has_more') === true);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">BookingComApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$baseUrl</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$username</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$password</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">send</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, closed: <span class="k">true</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">send</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, closed: <span class="k">false</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">send</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">bool</span> <span class="v">$closed</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$xml</span> = <span class="f">sprintf</span>(</span><span class="ln">            <span class="s">'&lt;request&gt;&lt;hotel_id&gt;%s&lt;/hotel_id&gt;&lt;date from=&quot;%s&quot; to=&quot;%s&quot;&gt;&lt;closed&gt;%d&lt;/closed&gt;&lt;/date&gt;&lt;/request&gt;'</span>,</span><span class="ln">            <span class="f">htmlspecialchars</span>(<span class="v">$listing</span>-&gt;external_listing_id, <span class="t">ENT_XML1</span>),            <span class="c">// never trust a value inside XML</span></span><span class="ln">            <span class="v">$nights</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="v">$nights</span>-&gt;checkOut-&gt;<span class="f">subDay</span>()-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="v">$closed</span> ? <span class="n">1</span> : <span class="n">0</span>,</span><span class="ln">        );</span><span class="ln"> </span><span class="ln">        <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withBasicAuth</span>(<span class="k">$this</span>-&gt;username, <span class="k">$this</span>-&gt;password)</span><span class="ln">            -&gt;<span class="f">timeout</span>(<span class="n">10</span>)</span><span class="ln">            -&gt;<span class="f">withBody</span>(<span class="v">$xml</span>, <span class="s">'text/xml'</span>)</span><span class="ln">            -&gt;<span class="f">post</span>(<span class="s">&quot;{$this-&gt;baseUrl}/hotels/xml/availability&quot;</span>);</span><span class="ln"> </span><span class="ln">        <span class="c">// Booking.com-style XML APIs can answer 200 with an error inside the body</span></span><span class="ln">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>() || <span class="f">str_contains</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="s">'&lt;error'</span>)) {</span><span class="ln">            <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="v">$response</span>);</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$mapper</span> = <span class="k">new</span> <span class="f">BookingComReservationMapper</span>();</span><span class="ln add">        <span class="v">$page</span> = <span class="n">1</span>;</span><span class="ln add"> </span><span class="ln add">        <span class="k">do</span> {</span><span class="ln add">            <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withBasicAuth</span>(<span class="k">$this</span>-&gt;username, <span class="k">$this</span>-&gt;password)-&gt;<span class="f">timeout</span>(<span class="n">10</span>)-&gt;<span class="f">acceptJson</span>()</span><span class="ln add">                -&gt;<span class="f">get</span>(<span class="s">&quot;{$this-&gt;baseUrl}/hotels/json/reservations&quot;</span>, [</span><span class="ln add">                    <span class="s">'hotel_id'</span> =&gt; <span class="v">$listing</span>-&gt;external_listing_id,</span><span class="ln add">                    <span class="s">'last_change'</span> =&gt; <span class="v">$since</span>-&gt;<span class="f">utc</span>()-&gt;<span class="f">format</span>(<span class="s">'Y-m-d H:i:s'</span>),</span><span class="ln add">                    <span class="s">'page'</span> =&gt; <span class="v">$page</span>,</span><span class="ln add">                ]);</span><span class="ln add"> </span><span class="ln add">            <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln add">                <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="v">$response</span>);</span><span class="ln add">            }</span><span class="ln add"> </span><span class="ln add">            <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'reservations'</span>) <span class="k">as</span> <span class="v">$reservation</span>) {</span><span class="ln add">                <span class="k">yield</span> <span class="v">$mapper</span>-&gt;<span class="f">reservation</span>([<span class="s">'reservation'</span> =&gt; <span class="v">$reservation</span>]);   <span class="c">// the same mapper as the webhooks</span></span><span class="ln add">            }</span><span class="ln add"> </span><span class="ln add">            <span class="v">$page</span>++;</span><span class="ln add">        } <span class="k">while</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'has_more'</span>) === <span class="k">true</span>);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Each listing remembers when it was last polled, as a date:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/ChannelListing.php</span><span class="badge">changed since scene 13: <span class="plus">+1</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ChannelListing extends Model
+{
+    protected $fillable = ['channel', 'external_listing_id'];
+
+    protected function casts(): array
+    {
+        return ['channel' =&gt; Channel::class, 'last_polled_at' =&gt; 'datetime'];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">ChannelListing</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'channel'</span>, <span class="s">'external_listing_id'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> [<span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::class];</span><span class="ln add">        <span class="k">return</span> [<span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::class, <span class="s">'last_polled_at'</span> =&gt; <span class="s">'datetime'</span>];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>The poll</h3><p><code>$startedAt</code> is taken <b>before</b> the request: a reservation modified while we are fetching is picked up again next time, instead of falling between two polls.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Console/Commands/PollChannelReservations.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;
@@ -203,21 +414,54 @@
         <span class="k">return</span> <span class="k">self</span>::<span class="t">SUCCESS</span>;
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">routes/console.php (added)</span></div>
-<pre class="code"><code><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'channels:poll'</span>)-&gt;<span class="f">everyTenMinutes</span>()-&gt;<span class="f">withoutOverlapping</span>();</code></pre>
-</div><p>One listing’s failure stops this run; the next run starts again from that listing’s own <code>last_polled_at</code>, so nothing is skipped. Scene 17 moves this into one queued job per listing.</p></div></div></section>
-<section class="laravel"><h2>Testing against real payloads</h2><p>Hand-written test payloads drift from what channels really send. Save a real (anonymised) payload once, as a file, and let every test read it. <code>Http::fake()</code> serves recorded API responses the same way, and <code>Http::preventStrayRequests()</code> from the <a href="../00-foundation/#pest-config">foundation</a> fails any test that tries a URL nobody faked.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/helpers.php (one function added)</span></div>
-<pre class="code"><code>&lt;?php
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">routes/console.php</span><span class="badge">changed since scene 12: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">/** @return array&lt;string, mixed&gt; a recorded payload, e.g. fixture('booking_com/reservation-cancelled.json') */</span>
-<span class="k">function</span> <span class="f">fixture</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">array</span>
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')-&gt;everyMinute()-&gt;withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')-&gt;dailyAt('03:10')-&gt;withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()-&gt;lazyById()-&gt;each(fn (IcalFeed $feed) =&gt; SyncIcalFeed::dispatch($feed));
+})-&gt;everyFifteenMinutes()-&gt;name('sync-ical-feeds')-&gt;withoutOverlapping();
+Schedule::command('channels:poll')-&gt;everyTenMinutes()-&gt;withoutOverlapping();"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">SyncIcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">IcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schedule</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run</span></span><span class="ln"><span class="c">// Locally:                                     php artisan schedule:work</span></span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'bookings:expire-holds'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'payments:reconcile-refunds'</span>)-&gt;<span class="f">dailyAt</span>(<span class="s">'03:10'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">call</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln">    <span class="t">IcalFeed</span>::<span class="f">query</span>()-&gt;<span class="f">lazyById</span>()-&gt;<span class="f">each</span>(<span class="k">fn</span> (<span class="t">IcalFeed</span> <span class="v">$feed</span>) =&gt; <span class="t">SyncIcalFeed</span>::<span class="f">dispatch</span>(<span class="v">$feed</span>));</span><span class="ln">})-&gt;<span class="f">everyFifteenMinutes</span>()-&gt;<span class="f">name</span>(<span class="s">'sync-ical-feeds'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln add"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'channels:poll'</span>)-&gt;<span class="f">everyTenMinutes</span>()-&gt;<span class="f">withoutOverlapping</span>();</span></code></pre>
+</div><p>One listing’s failure stops this run; the next run starts again from that listing’s own <code>last_polled_at</code>, so nothing is skipped. Scene 17 moves this into one queued job per listing.</p></div></div></section>
+<section class="laravel"><h2>Testing against real payloads</h2><p>Hand-written test payloads drift from what channels really send. Save a real (anonymised) payload once, as a file, and let every test read it. <code>Http::fake()</code> serves recorded API responses the same way, and <code>Http::preventStrayRequests()</code> from the <a href="../00-foundation/#pest-config">foundation</a> fails any test that tries a URL nobody faked.</p><div class="blocks"><div class="block"><p>One helper reads them, added to the foundation’s <code>tests/helpers.php</code>:</p><div class="codebox changed">
+<div class="filehead"><span class="path">tests/helpers.php</span><span class="badge">changed since the foundation: <span class="plus">+6</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\Property;
+use App\Models\User;
+
+function memberOf(Account $account, MembershipRole $role = MembershipRole::Owner): User
 {
-    <span class="k">return</span> <span class="f">json_decode</span>(<span class="f">file_get_contents</span>(__DIR__ . <span class="s">&quot;/Fixtures/{$path}&quot;</span>), <span class="k">true</span>, flags: <span class="t">JSON_THROW_ON_ERROR</span>);
-}</code></pre>
+    $user = User::factory()-&gt;create(['current_account_id' =&gt; $account-&gt;id]);
+    $account-&gt;users()-&gt;attach($user, ['role' =&gt; $role-&gt;value]);
+
+    return $user;
+}
+
+function hostOf(Property $property, MembershipRole $role = MembershipRole::Owner): User
+{
+    return memberOf($property-&gt;account, $role);
+}
+
+/** @return array&lt;string, mixed&gt; a recorded payload, e.g. fixture('booking_com/reservation-cancelled.json') */
+function fixture(string $path): array
+{
+    return json_decode(file_get_contents(__DIR__ . &quot;/Fixtures/{$path}&quot;), true, flags: JSON_THROW_ON_ERROR);
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"> </span><span class="ln"><span class="k">function</span> <span class="f">memberOf</span>(<span class="t">Account</span> <span class="v">$account</span>, <span class="t">MembershipRole</span> <span class="v">$role</span> = <span class="t">MembershipRole</span>::<span class="t">Owner</span>): <span class="t">User</span></span><span class="ln">{</span><span class="ln">    <span class="v">$user</span> = <span class="t">User</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>([<span class="s">'current_account_id'</span> =&gt; <span class="v">$account</span>-&gt;id]);</span><span class="ln">    <span class="v">$account</span>-&gt;<span class="f">users</span>()-&gt;<span class="f">attach</span>(<span class="v">$user</span>, [<span class="s">'role'</span> =&gt; <span class="v">$role</span>-&gt;value]);</span><span class="ln"> </span><span class="ln">    <span class="k">return</span> <span class="v">$user</span>;</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="k">function</span> <span class="f">hostOf</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">MembershipRole</span> <span class="v">$role</span> = <span class="t">MembershipRole</span>::<span class="t">Owner</span>): <span class="t">User</span></span><span class="ln">{</span><span class="ln">    <span class="k">return</span> <span class="f">memberOf</span>(<span class="v">$property</span>-&gt;account, <span class="v">$role</span>);</span><span class="ln">}</span><span class="ln add"> </span><span class="ln add"><span class="c">/** @return array&lt;string, mixed&gt; a recorded payload, e.g. fixture('booking_com/reservation-cancelled.json') */</span></span><span class="ln add"><span class="k">function</span> <span class="f">fixture</span>(<span class="k">string</span> <span class="v">$path</span>): <span class="k">array</span></span><span class="ln add">{</span><span class="ln add">    <span class="k">return</span> <span class="f">json_decode</span>(<span class="f">file_get_contents</span>(__DIR__ . <span class="s">&quot;/Fixtures/{$path}&quot;</span>), <span class="k">true</span>, flags: <span class="t">JSON_THROW_ON_ERROR</span>);</span><span class="ln add">}</span></code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Fixtures/booking_com/reservation-new.json</span></div>
+<div class="filehead"><span class="path">tests/Fixtures/booking_com/reservation-new.json</span><span class="badge new">new file</span></div>
 <pre class="code"><code>{
   <span class="t">&quot;id&quot;</span>: <span class="s">&quot;evt-5530117-1&quot;</span>,
   <span class="t">&quot;reservation&quot;</span>: {
@@ -227,10 +471,21 @@
     <span class="t">&quot;price&quot;</span>: <span class="s">&quot;1105.50&quot;</span>, <span class="t">&quot;currency&quot;</span>: <span class="s">&quot;EUR&quot;</span>, <span class="t">&quot;last_modified&quot;</span>: <span class="s">&quot;2027-05-31T17:00:00Z&quot;</span>
   }
 }</code></pre>
-</div><p><code>reservation-cancelled.json</code> is the same reservation with <code>&quot;status&quot;: &quot;cancelled&quot;</code> and <code>&quot;last_modified&quot;: &quot;2027-05-31T17:02:00Z&quot;</code>.</p></div></div></section>
+</div></div><div class="block"><p>And the same reservation, cancelled two minutes later:</p><div class="codebox">
+<div class="filehead"><span class="path">tests/Fixtures/booking_com/reservation-cancelled.json</span><span class="badge new">new file</span></div>
+<pre class="code"><code>{
+  <span class="t">&quot;id&quot;</span>: <span class="s">&quot;evt-5530117-2&quot;</span>,
+  <span class="t">&quot;reservation&quot;</span>: {
+    <span class="t">&quot;id&quot;</span>: <span class="s">&quot;5530117&quot;</span>, <span class="t">&quot;hotel_id&quot;</span>: <span class="s">&quot;1290031&quot;</span>, <span class="t">&quot;status&quot;</span>: <span class="s">&quot;cancelled&quot;</span>,
+    <span class="t">&quot;checkin&quot;</span>: <span class="s">&quot;2027-08-01&quot;</span>, <span class="t">&quot;checkout&quot;</span>: <span class="s">&quot;2027-08-04&quot;</span>,
+    <span class="t">&quot;booker&quot;</span>: { <span class="t">&quot;name&quot;</span>: <span class="s">&quot;Omar Said&quot;</span>, <span class="t">&quot;email&quot;</span>: <span class="s">&quot;omar.s@guest.booking.com&quot;</span> }, <span class="t">&quot;guests&quot;</span>: <span class="n">2</span>,
+    <span class="t">&quot;price&quot;</span>: <span class="s">&quot;1105.50&quot;</span>, <span class="t">&quot;currency&quot;</span>: <span class="s">&quot;EUR&quot;</span>, <span class="t">&quot;last_modified&quot;</span>: <span class="s">&quot;2027-05-31T17:02:00Z&quot;</span>
+  }
+}</code></pre>
+</div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Messages in every order, a tombstone, duplicates, and polling with a recorded response</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/ImportChannelReservationTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/ImportChannelReservationTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>\<span class="t">BookingComReservationMapper</span>;
@@ -271,7 +526,7 @@
         -&gt;<span class="f">and</span>(<span class="t">Booking</span>::<span class="f">count</span>())-&gt;<span class="f">toBe</span>(<span class="n">1</span>);
 });</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/PollChannelReservationsTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/PollChannelReservationsTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;

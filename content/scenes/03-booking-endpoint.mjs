@@ -15,26 +15,50 @@ export default {
       title: 'The broken code',
       blocks: [
         {
+          text: ['The endpoint as it stands after scenes 1 and 2:'],
           path: 'app/Http/Controllers/BookingController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`public function store(Request $request, int $propertyId)
+          broken: true,
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\Stay;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
 {
-    $property = Property::findOrFail($propertyId);                 // anyone logged in, any property
-    $data = $request->all();                                       // no validation, every field accepted
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request->all();
 
-    $clash = DB::table('bookings')->where('property_id', $propertyId)
-        ->where('check_in', '<=', $data['check_out'])              // blocks back-to-back stays
-        ->where('check_out', '>=', $data['check_in'])
-        ->exists();                                                // cancelled bookings block too
-    if ($clash) {
-        throw new Exception('Already booked');                     // becomes a 500
+        $clash = DB::table('bookings')->where('property_id', $propertyId)
+            ->where('check_in', '<=', $data['check_out'])
+            ->where('check_out', '>=', $data['check_in'])
+            ->exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $stay = Stay::fromDates($data['check_in'], $data['check_out']);   // throws on 5 → 1 July
+
+        $booking = new Booking($data);
+        $booking->property_id = $property->id;
+        $booking->stay = $stay;                                         // two DATE columns, no time attached
+        $booking->status = BookingStatus::Pending;
+        $booking->total = $property->nightly_rate->times($stay->nights());
+        $booking->save();
+
+        return response()->json($booking);
     }
-
-    $booking = Booking::create($data + ['property_id' => $propertyId, 'status' => 'pending']);
-
-    return response()->json($booking);                             // 200, every column of the row
 }`,
-          after: ['Validation, permission, the business rule, saving and the response format are mixed in one method. None can be reused or tested on its own, which is exactly why the Airbnb import copied the overlap rule instead of calling it.'],
+          after: ['Four bugs in one method. `findOrFail()` lets anyone logged in book any property. `$request->all()` accepts every field unvalidated. The clash check uses `<=` and `>=`, so back-to-back stays are refused, and it counts cancelled bookings. And a clash throws a plain `Exception`: a 500.', 'Validation, permission, the business rule, saving and the response format are mixed in one method. None can be reused or tested on its own, which is exactly why the Airbnb import copied the overlap rule instead of calling it.'],
         },
       ],
     },
@@ -44,10 +68,15 @@ export default {
       blocks: [
         {
           title: '1. The route',
-          text: ['`auth:sanctum` answers **401** without a valid token. Route model binding answers **404** for an unknown property. `can()` runs the policy below and answers **403**.'],
+          text: ['`auth:sanctum` answers **401** without a valid token. Route model binding answers **404** for an unknown property. `can()` runs the policy below and answers **403**. The whole file, replacing the launch-week route:'],
           path: 'routes/api.php',
-          fragment: true,
-          code: String.raw`Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
     ->middleware('auth:sanctum')
     ->can('createBooking', 'property');`,
         },
@@ -110,25 +139,80 @@ class StoreBookingRequest extends FormRequest
         },
         {
           title: '4. Which bookings block a stay: a scope',
-          text: [
-            'The correct rule, in one place: an existing booking blocks the new stay when it **starts before the new one ends** and **ends after the new one starts**. Strict `<` and `>`, so back-to-back stays pass. And only pending and confirmed bookings count.',
-            'It lives on the model as a query scope, so every caller (this endpoint, the Airbnb import, an admin tool) uses the same rule, and the database runs it with the [composite index](F#table-bookings).',
-          ],
-          path: 'app/Enums/BookingStatus.php · app/Models/Booking.php (added)',
-          fragment: true,
-          code: String.raw`// BookingStatus: the statuses that occupy the calendar
-/** @return list<self> */
-public static function blocking(): array
-{
-    return [self::Pending, self::Confirmed];
-}
+          text: ['The correct rule, in one place: an existing booking blocks the new stay when it **starts before the new one ends** and **ends after the new one starts**. Strict `<` and `>`, so back-to-back stays pass. And only pending and confirmed bookings count.', 'First, the statuses that occupy the calendar, on the enum:'],
+          path: 'app/Enums/BookingStatus.php',
+          code: String.raw`<?php
 
-// Booking
-public function scopeOverlapping(Builder $query, Stay $stay): void
+namespace App\Enums;
+
+enum BookingStatus: string
 {
-    $query->whereIn('status', BookingStatus::blocking())
-        ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
-        ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    case Pending = 'pending';                 // a hold, waiting for payment
+    case Confirmed = 'confirmed';
+    case Cancelled = 'cancelled';
+    case Expired = 'expired';                 // a hold that was never paid
+
+    /** The statuses that occupy the calendar. @return list<self> */
+    public static function blocking(): array
+    {
+        return [self::Pending, self::Confirmed];
+    }
+}`,
+        },
+        {
+          text: ['Then the rule, as a query scope on the model, so every caller (this endpoint, the Airbnb import, an admin tool) uses the same rule, and the database runs it with the [composite index](F#table-bookings):'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
 }`,
         },
         {
@@ -224,6 +308,7 @@ class BookingResource extends JsonResource
           title: '8. The controller is now three lines',
           text: ['It translates HTTP into a call and back. Returning a resource for a model that was just created answers **201** on its own (see below).'],
           path: 'app/Http/Controllers/BookingController.php (after)',
+          rewrite: true,
           code: String.raw`<?php
 
 namespace App\Http\Controllers;

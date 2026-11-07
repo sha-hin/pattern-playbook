@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 17: 642 pushes queued in one minute","description":"After a Booking.com outage, Nordic Stays queued 642 calendar pushes in a minute, and some opened nights that later pushes had closed. Fix it in Laravel with one self-contained command per listing, ShouldBeUniqueUntilProcessing to coalesce bursts, WithoutOverlapping, Redis queues under Horizon, and a look at the worker loop.","url":"https://sha-hin.github.io/pattern-playbook/17-queues/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/17-queues/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Command pattern","Command Bus pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 17: 642 pushes queued in one minute","item":"https://sha-hin.github.io/pattern-playbook/17-queues/"}]}]}</script>
 </head>
@@ -67,7 +67,7 @@
 <span class="c">// CancelBooking: the same, with $close = false</span></code></pre>
 </div><p>Each job carries a <b>change</b>: &quot;close 1–4 August&quot;, &quot;open 2–3 August&quot;. 321 imports produced 642 of them, and they all wait in the one queue that also sends guest emails.</p><p>Worse, changes only make sense in order, and queues don’t promise order. Workers run jobs in parallel and retries come back later, so an &quot;open&quot; that was queued first can finish after the &quot;close&quot; that should have replaced it. That’s how booked nights showed as open on Airbnb.</p></div></div></section>
 <section><h2>The fix, part 1: push the state, not the change</h2><p>Instead of &quot;what changed&quot;, each push sends <b>how the calendar is now</b>: every night for the next 12 months, grouped into runs of open and closed nights, read fresh from the database when the job runs. A push like that can run twice, late, or out of order, and the result is always correct, because the last one to run sends the latest truth.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/AvailabilityRuns.php</span></div>
+<div class="filehead"><span class="path">app/Channels/AvailabilityRuns.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -114,7 +114,7 @@
 }</code></pre>
 </div><p>A year with 30 bookings is about 60 runs, so about 60 calls per push, well inside the rate limit from scene 16.</p></div></div></section>
 <section><h2>The fix, part 2: one command, coalesced</h2><p>The job is a <b>command</b>: one object that holds everything needed to do one thing (&quot;bring this listing up to date&quot;), and can be queued, retried and logged as a unit.</p><p>Because it always sends the current state, ten pushes waiting for the same listing are worth exactly one. <code>ShouldBeUniqueUntilProcessing</code> takes a Redis lock per listing when the job is dispatched; while one push is <b>waiting</b>, further dispatches are dropped. The lock is released when the push <b>starts</b>, so a change that happens during a push queues one more, which will see it. <code>WithoutOverlapping</code> makes that next push wait until the running one ends.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_09_000001_add_push_status_to_channel_listings_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_03_09_000001_add_push_status_to_channel_listings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -132,7 +132,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/PushAvailability.php</span></div>
+<div class="filehead"><span class="path">app/Jobs/PushAvailability.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
@@ -213,23 +213,206 @@
         <span class="k">$this</span>-&gt;listing-&gt;<span class="f">forceFill</span>([<span class="s">'last_push_error'</span> =&gt; <span class="v">$exception</span>-&gt;<span class="f">getMessage</span>()])-&gt;<span class="f">save</span>();
     }
 }</code></pre>
-</div><p>Every caller that used <code>CloseChannelDates</code> now calls <code>PushAvailability::forProperty($property)</code>, and <code>CloseChannelDates</code> is deleted.</p></div></div></section>
-<section><h2>The fix, part 3: queues on Redis, run by Horizon</h2><p>Two queues: <code>default</code> for guest-facing work (emails, payments) and <code>channels</code> for pushes, each with its own workers, so a flood on one never delays the other. Horizon runs and supervises the workers, restarts them when they die, and shows throughput, wait times and failed jobs in a dashboard.</p><p>One rule ties the two files together: a worker’s <code>timeout</code> must be <b>shorter</b> than the queue’s <code>retry_after</code>. Redis hands a job to another worker if it has been reserved for <code>retry_after</code> seconds without finishing. A job allowed to run longer than that runs <b>twice, at the same time</b>.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">terminal · config/queue.php (redis connection)</span></div>
+</div></div><div class="block"><h3>Every caller pushes the state</h3><p>The four places that change the calendar call <code>PushAvailability::forProperty()</code>. Confirming:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">changed since scene 13: <span class="plus">+2</span> <span class="minus">−4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // fresh, and locked
+
+            if (! $booking-&gt;state()-&gt;confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment-&gt;status = PaymentStatus::Succeeded;               // step 2
+            $payment-&gt;save();
+
+            Notification::route('mail', $booking-&gt;guest_email)         // step 3, after the commit
+                -&gt;notify((new BookingConfirmed($booking))-&gt;afterCommit());
+
+            PushAvailability::forProperty($booking-&gt;property);          // step 4: every channel gets the calendar as it is now
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span></span><span class="ln">                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span></span><span class="ln">            <span class="v">$payment</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span></span><span class="ln">                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln"> </span><span class="ln del">            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {   <span class="c">// step 4: close the nights on every channel</span></span><span class="ln del">                <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay)-&gt;<span class="f">afterCommit</span>();</span><span class="ln del">            }</span><span class="ln add">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// step 4: every channel gets the calendar as it is now</span></span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Cancelling:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CancelBooking.php</span><span class="badge">changed since scene 13: <span class="plus">+2</span> <span class="minus">−4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\PushAvailability;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+            $nothing = Money::zero($booking-&gt;total-&gt;currency);
+
+            if (! $booking-&gt;state()-&gt;cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            PushAvailability::forProperty($booking-&gt;property);          // the nights are free again everywhere
+
+            $payment = $booking-&gt;payments()
+                -&gt;where('status', PaymentStatus::Succeeded)
+                -&gt;whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                -&gt;latest('id')
+                -&gt;first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()-&gt;diffInHours($booking-&gt;stay-&gt;checkInAt($booking-&gt;property), false));
+            $refund = $booking-&gt;refundPolicy()-&gt;refundFor(Money::of($payment-&gt;amount_cents, $payment-&gt;currency), $hours);
+
+            if ($refund-&gt;amount &gt; 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)-&gt;afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">RefundCancelledBooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CancelBooking</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return Money the amount that will be refunded */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="t">Money</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln">            <span class="v">$nothing</span> = <span class="t">Money</span>::<span class="f">zero</span>(<span class="v">$booking</span>-&gt;total-&gt;currency);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">cancel</span>(<span class="v">$booking</span>)) {          <span class="c">// scene 9: already cancelled</span></span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln del">            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {   <span class="c">// the nights are free again everywhere</span></span><span class="ln del">                <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="k">false</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln del">            }</span><span class="ln add">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// the nights are free again everywhere</span></span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>)</span><span class="ln">                -&gt;<span class="f">whereNotNull</span>(<span class="s">'provider_payment_id'</span>)            <span class="c">// card payments; bank transfers go back by hand</span></span><span class="ln">                -&gt;<span class="f">latest</span>(<span class="s">'id'</span>)</span><span class="ln">                -&gt;<span class="f">first</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$payment</span> === <span class="k">null</span>) {</span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$hours</span> = (<span class="k">int</span>) <span class="f">floor</span>(<span class="f">now</span>()-&gt;<span class="f">diffInHours</span>(<span class="v">$booking</span>-&gt;stay-&gt;<span class="f">checkInAt</span>(<span class="v">$booking</span>-&gt;property), <span class="k">false</span>));</span><span class="ln">            <span class="v">$refund</span> = <span class="v">$booking</span>-&gt;<span class="f">refundPolicy</span>()-&gt;<span class="f">refundFor</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$payment</span>-&gt;amount_cents, <span class="v">$payment</span>-&gt;currency), <span class="v">$hours</span>);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$refund</span>-&gt;amount &gt; <span class="n">0</span>) {</span><span class="ln">                <span class="t">RefundCancelledBooking</span>::<span class="f">dispatch</span>(<span class="v">$payment</span>, <span class="v">$refund</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$refund</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>An expired hold:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Console/Commands/ExpireHolds.php</span><span class="badge">changed since scene 13: <span class="plus">+2</span> <span class="minus">−4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Console\Commands;
+
+use App\Enums\BookingStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(): void
+    {
+        Booking::query()
+            -&gt;where('status', BookingStatus::Pending)
+            -&gt;where('expires_at', '&lt;=', now())
+            -&gt;lazyById()
+            -&gt;each(function (Booking $booking): void {
+                DB::transaction(function () use ($booking): void {
+                    $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+
+                    if ($booking-&gt;status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking-&gt;state()-&gt;expire($booking);
+
+                    PushAvailability::forProperty($booking-&gt;property);
+                });
+            });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Console</span>\<span class="t">Command</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">ExpireHolds</span> <span class="k">extends</span> <span class="t">Command</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$signature</span> = <span class="s">'bookings:expire-holds'</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$description</span> = <span class="s">'Expire pending bookings whose hold has ended'</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="t">Pending</span>)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'expires_at'</span>, <span class="s">'&lt;='</span>, <span class="f">now</span>())</span><span class="ln">            -&gt;<span class="f">lazyById</span>()</span><span class="ln">            -&gt;<span class="f">each</span>(<span class="k">function</span> (<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln">                <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln">                    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">                    <span class="k">if</span> (<span class="v">$booking</span>-&gt;status !== <span class="t">BookingStatus</span>::<span class="t">Pending</span>) {   <span class="c">// a payment may have won the race</span></span><span class="ln">                        <span class="k">return</span>;</span><span class="ln">                    }</span><span class="ln"> </span><span class="ln">                    <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">expire</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln del">                    <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {</span><span class="ln del">                        <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="k">false</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln del">                    }</span><span class="ln add">                    <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);</span><span class="ln">                });</span><span class="ln">            });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>And the channel import, whose 321 reservations started the incident. Now they queue at most one push per listing:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/ImportChannelReservation.php</span><span class="badge">changed since scene 15: <span class="plus">+2</span> <span class="minus">−6</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Jobs\PushAvailability;
+use App\Models\Booking;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\DB;
+
+final class ImportChannelReservation
+{
+    /** @return bool true when the reservation was applied, false when it was older than what we have */
+    public function handle(ChannelReservation $reservation): bool
+    {
+        $listing = ChannelListing::query()
+            -&gt;where('channel', $reservation-&gt;channel)
+            -&gt;where('external_listing_id', $reservation-&gt;externalListingId)
+            -&gt;firstOrFail();
+
+        return DB::transaction(function () use ($reservation, $listing): bool {
+            Property::whereKey($listing-&gt;property_id)-&gt;lockForUpdate()-&gt;firstOrFail();   // one change per property at a time
+
+            $booking = Booking::query()
+                -&gt;where('channel', $reservation-&gt;channel)
+                -&gt;where('external_id', $reservation-&gt;externalId)
+                -&gt;lockForUpdate()
+                -&gt;first() ?? new Booking();
+
+            if ($booking-&gt;exists &amp;&amp; $booking-&gt;external_version &gt;= $reservation-&gt;version) {
+                return false;                                      // older or the same: already applied something newer
+            }
+
+            $booking-&gt;forceFill([
+                'property_id' =&gt; $listing-&gt;property_id,
+                'channel' =&gt; $reservation-&gt;channel,
+                'external_id' =&gt; $reservation-&gt;externalId,
+                'external_version' =&gt; $reservation-&gt;version,
+                'status' =&gt; $reservation-&gt;status,                  // the channel decides; our own State rules (scene 9) guard our actions
+                'guest_name' =&gt; $reservation-&gt;guestName,
+                'guest_email' =&gt; $reservation-&gt;guestEmail,
+                'guests' =&gt; $reservation-&gt;guests,
+                'stay' =&gt; $reservation-&gt;stay,
+                'total' =&gt; $reservation-&gt;total,
+                'confirmed_at' =&gt; $booking-&gt;confirmed_at ?? now(),
+                'cancelled_at' =&gt; $reservation-&gt;status === BookingStatus::Cancelled ? ($booking-&gt;cancelled_at ?? now()) : null,
+            ])-&gt;save();
+
+            PushAvailability::forProperty($booking-&gt;property);          // one coalesced push per listing, not one per change
+
+            return true;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">ImportChannelReservation</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return bool true when the reservation was applied, false when it was older than what we have */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelReservation</span> <span class="v">$reservation</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$listing</span> = <span class="t">ChannelListing</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'external_listing_id'</span>, <span class="v">$reservation</span>-&gt;externalListingId)</span><span class="ln">            -&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$reservation</span>, <span class="v">$listing</span>): <span class="k">bool</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$listing</span>-&gt;property_id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// one change per property at a time</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'external_id'</span>, <span class="v">$reservation</span>-&gt;externalId)</span><span class="ln">                -&gt;<span class="f">lockForUpdate</span>()</span><span class="ln">                -&gt;<span class="f">first</span>() ?? <span class="k">new</span> <span class="f">Booking</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$booking</span>-&gt;exists &amp;&amp; <span class="v">$booking</span>-&gt;external_version &gt;= <span class="v">$reservation</span>-&gt;version) {</span><span class="ln">                <span class="k">return</span> <span class="k">false</span>;                                      <span class="c">// older or the same: already applied something newer</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">forceFill</span>([</span><span class="ln">                <span class="s">'property_id'</span> =&gt; <span class="v">$listing</span>-&gt;property_id,</span><span class="ln">                <span class="s">'channel'</span> =&gt; <span class="v">$reservation</span>-&gt;channel,</span><span class="ln">                <span class="s">'external_id'</span> =&gt; <span class="v">$reservation</span>-&gt;externalId,</span><span class="ln">                <span class="s">'external_version'</span> =&gt; <span class="v">$reservation</span>-&gt;version,</span><span class="ln">                <span class="s">'status'</span> =&gt; <span class="v">$reservation</span>-&gt;status,                  <span class="c">// the channel decides; our own State rules (scene 9) guard our actions</span></span><span class="ln">                <span class="s">'guest_name'</span> =&gt; <span class="v">$reservation</span>-&gt;guestName,</span><span class="ln">                <span class="s">'guest_email'</span> =&gt; <span class="v">$reservation</span>-&gt;guestEmail,</span><span class="ln">                <span class="s">'guests'</span> =&gt; <span class="v">$reservation</span>-&gt;guests,</span><span class="ln">                <span class="s">'stay'</span> =&gt; <span class="v">$reservation</span>-&gt;stay,</span><span class="ln">                <span class="s">'total'</span> =&gt; <span class="v">$reservation</span>-&gt;total,</span><span class="ln">                <span class="s">'confirmed_at'</span> =&gt; <span class="v">$booking</span>-&gt;confirmed_at ?? <span class="f">now</span>(),</span><span class="ln">                <span class="s">'cancelled_at'</span> =&gt; <span class="v">$reservation</span>-&gt;status === <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> ? (<span class="v">$booking</span>-&gt;cancelled_at ?? <span class="f">now</span>()) : <span class="k">null</span>,</span><span class="ln">            ])-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln del">            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$other</span>) {     <span class="c">// tell the other channels</span></span><span class="ln del">                <span class="k">if</span> (<span class="v">$other</span>-&gt;channel !== <span class="v">$reservation</span>-&gt;channel) {</span><span class="ln del">                    <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$other</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="v">$booking</span>-&gt;status !== <span class="t">BookingStatus</span>::<span class="t">Cancelled</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln del">                }</span><span class="ln del">            }</span><span class="ln add">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// one coalesced push per listing, not one per change</span></span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="k">true</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p><code>CloseChannelDates</code> has no callers left. Delete it and its test:</p><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
+<pre class="code"><code><span class="f">rm</span> app/Jobs/CloseChannelDates.php tests/Feature/CloseChannelDatesTest.php</code></pre>
+</div></div></div></section>
+<section><h2>The fix, part 3: queues on Redis, run by Horizon</h2><p>Two queues: <code>default</code> for guest-facing work (emails, payments) and <code>channels</code> for pushes, each with its own workers, so a flood on one never delays the other. Horizon runs and supervises the workers, restarts them when they die, and shows throughput, wait times and failed jobs in a dashboard.</p><p>One rule ties the two files together: a worker’s <code>timeout</code> must be <b>shorter</b> than the queue’s <code>retry_after</code>. Redis hands a job to another worker if it has been reserved for <code>retry_after</code> seconds without finishing. A job allowed to run longer than that runs <b>twice, at the same time</b>.</p><div class="blocks"><div class="block"><p>Install Horizon. <code>horizon:install</code> creates <code>config/horizon.php</code>:</p><div class="codebox">
+<div class="filehead"><span class="path">terminal</span></div>
 <pre class="code"><code><span class="f">composer</span> require laravel/horizon
-<span class="f">php</span> artisan horizon:install
-<span class="f">
-#</span> config/queue.php
-<span class="s">'redis'</span> =&gt; [
-<span class="f">    'driver'</span> =&gt; <span class="s">'redis'</span>,
-<span class="f">    'connection'</span> =&gt; <span class="s">'default'</span>,
-<span class="f">    'queue'</span> =&gt; <span class="s">'default'</span>,
-<span class="f">    'retry_after'</span> =&gt; 660,            <span class="c"># longer than the slowest job's timeout (600 below)</span>
-<span class="f">    'block_for'</span> =&gt; 5,                <span class="c"># wait up to 5 s for a job instead of polling Redis in a tight loop</span>
-<span class="f">    'after_commit'</span> =&gt; true,          <span class="c"># every dispatch waits for the open transaction to commit</span>
-<span class="f">],</span></code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">config/horizon.php (environments)</span></div>
+<span class="f">php</span> artisan horizon:install</code></pre>
+</div></div><div class="block"><p>In <code>config/queue.php</code>, replace the <code>redis</code> entry inside <code>connections</code> with this one. The other connections stay as they are:</p><div class="codebox">
+<div class="filehead"><span class="path">config/queue.php (the redis entry under connections)</span></div>
+<pre class="code"><code><span class="s">'redis'</span> =&gt; [
+    <span class="s">'driver'</span> =&gt; <span class="s">'redis'</span>,
+    <span class="s">'connection'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_QUEUE_CONNECTION'</span>, <span class="s">'default'</span>),
+    <span class="s">'queue'</span> =&gt; <span class="f">env</span>(<span class="s">'REDIS_QUEUE'</span>, <span class="s">'default'</span>),
+    <span class="s">'retry_after'</span> =&gt; <span class="n">660</span>,            <span class="c">// longer than the slowest job's timeout (600 below)</span>
+    <span class="s">'block_for'</span> =&gt; <span class="n">5</span>,                <span class="c">// wait up to 5 s for a job instead of polling Redis in a tight loop</span>
+    <span class="s">'after_commit'</span> =&gt; <span class="k">true</span>,          <span class="c">// every dispatch waits for the open transaction to commit</span>
+],</code></pre>
+</div></div><div class="block"><p>In <code>config/horizon.php</code>, replace the whole <code>environments</code> array with this one. Everything else in the file stays as Horizon created it:</p><div class="codebox">
+<div class="filehead"><span class="path">config/horizon.php (the environments array)</span></div>
 <pre class="code"><code><span class="s">'environments'</span> =&gt; [
     <span class="s">'production'</span> =&gt; [
         <span class="s">'guests'</span> =&gt; [
@@ -300,7 +483,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>A burst becomes one push, the runs are right, and the push sends them</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/PushAvailabilityTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/PushAvailabilityTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">AvailabilityRuns</span>;

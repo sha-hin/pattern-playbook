@@ -76,11 +76,11 @@ final class CreateBooking
             }
 
             $booking = new Booking($guest);
-            $booking->stay = $stay;
-            $booking->total = $property->nightly_rate->times($stay->nights());
+            $booking->stay = $stay;                                                // scene 2
+            $booking->total = $property->nightly_rate->times($stay->nights());     // scene 1
             $booking->status = BookingStatus::Pending;
             $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
-            $property->bookings()->save($booking);
+            $property->bookings()->save($booking);                                 // sets property_id
 
             return $booking;
         }, attempts: 3);                                                   // retried on a deadlock
@@ -223,13 +223,41 @@ it('lets only one of two simultaneous requests book the same nights', function (
       {
         title: 'Include the folder in the full suite',
         text: ['`tests/Pest.php` applies `RefreshDatabase` to `Feature` and `Unit` only, so this folder sets up its own traits. Add it to `phpunit.xml` so `./vendor/bin/pest` runs it with everything else. It needs the `pcntl` and `posix` extensions from the [PHP image](F#dockerfile).'],
-        path: 'phpunit.xml (testsuites)',
+        path: 'phpunit.xml',
         lang: 'xml',
-        code: String.raw`<testsuites>
-    <testsuite name="Unit"><directory>tests/Unit</directory></testsuite>
-    <testsuite name="Feature"><directory>tests/Feature</directory></testsuite>
-    <testsuite name="Concurrency"><directory>tests/Concurrency</directory></testsuite>
-</testsuites>`,
+        code: String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Concurrency">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="pms_test"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+    </php>
+</phpunit>`,
       },
     ],
   },

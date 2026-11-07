@@ -43,47 +43,134 @@ public function view(User $user, Booking $booking): Response { /* member of the 
         },
         {
           title: 'One more ability on the policy',
-          path: 'app/Policies/BookingPolicy.php (added)',
-          fragment: true,
-          code: String.raw`public function viewFinancials(User $user, Booking $booking): bool
+          path: 'app/Policies/BookingPolicy.php',
+          code: String.raw`<?php
+
+namespace App\Policies;
+
+use App\Enums\MembershipRole;
+use App\Models\Booking;
+use App\Models\User;
+use Illuminate\Auth\Access\Response;
+
+class BookingPolicy
 {
-    return $user->roleIn($booking->property->account_id) === MembershipRole::CoHost;   // owners: see Gate::before below
+    public function view(User $user, Booking $booking): Response
+    {
+        return $this->member($user, $booking) ? Response::allow() : Response::denyAsNotFound();   // 404, not 403
+    }
+
+    public function update(User $user, Booking $booking): Response
+    {
+        if (! $this->member($user, $booking)) {
+            return Response::denyAsNotFound();
+        }
+
+        return in_array($user->roleIn($booking->property->account_id), [MembershipRole::Owner, MembershipRole::CoHost], true)
+            ? Response::allow()
+            : Response::deny('Only owners and co-hosts can change bookings.');     // a member may know it exists
+    }
+
+    public function viewFinancials(User $user, Booking $booking): bool
+    {
+        return $user->roleIn($booking->property->account_id) === MembershipRole::CoHost;   // owners: see Gate::before
+    }
+
+    private function member(User $user, Booking $booking): bool
+    {
+        return $user->roleIn($booking->property->account_id) !== null;
+    }
 }`,
         },
         {
           title: 'The resource leaves money out unless allowed',
           text: ['`when()` drops the key entirely, so the cleaner’s JSON has no `total` at all, not a `null` that hints something is hidden.'],
-          path: 'app/Http/Resources/BookingResource.php (after)',
-          fragment: true,
-          code: String.raw`return [
-    'id' => $this->id,
-    'status' => $this->status->value,
-    'check_in' => $this->stay->checkIn->toDateString(),
-    'check_out' => $this->stay->checkOut->toDateString(),
-    'guests' => $this->guests,
-    'total' => $this->when(
-        $request->user()?->can('viewFinancials', $this->resource),
-        fn (): array => ['amount' => $this->total->amount, 'currency' => $this->total->currency->value],
-    ),
-];`,
+          path: 'app/Http/Resources/BookingResource.php',
+          code: String.raw`<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\Booking */
+class BookingResource extends JsonResource
+{
+    /** @return array<string, mixed> */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'status' => $this->status->value,
+            'check_in' => $this->stay->checkIn->toDateString(),
+            'check_out' => $this->stay->checkOut->toDateString(),
+            'nights' => $this->stay->nights(),
+            'guests' => $this->guests,                                      // what a cleaner needs
+            'total' => $this->when(                                         // money only for those allowed to see it
+                $request->user()?->can('viewFinancials', $this->resource),
+                fn (): array => ['amount' => $this->total->amount, 'currency' => $this->total->currency->value],
+            ),
+            'expires_at' => $this->expires_at?->toIso8601String(),
+        ];
+    }
+}`,
         },
         {
           title: 'Owners may do everything in their own account',
-          text: [
-            'Instead of repeating "or the owner" in every policy method, one check runs **before** every policy. It returns `true` for the owner of the record’s account, and `null` for everyone else, which means "no opinion, ask the policy". Returning `false` would deny every ability to everybody who isn’t an owner.',
-          ],
-          path: 'app/Providers/AppServiceProvider.php (boot, added)',
-          fragment: true,
-          code: String.raw`Gate::before(function (User $user, string $ability, array $arguments): ?bool {
-    $accountId = match (true) {
-        ($arguments[0] ?? null) instanceof Booking => $arguments[0]->property->account_id,
-        ($arguments[0] ?? null) instanceof Property => $arguments[0]->account_id,
-        ($arguments[0] ?? null) instanceof Account => $arguments[0]->id,
-        default => null,
-    };
+          text: ['Instead of repeating "or the owner" in every policy method, one check runs **before** every policy, in the provider’s `boot()`. It returns `true` for the owner of the record’s account, and `null` for everyone else, which means "no opinion, ask the policy". Returning `false` would deny every ability to everybody who isn’t an owner.'],
+          path: 'app/Providers/AppServiceProvider.php',
+          code: String.raw`<?php
 
-    return $accountId !== null && $user->roleIn($accountId) === MembershipRole::Owner ? true : null;
-});`,
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(StripeClient::class, fn (): StripeClient => new StripeClient([
+            'api_key' => config('services.stripe.secret'),
+            'stripe_version' => config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' => 2,
+        ]));
+
+        $this->app->bind(PaymentGateway::class, StripeGateway::class);
+
+        $this->app->singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this->app->isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        // An account's owner may do everything in that account. null = "no opinion, ask the policy".
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking => $arguments[0]->property->account_id,
+                ($arguments[0] ?? null) instanceof Property => $arguments[0]->account_id,
+                ($arguments[0] ?? null) instanceof Account => $arguments[0]->id,
+                default => null,
+            };
+
+            return $accountId !== null && $user->roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+    }
+}`,
           after: ['It only says yes for the owner of **that** record’s account, so an owner of another account still gets scene 19’s 404.'],
         },
       ],
@@ -157,7 +244,36 @@ final class InviteMember
         return $invitation;
     }
 }`,
-          after: ['The model casts `role` to `MembershipRole` and the two timestamps to datetimes; `$fillable` lists its columns, because only this action writes it.'],
+        },
+        {
+          text: ['The invitation model:'],
+          path: 'app/Models/AccountInvitation.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\MembershipRole;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class AccountInvitation extends Model
+{
+    protected $fillable = ['account_id', 'email', 'invited_by', 'role', 'expires_at', 'accepted_at'];   // written by InviteMember only
+
+    protected function casts(): array
+    {
+        return [
+            'role' => MembershipRole::class,
+            'expires_at' => 'datetime',
+            'accepted_at' => 'datetime',
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+}`,
         },
         {
           title: 'The email',
@@ -207,8 +323,6 @@ use Illuminate\Support\Facades\DB;
 
 class AcceptInvitationController extends Controller
 {
-    // Route::get('/invitations/{invitation}/accept', AcceptInvitationController::class)
-    //     ->middleware(['auth', 'signed'])->name('invitations.accept');
     public function __invoke(Request $request, AccountInvitation $invitation): RedirectResponse
     {
         $user = $request->user();
@@ -225,6 +339,25 @@ class AcceptInvitationController extends Controller
         return redirect('/dashboard');
     }
 }`,
+        },
+        {
+          text: ['Its route is a web route, because the invitee clicks it in an email and arrives in a browser:'],
+          path: 'routes/web.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\AcceptInvitationController;
+use App\Http\Controllers\PaymentReturnController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => view('welcome'));
+
+// Stripe sends the guest's browser here after a card payment (the return_url of the payment).
+Route::get('/payments/return', PaymentReturnController::class)->name('payments.return');
+
+// The link in the invitation email: logged in, and the signature must match.
+Route::get('/invitations/{invitation}/accept', AcceptInvitationController::class)
+    ->middleware(['auth', 'signed'])
+    ->name('invitations.accept');`,
         },
       ],
     },
@@ -266,6 +399,110 @@ final class RemoveMember
     }
 }`,
           after: ['The owners are read with a lock, so two owners removing each other at the same moment can’t both succeed.'],
+        },
+        {
+          title: 'The endpoints',
+          text: ['Inviting and removing are owner-only. The policy says no to everyone, and `Gate::before` from part 1 lets owners through:'],
+          path: 'app/Policies/AccountPolicy.php',
+          code: String.raw`<?php
+
+namespace App\Policies;
+
+use App\Models\Account;
+use App\Models\User;
+
+class AccountPolicy
+{
+    /** Only owners, who are let through by Gate::before. Everyone else: no. */
+    public function manageMembers(User $user, Account $account): bool
+    {
+        return false;
+    }
+}`,
+        },
+        {
+          text: ['The controller validates, checks the policy and calls the two actions:'],
+          path: 'app/Http/Controllers/AccountMemberController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Accounts\InviteMember;
+use App\Accounts\RemoveMember;
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
+
+class AccountMemberController extends Controller
+{
+    public function store(Request $request, Account $account, InviteMember $invite): JsonResponse
+    {
+        Gate::authorize('manageMembers', $account);                     // the current account, from scene 19's middleware
+
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'role' => ['required', Rule::enum(MembershipRole::class)->except([MembershipRole::Owner])],
+        ]);
+
+        $invitation = $invite->handle($account, $request->user(), $data['email'], MembershipRole::from($data['role']));
+
+        return response()->json(['id' => $invitation->id, 'expires_at' => $invitation->expires_at->toIso8601String()], 201);
+    }
+
+    public function destroy(Account $account, User $user, RemoveMember $remove): Response
+    {
+        Gate::authorize('manageMembers', $account);
+
+        $remove->handle($account, $user);
+
+        return response()->noContent();
+    }
+}`,
+        },
+        {
+          text: ['Both routes go in scene 19’s group, so they always act on the current account:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\AccountMemberController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])->prefix('v1')->group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])->can('createBooking', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])->can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])->can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)->can('update', 'booking');
+
+    Route::post('/members', [AccountMemberController::class, 'store']);         // invite someone to the current account
+    Route::delete('/members/{user}', [AccountMemberController::class, 'destroy']);
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404`,
         },
       ],
     },

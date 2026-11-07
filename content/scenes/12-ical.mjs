@@ -118,7 +118,7 @@ enum Channel: string
 }`,
         },
         {
-          path: 'app/Models/IcalFeed.php · app/Models/ExternalBlock.php',
+          path: 'app/Models/IcalFeed.php',
           code: String.raw`<?php
 
 namespace App\Models;
@@ -174,11 +174,110 @@ class ExternalBlock extends Model
         },
         {
           title: 'Booking checks the blocks too',
-          text: ['Inside scene 4’s lock, one more check before saving. `Property` gets `externalBlocks()` and `icalFeeds()` relations.'],
-          path: 'app/Bookings/CreateBooking.php (inside the transaction)',
-          fragment: true,
-          code: String.raw`if ($property->bookings()->overlapping($stay)->exists() || $property->externalBlocks()->overlapping($stay)->exists()) {
-    throw BookingConflict::for($stay);
+          text: ['Inside scene 4’s lock, one more check before saving:'],
+          path: 'app/Bookings/CreateBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
+    {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property->id)->lockForUpdate()->firstOrFail();   // others wait here
+
+            $taken = $property->bookings()->overlapping($stay)->exists()
+                || $property->externalBlocks()->overlapping($stay)->exists();   // nights sold on Airbnb or Booking.com
+            if ($taken) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this->quoter->quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking->stay = $stay;
+            $booking->total = $quote->total();
+            $booking->cancellation_policy = $property->cancellation_policy;   // the terms the guest agreed to, frozen
+            $booking->status = BookingStatus::Pending;
+            $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
+            $property->bookings()->save($booking);
+
+            $booking->lineItems()->createMany(array_map(fn (LineItem $line): array => [
+                'type' => $line->type,
+                'description' => $line->description,
+                'amount' => $line->amount,
+            ], $quote->lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}`,
+        },
+        {
+          text: ['`Property` gets the two relations it uses:'],
+          path: 'app/Models/Property.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' => MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' => CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this->hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this->hasMany(ExternalBlock::class);
+    }
 }`,
         },
       ],
@@ -360,9 +459,20 @@ class SyncIcalFeed implements ShouldQueue
 }`,
         },
         {
-          path: 'routes/console.php (added)',
-          fragment: true,
-          code: String.raw`Schedule::call(function (): void {
+          path: 'routes/console.php',
+          code: String.raw`<?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();
+
+Schedule::call(function (): void {
     IcalFeed::query()->lazyById()->each(fn (IcalFeed $feed) => SyncIcalFeed::dispatch($feed));
 })->everyFifteenMinutes()->name('sync-ical-feeds')->withoutOverlapping();`,
           after: ['Fifteen minutes is the honest limit of iCal: a booking on Airbnb can sit unseen here for that long. That’s why the next scene connects to the real APIs.'],

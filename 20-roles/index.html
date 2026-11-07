@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 20: The cleaner can see payouts","description":"A cleaner could see what every guest paid, and co-hosts were invited by sharing the owner’s password. Fix it in Laravel with role-based policies, conditional resource fields, Gate::before for account owners, invitations through temporary signed URLs, and safe member removal.","url":"https://sha-hin.github.io/pattern-playbook/20-roles/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/20-roles/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 20: The cleaner can see payouts","item":"https://sha-hin.github.io/pattern-playbook/20-roles/"}]}]}</script>
 </head>
@@ -66,40 +66,132 @@
 <span class="k">public</span> <span class="k">function</span> <span class="f">view</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Response</span> { <span class="c">/* member of the account? */</span> }</code></pre>
 </div><p>Scene 19 answered &quot;which <b>account</b> may see this?&quot;. Inside an account there are roles (owner, co-host, cleaner, from the <a href="../00-foundation/#enum-membership-role">foundation</a>), and the code ignores them: a cleaner needs dates and the number of guests, not money.</p><p>And with no invitations, the only way to add a co-host was to share a login: no record of who did what, and no way to remove her without changing the owner’s password.</p></div></div></section>
 <section><h2>The fix, part 1: what each role may do</h2><div class="blocks"><div class="block"><div class="tablewrap"><table><thead><tr><th scope="col">Ability</th><th scope="col">Owner</th><th scope="col">Co-host</th><th scope="col">Cleaner</th></tr></thead>
-<tbody><tr><th scope="row">See a booking (dates, guests)</th><td>✓</td><td>✓</td><td>✓</td></tr><tr><th scope="row">See money (totals, payments, payouts)</th><td>✓</td><td>✓</td><td>✗</td></tr><tr><th scope="row">Change or cancel a booking</th><td>✓</td><td>✓</td><td>✗</td></tr><tr><th scope="row">Invite and remove members</th><td>✓</td><td>✗</td><td>✗</td></tr></tbody></table></div></div><div class="block"><h3>One more ability on the policy</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Policies/BookingPolicy.php (added)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">viewFinancials</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">bool</span>
-{
-    <span class="k">return</span> <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$booking</span>-&gt;property-&gt;account_id) === <span class="t">MembershipRole</span>::<span class="t">CoHost</span>;   <span class="c">// owners: see Gate::before below</span>
-}</code></pre>
-</div></div><div class="block"><h3>The resource leaves money out unless allowed</h3><p><code>when()</code> drops the key entirely, so the cleaner’s JSON has no <code>total</code> at all, not a <code>null</code> that hints something is hidden.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Resources/BookingResource.php (after)</span></div>
-<pre class="code"><code><span class="k">return</span> [
-    <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,
-    <span class="s">'status'</span> =&gt; <span class="k">$this</span>-&gt;status-&gt;value,
-    <span class="s">'check_in'</span> =&gt; <span class="k">$this</span>-&gt;stay-&gt;checkIn-&gt;<span class="f">toDateString</span>(),
-    <span class="s">'check_out'</span> =&gt; <span class="k">$this</span>-&gt;stay-&gt;checkOut-&gt;<span class="f">toDateString</span>(),
-    <span class="s">'guests'</span> =&gt; <span class="k">$this</span>-&gt;guests,
-    <span class="s">'total'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">when</span>(
-        <span class="v">$request</span>-&gt;<span class="f">user</span>()?-&gt;<span class="f">can</span>(<span class="s">'viewFinancials'</span>, <span class="k">$this</span>-&gt;resource),
-        <span class="k">fn</span> (): <span class="k">array</span> =&gt; [<span class="s">'amount'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;amount, <span class="s">'currency'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;currency-&gt;value],
-    ),
-];</code></pre>
-</div></div><div class="block"><h3>Owners may do everything in their own account</h3><p>Instead of repeating &quot;or the owner&quot; in every policy method, one check runs <b>before</b> every policy. It returns <code>true</code> for the owner of the record’s account, and <code>null</code> for everyone else, which means &quot;no opinion, ask the policy&quot;. Returning <code>false</code> would deny every ability to everybody who isn’t an owner.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php (boot, added)</span></div>
-<pre class="code"><code><span class="t">Gate</span>::<span class="f">before</span>(<span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">string</span> <span class="v">$ability</span>, <span class="k">array</span> <span class="v">$arguments</span>): ?<span class="k">bool</span> {
-    <span class="v">$accountId</span> = <span class="k">match</span> (<span class="k">true</span>) {
-        (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Booking</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;property-&gt;account_id,
-        (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Property</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;account_id,
-        (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Account</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;id,
-        <span class="k">default</span> =&gt; <span class="k">null</span>,
-    };
+<tbody><tr><th scope="row">See a booking (dates, guests)</th><td>✓</td><td>✓</td><td>✓</td></tr><tr><th scope="row">See money (totals, payments, payouts)</th><td>✓</td><td>✓</td><td>✗</td></tr><tr><th scope="row">Change or cancel a booking</th><td>✓</td><td>✓</td><td>✗</td></tr><tr><th scope="row">Invite and remove members</th><td>✓</td><td>✗</td><td>✗</td></tr></tbody></table></div></div><div class="block"><h3>One more ability on the policy</h3><div class="codebox changed">
+<div class="filehead"><span class="path">app/Policies/BookingPolicy.php</span><span class="badge">changed since scene 19: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-    <span class="k">return</span> <span class="v">$accountId</span> !== <span class="k">null</span> &amp;&amp; <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>) === <span class="t">MembershipRole</span>::<span class="t">Owner</span> ? <span class="k">true</span> : <span class="k">null</span>;
-});</code></pre>
+namespace App\Policies;
+
+use App\Enums\MembershipRole;
+use App\Models\Booking;
+use App\Models\User;
+use Illuminate\Auth\Access\Response;
+
+class BookingPolicy
+{
+    public function view(User $user, Booking $booking): Response
+    {
+        return $this-&gt;member($user, $booking) ? Response::allow() : Response::denyAsNotFound();   // 404, not 403
+    }
+
+    public function update(User $user, Booking $booking): Response
+    {
+        if (! $this-&gt;member($user, $booking)) {
+            return Response::denyAsNotFound();
+        }
+
+        return in_array($user-&gt;roleIn($booking-&gt;property-&gt;account_id), [MembershipRole::Owner, MembershipRole::CoHost], true)
+            ? Response::allow()
+            : Response::deny('Only owners and co-hosts can change bookings.');     // a member may know it exists
+    }
+
+    public function viewFinancials(User $user, Booking $booking): bool
+    {
+        return $user-&gt;roleIn($booking-&gt;property-&gt;account_id) === MembershipRole::CoHost;   // owners: see Gate::before
+    }
+
+    private function member(User $user, Booking $booking): bool
+    {
+        return $user-&gt;roleIn($booking-&gt;property-&gt;account_id) !== null;
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Policies</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Auth</span>\<span class="t">Access</span>\<span class="t">Response</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">BookingPolicy</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">view</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Response</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">member</span>(<span class="v">$user</span>, <span class="v">$booking</span>) ? <span class="t">Response</span>::<span class="f">allow</span>() : <span class="t">Response</span>::<span class="f">denyAsNotFound</span>();   <span class="c">// 404, not 403</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">update</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Response</span></span><span class="ln">    {</span><span class="ln">        <span class="k">if</span> (! <span class="k">$this</span>-&gt;<span class="f">member</span>(<span class="v">$user</span>, <span class="v">$booking</span>)) {</span><span class="ln">            <span class="k">return</span> <span class="t">Response</span>::<span class="f">denyAsNotFound</span>();</span><span class="ln">        }</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="f">in_array</span>(<span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$booking</span>-&gt;property-&gt;account_id), [<span class="t">MembershipRole</span>::<span class="t">Owner</span>, <span class="t">MembershipRole</span>::<span class="t">CoHost</span>], <span class="k">true</span>)</span><span class="ln">            ? <span class="t">Response</span>::<span class="f">allow</span>()</span><span class="ln">            : <span class="t">Response</span>::<span class="f">deny</span>(<span class="s">'Only owners and co-hosts can change bookings.'</span>);     <span class="c">// a member may know it exists</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">viewFinancials</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">bool</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$booking</span>-&gt;property-&gt;account_id) === <span class="t">MembershipRole</span>::<span class="t">CoHost</span>;   <span class="c">// owners: see Gate::before</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">member</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$booking</span>-&gt;property-&gt;account_id) !== <span class="k">null</span>;</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>The resource leaves money out unless allowed</h3><p><code>when()</code> drops the key entirely, so the cleaner’s JSON has no <code>total</code> at all, not a <code>null</code> that hints something is hidden.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Resources/BookingResource.php</span><span class="badge">changed since scene 3: <span class="plus">+5</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\Booking */
+class BookingResource extends JsonResource
+{
+    /** @return array&lt;string, mixed&gt; */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'status' =&gt; $this-&gt;status-&gt;value,
+            'check_in' =&gt; $this-&gt;stay-&gt;checkIn-&gt;toDateString(),
+            'check_out' =&gt; $this-&gt;stay-&gt;checkOut-&gt;toDateString(),
+            'nights' =&gt; $this-&gt;stay-&gt;nights(),
+            'guests' =&gt; $this-&gt;guests,                                      // what a cleaner needs
+            'total' =&gt; $this-&gt;when(                                         // money only for those allowed to see it
+                $request-&gt;user()?-&gt;can('viewFinancials', $this-&gt;resource),
+                fn (): array =&gt; ['amount' =&gt; $this-&gt;total-&gt;amount, 'currency' =&gt; $this-&gt;total-&gt;currency-&gt;value],
+            ),
+            'expires_at' =&gt; $this-&gt;expires_at?-&gt;toIso8601String(),
+        ];
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">Json</span>\<span class="t">JsonResource</span>;</span><span class="ln"> </span><span class="ln"><span class="c">/** @mixin \App\Models\Booking */</span></span><span class="ln"><span class="k">class</span> <span class="t">BookingResource</span> <span class="k">extends</span> <span class="t">JsonResource</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return array&lt;string, mixed&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">toArray</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'id'</span> =&gt; <span class="k">$this</span>-&gt;id,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="k">$this</span>-&gt;status-&gt;value,</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="k">$this</span>-&gt;stay-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="k">$this</span>-&gt;stay-&gt;checkOut-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="s">'nights'</span> =&gt; <span class="k">$this</span>-&gt;stay-&gt;<span class="f">nights</span>(),</span><span class="ln del">            <span class="s">'total'</span> =&gt; [<span class="s">'amount'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;amount, <span class="s">'currency'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;currency-&gt;value],</span><span class="ln add">            <span class="s">'guests'</span> =&gt; <span class="k">$this</span>-&gt;guests,                                      <span class="c">// what a cleaner needs</span></span><span class="ln add">            <span class="s">'total'</span> =&gt; <span class="k">$this</span>-&gt;<span class="f">when</span>(                                         <span class="c">// money only for those allowed to see it</span></span><span class="ln add">                <span class="v">$request</span>-&gt;<span class="f">user</span>()?-&gt;<span class="f">can</span>(<span class="s">'viewFinancials'</span>, <span class="k">$this</span>-&gt;resource),</span><span class="ln add">                <span class="k">fn</span> (): <span class="k">array</span> =&gt; [<span class="s">'amount'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;amount, <span class="s">'currency'</span> =&gt; <span class="k">$this</span>-&gt;total-&gt;currency-&gt;value],</span><span class="ln add">            ),</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="k">$this</span>-&gt;expires_at?-&gt;<span class="f">toIso8601String</span>(),</span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Owners may do everything in their own account</h3><p>Instead of repeating &quot;or the owner&quot; in every policy method, one check runs <b>before</b> every policy, in the provider’s <code>boot()</code>. It returns <code>true</code> for the owner of the record’s account, and <code>null</code> for everyone else, which means &quot;no opinion, ask the policy&quot;. Returning <code>false</code> would deny every ability to everybody who isn’t an owner.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge">changed since scene 13: <span class="plus">+18</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Models\User;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
+        ]));
+
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
+
+        $this-&gt;app-&gt;singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
+
+        // An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.
+        Gate::before(function (User $user, string $ability, array $arguments): ?bool {
+            $accountId = match (true) {
+                ($arguments[0] ?? null) instanceof Booking =&gt; $arguments[0]-&gt;property-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Property =&gt; $arguments[0]-&gt;account_id,
+                ($arguments[0] ?? null) instanceof Account =&gt; $arguments[0]-&gt;id,
+                default =&gt; null,
+            };
+
+            return $accountId !== null &amp;&amp; $user-&gt;roleIn($accountId) === MembershipRole::Owner ? true : null;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Gate</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln">        ]));</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ChannelManager</span>::class);                  <span class="c">// one manager: each driver is built once per process</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln add"> </span><span class="ln add">        <span class="c">// An account's owner may do everything in that account. null = &quot;no opinion, ask the policy&quot;.</span></span><span class="ln add">        <span class="t">Gate</span>::<span class="f">before</span>(<span class="k">function</span> (<span class="t">User</span> <span class="v">$user</span>, <span class="k">string</span> <span class="v">$ability</span>, <span class="k">array</span> <span class="v">$arguments</span>): ?<span class="k">bool</span> {</span><span class="ln add">            <span class="v">$accountId</span> = <span class="k">match</span> (<span class="k">true</span>) {</span><span class="ln add">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Booking</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;property-&gt;account_id,</span><span class="ln add">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Property</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;account_id,</span><span class="ln add">                (<span class="v">$arguments</span>[<span class="n">0</span>] ?? <span class="k">null</span>) <span class="k">instanceof</span> <span class="t">Account</span> =&gt; <span class="v">$arguments</span>[<span class="n">0</span>]-&gt;id,</span><span class="ln add">                <span class="k">default</span> =&gt; <span class="k">null</span>,</span><span class="ln add">            };</span><span class="ln add"> </span><span class="ln add">            <span class="k">return</span> <span class="v">$accountId</span> !== <span class="k">null</span> &amp;&amp; <span class="v">$user</span>-&gt;<span class="f">roleIn</span>(<span class="v">$accountId</span>) === <span class="t">MembershipRole</span>::<span class="t">Owner</span> ? <span class="k">true</span> : <span class="k">null</span>;</span><span class="ln add">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div><p>It only says yes for the owner of <b>that</b> record’s account, so an owner of another account still gets scene 19’s 404.</p></div></div></section>
 <section><h2>The fix, part 2: invitations, not shared passwords</h2><p>An owner invites an email address with a role. The invitee gets a link that only works for 7 days and can’t be edited: a <b>signed URL</b>. Accepting requires being logged in as that email address, so a forwarded link is useless to anyone else.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_04_06_000001_create_account_invitations_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_04_06_000001_create_account_invitations_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -124,7 +216,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Accounts/InviteMember.php</span></div>
+<div class="filehead"><span class="path">app/Accounts/InviteMember.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Accounts</span>;
@@ -160,8 +252,36 @@
         <span class="k">return</span> <span class="v">$invitation</span>;
     }
 }</code></pre>
-</div><p>The model casts <code>role</code> to <code>MembershipRole</code> and the two timestamps to datetimes; <code>$fillable</code> lists its columns, because only this action writes it.</p></div><div class="block"><h3>The email</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Mail/InvitationMail.php</span></div>
+</div></div><div class="block"><p>The invitation model:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Models/AccountInvitation.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;
+
+<span class="k">class</span> <span class="t">AccountInvitation</span> <span class="k">extends</span> <span class="t">Model</span>
+{
+    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'account_id'</span>, <span class="s">'email'</span>, <span class="s">'invited_by'</span>, <span class="s">'role'</span>, <span class="s">'expires_at'</span>, <span class="s">'accepted_at'</span>];   <span class="c">// written by InviteMember only</span>
+
+    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span>
+    {
+        <span class="k">return</span> [
+            <span class="s">'role'</span> =&gt; <span class="t">MembershipRole</span>::class,
+            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,
+            <span class="s">'accepted_at'</span> =&gt; <span class="s">'datetime'</span>,
+        ];
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span>
+    {
+        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);
+    }
+}</code></pre>
+</div></div><div class="block"><h3>The email</h3><div class="codebox">
+<div class="filehead"><span class="path">app/Mail/InvitationMail.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Mail</span>;
@@ -192,7 +312,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>Accepting</h3><p>The <code>signed</code> middleware rejects an edited or expired link with a 403 before this code runs. The rest are the checks a signature can’t do.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/AcceptInvitationController.php</span></div>
+<div class="filehead"><span class="path">app/Http/Controllers/AcceptInvitationController.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
@@ -204,8 +324,6 @@
 
 <span class="k">class</span> <span class="t">AcceptInvitationController</span> <span class="k">extends</span> <span class="t">Controller</span>
 {
-    <span class="c">// Route::get('/invitations/{invitation}/accept', AcceptInvitationController::class)</span>
-    <span class="c">//     -&gt;middleware(['auth', 'signed'])-&gt;name('invitations.accept');</span>
     <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">AccountInvitation</span> <span class="v">$invitation</span>): <span class="t">RedirectResponse</span>
     {
         <span class="v">$user</span> = <span class="v">$request</span>-&gt;<span class="f">user</span>();
@@ -222,9 +340,26 @@
         <span class="k">return</span> <span class="f">redirect</span>(<span class="s">'/dashboard'</span>);
     }
 }</code></pre>
+</div></div><div class="block"><p>Its route is a web route, because the invitee clicks it in an email and arrives in a browser:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/web.php</span><span class="badge">changed since scene 6: <span class="plus">+6</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\AcceptInvitationController;
+use App\Http\Controllers\PaymentReturnController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () =&gt; view('welcome'));
+
+// Stripe sends the guest's browser here after a card payment (the return_url of the payment).
+Route::get('/payments/return', PaymentReturnController::class)-&gt;name('payments.return');
+
+// The link in the invitation email: logged in, and the signature must match.
+Route::get('/invitations/{invitation}/accept', AcceptInvitationController::class)
+    -&gt;middleware(['auth', 'signed'])
+    -&gt;name('invitations.accept');"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">AcceptInvitationController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">PaymentReturnController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/'</span>, <span class="k">fn</span> () =&gt; <span class="f">view</span>(<span class="s">'welcome'</span>));</span><span class="ln"> </span><span class="ln"><span class="c">// Stripe sends the guest's browser here after a card payment (the return_url of the payment).</span></span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/payments/return'</span>, <span class="t">PaymentReturnController</span>::class)-&gt;<span class="f">name</span>(<span class="s">'payments.return'</span>);</span><span class="ln add"> </span><span class="ln add"><span class="c">// The link in the invitation email: logged in, and the signature must match.</span></span><span class="ln add"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/invitations/{invitation}/accept'</span>, <span class="t">AcceptInvitationController</span>::class)</span><span class="ln add">    -&gt;<span class="f">middleware</span>([<span class="s">'auth'</span>, <span class="s">'signed'</span>])</span><span class="ln add">    -&gt;<span class="f">name</span>(<span class="s">'invitations.accept'</span>);</span></code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 3: removing a member</h2><p>Removal takes effect on the member’s <b>next request</b>: scene 19’s middleware checks the membership every time, so no session or token has to be hunted down. The one rule that needs code is that an account can never lose its last owner.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Accounts/RemoveMember.php</span></div>
+<div class="filehead"><span class="path">app/Accounts/RemoveMember.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Accounts</span>;
@@ -254,7 +389,104 @@
         });
     }
 }</code></pre>
-</div><p>The owners are read with a lock, so two owners removing each other at the same moment can’t both succeed.</p></div></div></section>
+</div><p>The owners are read with a lock, so two owners removing each other at the same moment can’t both succeed.</p></div><div class="block"><h3>The endpoints</h3><p>Inviting and removing are owner-only. The policy says no to everyone, and <code>Gate::before</code> from part 1 lets owners through:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Policies/AccountPolicy.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Policies</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;
+
+<span class="k">class</span> <span class="t">AccountPolicy</span>
+{
+    <span class="c">/** Only owners, who are let through by Gate::before. Everyone else: no. */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">manageMembers</span>(<span class="t">User</span> <span class="v">$user</span>, <span class="t">Account</span> <span class="v">$account</span>): <span class="k">bool</span>
+    {
+        <span class="k">return</span> <span class="k">false</span>;
+    }
+}</code></pre>
+</div></div><div class="block"><p>The controller validates, checks the policy and calls the two actions:</p><div class="codebox">
+<div class="filehead"><span class="path">app/Http/Controllers/AccountMemberController.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">InviteMember</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">RemoveMember</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Account</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">User</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">JsonResponse</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Response</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Gate</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Validation</span>\<span class="t">Rule</span>;
+
+<span class="k">class</span> <span class="t">AccountMemberController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="k">public</span> <span class="k">function</span> <span class="f">store</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">Account</span> <span class="v">$account</span>, <span class="t">InviteMember</span> <span class="v">$invite</span>): <span class="t">JsonResponse</span>
+    {
+        <span class="t">Gate</span>::<span class="f">authorize</span>(<span class="s">'manageMembers'</span>, <span class="v">$account</span>);                     <span class="c">// the current account, from scene 19's middleware</span>
+
+        <span class="v">$data</span> = <span class="v">$request</span>-&gt;<span class="f">validate</span>([
+            <span class="s">'email'</span> =&gt; [<span class="s">'required'</span>, <span class="s">'email'</span>],
+            <span class="s">'role'</span> =&gt; [<span class="s">'required'</span>, <span class="t">Rule</span>::<span class="f">enum</span>(<span class="t">MembershipRole</span>::class)-&gt;<span class="f">except</span>([<span class="t">MembershipRole</span>::<span class="t">Owner</span>])],
+        ]);
+
+        <span class="v">$invitation</span> = <span class="v">$invite</span>-&gt;<span class="f">handle</span>(<span class="v">$account</span>, <span class="v">$request</span>-&gt;<span class="f">user</span>(), <span class="v">$data</span>[<span class="s">'email'</span>], <span class="t">MembershipRole</span>::<span class="f">from</span>(<span class="v">$data</span>[<span class="s">'role'</span>]));
+
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'id'</span> =&gt; <span class="v">$invitation</span>-&gt;id, <span class="s">'expires_at'</span> =&gt; <span class="v">$invitation</span>-&gt;expires_at-&gt;<span class="f">toIso8601String</span>()], <span class="n">201</span>);
+    }
+
+    <span class="k">public</span> <span class="k">function</span> <span class="f">destroy</span>(<span class="t">Account</span> <span class="v">$account</span>, <span class="t">User</span> <span class="v">$user</span>, <span class="t">RemoveMember</span> <span class="v">$remove</span>): <span class="t">Response</span>
+    {
+        <span class="t">Gate</span>::<span class="f">authorize</span>(<span class="s">'manageMembers'</span>, <span class="v">$account</span>);
+
+        <span class="v">$remove</span>-&gt;<span class="f">handle</span>(<span class="v">$account</span>, <span class="v">$user</span>);
+
+        <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">noContent</span>();
+    }
+}</code></pre>
+</div></div><div class="block"><p>Both routes go in scene 19’s group, so they always act on the current account:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 19: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\AccountMemberController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])-&gt;prefix('v1')-&gt;group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])-&gt;can('createBooking', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])-&gt;can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)-&gt;can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)-&gt;can('update', 'booking');
+
+    Route::post('/members', [AccountMemberController::class, 'store']);         // invite someone to the current account
+    Route::delete('/members/{user}', [AccountMemberController::class, 'destroy']);
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">AccountMemberController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">CancelBookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">ChannelWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">StripeWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Middleware</span>\<span class="t">SetCurrentAccount</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api.</span></span><span class="ln"> </span><span class="ln"><span class="c">// Public: guests aren't logged in when they look at prices.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);</span><span class="ln"> </span><span class="ln"><span class="c">// Everything a host does: logged in, inside one current account, every id checked by a policy.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">middleware</span>([<span class="s">'auth:sanctum'</span>, <span class="t">SetCurrentAccount</span>::class])-&gt;<span class="f">prefix</span>(<span class="s">'v1'</span>)-&gt;<span class="f">group</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])-&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'index'</span>]);</span><span class="ln">    <span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/bookings/{booking}'</span>, [<span class="t">BookingController</span>::class, <span class="s">'show'</span>])-&gt;<span class="f">can</span>(<span class="s">'view'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">patch</span>(<span class="s">'/bookings/{booking}/property'</span>, [<span class="t">BookingController</span>::class, <span class="s">'move'</span>])-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/cancel'</span>, <span class="t">CancelBookingController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)-&gt;<span class="f">can</span>(<span class="s">'update'</span>, <span class="s">'booking'</span>);</span><span class="ln add"> </span><span class="ln add">    <span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/members'</span>, [<span class="t">AccountMemberController</span>::class, <span class="s">'store'</span>]);         <span class="c">// invite someone to the current account</span></span><span class="ln add">    <span class="t">Route</span>::<span class="f">delete</span>(<span class="s">'/members/{user}'</span>, [<span class="t">AccountMemberController</span>::class, <span class="s">'destroy'</span>]);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/stripe'</span>, <span class="t">StripeWebhookController</span>::class);</span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/channels/{channel}'</span>, <span class="t">ChannelWebhookController</span>::class);   <span class="c">// {channel} is the Channel enum: vrbo is a 404</span></span></code></pre>
+</div></div></div></section>
 <section class="laravel"><h2>Laravel inside: what a signed URL is</h2><p>A signed URL is the normal URL plus <code>expires</code> and a <code>signature</code>: an HMAC of the whole URL made with your <code>APP_KEY</code>. Change one character, the invitation id or the expiry, and the signature no longer matches. Nothing is stored in the database.</p><div class="blocks"><div class="block"><div class="codebox">
 <div class="filehead"><span class="path">Illuminate/Routing/UrlGenerator.php (simplified)</span></div>
 <pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">hasCorrectSignature</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="v">$absolute</span> = <span class="k">true</span>, <span class="k">array</span> <span class="v">$ignoreQuery</span> = [])
@@ -277,7 +509,7 @@
 </div><p>Rotating <code>APP_KEY</code> invalidates every signed link at once, open invitations included. Laravel’s <code>APP_PREVIOUS_KEYS</code> keeps old links working during a rotation.</p></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Each role sees what it should, owners via Gate::before, and every way an invitation can be misused</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/RolesTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/RolesTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">RemoveMember</span>;
@@ -302,7 +534,7 @@
     <span class="f">app</span>(<span class="t">RemoveMember</span>::class)-&gt;<span class="f">handle</span>(<span class="k">$this</span>-&gt;booking-&gt;property-&gt;account, <span class="v">$owner</span>);
 })-&gt;<span class="f">throws</span>(<span class="t">LogicException</span>::class, <span class="s">'at least one owner'</span>);</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/InvitationTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/InvitationTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Accounts</span>\<span class="t">InviteMember</span>;

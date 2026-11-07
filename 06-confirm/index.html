@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 6: Marked paid by hand, but the guest never heard","description":"A host marked a bank transfer as paid: the booking said confirmed, the payment stayed pending and the guest got no email, because every caller repeated the confirmation steps its own way. Fix it with the Facade pattern in Laravel, and see how Laravel facades and fakes work inside.","url":"https://sha-hin.github.io/pattern-playbook/06-confirm/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/06-confirm/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Facade pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 6: Marked paid by hand, but the guest never heard","item":"https://sha-hin.github.io/pattern-playbook/06-confirm/"}]}]}</script>
 </head>
@@ -57,22 +57,61 @@
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#support<span class="inc-when">Friday 15:20</span></p>
 <p class="inc-msg"><span class="inc-who">Mona · support</span>A host got a bank transfer for the Lake Cabin and clicked <b>Mark as paid</b>. The booking says *confirmed*, but finance still sees the payment as <b>pending</b>, and the guest never got a confirmation email. She’s asking if her booking is real.</p>
 </section>
-<section><h2>The broken code</h2><p>Confirming a booking is several steps. Each place that confirms one knows a different subset of them:</p><div class="blocks"><div class="block"><div class="codebox broken">
+<section><h2>The broken code</h2><p>Confirming a booking is several steps. Each place that confirms one knows a different subset of them. The card payment’s return page:</p><div class="blocks"><div class="block"><div class="codebox broken">
 <div class="filehead"><span class="path">app/Http/Controllers/PaymentReturnController.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="c">// after a card payment: three steps</span>
-<span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;
-<span class="v">$booking</span>-&gt;confirmed_at = <span class="f">now</span>();
-<span class="v">$booking</span>-&gt;<span class="f">save</span>();
-<span class="v">$payment</span>-&gt;<span class="f">update</span>([<span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>]);
-<span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$booking</span>-&gt;guest_email)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">BookingConfirmedMail</span>(<span class="v">$booking</span>));</code></pre>
-</div></div><div class="block"><div class="codebox broken">
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Mail</span>\<span class="t">BookingConfirmedMail</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">View</span>\<span class="t">View</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Mail</span>;
+
+<span class="k">class</span> <span class="t">PaymentReturnController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="c">// Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="t">View</span>
+    {
+        <span class="v">$payment</span> = <span class="t">Payment</span>::<span class="f">where</span>(<span class="s">'provider_payment_id'</span>, <span class="v">$request</span>-&gt;<span class="f">query</span>(<span class="s">'payment_intent'</span>))-&gt;<span class="f">firstOrFail</span>();
+        <span class="v">$booking</span> = <span class="v">$payment</span>-&gt;booking;
+
+        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;                       <span class="c">// three steps, no transaction</span>
+        <span class="v">$booking</span>-&gt;confirmed_at = <span class="f">now</span>();
+        <span class="v">$booking</span>-&gt;<span class="f">save</span>();
+        <span class="v">$payment</span>-&gt;<span class="f">update</span>([<span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>]);
+        <span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$booking</span>-&gt;guest_email)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">BookingConfirmedMail</span>(<span class="v">$booking</span>));
+
+        <span class="k">return</span> <span class="f">view</span>(<span class="s">'bookings.thank-you'</span>);
+    }
+}</code></pre>
+</div></div><div class="block"><p>And the &quot;Mark as paid&quot; button for bank transfers, added later by someone else:</p><div class="codebox broken">
 <div class="filehead"><span class="path">app/Http/Controllers/MarkBookingPaidController.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="c">// &quot;Mark as paid&quot; for a bank transfer: one step, written later by someone else</span>
-<span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;
-<span class="v">$booking</span>-&gt;<span class="f">save</span>();</code></pre>
+<pre class="code rejected"><code>&lt;?php
+
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">BookingResource</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+
+<span class="k">class</span> <span class="t">MarkBookingPaidController</span> <span class="k">extends</span> <span class="t">Controller</span>
+{
+    <span class="c">// The host received a bank transfer and clicks &quot;Mark as paid&quot;</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span>
+    {
+        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;                       <span class="c">// one step, written later by someone else</span>
+        <span class="v">$booking</span>-&gt;<span class="f">save</span>();
+
+        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);
+    }
+}</code></pre>
 </div><p>Nothing here is hard. The problem is that <b>&quot;confirm a booking&quot; has no home</b>, so every caller has to know all the steps, in the right order, inside a transaction. The next scenes add more steps (close the dates on Airbnb, schedule guest messages, plan the cleaning). Each one would have to be added to every caller, and one will always be forgotten.</p></div></div></section>
 <section><h2>The fix: one front door</h2><div class="blocks"><div class="block"><h3>The guest’s email</h3><p>A queued notification, so a slow mail server never slows down the request. Guests aren’t users, so it is sent &quot;on demand&quot; to an address, below.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/BookingConfirmed.php</span></div>
+<div class="filehead"><span class="path">app/Notifications/BookingConfirmed.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
@@ -109,7 +148,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>The facade</h3><p>One public method that runs every step, in the right order. The status and the payment change in <b>one transaction</b>, so either both happen or neither does. The email is queued with <code>afterCommit()</code>: it only leaves once the transaction has committed, so a guest never gets an email for a change that was rolled back.</p><p>The booking row is locked (scene 4), so two confirmations at the same moment run one after the other, and the second one finds the booking already confirmed and does nothing.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span></div>
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
@@ -152,19 +191,87 @@
         });
     }
 }</code></pre>
-</div></div><div class="block"><h3>Every caller is now one line</h3><p>The card payment and the bank transfer both go through the same door. When Day 3 adds &quot;close the dates on Airbnb&quot;, it is added once, inside <code>confirm()</code>, and no caller changes.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/PaymentReturnController.php · MarkBookingPaidController.php (after)</span></div>
-<pre class="code"><code><span class="c">// after a card payment</span>
-<span class="v">$confirmation</span>-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>, <span class="v">$payment</span>);
+</div></div><div class="block"><h3>Every caller is now one line</h3><p>The card payment and the bank transfer both go through the same door. When Day 3 adds &quot;close the dates on Airbnb&quot;, it is added once, inside <code>confirm()</code>, and no caller changes. The container fills in <code>BookingConfirmation $confirmation</code> (scene 5).</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/PaymentReturnController.php (after)</span><span class="badge">changed since the version above: <span class="plus">+4</span> <span class="minus">−12</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">// &quot;Mark as paid&quot; for a bank transfer: record the transfer, then the same door</span>
-<span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([
-    <span class="s">'amount_cents'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,
-    <span class="s">'currency'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value,
-    <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>,                             <span class="c">// no Stripe id: paid outside Stripe</span>
-]);
-<span class="v">$confirmation</span>-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>, <span class="v">$payment</span>);</code></pre>
-</div><p>Both controllers receive <code>BookingConfirmation $confirmation</code> as a parameter, filled in by the container (scene 5).</p></div></div></section>
+namespace App\Http\Controllers;
+
+use App\Bookings\BookingConfirmation;
+use App\Models\Payment;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+
+class PaymentReturnController extends Controller
+{
+    // Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...
+    public function __invoke(Request $request, BookingConfirmation $confirmation): View
+    {
+        $payment = Payment::where('provider_payment_id', $request-&gt;query('payment_intent'))-&gt;firstOrFail();
+
+        $confirmation-&gt;confirm($payment-&gt;booking, $payment);              // every step, in one place
+
+        return view('bookings.thank-you');
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Mail</span>\<span class="t">BookingConfirmedMail</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">BookingConfirmation</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">View</span>\<span class="t">View</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Request</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Mail</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">PaymentReturnController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="c">// Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...</span></span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="t">View</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">BookingConfirmation</span> <span class="v">$confirmation</span>): <span class="t">View</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$payment</span> = <span class="t">Payment</span>::<span class="f">where</span>(<span class="s">'provider_payment_id'</span>, <span class="v">$request</span>-&gt;<span class="f">query</span>(<span class="s">'payment_intent'</span>))-&gt;<span class="f">firstOrFail</span>();</span><span class="ln del">        <span class="v">$booking</span> = <span class="v">$payment</span>-&gt;booking;</span><span class="ln del"> </span><span class="ln del">        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;                       <span class="c">// three steps, no transaction</span></span><span class="ln del">        <span class="v">$booking</span>-&gt;confirmed_at = <span class="f">now</span>();</span><span class="ln del">        <span class="v">$booking</span>-&gt;<span class="f">save</span>();</span><span class="ln del">        <span class="v">$payment</span>-&gt;<span class="f">update</span>([<span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>]);</span><span class="ln del">        <span class="t">Mail</span>::<span class="f">to</span>(<span class="v">$booking</span>-&gt;guest_email)-&gt;<span class="f">send</span>(<span class="k">new</span> <span class="f">BookingConfirmedMail</span>(<span class="v">$booking</span>));</span><span class="ln add"> </span><span class="ln add">        <span class="v">$confirmation</span>-&gt;<span class="f">confirm</span>(<span class="v">$payment</span>-&gt;booking, <span class="v">$payment</span>);              <span class="c">// every step, in one place</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="f">view</span>(<span class="s">'bookings.thank-you'</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>A bank transfer has no Stripe payment, so the controller records one first, then uses the same door:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Http/Controllers/MarkBookingPaidController.php (after)</span><span class="badge">changed since the version above: <span class="plus">+13</span> <span class="minus">−7</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\BookingConfirmation;
+use App\Enums\PaymentStatus;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+
+class MarkBookingPaidController extends Controller
+{
+    // The host received a bank transfer and clicks &quot;Mark as paid&quot;
+    public function __invoke(Booking $booking, BookingConfirmation $confirmation): BookingResource
+    {
+        $payment = $booking-&gt;payments()-&gt;create([                         // record the transfer first
+            'amount_cents' =&gt; $booking-&gt;total-&gt;amount,
+            'currency' =&gt; $booking-&gt;total-&gt;currency-&gt;value,
+            'status' =&gt; PaymentStatus::Pending,                            // no Stripe id: paid outside Stripe
+        ]);
+
+        $confirmation-&gt;confirm($booking, $payment);                        // then the same door as a card payment
+
+        return new BookingResource($booking-&gt;refresh());
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;</span><span class="ln"> </span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">BookingConfirmation</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Resources</span>\<span class="t">BookingResource</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">MarkBookingPaidController</span> <span class="k">extends</span> <span class="t">Controller</span></span><span class="ln">{</span><span class="ln">    <span class="c">// The host received a bank transfer and clicks &quot;Mark as paid&quot;</span></span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">BookingResource</span></span><span class="ln del">    {</span><span class="ln del">        <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Confirmed</span>;                       <span class="c">// one step, written later by someone else</span></span><span class="ln del">        <span class="v">$booking</span>-&gt;<span class="f">save</span>();</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>);</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">BookingConfirmation</span> <span class="v">$confirmation</span>): <span class="t">BookingResource</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()-&gt;<span class="f">create</span>([                         <span class="c">// record the transfer first</span></span><span class="ln add">            <span class="s">'amount_cents'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;amount,</span><span class="ln add">            <span class="s">'currency'</span> =&gt; <span class="v">$booking</span>-&gt;total-&gt;currency-&gt;value,</span><span class="ln add">            <span class="s">'status'</span> =&gt; <span class="t">PaymentStatus</span>::<span class="t">Pending</span>,                            <span class="c">// no Stripe id: paid outside Stripe</span></span><span class="ln add">        ]);</span><span class="ln add"> </span><span class="ln add">        <span class="v">$confirmation</span>-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>, <span class="v">$payment</span>);                        <span class="c">// then the same door as a card payment</span></span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingResource</span>(<span class="v">$booking</span>-&gt;<span class="f">refresh</span>());</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p>Who may press &quot;Mark as paid&quot; is a policy question; scenes 19 and 20 add it to this route.</p></div><div class="block"><h3>Their routes</h3><p>Both controllers have been routed since launch. Here are the two route files in full, so your app has them too. The API route:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 5: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\MarkBookingPaidController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    -&gt;middleware('auth:sanctum')
+    -&gt;can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    -&gt;middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    -&gt;middleware('auth:sanctum');                                       // who may: scenes 19 and 20"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)</span><span class="ln">    -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);</span><span class="ln add"> </span><span class="ln add"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)</span><span class="ln add">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span></code></pre>
+</div></div><div class="block"><p>The return page is a web route, because it is the guest’s browser that arrives there:</p><div class="codebox">
+<div class="filehead"><span class="path">routes/web.php</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?php
+
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">PaymentReturnController</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;
+
+<span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/'</span>, <span class="k">fn</span> () =&gt; <span class="f">view</span>(<span class="s">'welcome'</span>));
+
+<span class="c">// Stripe sends the guest's browser here after a card payment (the return_url of the payment).</span>
+<span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/payments/return'</span>, <span class="t">PaymentReturnController</span>::class)-&gt;<span class="f">name</span>(<span class="s">'payments.return'</span>);</code></pre>
+</div></div></div></section>
 <section class="reveal"><h2>You just wrote the Facade pattern</h2>
 <p class="rule"><span>Facade</span>One simple entry point in front of a group of steps or classes, so callers don’t have to know how they fit together.</p>
 
@@ -208,7 +315,7 @@
 <tbody><tr><th scope="row">What it is</th><td>A class that runs many steps behind one method</td><td>A static shortcut to one object in the container</td></tr><tr><th scope="row">Has logic?</th><td>Yes: which steps, in which order</td><td>No: it only forwards calls</td></tr><tr><th scope="row">Here</th><td><code>BookingConfirmation::confirm()</code></td><td><code>Notification::route()</code>, <code>DB::transaction()</code></td></tr></tbody></table></div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Every step happens, once, and only for a pending booking</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/BookingConfirmationTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/BookingConfirmationTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">BookingConfirmation</span>;

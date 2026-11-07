@@ -41,27 +41,82 @@ foreach ($theirs->data as $refund) {
       ],
       blocks: [
         {
-          path: 'app/Payments/PaymentGateway.php (one method added)',
-          fragment: true,
-          code: String.raw`/** @return iterable<array{id: string, payment_intent: string, amount: Money}> every refund created in [from, to) */
-public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable;`,
+          text: ['The interface gets one more method:'],
+          path: 'app/Payments/PaymentGateway.php',
+          code: String.raw`<?php
+
+namespace App\Payments;
+
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+
+interface PaymentGateway
+{
+    /**
+     * @param array<string, string> $metadata
+     * @return array{id: string, client_secret: string}
+     */
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array;
+
+    /** @return string the provider's refund id */
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string;
+
+    /** @return iterable<array{id: string, payment_intent: string, amount: Money}> every refund created in [from, to) */
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable;
+}`,
         },
         {
-          path: 'app/Payments/StripeGateway.php (added)',
-          fragment: true,
-          code: String.raw`public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable
-{
-    $pages = $this->stripe->refunds->all([
-        'created' => ['gte' => $from->getTimestamp(), 'lt' => $to->getTimestamp()],
-        'limit' => 100,                                           // the largest page Stripe allows
-    ]);
+          path: 'app/Payments/StripeGateway.php',
+          code: String.raw`<?php
 
-    foreach ($pages->autoPagingIterator() as $refund) {           // fetches the next page when this one runs out
-        yield [
-            'id' => $refund->id,
-            'payment_intent' => (string) $refund->payment_intent,
-            'amount' => Money::of($refund->amount, strtoupper($refund->currency)),
-        ];
+namespace App\Payments;
+
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+use Stripe\StripeClient;
+
+final readonly class StripeGateway implements PaymentGateway
+{
+    public function __construct(private StripeClient $stripe)
+    {
+    }
+
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array
+    {
+        $intent = $this->stripe->paymentIntents->create([
+            'amount' => $amount->amount,                            // already in minor units
+            'currency' => strtolower($amount->currency->value),
+            'automatic_payment_methods' => ['enabled' => true],
+            'metadata' => $metadata,
+        ], ['idempotency_key' => $idempotencyKey]);                   // same key, same PaymentIntent
+
+        return ['id' => $intent->id, 'client_secret' => $intent->client_secret];
+    }
+
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+    {
+        $refund = $this->stripe->refunds->create(
+            ['payment_intent' => $paymentIntentId, 'amount' => $amount->amount],
+            ['idempotency_key' => $idempotencyKey],                     // same key, same refund: never a second one
+        );
+
+        return $refund->id;
+    }
+
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable
+    {
+        $pages = $this->stripe->refunds->all([
+            'created' => ['gte' => $from->getTimestamp(), 'lt' => $to->getTimestamp()],
+            'limit' => 100,                                           // the largest page Stripe allows
+        ]);
+
+        foreach ($pages->autoPagingIterator() as $refund) {           // fetches the next page when this one runs out
+            yield [
+                'id' => $refund->id,
+                'payment_intent' => (string) $refund->payment_intent,
+                'amount' => Money::of($refund->amount, strtoupper($refund->currency)),
+            ];
+        }
     }
 }`,
           after: ['Because of the `yield`, calling `refundsBetween()` runs **none** of this yet. It returns a `Generator`; the code inside runs a little at a time, each time the caller’s `foreach` asks for the next item.'],
@@ -212,9 +267,17 @@ class ReconcileRefunds extends Command
 }`,
         },
         {
-          path: 'routes/console.php (added)',
-          fragment: true,
-          code: String.raw`Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();`,
+          text: ['Scheduled next to scene 9’s command:'],
+          path: 'routes/console.php',
+          code: String.raw`<?php
+
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();`,
           after: ['The same pattern reconciles PaymentIntents (succeeded in Stripe, still pending here) with a second generator in the gateway. And when Nordic Stays starts paying hosts their share through Stripe Connect transfers, the payouts get a reconciliation of their own: every amount that leaves is compared, every night, in its own currency.'],
         },
       ],
@@ -338,7 +401,49 @@ it('records the dashboard refund as an issue, once, however often it runs', func
 
     expect(DB::table('reconciliation_issues')->pluck('provider_id')->all())->toBe(['re_dashboard']);
 });`,
-        after: ['The fake gains a public `$stripeRefunds` array and returns it from `refundsBetween()`. An array is an `iterable`, which is all the command asks for.'],
+      },
+      {
+        text: ['The fake from scene 5 implements the new method: it returns whatever the test put in `$stripeRefunds`. An array is an `iterable`, which is all the command asks for.'],
+        path: 'tests/Fakes/FakePaymentGateway.php',
+        code: String.raw`<?php
+
+namespace Tests\Fakes;
+
+use App\Money\Money;
+use App\Payments\PaymentGateway;
+use Carbon\CarbonImmutable;
+
+final class FakePaymentGateway implements PaymentGateway
+{
+    /** @var list<Money> */
+    public array $charged = [];
+
+    /** @var list<array{key: string, amount: Money}> */
+    public array $refunded = [];
+
+    /** @var list<array{id: string, payment_intent: string, amount: Money}> what "Stripe" reports, set by the test */
+    public array $stripeRefunds = [];
+
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array
+    {
+        $this->charged[] = $amount;
+        $id = 'pi_fake_' . md5($idempotencyKey);
+
+        return ['id' => $id, 'client_secret' => "{$id}_secret"];
+    }
+
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+    {
+        $this->refunded[] = ['key' => $idempotencyKey, 'amount' => $amount];
+
+        return 're_fake_' . md5($idempotencyKey);                  // same key, same refund id
+    }
+
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable
+    {
+        return $this->stripeRefunds;                               // an array is an iterable too
+    }
+}`,
       },
     ],
   },

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 18: Same night sold on Airbnb and Booking.com","description":"The same nights were sold on Airbnb and Booking.com 40 seconds apart, and nobody knew until both families arrived, because every class that changed the calendar told a different subset of the others. Fix it in Laravel with a Mediator: every change reports to one CalendarSync, which detects overbookings and updates every channel.","url":"https://sha-hin.github.io/pattern-playbook/18-overbooking/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/18-overbooking/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Mediator pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 18: Same night sold on Airbnb and Booking.com","item":"https://sha-hin.github.io/pattern-playbook/18-overbooking/"}]}]}</script>
 </head>
@@ -55,22 +55,21 @@
 </header>
 <section class="incident" aria-label="The incident">
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>#incidents<span class="inc-when">Wednesday 15:10</span></p>
-<p class="inc-msg"><span class="inc-who">Ahmed · host</span>Two families are booked into the Lake Cabin for 12–15 July: one from <b>Airbnb</b>, one from <b>Booking.com</b>, made 40 seconds apart last night. Nordic Stays showed both as confirmed and warned nobody.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>The Airbnb import (scene 15) saves the booking, but never pushes to the other channels: only our own confirmations do. And the overlap check only runs for direct bookings.</p>
+<p class="inc-msg"><span class="inc-who">Ahmed · host</span>Two families are booked into the Lake Cabin for 12–15 July: one from <b>Airbnb</b>, one from <b>Booking.com</b>, made 40 seconds apart last night. Nordic Stays showed both as confirmed and warned nobody.</p><p class="inc-msg"><span class="inc-who">Karim · developer</span>Our push closed the nights on Booking.com 40 seconds after the Airbnb booking arrived, and Booking.com had sold them in between. Two channels can always sell the same night inside that window. What hurts is that nothing looks for a clash when a channel booking arrives, so nobody was warned.</p>
 </section>
 <section><h2>The broken code</h2><p>Everything that changes the calendar has to remember what else must happen. Each one remembers a different part:</p><div class="blocks"><div class="block"><div class="codebox broken">
-<div class="filehead"><span class="path">four classes (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="c">// BookingConfirmation (scene 6): pushes to the channels</span>
+<div class="filehead"><span class="path">five classes (before)</span><span class="badge">the bug</span></div>
+<pre class="code rejected"><code><span class="c">// BookingConfirmation, CancelBooking, ExpireHolds (scene 17): push</span>
 <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);
 
-<span class="c">// CancelBooking (scene 10): pushes, and frees the nights</span>
+<span class="c">// ImportChannelReservation (scene 17): pushes too, but never looks for a clash</span>
 <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);
 
-<span class="c">// ExpireHolds (scene 9): forgot to push, so expired holds stay closed on Airbnb</span>
-
-<span class="c">// ImportChannelReservation (scene 15): saves the booking, pushes nothing, checks nothing</span></code></pre>
-</div><p>Four colleagues, each wired to some of the others. When the team added overbooking detection, it went into one of the four. When it adds a fifth source of bookings (a Vrbo import, an admin tool), the list of &quot;what to remember&quot; has to be copied again.</p><p>A channel booking can’t be refused the way a direct one can (scene 3 answers 409): the guest has already paid the channel. The best Nordic Stays can do is <b>notice instantly</b>, tell the host, and close the nights everywhere else.</p></div></div></section>
+<span class="c">// SyncIcalFeed (scene 12): changes the blocks and pushes nothing,</span>
+<span class="c">// so a block from Airbnb's feed never reaches Booking.com</span></code></pre>
+</div><p>Five colleagues, each remembering its own part of what must follow a calendar change. One forgot to push; none checks for a clash. Adding overbooking detection would mean adding it to all five, and the next source of bookings (a Vrbo import, an admin tool) would have to copy the whole list again.</p><p>A channel booking can’t be refused the way a direct one can (scene 3 answers 409): the guest has already paid the channel. The best Nordic Stays can do is <b>notice instantly</b>, tell the host, and close the nights everywhere else.</p></div></div></section>
 <section><h2>The fix, part 1: overbookings are recorded, not lost</h2><p>An overbooking is a fact the host has to act on, so it gets a table. The unique pair means detecting the same clash twice records it once.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_10_000001_create_overbookings_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_03_10_000001_create_overbookings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -93,7 +92,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Overbooking.php</span></div>
+<div class="filehead"><span class="path">app/Models/Overbooking.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -121,7 +120,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>The host hears about it at once</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Notifications/OverbookingDetected.php</span></div>
+<div class="filehead"><span class="path">app/Notifications/OverbookingDetected.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Notifications</span>;
@@ -160,7 +159,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 2: one coordinator</h2><p>Every class that changes the calendar tells <b>one</b> object what happened, and nothing else. That object knows who else has to react, and in which order: first find any clash, then close or open the nights on every channel. The colleagues no longer know about each other, the channels, or overbookings.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/CalendarSync.php</span></div>
+<div class="filehead"><span class="path">app/Channels/CalendarSync.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -214,22 +213,239 @@
         }
     }
 }</code></pre>
-</div><p>Direct bookings can’t clash, because scene 4 refuses them under a lock. Clashes can only come from the channels, which is exactly where this catches them.</p></div><div class="block"><h3>The colleagues, now</h3><p>Each one reports what happened, in one line, inside its own transaction; the pushes and emails it triggers wait for the commit. <code>CalendarSync</code> is injected by the container (scene 5).</p><div class="codebox">
-<div class="filehead"><span class="path">the same four classes (after)</span></div>
-<pre class="code"><code><span class="c">// BookingConfirmation, after the state changed (scene 9)</span>
-<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+</div><p>Direct bookings can’t clash, because scene 4 refuses them under a lock. Clashes can only come from the channels, which is exactly where this catches them.</p></div><div class="block"><h3>The colleagues, now</h3><p>Each one reports what happened, in one line, inside its own transaction; the pushes and emails it triggers wait for the commit. The container injects <code>CalendarSync</code> (scene 5). Confirming:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">changed since scene 17: <span class="plus">+6</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">// CancelBooking, after the state changed (scene 10)</span>
-<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+namespace App\Bookings;
 
-<span class="c">// ExpireHolds, after each expiry</span>
-<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
-<span class="c">// ImportChannelReservation, after saving (only when the reservation was applied)</span>
-<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);
+final class BookingConfirmation
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
 
-<span class="c">// SyncIcalFeed, after the import</span>
-<span class="k">$this</span>-&gt;calendar-&gt;<span class="f">blocksChanged</span>(<span class="k">$this</span>-&gt;feed-&gt;property);</code></pre>
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // fresh, and locked
+
+            if (! $booking-&gt;state()-&gt;confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment-&gt;status = PaymentStatus::Succeeded;               // step 2
+            $payment-&gt;save();
+
+            Notification::route('mail', $booking-&gt;guest_email)         // step 3, after the commit
+                -&gt;notify((new BookingConfirmed($booking))-&gt;afterCommit());
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // step 4: the coordinator decides what follows
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span></span><span class="ln">{</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span></span><span class="ln">                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span></span><span class="ln">            <span class="v">$payment</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span></span><span class="ln">                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln"> </span><span class="ln del">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// step 4: every channel gets the calendar as it is now</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// step 4: the coordinator decides what follows</span></span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Cancelling:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CancelBooking.php</span><span class="badge">changed since scene 17: <span class="plus">+6</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Channels\CalendarSync;
+use App\Enums\PaymentStatus;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+            $nothing = Money::zero($booking-&gt;total-&gt;currency);
+
+            if (! $booking-&gt;state()-&gt;cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // the nights are free again
+
+            $payment = $booking-&gt;payments()
+                -&gt;where('status', PaymentStatus::Succeeded)
+                -&gt;whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                -&gt;latest('id')
+                -&gt;first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()-&gt;diffInHours($booking-&gt;stay-&gt;checkInAt($booking-&gt;property), false));
+            $refund = $booking-&gt;refundPolicy()-&gt;refundFor(Money::of($payment-&gt;amount_cents, $payment-&gt;currency), $hours);
+
+            if ($refund-&gt;amount &gt; 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)-&gt;afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">RefundCancelledBooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CancelBooking</span></span><span class="ln">{</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** @return Money the amount that will be refunded */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="t">Money</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln">            <span class="v">$nothing</span> = <span class="t">Money</span>::<span class="f">zero</span>(<span class="v">$booking</span>-&gt;total-&gt;currency);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">cancel</span>(<span class="v">$booking</span>)) {          <span class="c">// scene 9: already cancelled</span></span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln del">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// the nights are free again everywhere</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// the nights are free again</span></span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>)</span><span class="ln">                -&gt;<span class="f">whereNotNull</span>(<span class="s">'provider_payment_id'</span>)            <span class="c">// card payments; bank transfers go back by hand</span></span><span class="ln">                -&gt;<span class="f">latest</span>(<span class="s">'id'</span>)</span><span class="ln">                -&gt;<span class="f">first</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$payment</span> === <span class="k">null</span>) {</span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$hours</span> = (<span class="k">int</span>) <span class="f">floor</span>(<span class="f">now</span>()-&gt;<span class="f">diffInHours</span>(<span class="v">$booking</span>-&gt;stay-&gt;<span class="f">checkInAt</span>(<span class="v">$booking</span>-&gt;property), <span class="k">false</span>));</span><span class="ln">            <span class="v">$refund</span> = <span class="v">$booking</span>-&gt;<span class="f">refundPolicy</span>()-&gt;<span class="f">refundFor</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$payment</span>-&gt;amount_cents, <span class="v">$payment</span>-&gt;currency), <span class="v">$hours</span>);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$refund</span>-&gt;amount &gt; <span class="n">0</span>) {</span><span class="ln">                <span class="t">RefundCancelledBooking</span>::<span class="f">dispatch</span>(<span class="v">$payment</span>, <span class="v">$refund</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$refund</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>An expired hold. A command receives the coordinator in <code>handle()</code>:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Console/Commands/ExpireHolds.php</span><span class="badge">changed since scene 17: <span class="plus">+5</span> <span class="minus">−5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Console\Commands;
+
+use App\Channels\CalendarSync;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(CalendarSync $calendar): void
+    {
+        Booking::query()
+            -&gt;where('status', BookingStatus::Pending)
+            -&gt;where('expires_at', '&lt;=', now())
+            -&gt;lazyById()
+            -&gt;each(function (Booking $booking) use ($calendar): void {
+                DB::transaction(function () use ($booking, $calendar): void {
+                    $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+
+                    if ($booking-&gt;status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking-&gt;state()-&gt;expire($booking);
+
+                    $calendar-&gt;bookingChanged($booking);
+                });
+            });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Console</span>\<span class="t">Command</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">ExpireHolds</span> <span class="k">extends</span> <span class="t">Command</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$signature</span> = <span class="s">'bookings:expire-holds'</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$description</span> = <span class="s">'Expire pending bookings whose hold has ended'</span>;</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(): <span class="k">void</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">CalendarSync</span> <span class="v">$calendar</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="t">Pending</span>)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'expires_at'</span>, <span class="s">'&lt;='</span>, <span class="f">now</span>())</span><span class="ln">            -&gt;<span class="f">lazyById</span>()</span><span class="ln del">            -&gt;<span class="f">each</span>(<span class="k">function</span> (<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln del">                <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln add">            -&gt;<span class="f">each</span>(<span class="k">function</span> (<span class="t">Booking</span> <span class="v">$booking</span>) <span class="k">use</span> (<span class="v">$calendar</span>): <span class="k">void</span> {</span><span class="ln add">                <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$calendar</span>): <span class="k">void</span> {</span><span class="ln">                    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">                    <span class="k">if</span> (<span class="v">$booking</span>-&gt;status !== <span class="t">BookingStatus</span>::<span class="t">Pending</span>) {   <span class="c">// a payment may have won the race</span></span><span class="ln">                        <span class="k">return</span>;</span><span class="ln">                    }</span><span class="ln"> </span><span class="ln">                    <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">expire</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln del">                    <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);</span><span class="ln add">                    <span class="v">$calendar</span>-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);</span><span class="ln">                });</span><span class="ln">            });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>The channel import, only when the reservation was applied:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/ImportChannelReservation.php</span><span class="badge">changed since scene 17: <span class="plus">+5</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Support\Facades\DB;
+
+final class ImportChannelReservation
+{
+    public function __construct(private CalendarSync $calendar)
+    {
+    }
+
+    /** @return bool true when the reservation was applied, false when it was older than what we have */
+    public function handle(ChannelReservation $reservation): bool
+    {
+        $listing = ChannelListing::query()
+            -&gt;where('channel', $reservation-&gt;channel)
+            -&gt;where('external_listing_id', $reservation-&gt;externalListingId)
+            -&gt;firstOrFail();
+
+        return DB::transaction(function () use ($reservation, $listing): bool {
+            Property::whereKey($listing-&gt;property_id)-&gt;lockForUpdate()-&gt;firstOrFail();   // one change per property at a time
+
+            $booking = Booking::query()
+                -&gt;where('channel', $reservation-&gt;channel)
+                -&gt;where('external_id', $reservation-&gt;externalId)
+                -&gt;lockForUpdate()
+                -&gt;first() ?? new Booking();
+
+            if ($booking-&gt;exists &amp;&amp; $booking-&gt;external_version &gt;= $reservation-&gt;version) {
+                return false;                                      // older or the same: already applied something newer
+            }
+
+            $booking-&gt;forceFill([
+                'property_id' =&gt; $listing-&gt;property_id,
+                'channel' =&gt; $reservation-&gt;channel,
+                'external_id' =&gt; $reservation-&gt;externalId,
+                'external_version' =&gt; $reservation-&gt;version,
+                'status' =&gt; $reservation-&gt;status,                  // the channel decides; our own State rules (scene 9) guard our actions
+                'guest_name' =&gt; $reservation-&gt;guestName,
+                'guest_email' =&gt; $reservation-&gt;guestEmail,
+                'guests' =&gt; $reservation-&gt;guests,
+                'stay' =&gt; $reservation-&gt;stay,
+                'total' =&gt; $reservation-&gt;total,
+                'confirmed_at' =&gt; $booking-&gt;confirmed_at ?? now(),
+                'cancelled_at' =&gt; $reservation-&gt;status === BookingStatus::Cancelled ? ($booking-&gt;cancelled_at ?? now()) : null,
+            ])-&gt;save();
+
+            $this-&gt;calendar-&gt;bookingChanged($booking);                  // clashes are found here, and the channels told
+
+            return true;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">PushAvailability</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">ImportChannelReservation</span></span><span class="ln">{</span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">CalendarSync</span> <span class="v">$calendar</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** @return bool true when the reservation was applied, false when it was older than what we have */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelReservation</span> <span class="v">$reservation</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$listing</span> = <span class="t">ChannelListing</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'external_listing_id'</span>, <span class="v">$reservation</span>-&gt;externalListingId)</span><span class="ln">            -&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$reservation</span>, <span class="v">$listing</span>): <span class="k">bool</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$listing</span>-&gt;property_id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// one change per property at a time</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'channel'</span>, <span class="v">$reservation</span>-&gt;channel)</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'external_id'</span>, <span class="v">$reservation</span>-&gt;externalId)</span><span class="ln">                -&gt;<span class="f">lockForUpdate</span>()</span><span class="ln">                -&gt;<span class="f">first</span>() ?? <span class="k">new</span> <span class="f">Booking</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$booking</span>-&gt;exists &amp;&amp; <span class="v">$booking</span>-&gt;external_version &gt;= <span class="v">$reservation</span>-&gt;version) {</span><span class="ln">                <span class="k">return</span> <span class="k">false</span>;                                      <span class="c">// older or the same: already applied something newer</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">forceFill</span>([</span><span class="ln">                <span class="s">'property_id'</span> =&gt; <span class="v">$listing</span>-&gt;property_id,</span><span class="ln">                <span class="s">'channel'</span> =&gt; <span class="v">$reservation</span>-&gt;channel,</span><span class="ln">                <span class="s">'external_id'</span> =&gt; <span class="v">$reservation</span>-&gt;externalId,</span><span class="ln">                <span class="s">'external_version'</span> =&gt; <span class="v">$reservation</span>-&gt;version,</span><span class="ln">                <span class="s">'status'</span> =&gt; <span class="v">$reservation</span>-&gt;status,                  <span class="c">// the channel decides; our own State rules (scene 9) guard our actions</span></span><span class="ln">                <span class="s">'guest_name'</span> =&gt; <span class="v">$reservation</span>-&gt;guestName,</span><span class="ln">                <span class="s">'guest_email'</span> =&gt; <span class="v">$reservation</span>-&gt;guestEmail,</span><span class="ln">                <span class="s">'guests'</span> =&gt; <span class="v">$reservation</span>-&gt;guests,</span><span class="ln">                <span class="s">'stay'</span> =&gt; <span class="v">$reservation</span>-&gt;stay,</span><span class="ln">                <span class="s">'total'</span> =&gt; <span class="v">$reservation</span>-&gt;total,</span><span class="ln">                <span class="s">'confirmed_at'</span> =&gt; <span class="v">$booking</span>-&gt;confirmed_at ?? <span class="f">now</span>(),</span><span class="ln">                <span class="s">'cancelled_at'</span> =&gt; <span class="v">$reservation</span>-&gt;status === <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> ? (<span class="v">$booking</span>-&gt;cancelled_at ?? <span class="f">now</span>()) : <span class="k">null</span>,</span><span class="ln">            ])-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln del">            <span class="t">PushAvailability</span>::<span class="f">forProperty</span>(<span class="v">$booking</span>-&gt;property);          <span class="c">// one coalesced push per listing, not one per change</span></span><span class="ln add">            <span class="k">$this</span>-&gt;calendar-&gt;<span class="f">bookingChanged</span>(<span class="v">$booking</span>);                  <span class="c">// clashes are found here, and the channels told</span></span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="k">true</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>And the iCal sync, which changes blocks rather than bookings:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Jobs/SyncIcalFeed.php</span><span class="badge">changed since scene 12: <span class="plus">+4</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Jobs;
+
+use App\Channels\CalendarSync;
+use App\Channels\Ical\IcalImporter;
+use App\Models\IcalFeed;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+
+class SyncIcalFeed implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public function __construct(public IcalFeed $feed)
+    {
+    }
+
+    /** @return list&lt;int&gt; */
+    public function backoff(): array
+    {
+        return [60, 300];
+    }
+
+    /** @return list&lt;object&gt; */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping(&quot;ical-feed-{$this-&gt;feed-&gt;id}&quot;))-&gt;expireAfter(120)];
+    }
+
+    public function handle(IcalImporter $importer, CalendarSync $calendar): void
+    {
+        $importer-&gt;sync($this-&gt;feed);
+
+        $calendar-&gt;blocksChanged($this-&gt;feed-&gt;property);               // blocks from Airbnb's feed close Booking.com too
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Ical</span>\<span class="t">IcalImporter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">IcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Queue</span>\<span class="t">Middleware</span>\<span class="t">WithoutOverlapping</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">SyncIcalFeed</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">3</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">IcalFeed</span> <span class="v">$feed</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return list&lt;int&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">backoff</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [<span class="n">60</span>, <span class="n">300</span>];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return list&lt;object&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">middleware</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [(<span class="k">new</span> <span class="f">WithoutOverlapping</span>(<span class="s">&quot;ical-feed-{$this-&gt;feed-&gt;id}&quot;</span>))-&gt;<span class="f">expireAfter</span>(<span class="n">120</span>)];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">IcalImporter</span> <span class="v">$importer</span>): <span class="k">void</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">IcalImporter</span> <span class="v">$importer</span>, <span class="t">CalendarSync</span> <span class="v">$calendar</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$importer</span>-&gt;<span class="f">sync</span>(<span class="k">$this</span>-&gt;feed);</span><span class="ln add"> </span><span class="ln add">        <span class="v">$calendar</span>-&gt;<span class="f">blocksChanged</span>(<span class="k">$this</span>-&gt;feed-&gt;property);               <span class="c">// blocks from Airbnb's feed close Booking.com too</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div></div></div></section>
 <section class="reveal"><h2>You just wrote the Mediator pattern</h2>
 <p class="rule"><span>Mediator</span>One object that coordinates how a group of objects interact, so they talk to it instead of to each other.</p>
@@ -241,7 +457,7 @@
 </section>
 <section class="tests"><details><summary><span>Tests</span><small>A channel clash is recorded and reported once, and every change reaches the channels</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/CalendarSyncTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/CalendarSyncTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">CalendarSync</span>;

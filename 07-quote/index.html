@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 7: The quote said €1,098.90, the card was charged €1,105.50","description":"A guest was quoted €1,098.90 and charged €1,105.50 because the quote page and the booking code calculated the price differently. Fix it with a Builder in Laravel: one quote, built step by step, saved as line items.","url":"https://sha-hin.github.io/pattern-playbook/07-quote/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/07-quote/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Builder pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 7: The quote said €1,098.90, the card was charged €1,105.50","item":"https://sha-hin.github.io/pattern-playbook/07-quote/"}]}]}</script>
 </head>
@@ -65,39 +65,125 @@
     <span class="v">$price</span> = <span class="v">$price</span> * <span class="n">0.9</span>;                       <span class="c">// 10% off... the nights AND the cleaning fee</span>
 }
 <span class="v">$price</span> = <span class="v">$price</span> * <span class="n">1.10</span>;                          <span class="c">// tax</span></code></pre>
-</div></div><div class="block"><div class="codebox broken">
+</div></div><div class="block"><p>And the booking, which decides what the card is charged:</p><div class="codebox broken">
 <div class="filehead"><span class="path">app/Bookings/CreateBooking.php (before)</span><span class="badge">the bug</span></div>
-<pre class="code rejected"><code><span class="c">// the booking: what the card is charged</span>
-<span class="v">$nights</span> = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());
-<span class="k">if</span> (<span class="v">$stay</span>-&gt;<span class="f">nights</span>() &gt;= <span class="n">7</span>) {
-    <span class="v">$nights</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>(<span class="v">$nights</span>-&gt;amount * <span class="n">0.9</span>), <span class="v">$nights</span>-&gt;currency);   <span class="c">// 10% off the nights only</span>
-}
-<span class="v">$total</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>((<span class="v">$nights</span>-&gt;amount + <span class="v">$property</span>-&gt;cleaning_fee_cents) * <span class="n">1.10</span>), <span class="s">'EUR'</span>);</code></pre>
-</div><p>The house rule is &quot;10% off the nights for stays of 7 nights or more&quot;. The booking code follows it; the price page also discounts the cleaning fee. Same inputs, two answers: €1,098.90 and €1,105.50.</p><p>And neither one can explain itself. The guest’s receipt, the host’s payout and the tax report all need the parts (nights, discount, fee, tax), but all the code keeps is one final number.</p></div></div></section>
-<section><h2>The fix, part 1: Money learns percentages</h2><p>Discounts and taxes are percentages, stored as <b>basis points</b> (1/100 of a percent) so they stay integers: 10% is <code>1000</code>. Three methods join scene 1’s <code>Money</code>:</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Money/Money.php (added)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">zero</span>(<span class="t">Currency</span> <span class="v">$currency</span>): <span class="k">self</span>
-{
-    <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="n">0</span>, <span class="v">$currency</span>);
-}
+<pre class="code rejected"><code>&lt;?php
 
-<span class="c">/** 1000 basis points = 10%. Rounded half up, away from zero: 10050.5 cents becomes 10051. */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">percent</span>(<span class="k">int</span> <span class="v">$basisPoints</span>): <span class="k">self</span>
-{
-    <span class="v">$product</span> = <span class="k">$this</span>-&gt;amount * <span class="v">$basisPoints</span>;
-    <span class="v">$rounded</span> = <span class="f">intdiv</span>(<span class="f">abs</span>(<span class="v">$product</span>) + <span class="n">5_000</span>, <span class="n">10_000</span>);
+<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;
 
-    <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$product</span> &lt; <span class="n">0</span> ? -<span class="v">$rounded</span> : <span class="v">$rounded</span>, <span class="k">$this</span>-&gt;currency);
-}
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;
+<span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
+<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;
 
-<span class="c">/** A discount or a refund is a negative amount on the bill. */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">negate</span>(): <span class="k">self</span>
+<span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span>
 {
-    <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(-<span class="k">$this</span>-&gt;amount, <span class="k">$this</span>-&gt;currency);
+    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;
+
+    <span class="c">/** @param array{guest_name: string, guest_email: string, guests: int} $guest */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span>
+    {
+        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {
+            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span>
+
+            <span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {
+                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);
+            }
+
+            <span class="v">$nights</span> = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());
+            <span class="k">if</span> (<span class="v">$stay</span>-&gt;<span class="f">nights</span>() &gt;= <span class="n">7</span>) {
+                <span class="v">$nights</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>(<span class="v">$nights</span>-&gt;amount * <span class="n">0.9</span>), <span class="v">$nights</span>-&gt;currency);   <span class="c">// 10% off the nights only</span>
+            }
+            <span class="v">$total</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>((<span class="v">$nights</span>-&gt;amount + <span class="v">$property</span>-&gt;cleaning_fee_cents) * <span class="n">1.10</span>), <span class="s">'EUR'</span>);
+
+            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);
+            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;
+            <span class="v">$booking</span>-&gt;total = <span class="v">$total</span>;                                     <span class="c">// one number; the parts are gone</span>
+            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
+            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);
+            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);
+
+            <span class="k">return</span> <span class="v">$booking</span>;
+        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span>
+    }
 }</code></pre>
+</div><p>The house rule is &quot;10% off the nights for stays of 7 nights or more&quot;. The booking code follows it; the price page also discounts the cleaning fee. Same inputs, two answers: €1,098.90 and €1,105.50.</p><p>And neither one can explain itself. The guest’s receipt, the host’s payout and the tax report all need the parts (nights, discount, fee, tax), but all the code keeps is one final number.</p></div></div></section>
+<section><h2>The fix, part 1: Money learns percentages</h2><p>Discounts and taxes are percentages, stored as <b>basis points</b> (1/100 of a percent) so they stay integers: 10% is <code>1000</code>. Three methods join scene 1’s <code>Money</code>:</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Money/Money.php</span><span class="badge">changed since scene 1: <span class="plus">+20</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Money;
+
+use Illuminate\Support\Number;
+use LogicException;
+
+final readonly class Money
+{
+    private function __construct(
+        public int $amount,                                     // in minor units: cents, piastres, yen
+        public Currency $currency,
+    ) {
+    }
+
+    public static function of(int $amount, Currency|string $currency): self
+    {
+        return new self($amount, $currency instanceof Currency ? $currency : Currency::from($currency));
+    }
+
+    public function add(self $other): self
+    {
+        $this-&gt;assertSameCurrency($other);
+
+        return new self($this-&gt;amount + $other-&gt;amount, $this-&gt;currency);   // a new object; $this never changes
+    }
+
+    public function times(int $factor): self
+    {
+        return new self($this-&gt;amount * $factor, $this-&gt;currency);
+    }
+
+    public static function zero(Currency $currency): self
+    {
+        return new self(0, $currency);
+    }
+
+    /** 1000 basis points = 10%. Rounded half up, away from zero: 10050.5 cents becomes 10051. */
+    public function percent(int $basisPoints): self
+    {
+        $product = $this-&gt;amount * $basisPoints;
+        $rounded = intdiv(abs($product) + 5_000, 10_000);
+
+        return new self($product &lt; 0 ? -$rounded : $rounded, $this-&gt;currency);
+    }
+
+    /** A discount or a refund is a negative amount on the bill. */
+    public function negate(): self
+    {
+        return new self(-$this-&gt;amount, $this-&gt;currency);
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this-&gt;amount === $other-&gt;amount &amp;&amp; $this-&gt;currency === $other-&gt;currency;
+    }
+
+    /** For people only (emails, screens). Never feed this back into a calculation. */
+    public function format(): string
+    {
+        return Number::currency($this-&gt;amount / 10 ** $this-&gt;currency-&gt;minorUnits(), $this-&gt;currency-&gt;value);
+    }
+
+    private function assertSameCurrency(self $other): void
+    {
+        if ($other-&gt;currency !== $this-&gt;currency) {
+            throw new LogicException(&quot;Can't combine {$this-&gt;currency-&gt;value} with {$other-&gt;currency-&gt;value}.&quot;);
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Money</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Number</span>;</span><span class="ln"><span class="k">use</span> <span class="t">LogicException</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">Money</span></span><span class="ln">{</span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">public</span> <span class="k">int</span> <span class="v">$amount</span>,                                     <span class="c">// in minor units: cents, piastres, yen</span></span><span class="ln">        <span class="k">public</span> <span class="t">Currency</span> <span class="v">$currency</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">of</span>(<span class="k">int</span> <span class="v">$amount</span>, <span class="t">Currency</span>|<span class="k">string</span> <span class="v">$currency</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$amount</span>, <span class="v">$currency</span> <span class="k">instanceof</span> <span class="t">Currency</span> ? <span class="v">$currency</span> : <span class="t">Currency</span>::<span class="f">from</span>(<span class="v">$currency</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">add</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">assertSameCurrency</span>(<span class="v">$other</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="k">$this</span>-&gt;amount + <span class="v">$other</span>-&gt;amount, <span class="k">$this</span>-&gt;currency);   <span class="c">// a new object; $this never changes</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">times</span>(<span class="k">int</span> <span class="v">$factor</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="k">$this</span>-&gt;amount * <span class="v">$factor</span>, <span class="k">$this</span>-&gt;currency);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">zero</span>(<span class="t">Currency</span> <span class="v">$currency</span>): <span class="k">self</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="n">0</span>, <span class="v">$currency</span>);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** 1000 basis points = 10%. Rounded half up, away from zero: 10050.5 cents becomes 10051. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">percent</span>(<span class="k">int</span> <span class="v">$basisPoints</span>): <span class="k">self</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$product</span> = <span class="k">$this</span>-&gt;amount * <span class="v">$basisPoints</span>;</span><span class="ln add">        <span class="v">$rounded</span> = <span class="f">intdiv</span>(<span class="f">abs</span>(<span class="v">$product</span>) + <span class="n">5_000</span>, <span class="n">10_000</span>);</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="v">$product</span> &lt; <span class="n">0</span> ? -<span class="v">$rounded</span> : <span class="v">$rounded</span>, <span class="k">$this</span>-&gt;currency);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** A discount or a refund is a negative amount on the bill. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">negate</span>(): <span class="k">self</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(-<span class="k">$this</span>-&gt;amount, <span class="k">$this</span>-&gt;currency);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">equals</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">bool</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;amount === <span class="v">$other</span>-&gt;amount &amp;&amp; <span class="k">$this</span>-&gt;currency === <span class="v">$other</span>-&gt;currency;</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** For people only (emails, screens). Never feed this back into a calculation. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">format</span>(): <span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">Number</span>::<span class="f">currency</span>(<span class="k">$this</span>-&gt;amount / <span class="n">10</span> ** <span class="k">$this</span>-&gt;currency-&gt;<span class="f">minorUnits</span>(), <span class="k">$this</span>-&gt;currency-&gt;value);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">assertSameCurrency</span>(<span class="k">self</span> <span class="v">$other</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">if</span> (<span class="v">$other</span>-&gt;currency !== <span class="k">$this</span>-&gt;currency) {</span><span class="ln">            <span class="k">throw</span> <span class="k">new</span> <span class="f">LogicException</span>(<span class="s">&quot;Can't combine {$this-&gt;currency-&gt;value} with {$other-&gt;currency-&gt;value}.&quot;</span>);</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div><p>All integer math, so the rounding happens exactly once, in one place.</p></div></div></section>
 <section><h2>The fix, part 2: a price made of lines</h2><div class="blocks"><div class="block"><h3>One line of the bill</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Pricing/LineItem.php · app/Enums/LineItemType.php</span></div>
+<div class="filehead"><span class="path">app/Pricing/LineItem.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
@@ -115,7 +201,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/LineItemType.php</span></div>
+<div class="filehead"><span class="path">app/Enums/LineItemType.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -128,7 +214,7 @@
     <span class="k">case</span> <span class="t">Tax</span> = <span class="s">'tax'</span>;
 }</code></pre>
 </div></div><div class="block"><h3>The finished quote</h3><p>A value object (scene 1): the lines, in order, and a total that is always their sum. Nothing can be added once it exists.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Pricing/Quote.php</span></div>
+<div class="filehead"><span class="path">app/Pricing/Quote.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
@@ -155,7 +241,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 3: the Builder</h2><p>A quote has an order that matters: discounts apply to the nights, the fee comes after, and tax is calculated on everything before it. The builder adds one kind of line per method and <b>enforces that order</b>, so a quote can’t be built wrong.</p><p>Two different recipes need it today: the <b>standard price</b> every guest sees, and the <b>custom offer</b> a host sends one guest (a lower nightly rate for a returning family, say). Both must put lines in the same order and tax last.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Pricing/QuoteBuilder.php</span></div>
+<div class="filehead"><span class="path">app/Pricing/QuoteBuilder.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
@@ -238,7 +324,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 4: the house rules in one place</h2><p>The builder knows *how* to put a quote together. Which steps Nordic Stays uses, and when, are house rules, and they go in one class that both the price page and the booking call.</p><p>Two columns join the <a href="../00-foundation/#table-properties">properties</a> table: the weekly discount and the tax rate, in basis points.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_02_02_000001_add_pricing_to_properties_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_02_02_000001_add_pricing_to_properties_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -256,7 +342,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Pricing/PriceQuoter.php</span></div>
+<div class="filehead"><span class="path">app/Pricing/PriceQuoter.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Pricing</span>;
@@ -310,7 +396,7 @@
 }</code></pre>
 </div><p>The host’s offer screen calls <code>customOffer()</code>. Two recipes, one builder: neither can put the tax before the fee, or forget it.</p><p>For the incident’s stay: 7 × €150.00 = €1,050.00, minus 10% of the nights (€105.00), plus €60.00 cleaning = €1,005.00, plus 10% tax (€100.50) = <b>€1,105.50</b>. One answer, for the page and for the card.</p></div></div></section>
 <section><h2>The fix, part 5: the booking keeps its lines</h2><p>The receipt, the host statement and the tax report all need the parts, so the booking stores every line, not just the total.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_02_02_000002_create_booking_line_items_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_02_02_000002_create_booking_line_items_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -333,7 +419,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/BookingLineItem.php</span></div>
+<div class="filehead"><span class="path">app/Models/BookingLineItem.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -360,30 +446,117 @@
         <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Booking</span>::class);
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Booking.php (relation added)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">lineItems</span>(): <span class="t">HasMany</span>
+</div></div><div class="block"><p>The booking gets a relation to its lines:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 3: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
 {
-    <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">BookingLineItem</span>::class);
-}</code></pre>
-</div></div><div class="block"><h3>CreateBooking asks the quoter</h3><p>Inside scene 4’s transaction, the price comes from the same <code>PriceQuoter</code> the price page uses, and every line is saved with the booking.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/CreateBooking.php (inside the transaction)</span></div>
-<pre class="code"><code><span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);     <span class="c">// CreateBooking now has: public function __construct(private PriceQuoter $quoter) {}</span>
+    use HasFactory;
 
-<span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);
-<span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;
-<span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();
-<span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;
-<span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);
-<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
 
-<span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [
-    <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,
-    <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,
-    <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,
-], <span class="v">$quote</span>-&gt;lines));</code></pre>
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this-&gt;hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query-&gt;whereIn('status', BookingStatus::blocking())
+            -&gt;where('check_in', '&lt;', $stay-&gt;checkOut-&gt;toDateString())     // starts before the new stay ends
+            -&gt;where('check_out', '&gt;', $stay-&gt;checkIn-&gt;toDateString());    // ends after the new stay starts
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">lineItems</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">BookingLineItem</span>::class);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span></span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>CreateBooking asks the quoter</h3><p>Inside scene 4’s transaction, the price comes from the same <code>PriceQuoter</code> the price page uses, and every line is saved with the booking.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge">changed since the version above: <span class="plus">+14</span> <span class="minus">−7</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
+    {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // others wait here
+
+            if ($property-&gt;bookings()-&gt;overlapping($stay)-&gt;exists()) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this-&gt;quoter-&gt;quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking-&gt;stay = $stay;
+            $booking-&gt;total = $quote-&gt;total();
+            $booking-&gt;status = BookingStatus::Pending;
+            $booking-&gt;expires_at = now()-&gt;addMinutes(self::HOLD_MINUTES);
+            $property-&gt;bookings()-&gt;save($booking);
+
+            $booking-&gt;lineItems()-&gt;createMany(array_map(fn (LineItem $line): array =&gt; [
+                'type' =&gt; $line-&gt;type,
+                'description' =&gt; $line-&gt;description,
+                'amount' =&gt; $line-&gt;amount,
+            ], $quote-&gt;lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>)</span><span class="ln add">    {</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="c">/** @param array{guest_name: string, guest_email: string, guests: int} $guest */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {</span><span class="ln">                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln del">            <span class="v">$nights</span> = <span class="v">$property</span>-&gt;nightly_rate-&gt;<span class="f">times</span>(<span class="v">$stay</span>-&gt;<span class="f">nights</span>());</span><span class="ln del">            <span class="k">if</span> (<span class="v">$stay</span>-&gt;<span class="f">nights</span>() &gt;= <span class="n">7</span>) {</span><span class="ln del">                <span class="v">$nights</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>(<span class="v">$nights</span>-&gt;amount * <span class="n">0.9</span>), <span class="v">$nights</span>-&gt;currency);   <span class="c">// 10% off the nights only</span></span><span class="ln del">            }</span><span class="ln del">            <span class="v">$total</span> = <span class="t">Money</span>::<span class="f">of</span>((<span class="k">int</span>) <span class="f">round</span>((<span class="v">$nights</span>-&gt;amount + <span class="v">$property</span>-&gt;cleaning_fee_cents) * <span class="n">1.10</span>), <span class="s">'EUR'</span>);</span><span class="ln add">            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);              <span class="c">// the same price the page showed</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);</span><span class="ln">            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;</span><span class="ln del">            <span class="v">$booking</span>-&gt;total = <span class="v">$total</span>;                                     <span class="c">// one number; the parts are gone</span></span><span class="ln add">            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);</span><span class="ln">            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln add">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln add">                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,</span><span class="ln add">                <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,</span><span class="ln add">                <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,</span><span class="ln add">            ], <span class="v">$quote</span>-&gt;lines));                                           <span class="c">// every line of the bill, kept</span></span><span class="ln add"> </span><span class="ln">            <span class="k">return</span> <span class="v">$booking</span>;</span><span class="ln">        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div></div><div class="block"><h3>The price page asks the same quoter</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/QuoteController.php (after)</span></div>
+<div class="filehead"><span class="path">app/Http/Controllers/QuoteController.php (after)</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
@@ -416,6 +589,28 @@
         ]);
     }
 }</code></pre>
+</div></div><div class="block"><p>The price page’s route is public, because guests aren’t logged in when they look at prices:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 6: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    -&gt;middleware('auth:sanctum')
+    -&gt;can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    -&gt;middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    -&gt;middleware('auth:sanctum');                                       // who may: scenes 19 and 20"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span></span><span class="ln add"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);   <span class="c">// public: guests aren't logged in</span></span><span class="ln add"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)</span><span class="ln">    -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span></code></pre>
 </div></div></div></section>
 <section class="reveal"><h2>You just wrote the Builder pattern</h2>
 <p class="rule"><span>Builder</span>Builds a complex object step by step through small methods, then hands over the finished object with build(). The steps can vary; the finished object is always valid.</p>
@@ -447,7 +642,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>The incident’s numbers, the order rules, and the page matching the booking</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Unit/QuoteBuilderTest.php</span></div>
+<div class="filehead"><span class="path">tests/Unit/QuoteBuilderTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
@@ -483,7 +678,7 @@
     <span class="f">expect</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="n">100_505</span>, <span class="s">'EUR'</span>)-&gt;<span class="f">percent</span>(<span class="n">1_000</span>)-&gt;amount)-&gt;<span class="f">toBe</span>(<span class="n">10_051</span>);   <span class="c">// 10050.5 → 10051</span>
 });</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/PriceQuoterTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/PriceQuoterTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
@@ -532,7 +727,7 @@
 
     <span class="f">expect</span>(<span class="k">$this</span>-&gt;property-&gt;<span class="f">bookings</span>()-&gt;<span class="f">sole</span>()-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">orderBy</span>(<span class="s">'id'</span>)-&gt;<span class="f">pluck</span>(<span class="s">'amount_cents'</span>)-&gt;<span class="f">all</span>())-&gt;<span class="f">toBe</span>([<span class="n">105_000</span>, -<span class="n">10_500</span>, <span class="n">6_000</span>, <span class="n">10_050</span>]);
 });</code></pre>
-</div><p>The quote route is public (guests aren’t logged in): <code>Route::get('/v1/properties/{property}/quote', QuoteController::class);</code></p></div></div></div></details></section>
+</div></div></div></div></details></section>
 <section class="nextup"><p>Prices now match. Tuesday: a guest pays, Stripe shows the payment, and her booking still says pending.</p><nav class="pager" aria-label="Scenes">
 <a rel="prev" href="../06-confirm/"><small>← Scene 6</small>Marked paid by hand, but the guest never heard</a>
 <a rel="next" href="../08-webhooks/"><small>Scene 8 →</small>Stripe said paid, the booking is still pending</a>

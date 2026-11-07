@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, existsSync
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { esc, inline, paras, codeHtml, svg, markers } from './render.mjs';
+import { esc, inline, paras, codeHtml, changedFileHtml, svg, markers } from './render.mjs';
 import { DAYS, SCENES, FOUNDATION, OUTSIDE, dayOf } from '../content/course.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,6 +31,43 @@ const load = async file => (await import(pathToFileURL(join(ROOT, 'content', fil
 const BODY = {};
 for (const s of ready) BODY[s.slug] = await load(`scenes/${s.slug}.mjs`);
 const foundation = await load('foundation/index.mjs');
+
+// Every file the reader writes is followed through the course. When a later scene shows the same
+// file again, it is shown complete, with the lines that changed since its last version marked.
+// A block is one file: its path is the file, optionally followed by a note in brackets.
+const fileKey = path => (path ? path.replace(/ \(.*$/, '').trim() : '');
+const isAppFile = key => /^(app|config|routes|database|tests|resources|bootstrap)\//.test(key) || /^(phpunit\.xml|composer\.json|Dockerfile|compose\.yaml)$/.test(key);
+const codeBlocksOf = body => {
+  const out = [];
+  const walk = o => { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') { if (o.code !== undefined) out.push(o); else Object.values(o).forEach(walk); } };
+  if (body.sections) {
+    for (const sec of [...body.sections, ...(body.afterReveal || [])]) walk(sec.blocks || []);
+    walk(body.laravel?.blocks || []);
+    walk(body.tests?.blocks || []);
+  } else walk(body);
+  return out;
+};
+const lastSeen = new Map();
+const excerpts = [], combined = [];
+for (const [where, body] of [['the foundation', foundation], ...ready.map(s => [`scene ${s.n}`, BODY[s.slug]])]) {
+  for (const b of codeBlocksOf(body)) {
+    const key = fileKey(b.path);
+    if (!isAppFile(key)) continue;
+    if (b.fragment) { if (!b.broken) excerpts.push(`${where}: ${b.path}`); continue; }
+    if (key.includes(' · ')) { combined.push(`${where}: ${b.path}`); continue; }
+    // A complete broken file is the "before": the fixed file right after it shows what the fix changed.
+    // rewrite: a file replaced as a whole is shown plainly, because a diff of every line helps nobody.
+    const seen = lastSeen.get(key);
+    if (!b.broken) {
+      if (b.rewrite) b.isRewrite = true;
+      else if (seen) { b.prev = seen.code; b.prevWhere = seen.where === where ? 'the version above' : seen.where; }
+      else b.isNew = true;
+    }
+    lastSeen.set(key, { code: b.code, where });
+  }
+}
+if (combined.length) throw new Error(`One block per file. Split these:\n  ${combined.join("\n  ")}`);
+if (process.env.LIST_EXCERPTS) console.log(`Excerpts of app files (${excerpts.length}):\n  ${excerpts.join('\n  ')}`);
 
 // Pattern → the scene where it is named (for the index and the search). A pattern is listed once.
 const PATTERNS = [];
@@ -115,10 +152,20 @@ const person = { '@type': 'Person', name: AUTHOR.name, url: AUTHOR.url };
 
 // ── Building blocks ────────────────────────────────────────────────────
 // broken: the code that caused the incident, shown struck through in red so nobody copies it.
-function codeBlock({ path, code, lang, broken }) {
+// prev: the file's previous version (an earlier scene), so the full file is shown with its changes marked.
+function codeBlock({ path, code, lang, broken, prev, prevWhere, isNew, isRewrite }) {
+  if (prev !== undefined && prev !== code) {
+    const { html, added, removed } = changedFileHtml(prev, code, lang);
+    const note = `changed since ${prevWhere}: <span class="plus">+${added}</span>${removed ? ` <span class="minus">−${removed}</span>` : ''}`;
+    return `<div class="codebox changed">
+<div class="filehead"><span class="path">${esc(path)}</span><span class="badge">${note}</span></div>
+<pre class="code diff" data-copy="${esc(code.replace(/\n$/, ''))}"><code>${html}</code></pre>
+</div>`;
+  }
   const html = codeHtml(code.replace(/\n$/, ''), lang);
+  const badge = broken ? '<span class="badge">the bug</span>' : isNew ? '<span class="badge new">new file</span>' : isRewrite ? '<span class="badge new">rewritten</span>' : '';
   return `<div class="codebox${broken ? ' broken' : ''}">
-<div class="filehead"><span class="path">${esc(path || 'code')}</span>${broken ? '<span class="badge">the bug</span>' : ''}</div>
+<div class="filehead"><span class="path">${esc(path || 'code')}</span>${badge}</div>
 <pre class="code${broken ? ' rejected' : ''}"><code>${html}</code></pre>
 </div>`;
 }

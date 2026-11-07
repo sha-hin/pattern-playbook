@@ -15,15 +15,52 @@ export default {
       title: 'The broken code',
       blocks: [
         {
-          path: 'app/Http/Controllers/CheckoutController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`$nightly = $property->nightly_rate;                 // 150.10, a DECIMAL column read as float
-$total = $nightly * $nights;                        // 450.3 ... or is it?
+          text: ['The launch-week booking endpoint. The price is turned into euros to calculate, then back into cents to store:'],
+          path: 'app/Http/Controllers/BookingController.php (before)',
+          broken: true,
+          code: String.raw`<?php
 
-$stripe->paymentIntents->create([
-    'amount' => (int) ($total * 100),               // Stripe wants cents
-    'currency' => 'eur',
-]);`,
+namespace App\Http\Controllers;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
+{
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request->all();
+
+        $clash = DB::table('bookings')->where('property_id', $propertyId)
+            ->where('check_in', '<=', $data['check_out'])
+            ->where('check_out', '>=', $data['check_in'])
+            ->exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $nights = (int) Carbon::parse($data['check_in'])->diffInDays($data['check_out']);
+
+        $nightly = $property->nightly_rate_cents / 100;              // 150.1: euros, as a float
+        $total = $nightly * $nights;                                 // shown on the invoice as €450.30
+
+        $booking = new Booking($data);
+        $booking->property_id = $property->id;
+        $booking->status = BookingStatus::Pending;
+        $booking->total_cents = (int) ($total * 100);                // what Stripe charges: 45029
+        $booking->currency = $property->currency;
+        $booking->save();
+
+        return response()->json($booking);
+    }
+}`,
         },
         {
           text: ['Run it in Tinker:'],
@@ -34,7 +71,7 @@ $stripe->paymentIntents->create([
 > (int) (150.10 * 3 * 100)
 = 45029`,
           after: [
-            'A float is stored in binary, and **150.10 has no exact binary form**, just as 1/3 has no exact decimal form. The multiplication lands a hair below 450.30, and `(int)` cuts off the rest instead of rounding. The invoice rounded for display (€450.30); Stripe got the cut-off value (€450.29).',
+            'A float is stored in binary, and **150.10 has no exact binary form**, just as 1/3 has no exact decimal form. The multiplication lands a hair below 450.30, and `(int)` cuts off the rest instead of rounding. The invoice printed the float rounded (€450.30); the booking stored the cut-off value, and that is what Stripe charged (€450.29).',
             'It only happens for some prices, which is why it took a month-end close to notice: €150.00 × 3 is exact, €150.10 × 3 isn’t. A cent per booking is small money and a big problem: invoices, payouts and the tax return must all agree to the cent.',
           ],
         },
@@ -43,7 +80,7 @@ $stripe->paymentIntents->create([
     {
       title: 'The fix, part 1: integers, in cents',
       text: [
-        'Money is never a float. It is a whole number in the currency’s smallest unit: €150.10 is stored as `15010`. That’s why the [`properties`](F#table-properties) table has `nightly_rate_cents`, an unsigned integer. Integer arithmetic is exact: `15010 * 3` is `45030`, every time.',
+        'Money is never a float. It is a whole number in the currency’s smallest unit: €150.10 is stored as `15010`. The [`properties`](F#table-properties) table already stores `nightly_rate_cents` as an integer; the bug is the trip through euros in between. Integer arithmetic is exact: `15010 * 3` is `45030`, every time.',
         'That fixes the cent. But the amount is now a bare `int`, with its currency in another column, and nothing stops this:',
       ],
       blocks: [
@@ -187,29 +224,131 @@ final class MoneyCast implements CastsAttributes
         },
         {
           title: 'On the models',
-          text: ['The argument after the colon tells the cast which column holds the amount. Added to the casts of [Property](F#model-property) and [Booking](F#model-booking):'],
-          path: 'app/Models/Property.php · app/Models/Booking.php (casts)',
-          fragment: true,
-          code: String.raw`// Property
-protected function casts(): array
-{
-    return ['nightly_rate' => MoneyCast::class . ':nightly_rate_cents'];
-}
+          text: ['The argument after the colon tells the cast which column holds the amount. [Property](F#model-property) gets a `casts()` method:'],
+          path: 'app/Models/Property.php',
+          code: String.raw`<?php
 
-// Booking: one line added to its casts
-'total' => MoneyCast::class . ':total_cents',`,
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return ['nightly_rate' => MoneyCast::class . ':nightly_rate_cents'];   // Money from nightly_rate_cents + currency
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+}`,
         },
         {
-          title: 'The charge, fixed',
-          path: 'app/Http/Controllers/CheckoutController.php (after)',
-          fragment: true,
-          code: String.raw`$total = $property->nightly_rate->times($nights);    // Money(45030, EUR)
+          text: ['[Booking](F#model-booking) gets one more line in the casts it already has:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
 
-$stripe->paymentIntents->create([
-    'amount' => $total->amount,                         // 45030: already in minor units, nothing to convert
-    'currency' => strtolower($total->currency->value),
-]);`,
-          after: ['The email shows `$total->format()` (€450.30) and Stripe charges `45030`. Both come from the same object, so they can’t disagree again.'],
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+}`,
+        },
+        {
+          title: 'The booking, fixed',
+          text: ['The whole file; the highlighted lines are the fix. The rest of this method gets its own fixes in scenes 2 and 3.'],
+          path: 'app/Http/Controllers/BookingController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class BookingController extends Controller
+{
+    public function store(Request $request, int $propertyId): JsonResponse
+    {
+        $property = Property::findOrFail($propertyId);
+        $data = $request->all();
+
+        $clash = DB::table('bookings')->where('property_id', $propertyId)
+            ->where('check_in', '<=', $data['check_out'])
+            ->where('check_out', '>=', $data['check_in'])
+            ->exists();
+        if ($clash) {
+            throw new Exception('Already booked');
+        }
+
+        $nights = (int) Carbon::parse($data['check_in'])->diffInDays($data['check_out']);
+
+        $booking = new Booking($data);
+        $booking->property_id = $property->id;
+        $booking->status = BookingStatus::Pending;
+        $booking->total = $property->nightly_rate->times($nights);   // Money(45030, EUR): integers all the way
+        $booking->save();
+
+        return response()->json($booking);
+    }
+}`,
+          after: ['The invoice shows `$booking->total->format()` (€450.30) and Stripe charges `$booking->total->amount` (`45030`). Both come from the same object, so they can’t disagree again.'],
         },
       ],
     },

@@ -202,7 +202,7 @@ final class ExpiredState extends BookingState
 }`,
         },
         {
-          path: 'app/Bookings/States/CancelledState.php · DatesNoLongerAvailable.php',
+          path: 'app/Bookings/States/CancelledState.php',
           code: String.raw`<?php
 
 namespace App\Bookings\States;
@@ -237,16 +237,79 @@ final class DatesNoLongerAvailable extends RuntimeException
         {
           title: 'The booking hands out its state',
           text: ['The status column stays the single source of truth; the state object is built from it on demand.'],
-          path: 'app/Models/Booking.php (added)',
-          fragment: true,
-          code: String.raw`public function state(): BookingState
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
 {
-    return match ($this->status) {
-        BookingStatus::Pending => new PendingState(),
-        BookingStatus::Confirmed => new ConfirmedState(),
-        BookingStatus::Expired => new ExpiredState(),
-        BookingStatus::Cancelled => new CancelledState(),
-    };                                                        // a new status without a state class fails here, loudly
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
 }`,
         },
       ],
@@ -257,19 +320,39 @@ final class DatesNoLongerAvailable extends RuntimeException
         {
           title: 'The facade from scene 6',
           text: ['No status checks left in it: it asks the state, and only runs the other steps when the booking actually changed.'],
-          path: 'app/Bookings/BookingConfirmation.php (inside the transaction)',
-          fragment: true,
-          code: String.raw`$booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+          path: 'app/Bookings/BookingConfirmation.php',
+          code: String.raw`<?php
 
-if (! $booking->state()->confirm($booking)) {
-    return;                                                   // already confirmed: nothing else to do
-}
+namespace App\Bookings;
 
-$payment->status = PaymentStatus::Succeeded;
-$payment->save();
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
-Notification::route('mail', $booking->guest_email)
-    ->notify((new BookingConfirmed($booking))->afterCommit());`,
+final class BookingConfirmation
+{
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();   // fresh, and locked
+
+            if (! $booking->state()->confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment->status = PaymentStatus::Succeeded;               // step 2
+            $payment->save();
+
+            Notification::route('mail', $booking->guest_email)         // step 3, after the commit
+                ->notify((new BookingConfirmed($booking))->afterCommit());
+
+            // Day 3 adds: close the dates on every channel. Day 4: schedule guest messages. Day 5: plan the cleaning.
+        });
+    }
+}`,
         },
         {
           title: 'Holds expire on a schedule',
@@ -312,12 +395,16 @@ class ExpireHolds extends Command
 }`,
         },
         {
+          text: ['Scheduled in `routes/console.php`. The whole file, replacing Laravel’s example `inspire` command:'],
           path: 'routes/console.php',
-          fragment: true,
-          code: String.raw`Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+          code: String.raw`<?php
+
+use Illuminate\Support\Facades\Schedule;
 
 // The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
-// Locally:                                     php artisan schedule:work`,
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();`,
         },
       ],
     },
@@ -373,7 +460,7 @@ class Refund extends Model
         },
         {
           title: 'Every Stripe POST gets a key',
-          text: ['The gateway from scene 5 takes an idempotency key on both of its calls, and gains `refund()`. Starting a payment now passes `"booking-{$booking->id}-payment"`, so a double click on "Pay" can’t create two PaymentIntents either.'],
+          text: ['The gateway from scene 5 takes an idempotency key on both of its calls, and gains `refund()`.'],
           path: 'app/Payments/PaymentGateway.php',
           code: String.raw`<?php
 
@@ -394,42 +481,201 @@ interface PaymentGateway
 }`,
         },
         {
-          path: 'app/Payments/StripeGateway.php (refund added)',
-          fragment: true,
-          code: String.raw`public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+          text: ['The Stripe implementation passes each key to Stripe, and gains `refund()`:'],
+          path: 'app/Payments/StripeGateway.php',
+          code: String.raw`<?php
+
+namespace App\Payments;
+
+use App\Money\Money;
+use Stripe\StripeClient;
+
+final readonly class StripeGateway implements PaymentGateway
 {
-    $refund = $this->stripe->refunds->create(
-        ['payment_intent' => $paymentIntentId, 'amount' => $amount->amount],
-        ['idempotency_key' => $idempotencyKey],                     // same key, same refund: never a second one
-    );
+    public function __construct(private StripeClient $stripe)
+    {
+    }
 
-    return $refund->id;
-}
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array
+    {
+        $intent = $this->stripe->paymentIntents->create([
+            'amount' => $amount->amount,                            // already in minor units
+            'currency' => strtolower($amount->currency->value),
+            'automatic_payment_methods' => ['enabled' => true],
+            'metadata' => $metadata,
+        ], ['idempotency_key' => $idempotencyKey]);                   // same key, same PaymentIntent
 
-// createPaymentIntent() passes ['idempotency_key' => $idempotencyKey] the same way`,
+        return ['id' => $intent->id, 'client_secret' => $intent->client_secret];
+    }
+
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+    {
+        $refund = $this->stripe->refunds->create(
+            ['payment_intent' => $paymentIntentId, 'amount' => $amount->amount],
+            ['idempotency_key' => $idempotencyKey],                     // same key, same refund: never a second one
+        );
+
+        return $refund->id;
+    }
+}`,
+        },
+        {
+          text: ['Starting a payment passes a key built from the booking:'],
+          path: 'app/Payments/StartBookingPayment.php',
+          code: String.raw`<?php
+
+namespace App\Payments;
+
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+
+final readonly class StartBookingPayment
+{
+    public function __construct(private PaymentGateway $gateway)
+    {
+    }
+
+    /** @return string the client secret the browser needs to confirm the payment with Stripe */
+    public function handle(Booking $booking): string
+    {
+        $intent = $this->gateway->createPaymentIntent(
+            $booking->total,
+            ['booking_id' => (string) $booking->id],
+            "booking-{$booking->id}-payment",                        // a double click on "Pay" gets the same PaymentIntent
+        );
+
+        $booking->payments()->create([
+            'amount_cents' => $booking->total->amount,
+            'currency' => $booking->total->currency->value,
+            'status' => PaymentStatus::Pending,
+            'provider_payment_id' => $intent['id'],
+        ]);
+
+        return $intent['client_secret'];
+    }
+}`,
+        },
+        {
+          text: ['A payment knows its refunds:'],
+          path: 'app/Models/Payment.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Payment extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['amount_cents', 'currency', 'status', 'provider_payment_id'];
+
+    protected function casts(): array
+    {
+        return ['status' => PaymentStatus::class];
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+}`,
         },
         {
           title: 'The webhook job handles the late payment',
-          text: ['`createOrFirst()` on the unique refund id (scene 8) means a retry that gets the same refund back from Stripe doesn’t record it twice either.'],
-          path: 'app/Jobs/ProcessStripeWebhook.php (the succeeded branch)',
-          fragment: true,
-          code: String.raw`try {
-    $confirmation->confirm($payment->booking, $payment);
-} catch (DatesNoLongerAvailable) {
-    $payment->status = PaymentStatus::Succeeded;               // the money did arrive
-    $payment->save();
+          text: ['`handle()` now also receives the gateway. `createOrFirst()` on the unique refund id (scene 8) means a retry that gets the same refund back from Stripe doesn’t record it twice either.'],
+          path: 'app/Jobs/ProcessStripeWebhook.php',
+          code: String.raw`<?php
 
-    $refundId = $gateway->refund($event->paymentIntentId, $event->amount, "payment-{$payment->id}-late-refund");
+namespace App\Jobs;
 
-    $payment->refunds()->createOrFirst(['provider_refund_id' => $refundId], [
-        'amount_cents' => $event->amount->amount,
-        'currency' => $event->amount->currency->value,
-        'reason' => 'Paid after the hold expired; the nights were already booked.',
-    ]);
-}
+use App\Bookings\BookingConfirmation;
+use App\Bookings\States\DatesNoLongerAvailable;
+use App\Enums\PaymentStatus;
+use App\Models\Payment;
+use App\Models\WebhookEvent;
+use App\Money\Money;
+use App\Payments\Events\PaymentFailed;
+use App\Payments\Events\PaymentSucceeded;
+use App\Payments\Events\StripeEventFactory;
+use App\Payments\PaymentGateway;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
+use UnexpectedValueException;
 
-// handle() now receives PaymentGateway $gateway next to BookingConfirmation $confirmation,
-// and Payment has: public function refunds(): HasMany { return $this->hasMany(Refund::class); }`,
+class ProcessStripeWebhook implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public WebhookEvent $webhook)
+    {
+    }
+
+    /** @return list<int> seconds to wait before each retry */
+    public function backoff(): array
+    {
+        return [10, 60, 300, 900];
+    }
+
+    public function handle(BookingConfirmation $confirmation, PaymentGateway $gateway): void
+    {
+        $event = StripeEventFactory::fromPayload($this->webhook->payload);
+
+        if ($event instanceof PaymentSucceeded) {
+            $payment = $this->payment($event->paymentIntentId);
+            $expected = Money::of($payment->amount_cents, $payment->currency);
+
+            if (! $event->amount->equals($expected)) {
+                throw new UnexpectedValueException("Stripe received {$event->amount->format()} for payment {$payment->id}, expected {$expected->format()}.");
+            }
+
+            try {
+                $confirmation->confirm($payment->booking, $payment);
+            } catch (DatesNoLongerAvailable) {
+                $payment->status = PaymentStatus::Succeeded;               // the money did arrive
+                $payment->save();
+
+                $refundId = $gateway->refund($event->paymentIntentId, $event->amount, "payment-{$payment->id}-late-refund");
+
+                $payment->refunds()->createOrFirst(['provider_refund_id' => $refundId], [
+                    'amount_cents' => $event->amount->amount,
+                    'currency' => $event->amount->currency->value,
+                    'reason' => 'Paid after the hold expired; the nights were already booked.',
+                ]);
+            }
+        }
+
+        if ($event instanceof PaymentFailed) {
+            $payment = $this->payment($event->paymentIntentId);
+            $payment->status = PaymentStatus::Failed;
+            $payment->save();
+        }
+
+        $this->webhook->markProcessed();                       // also for types we don't act on
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this->webhook->markFailed($exception->getMessage());
+    }
+
+    private function payment(string $paymentIntentId): Payment
+    {
+        return Payment::where('provider_payment_id', $paymentIntentId)->firstOrFail();
+    }
+}`,
         },
       ],
     },

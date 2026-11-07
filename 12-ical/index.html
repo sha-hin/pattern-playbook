@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 12: Two families, one cabin, one night","description":"Two families arrived for the same night because the iCal import wiped and rebuilt every block, for every channel, in copy-pasted code. Fix it in Laravel: one importer that saves events by UID, deletes only its own channel’s blocks, and does it all in one transaction","url":"https://sha-hin.github.io/pattern-playbook/12-ical/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/12-ical/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 12: Two families, one cabin, one night","item":"https://sha-hin.github.io/pattern-playbook/12-ical/"}]}]}</script>
 </head>
@@ -89,7 +89,7 @@
 }</code></pre>
 </div><p>&quot;Delete everything, then insert again&quot; has three bugs. It deletes <b>every</b> channel’s blocks, so the Airbnb sync also wipes the Booking.com blocks until that sync runs. It isn’t in a transaction, so a failure halfway leaves the calendar empty. And a timeout is treated like an empty calendar.</p><p>The Booking.com copy has the same bugs, plus one fixed only in the Airbnb copy. Two classes that do the same steps drift apart.</p></div></div></section>
 <section><h2>The fix, part 1: feeds and blocks as tables</h2><p><code>unique(property_id, source, uid)</code> makes &quot;one row per channel event&quot; a database rule. Updating a block finds it by its UID instead of deleting and re-inserting it.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_02_000001_create_ical_tables.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_03_02_000001_create_ical_tables.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -125,7 +125,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/Channel.php</span></div>
+<div class="filehead"><span class="path">app/Enums/Channel.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -136,7 +136,7 @@
     <span class="k">case</span> <span class="t">BookingCom</span> = <span class="s">'booking_com'</span>;
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/IcalFeed.php · app/Models/ExternalBlock.php</span></div>
+<div class="filehead"><span class="path">app/Models/IcalFeed.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -162,7 +162,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><p>A block occupies nights exactly like a booking does, so it gets the same overlap scope as scene 3.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Models/ExternalBlock.php</span></div>
+<div class="filehead"><span class="path">app/Models/ExternalBlock.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -187,14 +187,112 @@
             -&gt;<span class="f">where</span>(<span class="s">'ends_on'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());
     }
 }</code></pre>
-</div></div><div class="block"><h3>Booking checks the blocks too</h3><p>Inside scene 4’s lock, one more check before saving. <code>Property</code> gets <code>externalBlocks()</code> and <code>icalFeeds()</code> relations.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Bookings/CreateBooking.php (inside the transaction)</span></div>
-<pre class="code"><code><span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>() || <span class="v">$property</span>-&gt;<span class="f">externalBlocks</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {
-    <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);
-}</code></pre>
+</div></div><div class="block"><h3>Booking checks the blocks too</h3><p>Inside scene 4’s lock, one more check before saving:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CreateBooking.php</span><span class="badge">changed since scene 10: <span class="plus">+3</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
+    {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // others wait here
+
+            $taken = $property-&gt;bookings()-&gt;overlapping($stay)-&gt;exists()
+                || $property-&gt;externalBlocks()-&gt;overlapping($stay)-&gt;exists();   // nights sold on Airbnb or Booking.com
+            if ($taken) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this-&gt;quoter-&gt;quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking-&gt;stay = $stay;
+            $booking-&gt;total = $quote-&gt;total();
+            $booking-&gt;cancellation_policy = $property-&gt;cancellation_policy;   // the terms the guest agreed to, frozen
+            $booking-&gt;status = BookingStatus::Pending;
+            $booking-&gt;expires_at = now()-&gt;addMinutes(self::HOLD_MINUTES);
+            $property-&gt;bookings()-&gt;save($booking);
+
+            $booking-&gt;lineItems()-&gt;createMany(array_map(fn (LineItem $line): array =&gt; [
+                'type' =&gt; $line-&gt;type,
+                'description' =&gt; $line-&gt;description,
+                'amount' =&gt; $line-&gt;amount,
+            ], $quote-&gt;lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">LineItem</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Pricing</span>\<span class="t">PriceQuoter</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CreateBooking</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">const</span> <span class="t">HOLD_MINUTES</span> = <span class="n">30</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">PriceQuoter</span> <span class="v">$quoter</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** @param array{guest_name: string, guest_email: string, guests: int} $guest */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Property</span> <span class="v">$property</span>, <span class="t">Stay</span> <span class="v">$stay</span>, <span class="k">array</span> <span class="v">$guest</span>): <span class="t">Booking</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$property</span>, <span class="v">$stay</span>, <span class="v">$guest</span>): <span class="t">Booking</span> {</span><span class="ln">            <span class="t">Property</span>::<span class="f">whereKey</span>(<span class="v">$property</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// others wait here</span></span><span class="ln"> </span><span class="ln del">            <span class="k">if</span> (<span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()) {</span><span class="ln add">            <span class="v">$taken</span> = <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>()</span><span class="ln add">                || <span class="v">$property</span>-&gt;<span class="f">externalBlocks</span>()-&gt;<span class="f">overlapping</span>(<span class="v">$stay</span>)-&gt;<span class="f">exists</span>();   <span class="c">// nights sold on Airbnb or Booking.com</span></span><span class="ln add">            <span class="k">if</span> (<span class="v">$taken</span>) {</span><span class="ln">                <span class="k">throw</span> <span class="t">BookingConflict</span>::<span class="f">for</span>(<span class="v">$stay</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$quote</span> = <span class="k">$this</span>-&gt;quoter-&gt;<span class="f">quote</span>(<span class="v">$property</span>, <span class="v">$stay</span>);              <span class="c">// the same price the page showed</span></span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span> = <span class="k">new</span> <span class="f">Booking</span>(<span class="v">$guest</span>);</span><span class="ln">            <span class="v">$booking</span>-&gt;stay = <span class="v">$stay</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;total = <span class="v">$quote</span>-&gt;<span class="f">total</span>();</span><span class="ln">            <span class="v">$booking</span>-&gt;cancellation_policy = <span class="v">$property</span>-&gt;cancellation_policy;   <span class="c">// the terms the guest agreed to, frozen</span></span><span class="ln">            <span class="v">$booking</span>-&gt;status = <span class="t">BookingStatus</span>::<span class="t">Pending</span>;</span><span class="ln">            <span class="v">$booking</span>-&gt;expires_at = <span class="f">now</span>()-&gt;<span class="f">addMinutes</span>(<span class="k">self</span>::<span class="t">HOLD_MINUTES</span>);</span><span class="ln">            <span class="v">$property</span>-&gt;<span class="f">bookings</span>()-&gt;<span class="f">save</span>(<span class="v">$booking</span>);</span><span class="ln"> </span><span class="ln">            <span class="v">$booking</span>-&gt;<span class="f">lineItems</span>()-&gt;<span class="f">createMany</span>(<span class="f">array_map</span>(<span class="k">fn</span> (<span class="t">LineItem</span> <span class="v">$line</span>): <span class="k">array</span> =&gt; [</span><span class="ln">                <span class="s">'type'</span> =&gt; <span class="v">$line</span>-&gt;type,</span><span class="ln">                <span class="s">'description'</span> =&gt; <span class="v">$line</span>-&gt;description,</span><span class="ln">                <span class="s">'amount'</span> =&gt; <span class="v">$line</span>-&gt;amount,</span><span class="ln">            ], <span class="v">$quote</span>-&gt;lines));                                           <span class="c">// every line of the bill, kept</span></span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$booking</span>;</span><span class="ln">        }, attempts: <span class="n">3</span>);                                                   <span class="c">// retried on a deadlock</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p><code>Property</code> gets the two relations it uses:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 10: <span class="plus">+10</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 2: one sync, written once</h2><p>The steps are the same for every channel: fetch the feed, read its events, save each one by UID, delete <b>this source’s</b> blocks that are no longer in the feed, all in one transaction. So there is one class, not a copy per channel.</p><p>Only one line differs between channels: what an event *is*. Airbnb says &quot;Reserved&quot; for a guest and &quot;Airbnb (Not available)&quot; for the host’s own block; Booking.com says &quot;CLOSED - Not available&quot; for everything. A <code>match</code> on the source covers that.</p><div class="blocks"><div class="block"><h3>One event, in our words</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Ical/IcalEvent.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Ical/IcalEvent.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Ical</span>;
@@ -211,7 +309,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>The importer</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Ical/IcalImporter.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Ical/IcalImporter.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Ical</span>;
@@ -313,7 +411,7 @@
 }</code></pre>
 </div><p>Adding Vrbo is one <code>case</code> in the enum and one arm in the <code>match</code>. Forget the arm and the <code>match</code> throws <code>UnhandledMatchError</code> on Vrbo’s first event, loudly, instead of guessing.</p></div></div></section>
 <section><h2>The fix, part 3: every feed, every 15 minutes</h2><p>One job per feed, so one slow channel can’t hold up the others. <code>WithoutOverlapping</code> makes sure two syncs of the same feed never run at once.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/SyncIcalFeed.php</span></div>
+<div class="filehead"><span class="path">app/Jobs/SyncIcalFeed.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
@@ -351,15 +449,27 @@
         <span class="v">$importer</span>-&gt;<span class="f">sync</span>(<span class="k">$this</span>-&gt;feed);
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">routes/console.php (added)</span></div>
-<pre class="code"><code><span class="t">Schedule</span>::<span class="f">call</span>(<span class="k">function</span> (): <span class="k">void</span> {
-    <span class="t">IcalFeed</span>::<span class="f">query</span>()-&gt;<span class="f">lazyById</span>()-&gt;<span class="f">each</span>(<span class="k">fn</span> (<span class="t">IcalFeed</span> <span class="v">$feed</span>) =&gt; <span class="t">SyncIcalFeed</span>::<span class="f">dispatch</span>(<span class="v">$feed</span>));
-})-&gt;<span class="f">everyFifteenMinutes</span>()-&gt;<span class="f">name</span>(<span class="s">'sync-ical-feeds'</span>)-&gt;<span class="f">withoutOverlapping</span>();</code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">routes/console.php</span><span class="badge">changed since scene 11: <span class="plus">+6</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')-&gt;everyMinute()-&gt;withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')-&gt;dailyAt('03:10')-&gt;withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()-&gt;lazyById()-&gt;each(fn (IcalFeed $feed) =&gt; SyncIcalFeed::dispatch($feed));
+})-&gt;everyFifteenMinutes()-&gt;name('sync-ical-feeds')-&gt;withoutOverlapping();"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">SyncIcalFeed</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">IcalFeed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schedule</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run</span></span><span class="ln"><span class="c">// Locally:                                     php artisan schedule:work</span></span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'bookings:expire-holds'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'payments:reconcile-refunds'</span>)-&gt;<span class="f">dailyAt</span>(<span class="s">'03:10'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln add"> </span><span class="ln add"><span class="t">Schedule</span>::<span class="f">call</span>(<span class="k">function</span> (): <span class="k">void</span> {</span><span class="ln add">    <span class="t">IcalFeed</span>::<span class="f">query</span>()-&gt;<span class="f">lazyById</span>()-&gt;<span class="f">each</span>(<span class="k">fn</span> (<span class="t">IcalFeed</span> <span class="v">$feed</span>) =&gt; <span class="t">SyncIcalFeed</span>::<span class="f">dispatch</span>(<span class="v">$feed</span>));</span><span class="ln add">})-&gt;<span class="f">everyFifteenMinutes</span>()-&gt;<span class="f">name</span>(<span class="s">'sync-ical-feeds'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span></code></pre>
 </div><p>Fifteen minutes is the honest limit of iCal: a booking on Airbnb can sit unseen here for that long. That’s why the next scene connects to the real APIs.</p></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Saving by UID, deleting only this channel, failures that change nothing, and bookings refused over blocks</small></summary>
 <div class="testbody"><p><code>Http::fake()</code> answers the feed URLs with recorded feeds; the foundation’s <code>Http::preventStrayRequests()</code> makes any other URL fail the test.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/IcalSyncTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/IcalSyncTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Ical</span>\<span class="t">IcalImporter</span>;

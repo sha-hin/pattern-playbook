@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 11: Stripe and our books disagree by €40","description":"Stripe and Nordic Stays disagreed by €40 and nobody noticed for a month. Build a nightly reconciliation in Laravel that walks Stripe’s pages and our table with iterators, compares them in a generator, and never loads everything into memory.","url":"https://sha-hin.github.io/pattern-playbook/11-reconciliation/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/11-reconciliation/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Iterator pattern","Generators pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 11: Stripe and our books disagree by €40","item":"https://sha-hin.github.io/pattern-playbook/11-reconciliation/"}]}]}</script>
 </head>
@@ -66,30 +66,86 @@
     <span class="k">if</span> (! <span class="v">$ours</span>-&gt;<span class="f">contains</span>(<span class="s">'provider_refund_id'</span>, <span class="v">$refund</span>-&gt;id)) { <span class="c">/* ... */</span> }      <span class="c">// a full scan per refund</span>
 }</code></pre>
 </div><p>Three problems. Stripe returns <b>one page</b> (10 by default, 100 at most), so on a busy day most refunds are never looked at, and the report says &quot;all good&quot;. <code>get()</code> loads every row and model into memory at once. And <code>contains()</code> scans the whole collection for every Stripe refund.</p></div></div></section>
-<section><h2>The fix, part 1: walk Stripe’s pages as one sequence</h2><p>Stripe’s SDK can walk all pages for you: <code>autoPagingIterator()</code> fetches page after page as you loop. Wrapped in a <b>generator</b> (a function with <code>yield</code>), each refund comes out as our own small array with a <code>Money</code> in it, one at a time. Only one page is ever in memory.</p><p>It goes into the gateway from scene 5, so the reconciliation depends on the interface and tests can hand it a plain array.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/PaymentGateway.php (one method added)</span></div>
-<pre class="code"><code><span class="c">/** @return iterable&lt;array{id: string, payment_intent: string, amount: Money}&gt; every refund created in [from, to) */</span>
-<span class="k">public</span> <span class="k">function</span> <span class="f">refundsBetween</span>(<span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="t">CarbonImmutable</span> <span class="v">$to</span>): <span class="k">iterable</span>;</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/StripeGateway.php (added)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">refundsBetween</span>(<span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="t">CarbonImmutable</span> <span class="v">$to</span>): <span class="k">iterable</span>
-{
-    <span class="v">$pages</span> = <span class="k">$this</span>-&gt;stripe-&gt;refunds-&gt;<span class="f">all</span>([
-        <span class="s">'created'</span> =&gt; [<span class="s">'gte'</span> =&gt; <span class="v">$from</span>-&gt;<span class="f">getTimestamp</span>(), <span class="s">'lt'</span> =&gt; <span class="v">$to</span>-&gt;<span class="f">getTimestamp</span>()],
-        <span class="s">'limit'</span> =&gt; <span class="n">100</span>,                                           <span class="c">// the largest page Stripe allows</span>
-    ]);
+<section><h2>The fix, part 1: walk Stripe’s pages as one sequence</h2><p>Stripe’s SDK can walk all pages for you: <code>autoPagingIterator()</code> fetches page after page as you loop. Wrapped in a <b>generator</b> (a function with <code>yield</code>), each refund comes out as our own small array with a <code>Money</code> in it, one at a time. Only one page is ever in memory.</p><p>It goes into the gateway from scene 5, so the reconciliation depends on the interface and tests can hand it a plain array.</p><div class="blocks"><div class="block"><p>The interface gets one more method:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Payments/PaymentGateway.php</span><span class="badge">changed since scene 9: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-    <span class="k">foreach</span> (<span class="v">$pages</span>-&gt;<span class="f">autoPagingIterator</span>() <span class="k">as</span> <span class="v">$refund</span>) {           <span class="c">// fetches the next page when this one runs out</span>
-        <span class="k">yield</span> [
-            <span class="s">'id'</span> =&gt; <span class="v">$refund</span>-&gt;id,
-            <span class="s">'payment_intent'</span> =&gt; (<span class="k">string</span>) <span class="v">$refund</span>-&gt;payment_intent,
-            <span class="s">'amount'</span> =&gt; <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$refund</span>-&gt;amount, <span class="f">strtoupper</span>(<span class="v">$refund</span>-&gt;currency)),
-        ];
+namespace App\Payments;
+
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+
+interface PaymentGateway
+{
+    /**
+     * @param array&lt;string, string&gt; $metadata
+     * @return array{id: string, client_secret: string}
+     */
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array;
+
+    /** @return string the provider's refund id */
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string;
+
+    /** @return iterable&lt;array{id: string, payment_intent: string, amount: Money}&gt; every refund created in [from, to) */
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable;
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">interface</span> <span class="t">PaymentGateway</span></span><span class="ln">{</span><span class="ln">    <span class="c">/**</span></span><span class="ln"><span class="c">     * @param array&lt;string, string&gt; $metadata</span></span><span class="ln"><span class="c">     * @return array{id: string, client_secret: string}</span></span><span class="ln"><span class="c">     */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">createPaymentIntent</span>(<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">array</span> <span class="v">$metadata</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">array</span>;</span><span class="ln"> </span><span class="ln">    <span class="c">/** @return string the provider's refund id */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refund</span>(<span class="k">string</span> <span class="v">$paymentIntentId</span>, <span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">string</span>;</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** @return iterable&lt;array{id: string, payment_intent: string, amount: Money}&gt; every refund created in [from, to) */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundsBetween</span>(<span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="t">CarbonImmutable</span> <span class="v">$to</span>): <span class="k">iterable</span>;</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Payments/StripeGateway.php</span><span class="badge">changed since scene 9: <span class="plus">+17</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Payments;
+
+use App\Money\Money;
+use Carbon\CarbonImmutable;
+use Stripe\StripeClient;
+
+final readonly class StripeGateway implements PaymentGateway
+{
+    public function __construct(private StripeClient $stripe)
+    {
     }
-}</code></pre>
+
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array
+    {
+        $intent = $this-&gt;stripe-&gt;paymentIntents-&gt;create([
+            'amount' =&gt; $amount-&gt;amount,                            // already in minor units
+            'currency' =&gt; strtolower($amount-&gt;currency-&gt;value),
+            'automatic_payment_methods' =&gt; ['enabled' =&gt; true],
+            'metadata' =&gt; $metadata,
+        ], ['idempotency_key' =&gt; $idempotencyKey]);                   // same key, same PaymentIntent
+
+        return ['id' =&gt; $intent-&gt;id, 'client_secret' =&gt; $intent-&gt;client_secret];
+    }
+
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+    {
+        $refund = $this-&gt;stripe-&gt;refunds-&gt;create(
+            ['payment_intent' =&gt; $paymentIntentId, 'amount' =&gt; $amount-&gt;amount],
+            ['idempotency_key' =&gt; $idempotencyKey],                     // same key, same refund: never a second one
+        );
+
+        return $refund-&gt;id;
+    }
+
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable
+    {
+        $pages = $this-&gt;stripe-&gt;refunds-&gt;all([
+            'created' =&gt; ['gte' =&gt; $from-&gt;getTimestamp(), 'lt' =&gt; $to-&gt;getTimestamp()],
+            'limit' =&gt; 100,                                           // the largest page Stripe allows
+        ]);
+
+        foreach ($pages-&gt;autoPagingIterator() as $refund) {           // fetches the next page when this one runs out
+            yield [
+                'id' =&gt; $refund-&gt;id,
+                'payment_intent' =&gt; (string) $refund-&gt;payment_intent,
+                'amount' =&gt; Money::of($refund-&gt;amount, strtoupper($refund-&gt;currency)),
+            ];
+        }
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">StripeGateway</span> <span class="k">implements</span> <span class="t">PaymentGateway</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="t">StripeClient</span> <span class="v">$stripe</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">createPaymentIntent</span>(<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">array</span> <span class="v">$metadata</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$intent</span> = <span class="k">$this</span>-&gt;stripe-&gt;paymentIntents-&gt;<span class="f">create</span>([</span><span class="ln">            <span class="s">'amount'</span> =&gt; <span class="v">$amount</span>-&gt;amount,                            <span class="c">// already in minor units</span></span><span class="ln">            <span class="s">'currency'</span> =&gt; <span class="f">strtolower</span>(<span class="v">$amount</span>-&gt;currency-&gt;value),</span><span class="ln">            <span class="s">'automatic_payment_methods'</span> =&gt; [<span class="s">'enabled'</span> =&gt; <span class="k">true</span>],</span><span class="ln">            <span class="s">'metadata'</span> =&gt; <span class="v">$metadata</span>,</span><span class="ln">        ], [<span class="s">'idempotency_key'</span> =&gt; <span class="v">$idempotencyKey</span>]);                   <span class="c">// same key, same PaymentIntent</span></span><span class="ln"> </span><span class="ln">        <span class="k">return</span> [<span class="s">'id'</span> =&gt; <span class="v">$intent</span>-&gt;id, <span class="s">'client_secret'</span> =&gt; <span class="v">$intent</span>-&gt;client_secret];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refund</span>(<span class="k">string</span> <span class="v">$paymentIntentId</span>, <span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$refund</span> = <span class="k">$this</span>-&gt;stripe-&gt;refunds-&gt;<span class="f">create</span>(</span><span class="ln">            [<span class="s">'payment_intent'</span> =&gt; <span class="v">$paymentIntentId</span>, <span class="s">'amount'</span> =&gt; <span class="v">$amount</span>-&gt;amount],</span><span class="ln">            [<span class="s">'idempotency_key'</span> =&gt; <span class="v">$idempotencyKey</span>],                     <span class="c">// same key, same refund: never a second one</span></span><span class="ln">        );</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="v">$refund</span>-&gt;id;</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundsBetween</span>(<span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="t">CarbonImmutable</span> <span class="v">$to</span>): <span class="k">iterable</span></span><span class="ln add">    {</span><span class="ln add">        <span class="v">$pages</span> = <span class="k">$this</span>-&gt;stripe-&gt;refunds-&gt;<span class="f">all</span>([</span><span class="ln add">            <span class="s">'created'</span> =&gt; [<span class="s">'gte'</span> =&gt; <span class="v">$from</span>-&gt;<span class="f">getTimestamp</span>(), <span class="s">'lt'</span> =&gt; <span class="v">$to</span>-&gt;<span class="f">getTimestamp</span>()],</span><span class="ln add">            <span class="s">'limit'</span> =&gt; <span class="n">100</span>,                                           <span class="c">// the largest page Stripe allows</span></span><span class="ln add">        ]);</span><span class="ln add"> </span><span class="ln add">        <span class="k">foreach</span> (<span class="v">$pages</span>-&gt;<span class="f">autoPagingIterator</span>() <span class="k">as</span> <span class="v">$refund</span>) {           <span class="c">// fetches the next page when this one runs out</span></span><span class="ln add">            <span class="k">yield</span> [</span><span class="ln add">                <span class="s">'id'</span> =&gt; <span class="v">$refund</span>-&gt;id,</span><span class="ln add">                <span class="s">'payment_intent'</span> =&gt; (<span class="k">string</span>) <span class="v">$refund</span>-&gt;payment_intent,</span><span class="ln add">                <span class="s">'amount'</span> =&gt; <span class="t">Money</span>::<span class="f">of</span>(<span class="v">$refund</span>-&gt;amount, <span class="f">strtoupper</span>(<span class="v">$refund</span>-&gt;currency)),</span><span class="ln add">            ];</span><span class="ln add">        }</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
 </div><p>Because of the <code>yield</code>, calling <code>refundsBetween()</code> runs <b>none</b> of this yet. It returns a <code>Generator</code>; the code inside runs a little at a time, each time the caller’s <code>foreach</code> asks for the next item.</p></div></div></section>
 <section><h2>The fix, part 2: compare two sequences in a generator</h2><p>The comparison only needs <b>ids and amounts</b> from our side, so it keeps just those in a small array keyed by Stripe’s refund id: a key lookup is instant, where <code>contains()</code> scanned everything. Then it streams Stripe’s refunds past it and <b>yields</b> each difference as soon as it finds one.</p><p>It takes <code>iterable</code> on both sides: a Stripe generator, a <code>LazyCollection</code> from Eloquent, or a plain array in a test. That’s the point of iterators: the code that loops doesn’t care where the items come from.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/Reconciliation/Difference.php</span></div>
+<div class="filehead"><span class="path">app/Payments/Reconciliation/Difference.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">Reconciliation</span>;
@@ -104,7 +160,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Payments/Reconciliation/RefundComparison.php</span></div>
+<div class="filehead"><span class="path">app/Payments/Reconciliation/RefundComparison.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">Reconciliation</span>;
@@ -145,7 +201,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 3: the nightly command</h2><p><code>lazyById()</code> reads our refunds 1,000 rows at a time, ordered by id, and hands them out one by one through a <code>LazyCollection</code>: the comparison sees one long sequence, while memory holds one batch. Every difference becomes a row finance can work through.</p><p>&quot;Yesterday&quot; means yesterday in UTC, the timezone everything is stored in. Running at 03:10 leaves time for late webhooks to land first.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_02_06_000001_create_reconciliation_issues_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_02_06_000001_create_reconciliation_issues_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -169,7 +225,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Console/Commands/ReconcileRefunds.php</span></div>
+<div class="filehead"><span class="path">app/Console/Commands/ReconcileRefunds.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;
@@ -212,9 +268,17 @@
         <span class="k">return</span> <span class="k">self</span>::<span class="t">SUCCESS</span>;                                   <span class="c">// differences are findings, not a failed run</span>
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">routes/console.php (added)</span></div>
-<pre class="code"><code><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'payments:reconcile-refunds'</span>)-&gt;<span class="f">dailyAt</span>(<span class="s">'03:10'</span>)-&gt;<span class="f">withoutOverlapping</span>();</code></pre>
+</div></div><div class="block"><p>Scheduled next to scene 9’s command:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/console.php</span><span class="badge">changed since scene 9: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')-&gt;everyMinute()-&gt;withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')-&gt;dailyAt('03:10')-&gt;withoutOverlapping();"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Schedule</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run</span></span><span class="ln"><span class="c">// Locally:                                     php artisan schedule:work</span></span><span class="ln"> </span><span class="ln"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'bookings:expire-holds'</span>)-&gt;<span class="f">everyMinute</span>()-&gt;<span class="f">withoutOverlapping</span>();</span><span class="ln add"><span class="t">Schedule</span>::<span class="f">command</span>(<span class="s">'payments:reconcile-refunds'</span>)-&gt;<span class="f">dailyAt</span>(<span class="s">'03:10'</span>)-&gt;<span class="f">withoutOverlapping</span>();</span></code></pre>
 </div><p>The same pattern reconciles PaymentIntents (succeeded in Stripe, still pending here) with a second generator in the gateway. And when Nordic Stays starts paying hosts their share through Stripe Connect transfers, the payouts get a reconciliation of their own: every amount that leaves is compared, every night, in its own currency.</p></div></div></section>
 <section class="reveal"><h2>You just met Iterator and Generators</h2>
 <p class="rule"><span>Iterator</span>A way to go through a collection one item at a time without knowing how it is stored: a database table in batches, an API in pages, or an array.</p><p class="rule"><span>Generator</span>A function that uses yield to hand out values one by one, pausing between them. In PHP, the shortest way to write an iterator.</p>
@@ -251,7 +315,7 @@
 <tbody><tr><th scope="row"><code>get()</code></th><td>Every row at once</td><td>Fine for small results only</td></tr><tr><th scope="row"><code>chunkById(1000, fn)</code></th><td>One batch</td><td>You work in batches inside a closure</td></tr><tr><th scope="row"><code>lazyById(1000)</code></th><td>One batch</td><td>Nothing: one row at a time, by id. Safe when rows change while you loop</td></tr><tr><th scope="row"><code>cursor()</code></th><td>One model at a time in PHP</td><td>MySQL’s PDO buffers the <b>whole result</b> in the driver by default, so memory still grows with the table</td></tr><tr><th scope="row"><code>chunk()</code> / <code>lazy()</code> (by offset)</th><td>One batch</td><td>Skips or repeats rows if the loop updates the column it filters on</td></tr></tbody></table></div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>The comparison with plain arrays, and the command end to end</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Unit/RefundComparisonTest.php</span></div>
+<div class="filehead"><span class="path">tests/Unit/RefundComparisonTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Refund</span>;
@@ -288,7 +352,7 @@
     <span class="f">expect</span>(<span class="f">iterator_to_array</span>(<span class="v">$differences</span>))-&gt;<span class="f">toBe</span>([]);
 });</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/ReconcileRefundsTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/ReconcileRefundsTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;
@@ -306,7 +370,48 @@
 
     <span class="f">expect</span>(<span class="t">DB</span>::<span class="f">table</span>(<span class="s">'reconciliation_issues'</span>)-&gt;<span class="f">pluck</span>(<span class="s">'provider_id'</span>)-&gt;<span class="f">all</span>())-&gt;<span class="f">toBe</span>([<span class="s">'re_dashboard'</span>]);
 });</code></pre>
-</div><p>The fake gains a public <code>$stripeRefunds</code> array and returns it from <code>refundsBetween()</code>. An array is an <code>iterable</code>, which is all the command asks for.</p></div></div></div></details></section>
+</div></div><div class="block"><p>The fake from scene 5 implements the new method: it returns whatever the test put in <code>$stripeRefunds</code>. An array is an <code>iterable</code>, which is all the command asks for.</p><div class="codebox changed">
+<div class="filehead"><span class="path">tests/Fakes/FakePaymentGateway.php</span><span class="badge">changed since scene 9: <span class="plus">+9</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace Tests\Fakes;
+
+use App\Money\Money;
+use App\Payments\PaymentGateway;
+use Carbon\CarbonImmutable;
+
+final class FakePaymentGateway implements PaymentGateway
+{
+    /** @var list&lt;Money&gt; */
+    public array $charged = [];
+
+    /** @var list&lt;array{key: string, amount: Money}&gt; */
+    public array $refunded = [];
+
+    /** @var list&lt;array{id: string, payment_intent: string, amount: Money}&gt; what &quot;Stripe&quot; reports, set by the test */
+    public array $stripeRefunds = [];
+
+    public function createPaymentIntent(Money $amount, array $metadata, string $idempotencyKey): array
+    {
+        $this-&gt;charged[] = $amount;
+        $id = 'pi_fake_' . md5($idempotencyKey);
+
+        return ['id' =&gt; $id, 'client_secret' =&gt; &quot;{$id}_secret&quot;];
+    }
+
+    public function refund(string $paymentIntentId, Money $amount, string $idempotencyKey): string
+    {
+        $this-&gt;refunded[] = ['key' =&gt; $idempotencyKey, 'amount' =&gt; $amount];
+
+        return 're_fake_' . md5($idempotencyKey);                  // same key, same refund id
+    }
+
+    public function refundsBetween(CarbonImmutable $from, CarbonImmutable $to): iterable
+    {
+        return $this-&gt;stripeRefunds;                               // an array is an iterable too
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">Tests</span>\<span class="t">Fakes</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">FakePaymentGateway</span> <span class="k">implements</span> <span class="t">PaymentGateway</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @var list&lt;Money&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">array</span> <span class="v">$charged</span> = [];</span><span class="ln"> </span><span class="ln">    <span class="c">/** @var list&lt;array{key: string, amount: Money}&gt; */</span></span><span class="ln">    <span class="k">public</span> <span class="k">array</span> <span class="v">$refunded</span> = [];</span><span class="ln"> </span><span class="ln add">    <span class="c">/** @var list&lt;array{id: string, payment_intent: string, amount: Money}&gt; what &quot;Stripe&quot; reports, set by the test */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">array</span> <span class="v">$stripeRefunds</span> = [];</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">createPaymentIntent</span>(<span class="t">Money</span> <span class="v">$amount</span>, <span class="k">array</span> <span class="v">$metadata</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;charged[] = <span class="v">$amount</span>;</span><span class="ln">        <span class="v">$id</span> = <span class="s">'pi_fake_'</span> . <span class="f">md5</span>(<span class="v">$idempotencyKey</span>);</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> [<span class="s">'id'</span> =&gt; <span class="v">$id</span>, <span class="s">'client_secret'</span> =&gt; <span class="s">&quot;{$id}_secret&quot;</span>];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refund</span>(<span class="k">string</span> <span class="v">$paymentIntentId</span>, <span class="t">Money</span> <span class="v">$amount</span>, <span class="k">string</span> <span class="v">$idempotencyKey</span>): <span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;refunded[] = [<span class="s">'key'</span> =&gt; <span class="v">$idempotencyKey</span>, <span class="s">'amount'</span> =&gt; <span class="v">$amount</span>];</span><span class="ln"> </span><span class="ln">        <span class="k">return</span> <span class="s">'re_fake_'</span> . <span class="f">md5</span>(<span class="v">$idempotencyKey</span>);                  <span class="c">// same key, same refund id</span></span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundsBetween</span>(<span class="t">CarbonImmutable</span> <span class="v">$from</span>, <span class="t">CarbonImmutable</span> <span class="v">$to</span>): <span class="k">iterable</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;stripeRefunds;                               <span class="c">// an array is an iterable too</span></span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div></div></div></details></section>
 <section class="nextup"><p>Day 2 is done: prices, webhooks, the booking lifecycle, refunds and reconciliation. Day 3 starts on Monday, when two families arrive at the Lake Cabin for the same night.</p><nav class="pager" aria-label="Scenes">
 <a rel="prev" href="../10-refunds/"><small>← Scene 10</small>Refunded 100% on a strict booking</a>
 <a rel="next" href="../12-ical/"><small>Scene 12 →</small>Two families, one cabin, one night</a>

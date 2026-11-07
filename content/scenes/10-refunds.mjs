@@ -16,26 +16,70 @@ export default {
       blocks: [
         {
           path: 'app/Http/Controllers/CancelBookingController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`$hours = now()->diffInHours($booking->check_in);              // to midnight UTC, not the guest's check-in time
+          broken: true,
+          code: String.raw`<?php
 
-$refund = match ($booking->property->cancellation_policy) {   // the property's policy TODAY
-    'flexible' => $hours >= 24 ? $paid : 0,
-    'moderate' => $hours >= 120 ? $paid : $paid * 0.5,
-    'strict' => $hours >= 336 ? $paid * 0.5 : 0,
-};`,
-          after: [
-            'The rules themselves are right. The input is wrong: the policy comes from the **property**, read at the moment of cancelling. The guest agreed to *strict* in August; the property says *flexible* today, so she gets flexible terms. Any host who changes a policy silently rewrites every booking already made.',
-            'Two smaller bugs ride along: the hours are counted to midnight UTC instead of the guest’s real check-in moment in the property’s timezone (scene 2), and `$paid * 0.5` is a float again (scene 1). And the rules are a `match` inside a controller, so they can’t be tested without an HTTP request.',
-          ],
+namespace App\Http\Controllers;
+
+use App\Enums\PaymentStatus;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+use App\Money\Money;
+use App\Payments\PaymentGateway;
+
+class CancelBookingController extends Controller
+{
+    public function __invoke(Booking $booking, PaymentGateway $gateway): BookingResource
+    {
+        $booking->state()->cancel($booking);                              // scene 9
+
+        $payment = $booking->payments()->where('status', PaymentStatus::Succeeded)->latest('id')->first();
+        $paid = $payment?->amount_cents ?? 0;
+
+        $hours = now()->diffInHours($booking->check_in);              // to midnight UTC, not the guest's check-in time
+
+        $refund = match ($booking->property->cancellation_policy) {   // the property's policy TODAY
+            'flexible' => $hours >= 24 ? $paid : 0,
+            'moderate' => $hours >= 120 ? $paid : $paid * 0.5,
+            'strict' => $hours >= 336 ? $paid * 0.5 : 0,
+        };
+
+        if ($refund > 0) {
+            $gateway->refund($payment->provider_payment_id, Money::of((int) $refund, $payment->currency), "payment-{$payment->id}-cancel");
+        }
+
+        return new BookingResource($booking);
+    }
+}`,
+          after: ['The rules themselves are right. The input is wrong: the policy comes from the **property**, read at the moment of cancelling. The guest agreed to *strict* in August; the property says *flexible* today, so she gets flexible terms. Any host who changes a policy silently rewrites every booking already made.', 'Two smaller bugs ride along: the hours are counted to midnight UTC instead of the guest’s real check-in moment in the property’s timezone (scene 2), and `$paid * 0.5` is a float again (scene 1). And the rules are a `match` inside a controller, so they can’t be tested without an HTTP request.'],
         },
       ],
     },
     {
       title: 'The fix, part 1: the policy is part of the booking',
-      text: ['The guest agreed to the policy that was shown when they booked, so the booking keeps a **copy**, made once, at booking time. The property’s setting (a `cancellation_policy` column added with the first refund code last month) only decides the terms of **new** bookings. Bookings made before policies existed get `null`, on purpose.'],
+      text: ['The guest agreed to the policy that was shown when they booked, so the booking keeps a **copy**, made once, at booking time. The property’s setting only decides the terms of **new** bookings. Bookings made before policies existed get `null`, on purpose.'],
       blocks: [
         {
+          text: ['The property’s column was added last month with the first refund code. If your app doesn’t have it yet, this is it:'],
+          path: 'database/migrations/2026_01_20_000001_add_cancellation_policy_to_properties_table.php',
+          code: String.raw`<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('properties', function (Blueprint $table) {
+            $table->string('cancellation_policy')->default('moderate');   // flexible, moderate, strict: for new bookings
+        });
+    }
+};`,
+        },
+        {
+          text: ['The booking’s copy:'],
           path: 'database/migrations/2026_02_05_000001_add_cancellation_policy_to_bookings_table.php',
           code: String.raw`<?php
 
@@ -54,10 +98,186 @@ return new class extends Migration
 };`,
         },
         {
-          path: 'app/Bookings/CreateBooking.php (one line added)',
-          fragment: true,
-          code: String.raw`$booking->cancellation_policy = $property->cancellation_policy;   // the terms the guest agreed to, frozen`,
-          after: ['Both models cast the column to the `CancellationPolicy` enum below.'],
+          text: ['The copy is made when the booking is created:'],
+          path: 'app/Bookings/CreateBooking.php',
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
+    {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property->id)->lockForUpdate()->firstOrFail();   // others wait here
+
+            if ($property->bookings()->overlapping($stay)->exists()) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this->quoter->quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking->stay = $stay;
+            $booking->total = $quote->total();
+            $booking->cancellation_policy = $property->cancellation_policy;   // the terms the guest agreed to, frozen
+            $booking->status = BookingStatus::Pending;
+            $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
+            $property->bookings()->save($booking);
+
+            $booking->lineItems()->createMany(array_map(fn (LineItem $line): array => [
+                'type' => $line->type,
+                'description' => $line->description,
+                'amount' => $line->amount,
+            ], $quote->lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}`,
+        },
+        {
+          text: ['Both models cast the column to the `CancellationPolicy` enum below. The property:'],
+          path: 'app/Models/Property.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' => MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' => CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+}`,
+        },
+        {
+          text: ['The booking, which also gets `refundPolicy()`, explained in part 3:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' => CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();
+    }
+}`,
         },
       ],
     },
@@ -186,14 +406,7 @@ final class NoAutomaticRefund implements RefundPolicy
         return Money::zero($paid->currency);
     }
 }`,
-        },
-        {
-          path: 'app/Models/Booking.php (added)',
-          fragment: true,
-          code: String.raw`public function refundPolicy(): RefundPolicy
-{
-    return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();   // never null
-}`,
+          after: ['This is what the booking’s `refundPolicy()` (part 1) returns when `cancellation_policy` is null. No caller ever sees the null.'],
         },
       ],
     },
@@ -297,6 +510,61 @@ class RefundCancelledBooking implements ShouldQueue
     }
 }`,
           after: ['`Money` is a readonly value object, so the queue serializes it and gets the same value back in the worker.'],
+        },
+        {
+          title: 'The controller only asks',
+          text: ['The rules left the controller. It calls the action and returns the booking with the refund amount:'],
+          path: 'app/Http/Controllers/CancelBookingController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\CancelBooking;
+use App\Http\Resources\BookingResource;
+use App\Models\Booking;
+
+class CancelBookingController extends Controller
+{
+    public function __invoke(Booking $booking, CancelBooking $cancel): BookingResource
+    {
+        $refund = $cancel->handle($booking);                              // the rules live in the action and the policies
+
+        return (new BookingResource($booking->refresh()))
+            ->additional(['refund' => ['amount' => $refund->amount, 'currency' => $refund->currency->value]]);
+    }
+}`,
+        },
+        {
+          text: ['Its route has existed since launch; here it is with the others:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/cancel', CancelBookingController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);`,
         },
       ],
     },

@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Foundation","description":"The Laravel 13 vacation-rental PMS every scene starts from: Docker, configuration, the core migrations, enums, models, factories and Pest helpers, one file per block.","url":"https://sha-hin.github.io/pattern-playbook/00-foundation/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/00-foundation/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Laravel migrations","Eloquent models","Pest","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Foundation","item":"https://sha-hin.github.io/pattern-playbook/00-foundation/"}]}]}</script>
 </head>
@@ -56,7 +56,7 @@
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#setup">Setup</a><ul><li><a href="#stack">The stack</a></li><li><a href="#docker">Docker for local work</a></li><li><a href="#dockerfile">The PHP image</a></li><li><a href="#test-db">The test database</a></li><li><a href="#install">Install</a></li><li><a href="#env">Environment</a></li><li><a href="#app-provider">App-wide defaults</a></li></ul></li><li><a href="#migrations">Migrations</a><ul><li><a href="#table-accounts"><code>accounts</code></a></li><li><a href="#table-users"><code>users</code></a></li><li><a href="#table-memberships"><code>memberships</code></a></li><li><a href="#table-properties"><code>properties</code></a></li><li><a href="#table-bookings"><code>bookings</code></a></li><li><a href="#table-payments"><code>payments</code></a></li></ul></li><li><a href="#enums">Enums</a><ul><li><a href="#enum-booking-status">BookingStatus</a></li><li><a href="#enum-membership-role">MembershipRole</a></li><li><a href="#enum-payment-status">PaymentStatus</a></li></ul></li><li><a href="#models">Models</a><ul><li><a href="#model-user">User</a></li><li><a href="#model-account">Account</a></li><li><a href="#model-membership">Membership</a></li><li><a href="#model-property">Property</a></li><li><a href="#model-booking">Booking</a></li><li><a href="#model-payment">Payment</a></li></ul></li><li><a href="#factories">Factories</a><ul><li><a href="#factory-user">UserFactory</a></li><li><a href="#factory-account">AccountFactory</a></li><li><a href="#factory-property">PropertyFactory</a></li><li><a href="#factory-booking">BookingFactory</a></li><li><a href="#factory-payment">PaymentFactory</a></li></ul></li><li><a href="#testing">Test setup</a><ul><li><a href="#phpunit">The test environment</a></li><li><a href="#pest-config">Pest configuration</a></li><li><a href="#test-helpers">Test helpers</a></li></ul></li></ol></nav>
 <section id="setup"><h2>Setup</h2><div class="blocks"><div class="block" id="stack"><h3>The stack</h3><div class="tablewrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">Why</th></tr></thead>
 <tbody><tr><th scope="row">PHP 8.4 + Laravel 13</th><td>Backed enums, readonly classes and <code>match</code> are used throughout.</td></tr><tr><th scope="row">MySQL 8.4</th><td>Row locks and isolation levels matter for bookings. SQLite ignores <code>lockForUpdate()</code>, so tests run on MySQL too (scene 4 shows why).</td></tr><tr><th scope="row">Redis 7</th><td>Queue, cache, locks and sessions.</td></tr><tr><th scope="row">Pest</th><td>Every scene ends with its tests, folded.</td></tr></tbody></table></div></div><div class="block" id="docker"><h3>Docker for local work</h3><p>The app, MySQL (with a second database for tests) and Redis. The project folder is mounted, so code changes are live.</p><div class="codebox">
-<div class="filehead"><span class="path">compose.yaml</span></div>
+<div class="filehead"><span class="path">compose.yaml</span><span class="badge new">new file</span></div>
 <pre class="code"><code><span class="t">services</span>:
 <span class="t">  app</span>:
 <span class="t">    build</span>: docker/app
@@ -123,7 +123,7 @@
 <span class="t">CACHE_STORE</span>=<span class="s">redis</span>
 <span class="t">SESSION_DRIVER</span>=<span class="s">redis</span></code></pre>
 </div></div><div class="block" id="app-provider"><h3>App-wide defaults</h3><p>Two lines in <code>boot()</code>, each removing a class of bugs from every scene.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span></div>
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;
@@ -143,7 +143,7 @@
 }</code></pre>
 </div></div></div></section>
 <section id="migrations"><h2>Migrations</h2><p>Money is an integer in the currency’s smallest unit, with a <code>currency</code> column next to it (scene 1). Stay dates are <code>DATE</code> columns (scene 2). Rules the database can enforce, it enforces: foreign keys and unique indexes.</p><div class="blocks"><div class="block" id="table-accounts"><h3><code>accounts</code></h3><p>One account owns the properties. A host company is one account.</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000001_create_accounts_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000001_create_accounts_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -162,7 +162,7 @@
     }
 };</code></pre>
 </div></div><div class="block" id="table-users"><h3><code>users</code></h3><p>Laravel’s own table, plus the account the user is working in right now.</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000002_add_current_account_to_users_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000002_add_current_account_to_users_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -179,7 +179,7 @@
     }
 };</code></pre>
 </div></div><div class="block" id="table-memberships"><h3><code>memberships</code></h3><p>Users work in an account with a role. The unique index makes &quot;one role per person per account&quot; a database rule.</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000003_create_memberships_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000003_create_memberships_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -201,7 +201,7 @@
     }
 };</code></pre>
 </div></div><div class="block" id="table-properties"><h3><code>properties</code></h3><p>The timezone and the check-in and check-out times live on the property: &quot;check-in at 15:00&quot; means nothing without them (scene 2).</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000004_create_properties_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000004_create_properties_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -231,7 +231,7 @@
     }
 };</code></pre>
 </div></div><div class="block" id="table-bookings"><h3><code>bookings</code></h3><p>A stay is <code>[check_in, check_out)</code>: the guest leaves on the check-out day (scene 2). The composite index serves the overlap query every new booking runs (scene 3).</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000005_create_bookings_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000005_create_bookings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -262,7 +262,7 @@
     }
 };</code></pre>
 </div></div><div class="block" id="table-payments"><h3><code>payments</code></h3><p>One row per Stripe PaymentIntent. The unique <code>provider_payment_id</code> means the same Stripe payment can never be recorded twice.</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_01_01_000006_create_payments_table.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_01_01_000006_create_payments_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -286,7 +286,7 @@
 };</code></pre>
 </div></div></div></section>
 <section id="enums"><h2>Enums</h2><p>Every status and role is a backed enum, cast on its model, so <code>$booking-&gt;status</code> is a <code>BookingStatus</code> and a typo can’t be stored.</p><div class="blocks"><div class="block" id="enum-booking-status"><h3>BookingStatus</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/BookingStatus.php</span></div>
+<div class="filehead"><span class="path">app/Enums/BookingStatus.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -299,7 +299,7 @@
     <span class="k">case</span> <span class="t">Expired</span> = <span class="s">'expired'</span>;                 <span class="c">// a hold that was never paid</span>
 }</code></pre>
 </div></div><div class="block" id="enum-membership-role"><h3>MembershipRole</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/MembershipRole.php</span></div>
+<div class="filehead"><span class="path">app/Enums/MembershipRole.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -311,7 +311,7 @@
     <span class="k">case</span> <span class="t">Cleaner</span> = <span class="s">'cleaner'</span>;
 }</code></pre>
 </div></div><div class="block" id="enum-payment-status"><h3>PaymentStatus</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Enums/PaymentStatus.php</span></div>
+<div class="filehead"><span class="path">app/Enums/PaymentStatus.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Enums</span>;
@@ -324,7 +324,7 @@
 }</code></pre>
 </div></div></div></section>
 <section id="models"><h2>Models</h2><p>Models hold data, relations and casts. Business rules live in the classes the scenes build. <code>$fillable</code> lists only what a request may set: ownership columns and statuses are always set by code.</p><div class="blocks"><div class="block" id="model-user"><h3>User</h3><p><code>roleIn()</code> answers the question every policy asks: what is this user allowed to be in this account?</p><div class="codebox">
-<div class="filehead"><span class="path">app/Models/User.php</span></div>
+<div class="filehead"><span class="path">app/Models/User.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -370,7 +370,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="model-account"><h3>Account</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Account.php</span></div>
+<div class="filehead"><span class="path">app/Models/Account.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -400,7 +400,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="model-membership"><h3>Membership</h3><p>The pivot has its own model so the role is cast to <code>MembershipRole</code>.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Membership.php</span></div>
+<div class="filehead"><span class="path">app/Models/Membership.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -420,7 +420,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="model-property"><h3>Property</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Property.php</span></div>
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -450,7 +450,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="model-booking"><h3>Booking</h3><p><code>date:Y-m-d</code> keeps a date a date, with no time attached. Scenes 1 and 2 add the <code>total</code> and <code>stay</code> casts.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Booking.php</span></div>
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -490,7 +490,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="model-payment"><h3>Payment</h3><p>Only our own code writes payments, never a request, so all its columns are fillable.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Models/Payment.php</span></div>
+<div class="filehead"><span class="path">app/Models/Payment.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -518,7 +518,7 @@
 }</code></pre>
 </div></div></div></section>
 <section id="factories"><h2>Factories</h2><p>States read like the sentence a test needs: <code>Booking::factory()-&gt;pending()-&gt;forStay('2027-07-01', 3)</code>. Every default is valid on its own.</p><div class="blocks"><div class="block" id="factory-user"><h3>UserFactory</h3><p>Memberships are attached, not factoried: the test helper <a href="../00-foundation/#test-helpers"><code>hostOf()</code></a> does it with a role.</p><div class="codebox">
-<div class="filehead"><span class="path">database/factories/UserFactory.php</span></div>
+<div class="filehead"><span class="path">database/factories/UserFactory.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Database</span>\<span class="t">Factories</span>;
@@ -541,7 +541,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="factory-account"><h3>AccountFactory</h3><div class="codebox">
-<div class="filehead"><span class="path">database/factories/AccountFactory.php</span></div>
+<div class="filehead"><span class="path">database/factories/AccountFactory.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Database</span>\<span class="t">Factories</span>;
@@ -558,7 +558,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="factory-property"><h3>PropertyFactory</h3><p>The default is a Copenhagen flat at €150.00 a night, for up to 4 guests. Copenhagen has daylight-saving time, which scene 2 needs.</p><div class="codebox">
-<div class="filehead"><span class="path">database/factories/PropertyFactory.php</span></div>
+<div class="filehead"><span class="path">database/factories/PropertyFactory.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Database</span>\<span class="t">Factories</span>;
@@ -593,7 +593,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="factory-booking"><h3>BookingFactory</h3><p>The default booking is confirmed, three nights, four weeks after the frozen test date. Each status state sets the timestamps that go with it.</p><div class="codebox">
-<div class="filehead"><span class="path">database/factories/BookingFactory.php</span></div>
+<div class="filehead"><span class="path">database/factories/BookingFactory.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Database</span>\<span class="t">Factories</span>;
@@ -648,7 +648,7 @@
     }
 }</code></pre>
 </div></div><div class="block" id="factory-payment"><h3>PaymentFactory</h3><div class="codebox">
-<div class="filehead"><span class="path">database/factories/PaymentFactory.php</span></div>
+<div class="filehead"><span class="path">database/factories/PaymentFactory.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">Database</span>\<span class="t">Factories</span>;
@@ -679,19 +679,39 @@
 }</code></pre>
 </div></div></div></section>
 <section id="testing"><h2>Test setup</h2><p>Every scene’s tests assume this: a MySQL test database refreshed per test, time frozen at a known moment, and no real HTTP calls.</p><div class="blocks"><div class="block" id="phpunit"><h3>The test environment</h3><div class="codebox">
-<div class="filehead"><span class="path">phpunit.xml (php section)</span></div>
-<pre class="code"><code><span class="k">&lt;php</span><span class="k">&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
-    <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span>
-<span class="k">&lt;/php</span><span class="k">&gt;</span></code></pre>
+<div class="filehead"><span class="path">phpunit.xml</span><span class="badge new">new file</span></div>
+<pre class="code"><code>&lt;?xml <span class="v">version</span>=<span class="s">&quot;1.0&quot;</span> <span class="v">encoding</span>=<span class="s">&quot;UTF-8&quot;</span>?<span class="k">&gt;</span>
+<span class="k">&lt;phpunit</span> <span class="v">xmlns:xsi</span>=<span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+         <span class="v">xsi:noNamespaceSchemaLocation</span>=<span class="s">&quot;vendor/phpunit/phpunit/phpunit.xsd&quot;</span>
+         <span class="v">bootstrap</span>=<span class="s">&quot;vendor/autoload.php&quot;</span>
+         <span class="v">colors</span>=<span class="s">&quot;true&quot;</span>
+<span class="k">&gt;</span>
+    <span class="k">&lt;testsuites</span><span class="k">&gt;</span>
+        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Unit&quot;</span><span class="k">&gt;</span>
+            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Unit<span class="k">&lt;/directory</span><span class="k">&gt;</span>
+        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span>
+        <span class="k">&lt;testsuite</span> <span class="v">name</span>=<span class="s">&quot;Feature&quot;</span><span class="k">&gt;</span>
+            <span class="k">&lt;directory</span><span class="k">&gt;</span>tests/Feature<span class="k">&lt;/directory</span><span class="k">&gt;</span>
+        <span class="k">&lt;/testsuite</span><span class="k">&gt;</span>
+    <span class="k">&lt;/testsuites</span><span class="k">&gt;</span>
+    <span class="k">&lt;source</span><span class="k">&gt;</span>
+        <span class="k">&lt;include</span><span class="k">&gt;</span>
+            <span class="k">&lt;directory</span><span class="k">&gt;</span>app<span class="k">&lt;/directory</span><span class="k">&gt;</span>
+        <span class="k">&lt;/include</span><span class="k">&gt;</span>
+    <span class="k">&lt;/source</span><span class="k">&gt;</span>
+    <span class="k">&lt;php</span><span class="k">&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;APP_ENV&quot;</span> <span class="v">value</span>=<span class="s">&quot;testing&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;mysql&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;DB_DATABASE&quot;</span> <span class="v">value</span>=<span class="s">&quot;pms_test&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;QUEUE_CONNECTION&quot;</span> <span class="v">value</span>=<span class="s">&quot;sync&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;CACHE_STORE&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;SESSION_DRIVER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;MAIL_MAILER&quot;</span> <span class="v">value</span>=<span class="s">&quot;array&quot;</span><span class="k">/&gt;</span>
+        <span class="k">&lt;env</span> <span class="v">name</span>=<span class="s">&quot;BCRYPT_ROUNDS&quot;</span> <span class="v">value</span>=<span class="s">&quot;4&quot;</span><span class="k">/&gt;</span>
+    <span class="k">&lt;/php</span><span class="k">&gt;</span>
+<span class="k">&lt;/phpunit</span><span class="k">&gt;</span></code></pre>
 </div></div><div class="block" id="pest-config"><h3>Pest configuration</h3><p>The clock is frozen at <b>1 June 2027, 10:00 UTC</b> before every test, so &quot;four weeks from now&quot; and &quot;after today&quot; give the same answer on every run. A test that needs another moment calls <code>$this-&gt;travelTo()</code> itself.</p><p><code>Http::preventStrayRequests()</code> makes any HTTP call without a matching <code>Http::fake()</code> throw, so a test can never reach a real API by accident.</p><div class="codebox">
-<div class="filehead"><span class="path">tests/Pest.php</span></div>
+<div class="filehead"><span class="path">tests/Pest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;
@@ -708,7 +728,7 @@
 
 <span class="k">require</span> __DIR__ . <span class="s">'/helpers.php'</span>;</code></pre>
 </div></div><div class="block" id="test-helpers"><h3>Test helpers</h3><p>Almost every test first asks &quot;who is acting, with which role?&quot;. <code>hostOf()</code> answers it in one line.</p><div class="codebox">
-<div class="filehead"><span class="path">tests/helpers.php</span></div>
+<div class="filehead"><span class="path">tests/helpers.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">MembershipRole</span>;

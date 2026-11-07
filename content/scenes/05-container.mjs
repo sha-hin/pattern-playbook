@@ -17,16 +17,37 @@ export default {
       blocks: [
         {
           path: 'app/Payments/StartBookingPayment.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`public function handle(Booking $booking): string
-{
-    $stripe = new StripeClient(config('services.stripe.secret'));   // copy 1 of 5 in the app
+          broken: true,
+          code: String.raw`<?php
 
-    $intent = $stripe->paymentIntents->create([
-        'amount' => $booking->total->amount,
-        'currency' => strtolower($booking->total->currency->value),
-    ]);
-    // ...
+namespace App\Payments;
+
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+use Stripe\StripeClient;
+
+final class StartBookingPayment
+{
+    /** @return string the client secret the browser needs to confirm the payment with Stripe */
+    public function handle(Booking $booking): string
+    {
+        $stripe = new StripeClient(config('services.stripe.secret'));   // copy 1 of 5 in the app
+
+        $intent = $stripe->paymentIntents->create([
+            'amount' => $booking->total->amount,
+            'currency' => strtolower($booking->total->currency->value),
+            'metadata' => ['booking_id' => (string) $booking->id],
+        ]);
+
+        $booking->payments()->create([
+            'amount_cents' => $booking->total->amount,
+            'currency' => $booking->total->currency->value,
+            'status' => PaymentStatus::Pending,
+            'provider_payment_id' => $intent->id,
+        ]);
+
+        return $intent->client_secret;
+    }
 }`,
           after: ['A test that calls this code **can’t stop it** from reaching Stripe: the `new` is inside the method, out of the test’s reach. Whatever key is in the environment gets used.'],
         },
@@ -65,16 +86,34 @@ final class Stripe
       blocks: [
         {
           title: '1. Stripe’s SDK and its configuration',
-          path: 'terminal · config/services.php · .env',
+          text: ['Install the SDK:'],
+          path: 'terminal',
           lang: 'shell',
-          code: String.raw`composer require stripe/stripe-php
+          code: String.raw`composer require stripe/stripe-php`,
+        },
+        {
+          text: ['Laravel’s `config/services.php` holds third-party credentials. The whole file, with Laravel’s unused examples (Postmark, SES, Slack) removed:'],
+          path: 'config/services.php',
+          code: String.raw`<?php
 
-# config/services.php
-'stripe' => ['secret' => env('STRIPE_SECRET'), 'version' => env('STRIPE_API_VERSION')],
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
 
-# .env
-STRIPE_SECRET=sk_test_...
-STRIPE_API_VERSION=...          # the API version your Stripe account is pinned to`,
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'version' => env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+    ],
+
+];`,
+        },
+        {
+          text: ['And the values, in `.env`:'],
+          path: '.env (add these lines)',
+          lang: 'env',
+          fragment: true,
+          code: String.raw`STRIPE_SECRET=sk_test_...
+STRIPE_API_VERSION=2025-06-30.basil`,
+          after: ['Use the API version shown in your Stripe dashboard under Developers → API version.'],
         },
         {
           title: '2. What the app needs from a payment provider',
@@ -159,8 +198,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Date::use(CarbonImmutable::class);
-        Model::shouldBeStrict(! $this->app->isProduction());
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this->app->isProduction());     // lazy loading, unknown and unfillable attributes throw
     }
 }`,
         },
@@ -196,6 +235,44 @@ final readonly class StartBookingPayment
         return $intent['client_secret'];
     }
 }`,
+        },
+        {
+          title: 'Where it is called',
+          text: ['The checkout page calls one endpoint, unchanged since launch. The container builds `StartBookingPayment`, and with it the gateway:'],
+          path: 'app/Http/Controllers/BookingPaymentController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Booking;
+use App\Payments\StartBookingPayment;
+use Illuminate\Http\JsonResponse;
+
+class BookingPaymentController extends Controller
+{
+    /** The checkout page asks for a client secret, then confirms the card in the browser with Stripe.js. */
+    public function __invoke(Booking $booking, StartBookingPayment $startPayment): JsonResponse
+    {
+        return response()->json(['client_secret' => $startPayment->handle($booking)], 201);
+    }
+}`,
+        },
+        {
+          text: ['Its route, next to the booking route from scene 3:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');`,
         },
         {
           title: '6. In tests, a fake takes the real one’s place',
@@ -343,9 +420,42 @@ it('shares one Stripe client across the app', function () {
         after: ['Belt and braces: the [test environment](F#phpunit) also sets `STRIPE_SECRET=sk_test_fake`, so even code that slipped past the container would get an authentication error instead of a charge.'],
       },
       {
-        path: 'phpunit.xml (one line added)',
+        path: 'phpunit.xml',
         lang: 'xml',
-        code: String.raw`<env name="STRIPE_SECRET" value="sk_test_fake"/>`,
+        code: String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Concurrency">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="pms_test"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="STRIPE_SECRET" value="sk_test_fake"/>
+    </php>
+</phpunit>`,
       },
     ],
   },

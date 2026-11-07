@@ -15,20 +15,31 @@ export default {
       title: 'The broken code',
       blocks: [
         {
+          text: ['The booking is confirmed by the page Stripe sends the guest’s browser back to, scene 6’s controller:'],
           path: 'app/Http/Controllers/PaymentReturnController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`// Stripe redirects the guest's browser here after the payment
-public function __invoke(Request $request, BookingConfirmation $confirmation)
-{
-    $payment = Payment::where('provider_payment_id', $request->query('payment_intent'))->firstOrFail();
-    $confirmation->confirm($payment->booking, $payment);
+          broken: true,
+          code: String.raw`<?php
 
-    return view('bookings.thank-you');
+namespace App\Http\Controllers;
+
+use App\Bookings\BookingConfirmation;
+use App\Models\Payment;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+
+class PaymentReturnController extends Controller
+{
+    // Stripe sends the guest's browser here after a card payment: /payments/return?payment_intent=pi_...
+    public function __invoke(Request $request, BookingConfirmation $confirmation): View
+    {
+        $payment = Payment::where('provider_payment_id', $request->query('payment_intent'))->firstOrFail();
+
+        $confirmation->confirm($payment->booking, $payment);              // every step, in one place
+
+        return view('bookings.thank-you');
+    }
 }`,
-          after: [
-            'The browser is not a reliable messenger. A closed tab, a dead battery or a lost connection, and the confirmation never happens. Worse: anyone can open this URL with someone else’s `payment_intent` in it.',
-            'Stripe offers a reliable messenger: a **webhook**. Stripe’s servers call ours with every event, sign the request, and retry for up to three days until we answer 2xx.',
-          ],
+          after: ['The browser is not a reliable messenger. A closed tab, a dead battery or a lost connection, and the confirmation never happens. Worse: anyone can open this URL with someone else’s `payment_intent` in it. Stripe offers a reliable messenger: a **webhook**. Stripe’s servers call ours with every event, sign the request, and retry for up to three days until we answer 2xx.'],
         },
       ],
     },
@@ -68,7 +79,7 @@ return new class extends Migration
 };`,
         },
         {
-          path: 'app/Models/WebhookEvent.php · app/Enums/WebhookStatus.php',
+          path: 'app/Models/WebhookEvent.php',
           code: String.raw`<?php
 
 namespace App\Models;
@@ -156,17 +167,93 @@ class StripeWebhookController extends Controller
 }`,
         },
         {
-          path: 'routes/api.php · config/services.php · .env',
-          lang: 'shell',
-          code: String.raw`# routes/api.php (API routes have no CSRF check, which Stripe couldn't pass)
-Route::post('/webhooks/stripe', StripeWebhookController::class);
+          title: 'Wiring it up',
+          text: ['The route:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
 
-# config/services.php, in the stripe array
-'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use Illuminate\Support\Facades\Route;
 
-# .env (from the Stripe dashboard, or "stripe listen" locally)
-STRIPE_WEBHOOK_SECRET=whsec_...`,
-          after: ['The return page stays, but only shows "Thanks, we’re confirming your payment". It no longer confirms anything.'],
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);`,
+        },
+        {
+          text: ['The signing secret, next to the Stripe key:'],
+          path: 'config/services.php',
+          code: String.raw`<?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+        'version' => env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+];`,
+        },
+        {
+          text: ['Its value comes from the Stripe dashboard (Developers → Webhooks), or from `stripe listen` when you test locally:'],
+          path: '.env (add this line)',
+          lang: 'env',
+          fragment: true,
+          code: String.raw`STRIPE_WEBHOOK_SECRET=whsec_...`,
+        },
+        {
+          title: 'The return page only says thanks',
+          text: ['It no longer confirms anything, so it no longer needs the payment id, or the facade:'],
+          path: 'app/Http/Controllers/PaymentReturnController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Contracts\View\View;
+
+class PaymentReturnController extends Controller
+{
+    // Stripe sends the guest's browser here after a card payment. It only says thanks:
+    // the booking is confirmed by Stripe's webhook, never by a browser.
+    public function __invoke(): View
+    {
+        return view('bookings.thank-you');
+    }
+}`,
+        },
+        {
+          text: ['Its view tells the guest what happens next:'],
+          path: 'resources/views/bookings/thank-you.blade.php',
+          lang: 'xml',
+          code: String.raw`<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thank you · Nordic Stays</title>
+</head>
+<body>
+    <h1>Thanks for your payment</h1>
+    <p>We’re confirming it with your bank. You’ll get an email within a few minutes.</p>
+</body>
+</html>`,
         },
       ],
     },
@@ -178,7 +265,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...`,
       blocks: [
         {
           title: 'The typed events',
-          path: 'app/Payments/Events/PaymentSucceeded.php · PaymentFailed.php',
+          path: 'app/Payments/Events/PaymentSucceeded.php',
           code: String.raw`<?php
 
 namespace App\Payments\Events;
@@ -451,9 +538,43 @@ it('ignores types we do not act on', function () {
 });`,
       },
       {
-        path: 'phpunit.xml (one line added)',
+        path: 'phpunit.xml',
         lang: 'xml',
-        code: String.raw`<env name="STRIPE_WEBHOOK_SECRET" value="whsec_test"/>`,
+        code: String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Concurrency">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="pms_test"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="STRIPE_SECRET" value="sk_test_fake"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="whsec_test"/>
+    </php>
+</phpunit>`,
       },
     ],
   },

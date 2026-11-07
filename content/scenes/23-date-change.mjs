@@ -16,18 +16,45 @@ export default {
       blocks: [
         {
           path: 'app/Http/Controllers/ChangeDatesController.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`$booking->stay = $newStay;
-$booking->total = $quoter->quote($booking->property, $newStay)->total();
-$booking->save();                                                       // 1. the booking changes at once
+          broken: true,
+          code: String.raw`<?php
 
-$gateway->createPaymentIntent($difference, [...], "booking-{$booking->id}-change");   // 2. the guest pays... later
+namespace App\Http\Controllers;
 
-// 3. if the payment fails: a log line, and nothing else`,
-          after: [
-            'A date change is two steps that can’t happen at the same moment: the nights must be taken **now** (or someone else books them while the guest is paying), but the payment confirms **later**, through a webhook (scene 8). If it fails, the booking has to go back to **exactly** what it was: dates, total, every line of the bill.',
-            'Nobody wrote down what "what it was" means, so there was nothing to go back to. And the scheduled messages (scene 21) were never told about the new dates at all.',
-          ],
+use App\Bookings\Stay;
+use App\Enums\PaymentStatus;
+use App\Models\Booking;
+use App\Payments\PaymentGateway;
+use App\Pricing\PriceQuoter;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class ChangeDatesController extends Controller
+{
+    public function __invoke(Request $request, Booking $booking, PriceQuoter $quoter, PaymentGateway $gateway): JsonResponse
+    {
+        $data = $request->validate([
+            'check_in' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_out' => ['required', 'date_format:Y-m-d', 'after:check_in'],
+        ]);
+        $newStay = Stay::fromDates($data['check_in'], $data['check_out']);
+        $difference = $quoter->quote($booking->property, $newStay)->total()->add($booking->total->negate());
+
+        $booking->stay = $newStay;                                      // 1. the nights change at once
+        $booking->save();                                               //    (the total waits for the money)
+
+        $intent = $gateway->createPaymentIntent($difference, ['booking_id' => (string) $booking->id], "booking-{$booking->id}-change");
+        $booking->payments()->create([                                  // 2. the guest pays... later
+            'amount_cents' => $difference->amount, 'currency' => $difference->currency->value,
+            'status' => PaymentStatus::Pending, 'provider_payment_id' => $intent['id'],
+        ]);
+
+        // 3. if the payment fails, the webhook marks the payment failed, and nothing else
+
+        return response()->json(['client_secret' => $intent['client_secret']]);
+    }
+}`,
+          after: ['A date change is two steps that can’t happen at the same moment: the nights must be taken **now** (or someone else books them while the guest is paying), but the payment confirms **later**, through a webhook (scene 8). If it fails, the booking has to go back to **exactly** what it was: dates, total, every line of the bill.', 'Nobody wrote down what "what it was" means, so there was nothing to go back to. And the scheduled messages (scene 21) were never told about the new dates at all.'],
         },
       ],
     },
@@ -71,35 +98,128 @@ final readonly class BookingSnapshot
         {
           title: 'Making one, and going back to one',
           text: ['Both methods live on the booking, because only the booking knows which of its parts make up "its state". Messages aren’t in the snapshot: their send times are **derived** from the dates, so they are recalculated after a restore instead of being stored.'],
-          path: 'app/Models/Booking.php (added)',
-          fragment: true,
-          code: String.raw`public function snapshot(): BookingSnapshot
-{
-    return new BookingSnapshot(
-        $this->stay->checkIn->toDateString(),
-        $this->stay->checkOut->toDateString(),
-        $this->total->amount,
-        $this->total->currency->value,
-        $this->lineItems()->orderBy('id')->get(['type', 'description', 'amount_cents', 'currency'])
-            ->map(fn (BookingLineItem $line): array => [
-                'type' => $line->type->value, 'description' => $line->description,
-                'amount_cents' => $line->amount_cents, 'currency' => $line->currency,
-            ])->all(),
-    );
-}
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
 
-public function restore(BookingSnapshot $snapshot): void
-{
-    $this->stay = Stay::fromDates($snapshot->checkIn, $snapshot->checkOut);
-    $this->total = Money::of($snapshot->totalCents, $snapshot->currency);
-    $this->save();
+namespace App\Models;
 
-    $this->lineItems()->delete();                                          // the bill goes back line by line
-    $this->lineItems()->createMany(array_map(fn (array $line): array => [
-        'type' => $line['type'],
-        'description' => $line['description'],
-        'amount' => Money::of($line['amount_cents'], $line['currency']),
-    ], $snapshot->lines));
+use App\Bookings\BookingSnapshot;
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use App\Money\Money;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' => CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' => Channel::class,                           // null for bookings made on Nordic Stays
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    public function scheduledMessages(): HasMany
+    {
+        return $this->hasMany(ScheduledMessage::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();
+    }
+
+    /** Everything a date change can alter, as a plain value that can be stored and handed back. */
+    public function snapshot(): BookingSnapshot
+    {
+        return new BookingSnapshot(
+            $this->stay->checkIn->toDateString(),
+            $this->stay->checkOut->toDateString(),
+            $this->total->amount,
+            $this->total->currency->value,
+            $this->lineItems()->orderBy('id')->get(['type', 'description', 'amount_cents', 'currency'])
+                ->map(fn (BookingLineItem $line): array => [
+                    'type' => $line->type->value, 'description' => $line->description,
+                    'amount_cents' => $line->amount_cents, 'currency' => $line->currency,
+                ])->all(),
+        );
+    }
+
+    public function restore(BookingSnapshot $snapshot): void
+    {
+        $this->stay = Stay::fromDates($snapshot->checkIn, $snapshot->checkOut);
+        $this->total = Money::of($snapshot->totalCents, $snapshot->currency);
+        $this->save();
+
+        $this->lineItems()->delete();                                          // the bill goes back line by line
+        $this->lineItems()->createMany(array_map(fn (array $line): array => [
+            'type' => $line['type'],
+            'description' => $line['description'],
+            'amount' => Money::of($line['amount_cents'], $line['currency']),
+        ], $snapshot->lines));
+    }
 }`,
         },
       ],
@@ -135,7 +255,70 @@ return new class extends Migration
         });
     }
 };`,
-          after: ['`BookingChange` casts `snapshot` to an array; `Payment` gets a `change()` relation.'],
+        },
+        {
+          text: ['Its model keeps the snapshot as JSON:'],
+          path: 'app/Models/BookingChange.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class BookingChange extends Model
+{
+    protected function casts(): array
+    {
+        return ['snapshot' => 'array'];                                // the BookingSnapshot, as JSON
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+}`,
+        },
+        {
+          text: ['A payment for a change points to it:'],
+          path: 'app/Models/Payment.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Payment extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['amount_cents', 'currency', 'status', 'provider_payment_id', 'booking_change_id'];
+
+    protected function casts(): array
+    {
+        return ['status' => PaymentStatus::class];
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    /** Set when the payment is for a date change rather than the booking itself (scene 23). */
+    public function change(): BelongsTo
+    {
+        return $this->belongsTo(BookingChange::class, 'booking_change_id');
+    }
+}`,
         },
         {
           title: 'Changing the dates',
@@ -206,11 +389,80 @@ final readonly class ChangeBookingDates
         });
     }
 }`,
-          after: ['`booking_change_id` joins `Payment`’s `$fillable`.'],
+        },
+        {
+          text: ['The controller only validates and calls it:'],
+          path: 'app/Http/Controllers/ChangeDatesController.php (after)',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Bookings\ChangeBookingDates;
+use App\Bookings\Stay;
+use App\Models\Booking;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class ChangeDatesController extends Controller
+{
+    public function __invoke(Request $request, Booking $booking, ChangeBookingDates $change): JsonResponse
+    {
+        $data = $request->validate([
+            'check_in' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_out' => ['required', 'date_format:Y-m-d', 'after:check_in'],
+        ]);
+
+        $secret = $change->handle($booking, Stay::fromDates($data['check_in'], $data['check_out']));   // 409 when the nights are taken
+
+        return response()->json(['client_secret' => $secret]);                // null: nothing more to pay
+    }
+}`,
+        },
+        {
+          text: ['Its route, in scene 19’s group, so only the booking’s own hosts can change it:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\AccountMemberController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChangeDatesController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])->prefix('v1')->group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])->can('createBooking', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])->can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])->can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)->can('update', 'booking');
+    Route::patch('/bookings/{booking}/dates', ChangeDatesController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)->can('update', 'booking');
+
+    Route::post('/members', [AccountMemberController::class, 'store']);         // invite someone to the current account
+    Route::delete('/members/{user}', [AccountMemberController::class, 'destroy']);
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404`,
         },
         {
           title: 'When the money doesn’t come',
-          text: ['Called by scene 8’s webhook job when a change’s payment fails (and by a scheduled check when it isn’t paid within 30 minutes). The booking returns to the snapshot, and the messages are rescheduled from the restored dates.'],
+          text: ['Called by scene 8’s webhook job when a change’s payment fails, and by a scheduled check when it isn’t paid within 30 minutes (both below). The booking returns to the snapshot, and the messages are rescheduled from the restored dates.'],
           path: 'app/Bookings/RevertBookingChange.php',
           code: String.raw`<?php
 
@@ -275,18 +527,163 @@ final readonly class RescheduleGuestMessages
         },
         {
           title: 'The webhook job tells the two cases apart',
-          path: 'app/Jobs/ProcessStripeWebhook.php (added to both branches)',
-          fragment: true,
-          code: String.raw`// payment_intent.payment_failed
-if ($payment->booking_change_id !== null) {
-    app(RevertBookingChange::class)->handle($payment->change);
-}
+          text: ['A change’s payment settles the change instead of confirming the booking; a failed one reverts it. A payment that arrives after the change was already reverted is refunded, like scene 9’s late payment.'],
+          path: 'app/Jobs/ProcessStripeWebhook.php',
+          code: String.raw`<?php
 
-// payment_intent.succeeded: a change's payment settles the change instead of confirming the booking
-if ($payment->booking_change_id !== null) {
-    $payment->forceFill(['status' => PaymentStatus::Succeeded])->save();
-    $payment->change->forceFill(['status' => 'settled'])->save();
+namespace App\Jobs;
+
+use App\Bookings\BookingConfirmation;
+use App\Bookings\RevertBookingChange;
+use App\Bookings\States\DatesNoLongerAvailable;
+use App\Enums\PaymentStatus;
+use App\Models\Payment;
+use App\Models\WebhookEvent;
+use App\Money\Money;
+use App\Payments\Events\PaymentFailed;
+use App\Payments\Events\PaymentSucceeded;
+use App\Payments\Events\StripeEventFactory;
+use App\Payments\PaymentGateway;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
+use UnexpectedValueException;
+
+class ProcessStripeWebhook implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public WebhookEvent $webhook)
+    {
+    }
+
+    /** @return list<int> seconds to wait before each retry */
+    public function backoff(): array
+    {
+        return [10, 60, 300, 900];
+    }
+
+    public function handle(BookingConfirmation $confirmation, PaymentGateway $gateway, RevertBookingChange $revert): void
+    {
+        $event = StripeEventFactory::fromPayload($this->webhook->payload);
+
+        if ($event instanceof PaymentSucceeded) {
+            $payment = $this->payment($event->paymentIntentId);
+            $expected = Money::of($payment->amount_cents, $payment->currency);
+
+            if (! $event->amount->equals($expected)) {
+                throw new UnexpectedValueException("Stripe received {$event->amount->format()} for payment {$payment->id}, expected {$expected->format()}.");
+            }
+
+            if ($payment->booking_change_id !== null) {                 // the extra payment for a date change (scene 23)
+                $payment->status = PaymentStatus::Succeeded;
+                $payment->save();
+
+                if ($payment->change->status === 'reverted') {          // paid after the change was given up: give it back
+                    $refundId = $gateway->refund($event->paymentIntentId, $event->amount, "payment-{$payment->id}-late-refund");
+                    $payment->refunds()->createOrFirst(['provider_refund_id' => $refundId], [
+                        'amount_cents' => $event->amount->amount,
+                        'currency' => $event->amount->currency->value,
+                        'reason' => 'Paid after the date change was reverted.',
+                    ]);
+                } else {
+                    $payment->change->forceFill(['status' => 'settled'])->save();
+                }
+            } else {
+                try {
+                    $confirmation->confirm($payment->booking, $payment);
+                } catch (DatesNoLongerAvailable) {
+                    $payment->status = PaymentStatus::Succeeded;               // the money did arrive
+                    $payment->save();
+
+                    $refundId = $gateway->refund($event->paymentIntentId, $event->amount, "payment-{$payment->id}-late-refund");
+
+                    $payment->refunds()->createOrFirst(['provider_refund_id' => $refundId], [
+                        'amount_cents' => $event->amount->amount,
+                        'currency' => $event->amount->currency->value,
+                        'reason' => 'Paid after the hold expired; the nights were already booked.',
+                    ]);
+                }
+            }
+        }
+
+        if ($event instanceof PaymentFailed) {
+            $payment = $this->payment($event->paymentIntentId);
+            $payment->status = PaymentStatus::Failed;
+            $payment->save();
+
+            if ($payment->booking_change_id !== null) {
+                $revert->handle($payment->change);                       // the booking goes back exactly as it was
+            }
+        }
+
+        $this->webhook->markProcessed();                       // also for types we don't act on
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this->webhook->markFailed($exception->getMessage());
+    }
+
+    private function payment(string $paymentIntentId): Payment
+    {
+        return Payment::where('provider_payment_id', $paymentIntentId)->firstOrFail();
+    }
 }`,
+        },
+        {
+          title: 'And when no webhook ever comes',
+          text: ['A guest who closes the payment page sends no webhook at all. A command puts those bookings back after 30 minutes:'],
+          path: 'app/Console/Commands/RevertUnpaidChanges.php',
+          code: String.raw`<?php
+
+namespace App\Console\Commands;
+
+use App\Bookings\RevertBookingChange;
+use App\Models\BookingChange;
+use Illuminate\Console\Command;
+
+class RevertUnpaidChanges extends Command
+{
+    protected $signature = 'bookings:revert-unpaid-changes';
+
+    protected $description = 'Put a booking back when the extra payment for its date change never came';
+
+    public function handle(RevertBookingChange $revert): int
+    {
+        BookingChange::query()
+            ->where('status', 'pending')
+            ->where('created_at', '<=', now()->subMinutes(30))          // an abandoned payment never sends a webhook
+            ->lazyById()
+            ->each(fn (BookingChange $change) => $revert->handle($change));
+
+        return self::SUCCESS;
+    }
+}`,
+        },
+        {
+          text: ['Every minute, next to the other schedules:'],
+          path: 'routes/console.php',
+          code: String.raw`<?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()->lazyById()->each(fn (IcalFeed $feed) => SyncIcalFeed::dispatch($feed));
+})->everyFifteenMinutes()->name('sync-ical-feeds')->withoutOverlapping();
+Schedule::command('channels:poll')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('messages:send-due')->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('bookings:revert-unpaid-changes')->everyMinute()->withoutOverlapping();`,
         },
       ],
     },

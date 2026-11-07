@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 14: Two days of Booking.com reservations never arrived","description":"For two days every Booking.com reservation webhook was rejected, because a refactor built the Booking.com signature checker with Airbnb’s secret. Fix it in Laravel with an Abstract Factory: one kit per channel that creates its API client, signature verifier and payload mapper from that channel’s own configuration, so the parts can’t be mixed.","url":"https://sha-hin.github.io/pattern-playbook/14-channel-kits/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/14-channel-kits/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Abstract Factory pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 14: Two days of Booking.com reservations never arrived","item":"https://sha-hin.github.io/pattern-playbook/14-channel-kits/"}]}]}</script>
 </head>
@@ -76,7 +76,7 @@
 ]);</code></pre>
 </div><p>Every channel needs three parts that only work <b>together</b>: its API client, the verifier for its webhook signatures (with <b>its</b> secret), and the mapper for <b>its</b> payloads. Here they are three separate lists, and nothing connects the Booking.com entry in one list to the Booking.com entry in the next. A copied line put Airbnb’s secret into Booking.com’s verifier, every signature failed, and the tests passed, because each list was tested on its own.</p><p>Rejecting a webhook looks like success from our side: nothing crashes, nothing is logged as an error. The polling fallback that would have caught the missed reservations is the next scene.</p></div></div></section>
 <section><h2>The fix, part 1: one kit per channel</h2><p>Each channel needs a <b>family</b> of objects that only work together: its API client (scene 13), the verifier for its webhook signatures, and the mapper for its payloads. Instead of choosing each one separately, each channel gets a <b>kit</b> that creates all three. Pick the kit once, from the URL, and every part you get from it matches. Each kit receives <b>only its own channel’s configuration</b>, so the Booking.com kit has no way to reach Airbnb’s secret.</p><p>The signing schemes and payloads below are simplified versions of each partner’s; the real ones are in the partner documentation.</p><div class="blocks"><div class="block"><h3>The kit interface</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelKit.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ChannelKit.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -90,7 +90,7 @@
     <span class="k">public</span> <span class="k">function</span> <span class="f">mapper</span>(): <span class="t">ReservationMapper</span>;
 }</code></pre>
 </div></div><div class="block"><h3>The two other products</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/WebhookVerifier.php</span></div>
+<div class="filehead"><span class="path">app/Channels/WebhookVerifier.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -103,7 +103,7 @@
     <span class="k">public</span> <span class="k">function</span> <span class="f">verify</span>(<span class="t">Request</span> <span class="v">$request</span>): <span class="k">bool</span>;
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ReservationMapper.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ReservationMapper.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -117,7 +117,7 @@
     <span class="k">public</span> <span class="k">function</span> <span class="f">reservation</span>(<span class="k">array</span> <span class="v">$payload</span>): <span class="t">ChannelReservation</span>;
 }</code></pre>
 </div></div><div class="block"><h3>A reservation, in our words</h3><p>Whatever the channel sends becomes this. <code>version</code> is the channel’s own &quot;last modified&quot; time, in milliseconds; scene 15 needs it.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelReservation.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ChannelReservation.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -145,7 +145,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 2: the Airbnb kit</h2><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbKit.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbKit.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;
@@ -181,7 +181,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>Airbnb’s signature: a hex HMAC of the body</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbSignature.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbSignature.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;
@@ -203,7 +203,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbReservationMapper.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbReservationMapper.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;
@@ -243,7 +243,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 3: the Booking.com kit</h2><p>The same three products, built for Booking.com. Its signature is base64 instead of hex, in another header; its price is a decimal string.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComKit.php</span></div>
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComKit.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;
@@ -276,7 +276,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComSignature.php</span></div>
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComSignature.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;
@@ -298,7 +298,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>A decimal price, without a float</h3><p>&quot;1105.50&quot; must become <code>110550</code> cents exactly. <code>bcmul()</code> multiplies decimal strings without ever making a float (scene 1), and the currency’s own minor units decide the factor, so &quot;15010&quot; yen stays 15010.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComReservationMapper.php</span></div>
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComReservationMapper.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;
@@ -339,26 +339,105 @@
     }
 }</code></pre>
 </div></div></div></section>
-<section><h2>The fix, part 4: pick the kit once, from the URL</h2><div class="blocks"><div class="block"><h3>The manager builds kits now</h3><p>Scene 13’s manager returns a kit per channel instead of only the API. Code that only pushes calendars asks for <code>-&gt;api()</code>.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelManager.php (after)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Channel</span> <span class="v">$channel</span>): <span class="t">ChannelKit</span>
-{
-    <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">driver</span>(<span class="v">$channel</span>-&gt;value);
-}
+<section><h2>The fix, part 4: pick the kit once, from the URL</h2><div class="blocks"><div class="block"><h3>The manager builds kits now</h3><p>Scene 13’s manager returns a kit per channel instead of only the API.</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/ChannelManager.php</span><span class="badge">changed since scene 13: <span class="plus">+12</span> <span class="minus">−20</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="k">protected</span> <span class="k">function</span> <span class="f">createAirbnbDriver</span>(): <span class="t">ChannelKit</span>
-{
-    <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbKit</span>(<span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.airbnb'</span>));            <span class="c">// + 'webhook_secret' =&gt; env('AIRBNB_WEBHOOK_SECRET')</span>
-}
+namespace App\Channels;
 
-<span class="k">protected</span> <span class="k">function</span> <span class="f">createBookingComDriver</span>(): <span class="t">ChannelKit</span>
-{
-    <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComKit</span>(<span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.booking_com'</span>));   <span class="c">// + 'webhook_secret' =&gt; env('BOOKING_COM_WEBHOOK_SECRET')</span>
-}
+use App\Channels\Airbnb\AirbnbKit;
+use App\Channels\BookingCom\BookingComKit;
+use App\Enums\Channel;
+use Illuminate\Support\Manager;
+use InvalidArgumentException;
 
-<span class="c">// CloseChannelDates (scene 13): $channels-&gt;for($this-&gt;listing-&gt;channel)-&gt;api()</span></code></pre>
-</div><p>Scene 13’s tests change the same way: <code>-&gt;for(Channel::Airbnb)-&gt;api()-&gt;closeDates(...)</code>.</p></div><div class="block"><h3>Bookings know their channel</h3><p>While webhooks now find their way in, the booking they belong to needs the same care: a reservation id is only unique <b>within</b> its channel (Airbnb and Booking.com both use plain numbers for some ids), so the pair is the key. <code>channel</code> is null for direct bookings, and MySQL allows any number of nulls in a unique index.</p><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_04_000001_add_channel_to_bookings_table.php</span></div>
+/** @method ChannelKit driver(string|null $driver = null) */
+final class ChannelManager extends Manager
+{
+    public function for(Channel $channel): ChannelKit
+    {
+        return $this-&gt;driver($channel-&gt;value);               // &quot;booking_com&quot; → createBookingComDriver()
+    }
+
+    public function getDefaultDriver(): string
+    {
+        throw new InvalidArgumentException('There is no default channel: name one.');
+    }
+
+    protected function createAirbnbDriver(): ChannelKit
+    {
+        return new AirbnbKit($this-&gt;config-&gt;get('services.airbnb'));            // only Airbnb's own settings
+    }
+
+    protected function createBookingComDriver(): ChannelKit
+    {
+        return new BookingComKit($this-&gt;config-&gt;get('services.booking_com'));   // only Booking.com's own settings
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>\<span class="t">AirbnbApi</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>\<span class="t">AirbnbTokens</span>;</span><span class="ln del"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>\<span class="t">BookingComApi</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>\<span class="t">AirbnbKit</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>\<span class="t">BookingComKit</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Manager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">InvalidArgumentException</span>;</span><span class="ln"> </span><span class="ln del"><span class="c">/** @method ChannelApi driver(string|null $driver = null) */</span></span><span class="ln add"><span class="c">/** @method ChannelKit driver(string|null $driver = null) */</span></span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">ChannelManager</span> <span class="k">extends</span> <span class="t">Manager</span></span><span class="ln">{</span><span class="ln del">    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Channel</span> <span class="v">$channel</span>): <span class="t">ChannelApi</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="k">for</span>(<span class="t">Channel</span> <span class="v">$channel</span>): <span class="t">ChannelKit</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">driver</span>(<span class="v">$channel</span>-&gt;value);               <span class="c">// &quot;booking_com&quot; → createBookingComDriver()</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">getDefaultDriver</span>(): <span class="k">string</span></span><span class="ln">    {</span><span class="ln">        <span class="k">throw</span> <span class="k">new</span> <span class="f">InvalidArgumentException</span>(<span class="s">'There is no default channel: name one.'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln del">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createAirbnbDriver</span>(): <span class="t">ChannelApi</span></span><span class="ln del">    {</span><span class="ln del">        <span class="v">$config</span> = <span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.airbnb'</span>);</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbApi</span>(</span><span class="ln del">            <span class="k">new</span> <span class="f">AirbnbTokens</span>(<span class="v">$config</span>[<span class="s">'token_url'</span>], <span class="v">$config</span>[<span class="s">'client_id'</span>], <span class="v">$config</span>[<span class="s">'client_secret'</span>]),</span><span class="ln del">            <span class="v">$config</span>[<span class="s">'base_url'</span>],</span><span class="ln del">        );</span><span class="ln del">    }</span><span class="ln del"> </span><span class="ln del">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createBookingComDriver</span>(): <span class="t">ChannelApi</span></span><span class="ln del">    {</span><span class="ln del">        <span class="v">$config</span> = <span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.booking_com'</span>);</span><span class="ln del"> </span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComApi</span>(<span class="v">$config</span>[<span class="s">'base_url'</span>], <span class="v">$config</span>[<span class="s">'username'</span>], <span class="v">$config</span>[<span class="s">'password'</span>]);</span><span class="ln add">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createAirbnbDriver</span>(): <span class="t">ChannelKit</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbKit</span>(<span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.airbnb'</span>));            <span class="c">// only Airbnb's own settings</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">protected</span> <span class="k">function</span> <span class="f">createBookingComDriver</span>(): <span class="t">ChannelKit</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComKit</span>(<span class="k">$this</span>-&gt;config-&gt;<span class="f">get</span>(<span class="s">'services.booking_com'</span>));   <span class="c">// only Booking.com's own settings</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Each channel gets its own webhook secret, next to its other credentials:</p><div class="codebox changed">
+<div class="filehead"><span class="path">config/services.php</span><span class="badge">changed since scene 13: <span class="plus">+2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' =&gt; [
+        'secret' =&gt; env('STRIPE_SECRET'),
+        'version' =&gt; env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' =&gt; env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' =&gt; [
+        'base_url' =&gt; env('AIRBNB_BASE_URL'),
+        'token_url' =&gt; env('AIRBNB_TOKEN_URL'),
+        'client_id' =&gt; env('AIRBNB_CLIENT_ID'),
+        'client_secret' =&gt; env('AIRBNB_CLIENT_SECRET'),
+        'webhook_secret' =&gt; env('AIRBNB_WEBHOOK_SECRET'),
+    ],
+
+    'booking_com' =&gt; [
+        'base_url' =&gt; env('BOOKING_COM_BASE_URL'),
+        'username' =&gt; env('BOOKING_COM_USERNAME'),
+        'password' =&gt; env('BOOKING_COM_PASSWORD'),
+        'webhook_secret' =&gt; env('BOOKING_COM_WEBHOOK_SECRET'),
+    ],
+
+];"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="c">// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.</span></span><span class="ln"><span class="k">return</span> [</span><span class="ln"> </span><span class="ln">    <span class="s">'stripe'</span> =&gt; [</span><span class="ln">        <span class="s">'secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_SECRET'</span>),</span><span class="ln">        <span class="s">'version'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_API_VERSION'</span>),              <span class="c">// the API version your Stripe account is pinned to</span></span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_WEBHOOK_SECRET'</span>),     <span class="c">// checks that a webhook really comes from Stripe</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'airbnb'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_BASE_URL'</span>),</span><span class="ln">        <span class="s">'token_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_TOKEN_URL'</span>),</span><span class="ln">        <span class="s">'client_id'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_ID'</span>),</span><span class="ln">        <span class="s">'client_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_SECRET'</span>),</span><span class="ln add">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_WEBHOOK_SECRET'</span>),</span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'booking_com'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_BASE_URL'</span>),</span><span class="ln">        <span class="s">'username'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_USERNAME'</span>),</span><span class="ln">        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_PASSWORD'</span>),</span><span class="ln add">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_WEBHOOK_SECRET'</span>),</span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">];</span></code></pre>
+</div></div><div class="block"><p>Each value comes from that channel’s partner dashboard:</p><div class="codebox">
+<div class="filehead"><span class="path">.env (add these lines)</span></div>
+<pre class="code"><code><span class="t">AIRBNB_WEBHOOK_SECRET</span>=
+<span class="t">BOOKING_COM_WEBHOOK_SECRET</span>=</code></pre>
+</div></div><div class="block"><p>Code that only pushes calendars asks the kit for its API:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php</span><span class="badge">changed since scene 13: <span class="plus">+1</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Jobs;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Models\ChannelListing;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+class CloseChannelDates implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public ChannelListing $listing, public Stay $nights, public bool $close = true)
+    {
+    }
+
+    public function handle(ChannelManager $channels): void
+    {
+        $api = $channels-&gt;for($this-&gt;listing-&gt;channel)-&gt;api();
+
+        $this-&gt;close ? $api-&gt;closeDates($this-&gt;listing, $this-&gt;nights) : $api-&gt;openDates($this-&gt;listing, $this-&gt;nights);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">CloseChannelDates</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="k">public</span> <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">public</span> <span class="k">bool</span> <span class="v">$close</span> = <span class="k">true</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln del">        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel);</span><span class="ln add">        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel)-&gt;<span class="f">api</span>();</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>Bookings know their channel</h3><p>While webhooks now find their way in, the booking they belong to needs the same care: a reservation id is only unique <b>within</b> its channel (Airbnb and Booking.com both use plain numbers for some ids), so the pair is the key. <code>channel</code> is null for direct bookings, and MySQL allows any number of nulls in a unique index.</p><div class="codebox">
+<div class="filehead"><span class="path">database/migrations/2026_03_04_000001_add_channel_to_bookings_table.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -376,8 +455,95 @@
         });
     }
 };</code></pre>
-</div><p><code>Booking</code> casts <code>channel</code> to the <code>Channel</code> enum.</p></div><div class="block"><h3>One route per channel</h3><p>The channel comes from the URL, bound to the enum, so an unknown channel is a 404. From then on, every object comes from that one kit.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Http/Controllers/ChannelWebhookController.php</span></div>
+</div></div><div class="block"><p><code>Booking</code> casts the new column to the <code>Channel</code> enum:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Booking.php</span><span class="badge">changed since scene 10: <span class="plus">+2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' =&gt; 'date:Y-m-d',
+            'check_out' =&gt; 'date:Y-m-d',
+            'status' =&gt; BookingStatus::class,
+            'expires_at' =&gt; 'datetime',
+            'confirmed_at' =&gt; 'datetime',
+            'cancelled_at' =&gt; 'datetime',
+            'total' =&gt; MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' =&gt; StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' =&gt; CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' =&gt; Channel::class,                           // null for bookings made on Nordic Stays
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this-&gt;hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this-&gt;hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query-&gt;whereIn('status', BookingStatus::blocking())
+            -&gt;where('check_in', '&lt;', $stay-&gt;checkOut-&gt;toDateString())     // starts before the new stay ends
+            -&gt;where('check_out', '&gt;', $stay-&gt;checkIn-&gt;toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this-&gt;status) {
+            BookingStatus::Pending =&gt; new PendingState(),
+            BookingStatus::Confirmed =&gt; new ConfirmedState(),
+            BookingStatus::Expired =&gt; new ExpiredState(),
+            BookingStatus::Cancelled =&gt; new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this-&gt;cancellation_policy?-&gt;refundPolicy() ?? new NoAutomaticRefund();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">NoAutomaticRefund</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Refunds</span>\<span class="t">RefundPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">BookingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">CancelledState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ConfirmedState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">ExpiredState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">States</span>\<span class="t">PendingState</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">StayCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Builder</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Booking</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'guest_name'</span>, <span class="s">'guest_email'</span>, <span class="s">'check_in'</span>, <span class="s">'check_out'</span>, <span class="s">'guests'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'check_in'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'check_out'</span> =&gt; <span class="s">'date:Y-m-d'</span>,</span><span class="ln">            <span class="s">'status'</span> =&gt; <span class="t">BookingStatus</span>::class,</span><span class="ln">            <span class="s">'expires_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'confirmed_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'cancelled_at'</span> =&gt; <span class="s">'datetime'</span>,</span><span class="ln">            <span class="s">'total'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':total_cents'</span>,          <span class="c">// Money from total_cents + currency</span></span><span class="ln">            <span class="s">'stay'</span> =&gt; <span class="t">StayCast</span>::class,                             <span class="c">// Stay from check_in + check_out</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,    <span class="c">// a copy of the property's policy, made at booking time</span></span><span class="ln add">            <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::class,                           <span class="c">// null for bookings made on Nordic Stays</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">property</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">payments</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Payment</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">lineItems</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">BookingLineItem</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** Bookings that share at least one night with $stay: $property-&gt;bookings()-&gt;overlapping($stay). */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">scopeOverlapping</span>(<span class="t">Builder</span> <span class="v">$query</span>, <span class="t">Stay</span> <span class="v">$stay</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$query</span>-&gt;<span class="f">whereIn</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="f">blocking</span>())</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_in'</span>, <span class="s">'&lt;'</span>, <span class="v">$stay</span>-&gt;checkOut-&gt;<span class="f">toDateString</span>())     <span class="c">// starts before the new stay ends</span></span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'check_out'</span>, <span class="s">'&gt;'</span>, <span class="v">$stay</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>());    <span class="c">// ends after the new stay starts</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** What this booking may do now. The status column stays the single source of truth. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">state</span>(): <span class="t">BookingState</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">match</span> (<span class="k">$this</span>-&gt;status) {</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Pending</span> =&gt; <span class="k">new</span> <span class="f">PendingState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Confirmed</span> =&gt; <span class="k">new</span> <span class="f">ConfirmedState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Expired</span> =&gt; <span class="k">new</span> <span class="f">ExpiredState</span>(),</span><span class="ln">            <span class="t">BookingStatus</span>::<span class="t">Cancelled</span> =&gt; <span class="k">new</span> <span class="f">CancelledState</span>(),</span><span class="ln">        };                                                        <span class="c">// a new status without a state class fails here, loudly</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="c">/** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">refundPolicy</span>(): <span class="t">RefundPolicy</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;cancellation_policy?-&gt;<span class="f">refundPolicy</span>() ?? <span class="k">new</span> <span class="f">NoAutomaticRefund</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>One route per channel</h3><p>The channel comes from the URL, bound to the enum, so an unknown channel is a 404. From then on, every object comes from that one kit.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Http/Controllers/ChannelWebhookController.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>;
@@ -391,7 +557,6 @@
 
 <span class="k">class</span> <span class="t">ChannelWebhookController</span> <span class="k">extends</span> <span class="t">Controller</span>
 {
-    <span class="c">// Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);</span>
     <span class="k">public</span> <span class="k">function</span> <span class="f">__invoke</span>(<span class="t">Request</span> <span class="v">$request</span>, <span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="t">JsonResponse</span>
     {
         <span class="v">$kit</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="v">$channel</span>);
@@ -414,8 +579,42 @@
         <span class="k">return</span> <span class="f">response</span>()-&gt;<span class="f">json</span>([<span class="s">'received'</span> =&gt; <span class="k">true</span>]);
     }
 }</code></pre>
+</div></div><div class="block"><p>Its route:</p><div class="codebox changed">
+<div class="filehead"><span class="path">routes/api.php</span><span class="badge">changed since scene 10: <span class="plus">+4</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    -&gt;middleware('auth:sanctum')
+    -&gt;can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    -&gt;middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/cancel', CancelBookingController::class)
+    -&gt;middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    -&gt;middleware('auth:sanctum');                                       // who may: scenes 19 and 20
+
+// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+
+// {channel} is bound to the Channel enum: /webhooks/channels/vrbo is a 404.
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">BookingPaymentController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">CancelBookingController</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">ChannelWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">MarkBookingPaidController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">QuoteController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Http</span>\<span class="t">Controllers</span>\<span class="t">StripeWebhookController</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Route</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">get</span>(<span class="s">'/v1/properties/{property}/quote'</span>, <span class="t">QuoteController</span>::class);   <span class="c">// public: guests aren't logged in</span></span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/properties/{property}/bookings'</span>, [<span class="t">BookingController</span>::class, <span class="s">'store'</span>])</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)</span><span class="ln">    -&gt;<span class="f">can</span>(<span class="s">'createBooking'</span>, <span class="s">'property'</span>);</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/payment'</span>, <span class="t">BookingPaymentController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);</span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/cancel'</span>, <span class="t">CancelBookingController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span><span class="ln"> </span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/v1/bookings/{booking}/mark-paid'</span>, <span class="t">MarkBookingPaidController</span>::class)</span><span class="ln">    -&gt;<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>);                                       <span class="c">// who may: scenes 19 and 20</span></span><span class="ln"> </span><span class="ln"><span class="c">// Stripe calls this, not a browser. API routes have no CSRF check, which Stripe couldn't pass.</span></span><span class="ln"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/stripe'</span>, <span class="t">StripeWebhookController</span>::class);</span><span class="ln add"> </span><span class="ln add"><span class="c">// {channel} is bound to the Channel enum: /webhooks/channels/vrbo is a 404.</span></span><span class="ln add"><span class="t">Route</span>::<span class="f">post</span>(<span class="s">'/webhooks/channels/{channel}'</span>, <span class="t">ChannelWebhookController</span>::class);</span></code></pre>
 </div></div><div class="block"><h3>The job maps with the same kit</h3><p><code>provider</code> on the stored event <b>is</b> the channel, so the job gets the same kit the controller used. Saving the reservation is the simple version for now; the next scene shows why it isn’t enough.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/ProcessChannelWebhook.php</span></div>
+<div class="filehead"><span class="path">app/Jobs/ProcessChannelWebhook.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
@@ -504,8 +703,74 @@
 }</code></pre>
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>Each channel’s signature, no crossing between channels, and exact prices</small></summary>
-<div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/ChannelWebhookTest.php</span></div>
+<div class="testbody"><div class="blocks"><div class="block"><p>Scene 13’s tests ask the kit for its API now:</p><div class="codebox changed">
+<div class="filehead"><span class="path">tests/Feature/ChannelApiTest.php</span><span class="badge">changed since scene 13: <span class="plus">+3</span> <span class="minus">−3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelConnection;
+use App\Models\ChannelListing;
+use App\Models\Property;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+
+beforeEach(function () {
+    config([
+        'services.airbnb' =&gt; ['base_url' =&gt; 'https://airbnb.test/v2', 'token_url' =&gt; 'https://airbnb.test/oauth/token', 'client_id' =&gt; 'id', 'client_secret' =&gt; 'secret'],
+        'services.booking_com' =&gt; ['base_url' =&gt; 'https://booking.test', 'username' =&gt; 'user', 'password' =&gt; 'pass'],
+    ]);
+    $this-&gt;property = Property::factory()-&gt;create();
+    $this-&gt;connection = ChannelConnection::forceCreate([
+        'account_id' =&gt; $this-&gt;property-&gt;account_id, 'channel' =&gt; Channel::Airbnb,
+        'access_token' =&gt; 'old-access', 'refresh_token' =&gt; 'old-refresh', 'expires_at' =&gt; now()-&gt;addHour(),
+    ]);
+    $this-&gt;airbnb = ChannelListing::forceCreate(['property_id' =&gt; $this-&gt;property-&gt;id, 'channel' =&gt; Channel::Airbnb, 'external_listing_id' =&gt; '41793625']);
+    $this-&gt;bookingCom = ChannelListing::forceCreate(['property_id' =&gt; $this-&gt;property-&gt;id, 'channel' =&gt; Channel::BookingCom, 'external_listing_id' =&gt; '1290031']);
+    $this-&gt;nights = Stay::fromDates('2027-07-10', '2027-07-13');
+});
+
+it('closes nights on Airbnb as JSON, with the last night inclusive', function () {
+    Http::fake(['airbnb.test/*' =&gt; Http::response(['ok' =&gt; true])]);
+
+    app(ChannelManager::class)-&gt;for(Channel::Airbnb)-&gt;api()-&gt;closeDates($this-&gt;airbnb, $this-&gt;nights);
+
+    Http::assertSent(fn (Request $request): bool =&gt; $request-&gt;method() === 'PUT'
+        &amp;&amp; $request-&gt;url() === 'https://airbnb.test/v2/calendars/41793625'
+        &amp;&amp; $request-&gt;hasHeader('Authorization', 'Bearer old-access')
+        &amp;&amp; $request['end_date'] === '2027-07-12'
+        &amp;&amp; $request['availability'] === 'unavailable');
+});
+
+it('closes nights on Booking.com as XML, and treats an error inside a 200 as a failure', function () {
+    Http::fake(['booking.test/*' =&gt; Http::response('&lt;response&gt;&lt;error code=&quot;401&quot;&gt;Bad credentials&lt;/error&gt;&lt;/response&gt;', 200)]);
+
+    expect(fn () =&gt; app(ChannelManager::class)-&gt;for(Channel::BookingCom)-&gt;api()-&gt;closeDates($this-&gt;bookingCom, $this-&gt;nights))
+        -&gt;toThrow(ChannelRequestFailed::class, 'booking_com answered 200');
+});
+
+it('refreshes an expiring token before calling, and stores the new pair', function () {
+    $this-&gt;connection-&gt;update(['expires_at' =&gt; now()-&gt;addSeconds(30)]);
+    Http::fake([
+        'airbnb.test/oauth/token' =&gt; Http::response(['access_token' =&gt; 'new-access', 'refresh_token' =&gt; 'new-refresh', 'expires_in' =&gt; 3600]),
+        'airbnb.test/v2/*' =&gt; Http::response(['ok' =&gt; true]),
+    ]);
+
+    app(ChannelManager::class)-&gt;for(Channel::Airbnb)-&gt;api()-&gt;closeDates($this-&gt;airbnb, $this-&gt;nights);
+
+    expect($this-&gt;connection-&gt;fresh())
+        -&gt;access_token-&gt;toBe('new-access')
+        -&gt;refresh_token-&gt;toBe('new-refresh');
+    Http::assertSent(fn (Request $request): bool =&gt; $request-&gt;hasHeader('Authorization', 'Bearer new-access'));
+});
+
+it('stores tokens encrypted', function () {
+    expect($this-&gt;connection-&gt;getRawOriginal('access_token'))-&gt;not-&gt;toContain('old-access');
+});"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelConnection</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Property</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">Request</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;</span><span class="ln"> </span><span class="ln"><span class="f">beforeEach</span>(<span class="k">function</span> () {</span><span class="ln">    <span class="f">config</span>([</span><span class="ln">        <span class="s">'services.airbnb'</span> =&gt; [<span class="s">'base_url'</span> =&gt; <span class="s">'https://airbnb.test/v2'</span>, <span class="s">'token_url'</span> =&gt; <span class="s">'https://airbnb.test/oauth/token'</span>, <span class="s">'client_id'</span> =&gt; <span class="s">'id'</span>, <span class="s">'client_secret'</span> =&gt; <span class="s">'secret'</span>],</span><span class="ln">        <span class="s">'services.booking_com'</span> =&gt; [<span class="s">'base_url'</span> =&gt; <span class="s">'https://booking.test'</span>, <span class="s">'username'</span> =&gt; <span class="s">'user'</span>, <span class="s">'password'</span> =&gt; <span class="s">'pass'</span>],</span><span class="ln">    ]);</span><span class="ln">    <span class="k">$this</span>-&gt;property = <span class="t">Property</span>::<span class="f">factory</span>()-&gt;<span class="f">create</span>();</span><span class="ln">    <span class="k">$this</span>-&gt;connection = <span class="t">ChannelConnection</span>::<span class="f">forceCreate</span>([</span><span class="ln">        <span class="s">'account_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;account_id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>,</span><span class="ln">        <span class="s">'access_token'</span> =&gt; <span class="s">'old-access'</span>, <span class="s">'refresh_token'</span> =&gt; <span class="s">'old-refresh'</span>, <span class="s">'expires_at'</span> =&gt; <span class="f">now</span>()-&gt;<span class="f">addHour</span>(),</span><span class="ln">    ]);</span><span class="ln">    <span class="k">$this</span>-&gt;airbnb = <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'41793625'</span>]);</span><span class="ln">    <span class="k">$this</span>-&gt;bookingCom = <span class="t">ChannelListing</span>::<span class="f">forceCreate</span>([<span class="s">'property_id'</span> =&gt; <span class="k">$this</span>-&gt;property-&gt;id, <span class="s">'channel'</span> =&gt; <span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="s">'external_listing_id'</span> =&gt; <span class="s">'1290031'</span>]);</span><span class="ln">    <span class="k">$this</span>-&gt;nights = <span class="t">Stay</span>::<span class="f">fromDates</span>(<span class="s">'2027-07-10'</span>, <span class="s">'2027-07-13'</span>);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="f">it</span>(<span class="s">'closes nights on Airbnb as JSON, with the last night inclusive'</span>, <span class="k">function</span> () {</span><span class="ln">    <span class="t">Http</span>::<span class="f">fake</span>([<span class="s">'airbnb.test/*'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>([<span class="s">'ok'</span> =&gt; <span class="k">true</span>])]);</span><span class="ln"> </span><span class="ln del">    <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>)-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;airbnb, <span class="k">$this</span>-&gt;nights);</span><span class="ln add">    <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>)-&gt;<span class="f">api</span>()-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;airbnb, <span class="k">$this</span>-&gt;nights);</span><span class="ln"> </span><span class="ln">    <span class="t">Http</span>::<span class="f">assertSent</span>(<span class="k">fn</span> (<span class="t">Request</span> <span class="v">$request</span>): <span class="k">bool</span> =&gt; <span class="v">$request</span>-&gt;<span class="f">method</span>() === <span class="s">'PUT'</span></span><span class="ln">        &amp;&amp; <span class="v">$request</span>-&gt;<span class="f">url</span>() === <span class="s">'https://airbnb.test/v2/calendars/41793625'</span></span><span class="ln">        &amp;&amp; <span class="v">$request</span>-&gt;<span class="f">hasHeader</span>(<span class="s">'Authorization'</span>, <span class="s">'Bearer old-access'</span>)</span><span class="ln">        &amp;&amp; <span class="v">$request</span>[<span class="s">'end_date'</span>] === <span class="s">'2027-07-12'</span></span><span class="ln">        &amp;&amp; <span class="v">$request</span>[<span class="s">'availability'</span>] === <span class="s">'unavailable'</span>);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="f">it</span>(<span class="s">'closes nights on Booking.com as XML, and treats an error inside a 200 as a failure'</span>, <span class="k">function</span> () {</span><span class="ln">    <span class="t">Http</span>::<span class="f">fake</span>([<span class="s">'booking.test/*'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>(<span class="s">'&lt;response&gt;&lt;error code=&quot;401&quot;&gt;Bad credentials&lt;/error&gt;&lt;/response&gt;'</span>, <span class="n">200</span>)]);</span><span class="ln"> </span><span class="ln del">    <span class="f">expect</span>(<span class="k">fn</span> () =&gt; <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>)-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;bookingCom, <span class="k">$this</span>-&gt;nights))</span><span class="ln add">    <span class="f">expect</span>(<span class="k">fn</span> () =&gt; <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>)-&gt;<span class="f">api</span>()-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;bookingCom, <span class="k">$this</span>-&gt;nights))</span><span class="ln">        -&gt;<span class="f">toThrow</span>(<span class="t">ChannelRequestFailed</span>::class, <span class="s">'booking_com answered 200'</span>);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="f">it</span>(<span class="s">'refreshes an expiring token before calling, and stores the new pair'</span>, <span class="k">function</span> () {</span><span class="ln">    <span class="k">$this</span>-&gt;connection-&gt;<span class="f">update</span>([<span class="s">'expires_at'</span> =&gt; <span class="f">now</span>()-&gt;<span class="f">addSeconds</span>(<span class="n">30</span>)]);</span><span class="ln">    <span class="t">Http</span>::<span class="f">fake</span>([</span><span class="ln">        <span class="s">'airbnb.test/oauth/token'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>([<span class="s">'access_token'</span> =&gt; <span class="s">'new-access'</span>, <span class="s">'refresh_token'</span> =&gt; <span class="s">'new-refresh'</span>, <span class="s">'expires_in'</span> =&gt; <span class="n">3600</span>]),</span><span class="ln">        <span class="s">'airbnb.test/v2/*'</span> =&gt; <span class="t">Http</span>::<span class="f">response</span>([<span class="s">'ok'</span> =&gt; <span class="k">true</span>]),</span><span class="ln">    ]);</span><span class="ln"> </span><span class="ln del">    <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>)-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;airbnb, <span class="k">$this</span>-&gt;nights);</span><span class="ln add">    <span class="f">app</span>(<span class="t">ChannelManager</span>::class)-&gt;<span class="f">for</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>)-&gt;<span class="f">api</span>()-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;airbnb, <span class="k">$this</span>-&gt;nights);</span><span class="ln"> </span><span class="ln">    <span class="f">expect</span>(<span class="k">$this</span>-&gt;connection-&gt;<span class="f">fresh</span>())</span><span class="ln">        -&gt;access_token-&gt;<span class="f">toBe</span>(<span class="s">'new-access'</span>)</span><span class="ln">        -&gt;refresh_token-&gt;<span class="f">toBe</span>(<span class="s">'new-refresh'</span>);</span><span class="ln">    <span class="t">Http</span>::<span class="f">assertSent</span>(<span class="k">fn</span> (<span class="t">Request</span> <span class="v">$request</span>): <span class="k">bool</span> =&gt; <span class="v">$request</span>-&gt;<span class="f">hasHeader</span>(<span class="s">'Authorization'</span>, <span class="s">'Bearer new-access'</span>));</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="f">it</span>(<span class="s">'stores tokens encrypted'</span>, <span class="k">function</span> () {</span><span class="ln">    <span class="f">expect</span>(<span class="k">$this</span>-&gt;connection-&gt;<span class="f">getRawOriginal</span>(<span class="s">'access_token'</span>))-&gt;not-&gt;<span class="f">toContain</span>(<span class="s">'old-access'</span>);</span><span class="ln">});</span></code></pre>
+</div></div><div class="block"><div class="codebox">
+<div class="filehead"><span class="path">tests/Feature/ChannelWebhookTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;

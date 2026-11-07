@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 13: Every Airbnb call has failed with 401 for an hour","description":"The first Airbnb and Booking.com API integration was if/else per channel in every caller, and every push failed with 401 an hour after launch because the OAuth token expired. Fix it in Laravel with one ChannelApi interface, an Adapter per channel, a Manager to pick the driver, and a token refresh guarded by a lock.","url":"https://sha-hin.github.io/pattern-playbook/13-channel-api/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/13-channel-api/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Adapter pattern","Manager / Driver pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 13: Every Airbnb call has failed with 401 for an hour","item":"https://sha-hin.github.io/pattern-playbook/13-channel-api/"}]}]}</script>
 </head>
@@ -70,7 +70,7 @@
 }</code></pre>
 </div><p>Every place that changes the calendar has to know <b>both</b> APIs: Airbnb speaks JSON with OAuth tokens, Booking.com speaks XML with a username and password. Each new channel adds an <code>elseif</code> to every copy. And the errors are swallowed: nothing checks the response, so a 401 looks like success.</p></div></div></section>
 <section><h2>The fix, part 1: say what we need, in our words</h2><p>Nordic Stays doesn’t care how each channel works. It needs two things from any of them: <b>close these nights</b> and <b>open these nights</b> on a listing. That’s the interface. Every channel’s API is wrapped in a class that translates those two calls into what that channel expects.</p><p>First the data: which of our properties is which listing on each channel, and the OAuth tokens per account. The tokens are encrypted at rest, so a database dump contains no usable token.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">database/migrations/2026_03_03_000001_create_channel_tables.php</span></div>
+<div class="filehead"><span class="path">database/migrations/2026_03_03_000001_create_channel_tables.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Migrations</span>\<span class="t">Migration</span>;
@@ -104,7 +104,7 @@
     }
 };</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/ChannelConnection.php</span></div>
+<div class="filehead"><span class="path">app/Models/ChannelConnection.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -129,7 +129,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Models/ChannelListing.php</span></div>
+<div class="filehead"><span class="path">app/Models/ChannelListing.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;
@@ -152,8 +152,98 @@
         <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Property</span>::class);
     }
 }</code></pre>
-</div><p><code>Property</code> gets <code>channelListings()</code>, and <code>Account</code> gets <code>channelConnections()</code>.</p></div><div class="block"><h3>The interface</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelApi.php</span></div>
+</div></div><div class="block"><p>A property has listings:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Property.php</span><span class="badge">changed since scene 12: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use App\Casts\MoneyCast;
+use App\Enums\CancellationPolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Property extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name', 'city', 'country', 'timezone', 'check_in_time', 'check_out_time',
+        'max_guests', 'nightly_rate_cents', 'cleaning_fee_cents', 'currency',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'nightly_rate' =&gt; MoneyCast::class . ':nightly_rate_cents',   // Money from nightly_rate_cents + currency
+            'cancellation_policy' =&gt; CancellationPolicy::class,          // the terms for new bookings
+        ];
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Account::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this-&gt;hasMany(Booking::class);
+    }
+
+    public function icalFeeds(): HasMany
+    {
+        return $this-&gt;hasMany(IcalFeed::class);
+    }
+
+    public function externalBlocks(): HasMany
+    {
+        return $this-&gt;hasMany(ExternalBlock::class);
+    }
+
+    public function channelListings(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelListing::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Casts</span>\<span class="t">MoneyCast</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">CancellationPolicy</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsTo</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Property</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [</span><span class="ln">        <span class="s">'name'</span>, <span class="s">'city'</span>, <span class="s">'country'</span>, <span class="s">'timezone'</span>, <span class="s">'check_in_time'</span>, <span class="s">'check_out_time'</span>,</span><span class="ln">        <span class="s">'max_guests'</span>, <span class="s">'nightly_rate_cents'</span>, <span class="s">'cleaning_fee_cents'</span>, <span class="s">'currency'</span>,</span><span class="ln">    ];</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="k">function</span> <span class="f">casts</span>(): <span class="k">array</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> [</span><span class="ln">            <span class="s">'nightly_rate'</span> =&gt; <span class="t">MoneyCast</span>::class . <span class="s">':nightly_rate_cents'</span>,   <span class="c">// Money from nightly_rate_cents + currency</span></span><span class="ln">            <span class="s">'cancellation_policy'</span> =&gt; <span class="t">CancellationPolicy</span>::class,          <span class="c">// the terms for new bookings</span></span><span class="ln">        ];</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">account</span>(): <span class="t">BelongsTo</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsTo</span>(<span class="t">Account</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">bookings</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Booking</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">icalFeeds</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">IcalFeed</span>::class);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">externalBlocks</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ExternalBlock</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelListings</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelListing</span>::class);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>An account has its channel connections:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Models/Account.php</span><span class="badge">changed since the foundation: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Account extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['name'];
+
+    public function users(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(User::class, 'memberships')
+            -&gt;using(Membership::class)
+            -&gt;withPivot('role')
+            -&gt;withTimestamps();
+    }
+
+    public function properties(): HasMany
+    {
+        return $this-&gt;hasMany(Property::class);
+    }
+
+    public function channelConnections(): HasMany
+    {
+        return $this-&gt;hasMany(ChannelConnection::class);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Models</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Factories</span>\<span class="t">HasFactory</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">BelongsToMany</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Relations</span>\<span class="t">HasMany</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">Account</span> <span class="k">extends</span> <span class="t">Model</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">HasFactory</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$fillable</span> = [<span class="s">'name'</span>];</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">users</span>(): <span class="t">BelongsToMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">belongsToMany</span>(<span class="t">User</span>::class, <span class="s">'memberships'</span>)</span><span class="ln">            -&gt;<span class="f">using</span>(<span class="t">Membership</span>::class)</span><span class="ln">            -&gt;<span class="f">withPivot</span>(<span class="s">'role'</span>)</span><span class="ln">            -&gt;<span class="f">withTimestamps</span>();</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">properties</span>(): <span class="t">HasMany</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">Property</span>::class);</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">channelConnections</span>(): <span class="t">HasMany</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="k">$this</span>-&gt;<span class="f">hasMany</span>(<span class="t">ChannelConnection</span>::class);</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>The interface</h3><div class="codebox">
+<div class="filehead"><span class="path">app/Channels/ChannelApi.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -169,7 +259,7 @@
     <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span>;
 }</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -187,7 +277,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 2: an adapter per channel</h2><p>Each adapter implements the interface and translates. The request shapes below are simplified versions of each partner API: the real field names come from the partner documentation you get when you are approved, but the structure of the code is the same.</p><div class="blocks"><div class="block"><h3>Airbnb: JSON, with an OAuth token</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;
@@ -234,7 +324,7 @@
     }
 }</code></pre>
 </div></div><div class="block"><h3>Booking.com: XML, with a username and password</h3><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComApi.php</span></div>
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComApi.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;
@@ -288,7 +378,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 3: refreshing the token, once</h2><p>Airbnb’s access token lasts an hour; the refresh token gets a new one. Two details make this harder than it looks. Many workers push at once, and if two of them refresh at the same moment, the second refresh can be rejected, because each refresh token works only once. So the refresh runs under a <b>Redis lock</b>, and the second worker re-reads the token the first one saved. And the token is refreshed a minute <b>before</b> it expires, not after a 401.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbTokens.php</span></div>
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbTokens.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;
@@ -355,7 +445,7 @@
 }</code></pre>
 </div></div></div></section>
 <section><h2>The fix, part 4: one place that builds the right adapter</h2><p>Laravel has a base class for exactly this: <code>Manager</code>. You ask for a driver by name, it calls <code>create{Name}Driver()</code> the first time, and keeps the instance. Mail, cache, queue, session and filesystem all work this way; now channels do too.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelManager.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ChannelManager.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -397,22 +487,80 @@
         <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComApi</span>(<span class="v">$config</span>[<span class="s">'base_url'</span>], <span class="v">$config</span>[<span class="s">'username'</span>], <span class="v">$config</span>[<span class="s">'password'</span>]);
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">config/services.php · .env · AppServiceProvider::register()</span></div>
-<pre class="code"><code><span class="c"># config/services.php</span>
-<span class="s">'airbnb'</span> =&gt; [
-<span class="f">    'base_url'</span> =&gt; env(<span class="s">'AIRBNB_BASE_URL'</span>), <span class="s">'token_url'</span> =&gt; env(<span class="s">'AIRBNB_TOKEN_URL'</span>),
-<span class="f">    'client_id'</span> =&gt; env(<span class="s">'AIRBNB_CLIENT_ID'</span>), <span class="s">'client_secret'</span> =&gt; env(<span class="s">'AIRBNB_CLIENT_SECRET'</span>),
-<span class="f">],</span>
-<span class="s">'booking_com'</span> =&gt; [
-<span class="f">    'base_url'</span> =&gt; env(<span class="s">'BOOKING_COM_BASE_URL'</span>),
-<span class="f">    'username'</span> =&gt; env(<span class="s">'BOOKING_COM_USERNAME'</span>), <span class="s">'password'</span> =&gt; env(<span class="s">'BOOKING_COM_PASSWORD'</span>),
-<span class="f">],</span>
-<span class="f">
-#</span> AppServiceProvider::register(): one manager, so each driver is built once per process
-<span class="f">$this-&gt;app-&gt;singleton(ChannelManager::class);</span></code></pre>
-</div></div><div class="block"><h3>The callers, now</h3><p>The push becomes a queued job, dispatched after the commit by the confirmation facade (scene 6), <code>CancelBooking</code> (scene 10) and <code>ExpireHolds</code> (scene 9). None of them knows a channel exists; scene 17 makes the job itself smarter.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php</span></div>
+</div></div><div class="block"><h3>Configuration</h3><p>Each channel’s credentials:</p><div class="codebox changed">
+<div class="filehead"><span class="path">config/services.php</span><span class="badge">changed since scene 8: <span class="plus">+13</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' =&gt; [
+        'secret' =&gt; env('STRIPE_SECRET'),
+        'version' =&gt; env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' =&gt; env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' =&gt; [
+        'base_url' =&gt; env('AIRBNB_BASE_URL'),
+        'token_url' =&gt; env('AIRBNB_TOKEN_URL'),
+        'client_id' =&gt; env('AIRBNB_CLIENT_ID'),
+        'client_secret' =&gt; env('AIRBNB_CLIENT_SECRET'),
+    ],
+
+    'booking_com' =&gt; [
+        'base_url' =&gt; env('BOOKING_COM_BASE_URL'),
+        'username' =&gt; env('BOOKING_COM_USERNAME'),
+        'password' =&gt; env('BOOKING_COM_PASSWORD'),
+    ],
+
+];"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="c">// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.</span></span><span class="ln"><span class="k">return</span> [</span><span class="ln"> </span><span class="ln">    <span class="s">'stripe'</span> =&gt; [</span><span class="ln">        <span class="s">'secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_SECRET'</span>),</span><span class="ln">        <span class="s">'version'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_API_VERSION'</span>),              <span class="c">// the API version your Stripe account is pinned to</span></span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_WEBHOOK_SECRET'</span>),     <span class="c">// checks that a webhook really comes from Stripe</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln add">    <span class="s">'airbnb'</span> =&gt; [</span><span class="ln add">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_BASE_URL'</span>),</span><span class="ln add">        <span class="s">'token_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_TOKEN_URL'</span>),</span><span class="ln add">        <span class="s">'client_id'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_ID'</span>),</span><span class="ln add">        <span class="s">'client_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_SECRET'</span>),</span><span class="ln add">    ],</span><span class="ln add"> </span><span class="ln add">    <span class="s">'booking_com'</span> =&gt; [</span><span class="ln add">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_BASE_URL'</span>),</span><span class="ln add">        <span class="s">'username'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_USERNAME'</span>),</span><span class="ln add">        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_PASSWORD'</span>),</span><span class="ln add">    ],</span><span class="ln add"> </span><span class="ln">];</span></code></pre>
+</div></div><div class="block"><p>Their values. The URLs and credentials come from each channel’s partner programme:</p><div class="codebox">
+<div class="filehead"><span class="path">.env (add these lines)</span></div>
+<pre class="code"><code><span class="t">AIRBNB_BASE_URL</span>=<span class="s">https://api.airbnb.com/v2</span>
+<span class="t">AIRBNB_TOKEN_URL</span>=<span class="s">https://api.airbnb.com/oauth2/token</span>
+<span class="t">AIRBNB_CLIENT_ID</span>=
+<span class="t">AIRBNB_CLIENT_SECRET</span>=
+<span class="t">BOOKING_COM_BASE_URL</span>=<span class="s">https://supply-xml.booking.com</span>
+<span class="t">BOOKING_COM_USERNAME</span>=
+<span class="t">BOOKING_COM_PASSWORD</span>=</code></pre>
+</div></div><div class="block"><p>And one manager for the whole app, registered in the provider from scene 5:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Providers/AppServiceProvider.php</span><span class="badge">changed since scene 5: <span class="plus">+3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Providers;
+
+use App\Channels\ChannelManager;
+use App\Payments\PaymentGateway;
+use App\Payments\StripeGateway;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(StripeClient::class, fn (): StripeClient =&gt; new StripeClient([
+            'api_key' =&gt; config('services.stripe.secret'),
+            'stripe_version' =&gt; config('services.stripe.version'),    // pinned: a Stripe release can't change responses
+            'max_network_retries' =&gt; 2,
+        ]));
+
+        $this-&gt;app-&gt;bind(PaymentGateway::class, StripeGateway::class);
+
+        $this-&gt;app-&gt;singleton(ChannelManager::class);                  // one manager: each driver is built once per process
+    }
+
+    public function boot(): void
+    {
+        Date::use(CarbonImmutable::class);                        // every date Laravel creates is immutable (scene 1)
+        Model::shouldBeStrict(! $this-&gt;app-&gt;isProduction());     // lazy loading, unknown and unfillable attributes throw
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Providers</span>;</span><span class="ln"> </span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">PaymentGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Payments</span>\<span class="t">StripeGateway</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Database</span>\<span class="t">Eloquent</span>\<span class="t">Model</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Date</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">ServiceProvider</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Stripe</span>\<span class="t">StripeClient</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">AppServiceProvider</span> <span class="k">extends</span> <span class="t">ServiceProvider</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">register</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">StripeClient</span>::class, <span class="k">fn</span> (): <span class="t">StripeClient</span> =&gt; <span class="k">new</span> <span class="f">StripeClient</span>([</span><span class="ln">            <span class="s">'api_key'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.secret'</span>),</span><span class="ln">            <span class="s">'stripe_version'</span> =&gt; <span class="f">config</span>(<span class="s">'services.stripe.version'</span>),    <span class="c">// pinned: a Stripe release can't change responses</span></span><span class="ln">            <span class="s">'max_network_retries'</span> =&gt; <span class="n">2</span>,</span><span class="ln">        ]));</span><span class="ln"> </span><span class="ln">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">bind</span>(<span class="t">PaymentGateway</span>::class, <span class="t">StripeGateway</span>::class);</span><span class="ln add"> </span><span class="ln add">        <span class="k">$this</span>-&gt;app-&gt;<span class="f">singleton</span>(<span class="t">ChannelManager</span>::class);                  <span class="c">// one manager: each driver is built once per process</span></span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">boot</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Date</span>::<span class="f">use</span>(<span class="t">CarbonImmutable</span>::class);                        <span class="c">// every date Laravel creates is immutable (scene 1)</span></span><span class="ln">        <span class="t">Model</span>::<span class="f">shouldBeStrict</span>(! <span class="k">$this</span>-&gt;app-&gt;<span class="f">isProduction</span>());     <span class="c">// lazy loading, unknown and unfillable attributes throw</span></span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><h3>The push becomes a job</h3><p>One queued job per listing: close or open these nights on that channel. Scene 17 makes it smarter.</p><div class="codebox">
+<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
@@ -440,6 +588,135 @@
         <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
     }
 }</code></pre>
+</div></div><div class="block"><h3>The callers, now</h3><p>The three places that change the calendar dispatch the job after the commit, and none of them knows which channels exist. The confirmation facade (scene 6) closes the nights:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/BookingConfirmation.php</span><span class="badge">changed since scene 9: <span class="plus">+4</span> <span class="minus">−1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\CloseChannelDates;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Notifications\BookingConfirmed;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+
+final class BookingConfirmation
+{
+    public function confirm(Booking $booking, Payment $payment): void
+    {
+        DB::transaction(function () use ($booking, $payment): void {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();   // fresh, and locked
+
+            if (! $booking-&gt;state()-&gt;confirm($booking)) {               // step 1: the state decides
+                return;                                                // already confirmed: nothing else to do
+            }
+
+            $payment-&gt;status = PaymentStatus::Succeeded;               // step 2
+            $payment-&gt;save();
+
+            Notification::route('mail', $booking-&gt;guest_email)         // step 3, after the commit
+                -&gt;notify((new BookingConfirmed($booking))-&gt;afterCommit());
+
+            foreach ($booking-&gt;property-&gt;channelListings as $listing) {   // step 4: close the nights on every channel
+                CloseChannelDates::dispatch($listing, $booking-&gt;stay)-&gt;afterCommit();
+            }
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Payment</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Notifications</span>\<span class="t">BookingConfirmed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Notification</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">BookingConfirmation</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">confirm</span>(<span class="t">Booking</span> <span class="v">$booking</span>, <span class="t">Payment</span> <span class="v">$payment</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>, <span class="v">$payment</span>): <span class="k">void</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();   <span class="c">// fresh, and locked</span></span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">confirm</span>(<span class="v">$booking</span>)) {               <span class="c">// step 1: the state decides</span></span><span class="ln">                <span class="k">return</span>;                                                <span class="c">// already confirmed: nothing else to do</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$payment</span>-&gt;status = <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>;               <span class="c">// step 2</span></span><span class="ln">            <span class="v">$payment</span>-&gt;<span class="f">save</span>();</span><span class="ln"> </span><span class="ln">            <span class="t">Notification</span>::<span class="f">route</span>(<span class="s">'mail'</span>, <span class="v">$booking</span>-&gt;guest_email)         <span class="c">// step 3, after the commit</span></span><span class="ln">                -&gt;<span class="f">notify</span>((<span class="k">new</span> <span class="f">BookingConfirmed</span>(<span class="v">$booking</span>))-&gt;<span class="f">afterCommit</span>());</span><span class="ln"> </span><span class="ln del">            <span class="c">// Day 3 adds: close the dates on every channel. Day 4: schedule guest messages. Day 5: plan the cleaning.</span></span><span class="ln add">            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {   <span class="c">// step 4: close the nights on every channel</span></span><span class="ln add">                <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay)-&gt;<span class="f">afterCommit</span>();</span><span class="ln add">            }</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Cancelling (scene 10) opens them again:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Bookings/CancelBooking.php</span><span class="badge">changed since scene 10: <span class="plus">+5</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Bookings;
+
+use App\Enums\PaymentStatus;
+use App\Jobs\CloseChannelDates;
+use App\Jobs\RefundCancelledBooking;
+use App\Models\Booking;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CancelBooking
+{
+    /** @return Money the amount that will be refunded */
+    public function handle(Booking $booking): Money
+    {
+        return DB::transaction(function () use ($booking): Money {
+            $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+            $nothing = Money::zero($booking-&gt;total-&gt;currency);
+
+            if (! $booking-&gt;state()-&gt;cancel($booking)) {          // scene 9: already cancelled
+                return $nothing;
+            }
+
+            foreach ($booking-&gt;property-&gt;channelListings as $listing) {   // the nights are free again everywhere
+                CloseChannelDates::dispatch($listing, $booking-&gt;stay, close: false)-&gt;afterCommit();
+            }
+
+            $payment = $booking-&gt;payments()
+                -&gt;where('status', PaymentStatus::Succeeded)
+                -&gt;whereNotNull('provider_payment_id')            // card payments; bank transfers go back by hand
+                -&gt;latest('id')
+                -&gt;first();
+
+            if ($payment === null) {
+                return $nothing;
+            }
+
+            $hours = (int) floor(now()-&gt;diffInHours($booking-&gt;stay-&gt;checkInAt($booking-&gt;property), false));
+            $refund = $booking-&gt;refundPolicy()-&gt;refundFor(Money::of($payment-&gt;amount_cents, $payment-&gt;currency), $hours);
+
+            if ($refund-&gt;amount &gt; 0) {
+                RefundCancelledBooking::dispatch($payment, $refund)-&gt;afterCommit();
+            }
+
+            return $refund;
+        });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Bookings</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">PaymentStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">RefundCancelledBooking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Money</span>\<span class="t">Money</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">class</span> <span class="t">CancelBooking</span></span><span class="ln">{</span><span class="ln">    <span class="c">/** @return Money the amount that will be refunded */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">Booking</span> <span class="v">$booking</span>): <span class="t">Money</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="t">Money</span> {</span><span class="ln">            <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln">            <span class="v">$nothing</span> = <span class="t">Money</span>::<span class="f">zero</span>(<span class="v">$booking</span>-&gt;total-&gt;currency);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (! <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">cancel</span>(<span class="v">$booking</span>)) {          <span class="c">// scene 9: already cancelled</span></span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln add">            <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {   <span class="c">// the nights are free again everywhere</span></span><span class="ln add">                <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="k">false</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln add">            }</span><span class="ln add"> </span><span class="ln">            <span class="v">$payment</span> = <span class="v">$booking</span>-&gt;<span class="f">payments</span>()</span><span class="ln">                -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">PaymentStatus</span>::<span class="t">Succeeded</span>)</span><span class="ln">                -&gt;<span class="f">whereNotNull</span>(<span class="s">'provider_payment_id'</span>)            <span class="c">// card payments; bank transfers go back by hand</span></span><span class="ln">                -&gt;<span class="f">latest</span>(<span class="s">'id'</span>)</span><span class="ln">                -&gt;<span class="f">first</span>();</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$payment</span> === <span class="k">null</span>) {</span><span class="ln">                <span class="k">return</span> <span class="v">$nothing</span>;</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$hours</span> = (<span class="k">int</span>) <span class="f">floor</span>(<span class="f">now</span>()-&gt;<span class="f">diffInHours</span>(<span class="v">$booking</span>-&gt;stay-&gt;<span class="f">checkInAt</span>(<span class="v">$booking</span>-&gt;property), <span class="k">false</span>));</span><span class="ln">            <span class="v">$refund</span> = <span class="v">$booking</span>-&gt;<span class="f">refundPolicy</span>()-&gt;<span class="f">refundFor</span>(<span class="t">Money</span>::<span class="f">of</span>(<span class="v">$payment</span>-&gt;amount_cents, <span class="v">$payment</span>-&gt;currency), <span class="v">$hours</span>);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$refund</span>-&gt;amount &gt; <span class="n">0</span>) {</span><span class="ln">                <span class="t">RefundCancelledBooking</span>::<span class="f">dispatch</span>(<span class="v">$payment</span>, <span class="v">$refund</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">return</span> <span class="v">$refund</span>;</span><span class="ln">        });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>And so does an expired hold (scene 9):</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Console/Commands/ExpireHolds.php</span><span class="badge">changed since scene 9: <span class="plus">+10</span> <span class="minus">−3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Console\Commands;
+
+use App\Enums\BookingStatus;
+use App\Jobs\CloseChannelDates;
+use App\Models\Booking;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+class ExpireHolds extends Command
+{
+    protected $signature = 'bookings:expire-holds';
+
+    protected $description = 'Expire pending bookings whose hold has ended';
+
+    public function handle(): void
+    {
+        Booking::query()
+            -&gt;where('status', BookingStatus::Pending)
+            -&gt;where('expires_at', '&lt;=', now())
+            -&gt;lazyById()
+            -&gt;each(function (Booking $booking): void {
+                DB::transaction(function () use ($booking): void {
+                    $booking = Booking::whereKey($booking-&gt;id)-&gt;lockForUpdate()-&gt;firstOrFail();
+
+                    if ($booking-&gt;status !== BookingStatus::Pending) {   // a payment may have won the race
+                        return;
+                    }
+
+                    $booking-&gt;state()-&gt;expire($booking);
+
+                    foreach ($booking-&gt;property-&gt;channelListings as $listing) {
+                        CloseChannelDates::dispatch($listing, $booking-&gt;stay, close: false)-&gt;afterCommit();
+                    }
+                });
+            });
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Console</span>\<span class="t">Commands</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">BookingStatus</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Jobs</span>\<span class="t">CloseChannelDates</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">Booking</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Console</span>\<span class="t">Command</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">DB</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">ExpireHolds</span> <span class="k">extends</span> <span class="t">Command</span></span><span class="ln">{</span><span class="ln">    <span class="k">protected</span> <span class="v">$signature</span> = <span class="s">'bookings:expire-holds'</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">protected</span> <span class="v">$description</span> = <span class="s">'Expire pending bookings whose hold has ended'</span>;</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="t">Booking</span>::<span class="f">query</span>()</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'status'</span>, <span class="t">BookingStatus</span>::<span class="t">Pending</span>)</span><span class="ln">            -&gt;<span class="f">where</span>(<span class="s">'expires_at'</span>, <span class="s">'&lt;='</span>, <span class="f">now</span>())</span><span class="ln">            -&gt;<span class="f">lazyById</span>()</span><span class="ln">            -&gt;<span class="f">each</span>(<span class="k">function</span> (<span class="t">Booking</span> <span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln">                <span class="t">DB</span>::<span class="f">transaction</span>(<span class="k">function</span> () <span class="k">use</span> (<span class="v">$booking</span>): <span class="k">void</span> {</span><span class="ln">                    <span class="v">$booking</span> = <span class="t">Booking</span>::<span class="f">whereKey</span>(<span class="v">$booking</span>-&gt;id)-&gt;<span class="f">lockForUpdate</span>()-&gt;<span class="f">firstOrFail</span>();</span><span class="ln"> </span><span class="ln del">                    <span class="k">if</span> (<span class="v">$booking</span>-&gt;status === <span class="t">BookingStatus</span>::<span class="t">Pending</span>) {   <span class="c">// a payment may have won the race</span></span><span class="ln del">                        <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">expire</span>(<span class="v">$booking</span>);</span><span class="ln del">                    }</span><span class="ln add">                    <span class="k">if</span> (<span class="v">$booking</span>-&gt;status !== <span class="t">BookingStatus</span>::<span class="t">Pending</span>) {   <span class="c">// a payment may have won the race</span></span><span class="ln add">                        <span class="k">return</span>;</span><span class="ln add">                    }</span><span class="ln add"> </span><span class="ln add">                    <span class="v">$booking</span>-&gt;<span class="f">state</span>()-&gt;<span class="f">expire</span>(<span class="v">$booking</span>);</span><span class="ln add"> </span><span class="ln add">                    <span class="k">foreach</span> (<span class="v">$booking</span>-&gt;property-&gt;channelListings <span class="k">as</span> <span class="v">$listing</span>) {</span><span class="ln add">                        <span class="t">CloseChannelDates</span>::<span class="f">dispatch</span>(<span class="v">$listing</span>, <span class="v">$booking</span>-&gt;stay, close: <span class="k">false</span>)-&gt;<span class="f">afterCommit</span>();</span><span class="ln add">                    }</span><span class="ln">                });</span><span class="ln">            });</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div></div></div></section>
 <section class="reveal"><h2>You just met Adapter and Manager / Driver</h2>
 <p class="rule"><span>Adapter</span>A class that makes an existing API fit the interface your code expects, by translating every call.</p><p class="rule"><span>Manager / Driver</span>One object that builds the right implementation of an interface by name, from configuration, and keeps it for reuse. Laravel’s own pattern, used by mail, cache, queue and more.</p>
@@ -475,7 +752,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>What each adapter sends, failures that throw, and the token refreshed once</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/ChannelApiTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/ChannelApiTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;

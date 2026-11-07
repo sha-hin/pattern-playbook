@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../assets/style.css?v=98398aa258">
+<link rel="stylesheet" href="../assets/style.css?v=83bee42bec">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="37b7903a-c779-475f-b20f-18fe98cd4d70" data-domains="sha-hin.github.io"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Scene 16: Airbnb blocked us for an hour","description":"Airbnb blocked Nordic Stays for an hour after a burst of 429 responses was retried instantly, 25 times per change. Fix it in Laravel: the HTTP client retries only real blips, a Decorator around every channel API stays under the rate limit with Redis, and jobs wait for Retry-After.","url":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/","mainEntityOfPage":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/","image":"https://sha-hin.github.io/pattern-playbook/assets/og.png","inLanguage":"en","datePublished":"2026-11-06","dateModified":"2026-11-07","author":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"publisher":{"@type":"Person","name":"Mohammed Shahin","url":"https://sha-hin.github.io"},"isPartOf":{"@id":"https://sha-hin.github.io/pattern-playbook/#website"},"about":["Decorator pattern","Laravel","PHP"],"proficiencyLevel":"Expert"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Pattern Playbook","item":"https://sha-hin.github.io/pattern-playbook/"},{"@type":"ListItem","position":2,"name":"Scene 16: Airbnb blocked us for an hour","item":"https://sha-hin.github.io/pattern-playbook/16-rate-limits/"}]}]}</script>
 </head>
@@ -66,7 +66,7 @@
 <span class="c">// CloseChannelDates: public int $tries = 5;  with no backoff, so a failed job runs again at once</span></code></pre>
 </div><p>At 09:12 Airbnb got busy and answered a few calls with 429: &quot;too many requests, slow down&quot;. Each call was retried 5 times within half a second, and each failed job ran 5 more times right away: up to <b>25 requests</b> for one calendar change, all arriving exactly when Airbnb asked us to stop. That turned a short slowdown into a one-hour block.</p><p>Not every error deserves a retry. A <b>network blip or a 5xx</b> usually succeeds a moment later. A <b>429</b> means &quot;wait as long as I tell you&quot;. A <b>4xx</b> like 400 or 401 will fail the same way every time.</p></div></div></section>
 <section><h2>The fix, part 1: a 429 is its own error</h2><p>The adapters already turn failures into <code>ChannelRequestFailed</code> (scene 13). A 429 now becomes a subclass that carries how long the channel asked us to wait.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelRateLimited.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ChannelRateLimited.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -83,41 +83,195 @@
         <span class="k">return</span> <span class="v">$exception</span>;
     }
 }</code></pre>
-</div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php (from() changed)</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">from</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">Response</span> <span class="v">$response</span>): <span class="k">self</span>
+</div></div><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php</span><span class="badge">changed since scene 13: <span class="plus">+16</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels;
+
+use App\Enums\Channel;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use RuntimeException;
+use Throwable;
+
+class ChannelRequestFailed extends RuntimeException                     // not final: ChannelRateLimited extends it
 {
-    <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">status</span>() === <span class="n">429</span>) {
-        <span class="k">return</span> <span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="v">$channel</span>-&gt;value, (<span class="k">int</span>) (<span class="v">$response</span>-&gt;<span class="f">header</span>(<span class="s">'Retry-After'</span>) ?: <span class="n">60</span>));
+    public static function from(Channel $channel, Response $response): self
+    {
+        if ($response-&gt;status() === 429) {
+            return ChannelRateLimited::wait($channel-&gt;value, (int) ($response-&gt;header('Retry-After') ?: 60));
+        }
+
+        return new self(&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot; . mb_substr($response-&gt;body(), 0, 500));
     }
 
-    <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot;</span> . <span class="f">mb_substr</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="n">0</span>, <span class="n">500</span>));
-}
+    /** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */
+    public static function worthRetrying(Throwable $e): bool
+    {
+        return $e instanceof ConnectionException
+            || ($e instanceof RequestException &amp;&amp; $e-&gt;response-&gt;serverError());
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">ConnectionException</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">RequestException</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Http</span>\<span class="t">Client</span>\<span class="t">Response</span>;</span><span class="ln"><span class="k">use</span> <span class="t">RuntimeException</span>;</span><span class="ln del"> </span><span class="ln del"><span class="k">final</span> <span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span></span><span class="ln add"><span class="k">use</span> <span class="t">Throwable</span>;</span><span class="ln add"> </span><span class="ln add"><span class="k">class</span> <span class="t">ChannelRequestFailed</span> <span class="k">extends</span> <span class="t">RuntimeException</span>                     <span class="c">// not final: ChannelRateLimited extends it</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">from</span>(<span class="t">Channel</span> <span class="v">$channel</span>, <span class="t">Response</span> <span class="v">$response</span>): <span class="k">self</span></span><span class="ln">    {</span><span class="ln add">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">status</span>() === <span class="n">429</span>) {</span><span class="ln add">            <span class="k">return</span> <span class="t">ChannelRateLimited</span>::<span class="f">wait</span>(<span class="v">$channel</span>-&gt;value, (<span class="k">int</span>) (<span class="v">$response</span>-&gt;<span class="f">header</span>(<span class="s">'Retry-After'</span>) ?: <span class="n">60</span>));</span><span class="ln add">        }</span><span class="ln add"> </span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="k">self</span>(<span class="s">&quot;{$channel-&gt;value} answered {$response-&gt;status()}: &quot;</span> . <span class="f">mb_substr</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="n">0</span>, <span class="n">500</span>));</span><span class="ln">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">worthRetrying</span>(<span class="t">Throwable</span> <span class="v">$e</span>): <span class="k">bool</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ConnectionException</span></span><span class="ln add">            || (<span class="v">$e</span> <span class="k">instanceof</span> <span class="t">RequestException</span> &amp;&amp; <span class="v">$e</span>-&gt;response-&gt;<span class="f">serverError</span>());</span><span class="ln add">    }</span><span class="ln">}</span></code></pre>
+</div><p>The class is no longer <code>final</code>, because <code>ChannelRateLimited</code> extends it. <code>worthRetrying()</code> is used in part 2.</p></div></div></section>
+<section><h2>The fix, part 2: retry only real blips</h2><p>Laravel’s HTTP client already retries, and its <code>retry()</code> takes a third argument the broken code never used: a <code>when</code> callback that decides, per failure, whether another attempt is worth it. One rule, written once, used by both adapters:</p><div class="blocks"><div class="block"><p>One rule, <code>ChannelRequestFailed::worthRetrying()</code> from part 1, used by both adapters. Airbnb:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php</span><span class="badge">changed since scene 15: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-<span class="c">// The class is no longer final: ChannelRateLimited extends it.</span></code></pre>
-</div></div></div></section>
-<section><h2>The fix, part 2: retry only real blips</h2><p>Laravel’s HTTP client already retries, and its <code>retry()</code> takes a third argument the broken code never used: a <code>when</code> callback that decides, per failure, whether another attempt is worth it. One rule, written once, used by both adapters:</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ChannelRequestFailed.php (added)</span></div>
-<pre class="code"><code><span class="c">/** Only a dropped connection or a 5xx is worth another attempt; a 429 or any other 4xx is not. */</span>
-<span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="f">worthRetrying</span>(<span class="t">Throwable</span> <span class="v">$e</span>): <span class="k">bool</span>
+namespace App\Channels\Airbnb;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class AirbnbApi implements ChannelApi
 {
-    <span class="k">return</span> <span class="v">$e</span> <span class="k">instanceof</span> <span class="t">ConnectionException</span>
-        || (<span class="v">$e</span> <span class="k">instanceof</span> <span class="t">RequestException</span> &amp;&amp; <span class="v">$e</span>-&gt;response-&gt;<span class="f">serverError</span>());
-}</code></pre>
-</div><p>It imports <code>Illuminate\Http\Client\ConnectionException</code>, <code>Illuminate\Http\Client\RequestException</code> and <code>Throwable</code>.</p></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbApi.php (after) · the same line in BookingComApi</span></div>
-<pre class="code"><code><span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))
-    -&gt;<span class="f">timeout</span>(<span class="n">10</span>)
-    -&gt;<span class="f">retry</span>([<span class="n">200</span>, <span class="n">600</span>], when: <span class="t">ChannelRequestFailed</span>::<span class="f">worthRetrying</span>(...), <span class="k">throw</span>: <span class="k">false</span>)   <span class="c">// two more tries, 200 and 600 ms apart</span>
-    -&gt;<span class="f">acceptJson</span>()
-    -&gt;<span class="f">put</span>(<span class="s">&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;</span>, [<span class="c">/* ... */</span>]);
+    public function __construct(
+        private AirbnbTokens $tokens,
+        private string $baseUrl,
+    ) {
+    }
 
-<span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {
-    <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);   <span class="c">// a 429 becomes ChannelRateLimited (part 1)</span>
-}</code></pre>
-</div><p><code>throw: false</code> hands the last response back to the adapter, which turns it into our own exception as before. A dropped connection still throws <code>ConnectionException</code> after the last attempt.</p></div></div></section>
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;setAvailability($listing, $nights, 'unavailable');
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;setAvailability($listing, $nights, 'available');
+    }
+
+    private function setAvailability(ChannelListing $listing, Stay $nights, string $availability): void
+    {
+        $response = Http::withToken($this-&gt;tokens-&gt;for($listing))
+            -&gt;timeout(10)
+            -&gt;retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
+            -&gt;acceptJson()
+            -&gt;put(&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;, [
+                'start_date' =&gt; $nights-&gt;checkIn-&gt;toDateString(),
+                'end_date' =&gt; $nights-&gt;checkOut-&gt;subDay()-&gt;toDateString(),   // Airbnb counts nights inclusively
+                'availability' =&gt; $availability,
+            ]);
+
+        if ($response-&gt;failed()) {
+            throw ChannelRequestFailed::from(Channel::Airbnb, $response);  // never a silent 401 again
+        }
+    }
+
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new AirbnbReservationMapper();
+        $cursor = null;
+
+        do {
+            $response = Http::withToken($this-&gt;tokens-&gt;for($listing))-&gt;timeout(10)-&gt;acceptJson()
+                -&gt;get(&quot;{$this-&gt;baseUrl}/reservations&quot;, array_filter([
+                    'listing_id' =&gt; $listing-&gt;external_listing_id,
+                    'updated_since' =&gt; $since-&gt;toIso8601String(),
+                    'cursor' =&gt; $cursor,
+                ]));
+
+            if ($response-&gt;failed()) {
+                throw ChannelRequestFailed::from(Channel::Airbnb, $response);
+            }
+
+            foreach ($response-&gt;json('reservations') as $reservation) {
+                yield $mapper-&gt;reservation(['reservation' =&gt; $reservation]);   // the same mapper as the webhooks
+            }
+
+            $cursor = $response-&gt;json('next_cursor');
+        } while ($cursor !== null);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">AirbnbApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="t">AirbnbTokens</span> <span class="v">$tokens</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$baseUrl</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">setAvailability</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, <span class="s">'unavailable'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">setAvailability</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, <span class="s">'available'</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">setAvailability</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">string</span> <span class="v">$availability</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))</span><span class="ln">            -&gt;<span class="f">timeout</span>(<span class="n">10</span>)</span><span class="ln add">            -&gt;<span class="f">retry</span>([<span class="n">200</span>, <span class="n">600</span>], when: <span class="t">ChannelRequestFailed</span>::<span class="f">worthRetrying</span>(...), <span class="k">throw</span>: <span class="k">false</span>)   <span class="c">// two more tries, 200 and 600 ms apart</span></span><span class="ln">            -&gt;<span class="f">acceptJson</span>()</span><span class="ln">            -&gt;<span class="f">put</span>(<span class="s">&quot;{$this-&gt;baseUrl}/calendars/{$listing-&gt;external_listing_id}&quot;</span>, [</span><span class="ln">                <span class="s">'start_date'</span> =&gt; <span class="v">$nights</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">                <span class="s">'end_date'</span> =&gt; <span class="v">$nights</span>-&gt;checkOut-&gt;<span class="f">subDay</span>()-&gt;<span class="f">toDateString</span>(),   <span class="c">// Airbnb counts nights inclusively</span></span><span class="ln">                <span class="s">'availability'</span> =&gt; <span class="v">$availability</span>,</span><span class="ln">            ]);</span><span class="ln"> </span><span class="ln">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln">            <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);  <span class="c">// never a silent 401 again</span></span><span class="ln">        }</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$mapper</span> = <span class="k">new</span> <span class="f">AirbnbReservationMapper</span>();</span><span class="ln">        <span class="v">$cursor</span> = <span class="k">null</span>;</span><span class="ln"> </span><span class="ln">        <span class="k">do</span> {</span><span class="ln">            <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withToken</span>(<span class="k">$this</span>-&gt;tokens-&gt;<span class="f">for</span>(<span class="v">$listing</span>))-&gt;<span class="f">timeout</span>(<span class="n">10</span>)-&gt;<span class="f">acceptJson</span>()</span><span class="ln">                -&gt;<span class="f">get</span>(<span class="s">&quot;{$this-&gt;baseUrl}/reservations&quot;</span>, <span class="f">array_filter</span>([</span><span class="ln">                    <span class="s">'listing_id'</span> =&gt; <span class="v">$listing</span>-&gt;external_listing_id,</span><span class="ln">                    <span class="s">'updated_since'</span> =&gt; <span class="v">$since</span>-&gt;<span class="f">toIso8601String</span>(),</span><span class="ln">                    <span class="s">'cursor'</span> =&gt; <span class="v">$cursor</span>,</span><span class="ln">                ]));</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln">                <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">Airbnb</span>, <span class="v">$response</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'reservations'</span>) <span class="k">as</span> <span class="v">$reservation</span>) {</span><span class="ln">                <span class="k">yield</span> <span class="v">$mapper</span>-&gt;<span class="f">reservation</span>([<span class="s">'reservation'</span> =&gt; <span class="v">$reservation</span>]);   <span class="c">// the same mapper as the webhooks</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$cursor</span> = <span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'next_cursor'</span>);</span><span class="ln">        } <span class="k">while</span> (<span class="v">$cursor</span> !== <span class="k">null</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Booking.com, the same line:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComApi.php</span><span class="badge">changed since scene 15: <span class="plus">+1</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels\BookingCom;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class BookingComApi implements ChannelApi
+{
+    public function __construct(
+        private string $baseUrl,
+        private string $username,
+        private string $password,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;send($listing, $nights, closed: true);
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this-&gt;send($listing, $nights, closed: false);
+    }
+
+    private function send(ChannelListing $listing, Stay $nights, bool $closed): void
+    {
+        $xml = sprintf(
+            '&lt;request&gt;&lt;hotel_id&gt;%s&lt;/hotel_id&gt;&lt;date from=&quot;%s&quot; to=&quot;%s&quot;&gt;&lt;closed&gt;%d&lt;/closed&gt;&lt;/date&gt;&lt;/request&gt;',
+            htmlspecialchars($listing-&gt;external_listing_id, ENT_XML1),            // never trust a value inside XML
+            $nights-&gt;checkIn-&gt;toDateString(),
+            $nights-&gt;checkOut-&gt;subDay()-&gt;toDateString(),
+            $closed ? 1 : 0,
+        );
+
+        $response = Http::withBasicAuth($this-&gt;username, $this-&gt;password)
+            -&gt;timeout(10)
+            -&gt;retry([200, 600], when: ChannelRequestFailed::worthRetrying(...), throw: false)   // two more tries, 200 and 600 ms apart
+            -&gt;withBody($xml, 'text/xml')
+            -&gt;post(&quot;{$this-&gt;baseUrl}/hotels/xml/availability&quot;);
+
+        // Booking.com-style XML APIs can answer 200 with an error inside the body
+        if ($response-&gt;failed() || str_contains($response-&gt;body(), '&lt;error')) {
+            throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+        }
+    }
+
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new BookingComReservationMapper();
+        $page = 1;
+
+        do {
+            $response = Http::withBasicAuth($this-&gt;username, $this-&gt;password)-&gt;timeout(10)-&gt;acceptJson()
+                -&gt;get(&quot;{$this-&gt;baseUrl}/hotels/json/reservations&quot;, [
+                    'hotel_id' =&gt; $listing-&gt;external_listing_id,
+                    'last_change' =&gt; $since-&gt;utc()-&gt;format('Y-m-d H:i:s'),
+                    'page' =&gt; $page,
+                ]);
+
+            if ($response-&gt;failed()) {
+                throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+            }
+
+            foreach ($response-&gt;json('reservations') as $reservation) {
+                yield $mapper-&gt;reservation(['reservation' =&gt; $reservation]);   // the same mapper as the webhooks
+            }
+
+            $page++;
+        } while ($response-&gt;json('has_more') === true);
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRequestFailed</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Enums</span>\<span class="t">Channel</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Carbon</span>\<span class="t">CarbonImmutable</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Support</span>\<span class="t">Facades</span>\<span class="t">Http</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">BookingComApi</span> <span class="k">implements</span> <span class="t">ChannelApi</span></span><span class="ln">{</span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$baseUrl</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$username</span>,</span><span class="ln">        <span class="k">private</span> <span class="k">string</span> <span class="v">$password</span>,</span><span class="ln">    ) {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">closeDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">send</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, closed: <span class="k">true</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">openDates</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="k">$this</span>-&gt;<span class="f">send</span>(<span class="v">$listing</span>, <span class="v">$nights</span>, closed: <span class="k">false</span>);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">private</span> <span class="k">function</span> <span class="f">send</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">bool</span> <span class="v">$closed</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$xml</span> = <span class="f">sprintf</span>(</span><span class="ln">            <span class="s">'&lt;request&gt;&lt;hotel_id&gt;%s&lt;/hotel_id&gt;&lt;date from=&quot;%s&quot; to=&quot;%s&quot;&gt;&lt;closed&gt;%d&lt;/closed&gt;&lt;/date&gt;&lt;/request&gt;'</span>,</span><span class="ln">            <span class="f">htmlspecialchars</span>(<span class="v">$listing</span>-&gt;external_listing_id, <span class="t">ENT_XML1</span>),            <span class="c">// never trust a value inside XML</span></span><span class="ln">            <span class="v">$nights</span>-&gt;checkIn-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="v">$nights</span>-&gt;checkOut-&gt;<span class="f">subDay</span>()-&gt;<span class="f">toDateString</span>(),</span><span class="ln">            <span class="v">$closed</span> ? <span class="n">1</span> : <span class="n">0</span>,</span><span class="ln">        );</span><span class="ln"> </span><span class="ln">        <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withBasicAuth</span>(<span class="k">$this</span>-&gt;username, <span class="k">$this</span>-&gt;password)</span><span class="ln">            -&gt;<span class="f">timeout</span>(<span class="n">10</span>)</span><span class="ln add">            -&gt;<span class="f">retry</span>([<span class="n">200</span>, <span class="n">600</span>], when: <span class="t">ChannelRequestFailed</span>::<span class="f">worthRetrying</span>(...), <span class="k">throw</span>: <span class="k">false</span>)   <span class="c">// two more tries, 200 and 600 ms apart</span></span><span class="ln">            -&gt;<span class="f">withBody</span>(<span class="v">$xml</span>, <span class="s">'text/xml'</span>)</span><span class="ln">            -&gt;<span class="f">post</span>(<span class="s">&quot;{$this-&gt;baseUrl}/hotels/xml/availability&quot;</span>);</span><span class="ln"> </span><span class="ln">        <span class="c">// Booking.com-style XML APIs can answer 200 with an error inside the body</span></span><span class="ln">        <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>() || <span class="f">str_contains</span>(<span class="v">$response</span>-&gt;<span class="f">body</span>(), <span class="s">'&lt;error'</span>)) {</span><span class="ln">            <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="v">$response</span>);</span><span class="ln">        }</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">reservationsUpdatedSince</span>(<span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="t">CarbonImmutable</span> <span class="v">$since</span>): <span class="k">iterable</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$mapper</span> = <span class="k">new</span> <span class="f">BookingComReservationMapper</span>();</span><span class="ln">        <span class="v">$page</span> = <span class="n">1</span>;</span><span class="ln"> </span><span class="ln">        <span class="k">do</span> {</span><span class="ln">            <span class="v">$response</span> = <span class="t">Http</span>::<span class="f">withBasicAuth</span>(<span class="k">$this</span>-&gt;username, <span class="k">$this</span>-&gt;password)-&gt;<span class="f">timeout</span>(<span class="n">10</span>)-&gt;<span class="f">acceptJson</span>()</span><span class="ln">                -&gt;<span class="f">get</span>(<span class="s">&quot;{$this-&gt;baseUrl}/hotels/json/reservations&quot;</span>, [</span><span class="ln">                    <span class="s">'hotel_id'</span> =&gt; <span class="v">$listing</span>-&gt;external_listing_id,</span><span class="ln">                    <span class="s">'last_change'</span> =&gt; <span class="v">$since</span>-&gt;<span class="f">utc</span>()-&gt;<span class="f">format</span>(<span class="s">'Y-m-d H:i:s'</span>),</span><span class="ln">                    <span class="s">'page'</span> =&gt; <span class="v">$page</span>,</span><span class="ln">                ]);</span><span class="ln"> </span><span class="ln">            <span class="k">if</span> (<span class="v">$response</span>-&gt;<span class="f">failed</span>()) {</span><span class="ln">                <span class="k">throw</span> <span class="t">ChannelRequestFailed</span>::<span class="f">from</span>(<span class="t">Channel</span>::<span class="t">BookingCom</span>, <span class="v">$response</span>);</span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="k">foreach</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'reservations'</span>) <span class="k">as</span> <span class="v">$reservation</span>) {</span><span class="ln">                <span class="k">yield</span> <span class="v">$mapper</span>-&gt;<span class="f">reservation</span>([<span class="s">'reservation'</span> =&gt; <span class="v">$reservation</span>]);   <span class="c">// the same mapper as the webhooks</span></span><span class="ln">            }</span><span class="ln"> </span><span class="ln">            <span class="v">$page</span>++;</span><span class="ln">        } <span class="k">while</span> (<span class="v">$response</span>-&gt;<span class="f">json</span>(<span class="s">'has_more'</span>) === <span class="k">true</span>);</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div><p><code>throw: false</code> hands the last response back to the adapter, which turns it into our own exception as before. A dropped connection still throws <code>ConnectionException</code> after the last attempt. The polls keep their single attempt: a failed poll is retried by the next one.</p></div></div></section>
 <section><h2>The fix, part 3: one rate limit around every channel</h2><p>Waiting for a 429 is already too late: by then the channel is counting us. Each channel publishes a request limit, and every worker must stay under it <b>together</b>. That has nothing to do with how Airbnb or Booking.com work, so it doesn’t go <b>into</b> the adapters. It goes <b>around</b> them: a class that implements the same <code>ChannelApi</code> interface, holds another <code>ChannelApi</code>, adds one behaviour, and passes the call on.</p><p>A Redis counter shared by every worker counts our calls per channel per minute. At the limit, the call isn’t made at all, and the caller is told how long to wait, exactly like a 429 from the channel. <code>RateLimiter::attempt()</code> is atomic in Redis, so twenty workers can’t all slip through at the same instant.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/ThrottledChannelApi.php</span></div>
+<div class="filehead"><span class="path">app/Channels/ThrottledChannelApi.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>;
@@ -162,62 +316,157 @@
         }
     }
 }</code></pre>
-</div></div><div class="block"><h3>The kits wrap their API</h3><p>Code that receives a <code>ChannelApi</code> can’t tell whether it got the plain adapter or the wrapped one, so nothing else changes.</p><div class="codebox">
-<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbKit.php (api() changed) · the same in BookingComKit</span></div>
-<pre class="code"><code><span class="k">public</span> <span class="k">function</span> <span class="f">api</span>(): <span class="t">ChannelApi</span>
+</div></div><div class="block"><h3>The kits wrap their API</h3><p>Code that receives a <code>ChannelApi</code> can’t tell whether it got the plain adapter or the wrapped one, so nothing else changes. Airbnb’s kit:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/Airbnb/AirbnbKit.php</span><span class="badge">changed since scene 14: <span class="plus">+5</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels\Airbnb;
+
+use App\Channels\ChannelApi;
+use App\Channels\ChannelKit;
+use App\Channels\ReservationMapper;
+use App\Channels\ThrottledChannelApi;
+use App\Channels\WebhookVerifier;
+
+final readonly class AirbnbKit implements ChannelKit
 {
-    <span class="v">$airbnb</span> = <span class="k">new</span> <span class="f">AirbnbApi</span>(
-        <span class="k">new</span> <span class="f">AirbnbTokens</span>(<span class="k">$this</span>-&gt;config[<span class="s">'token_url'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_id'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_secret'</span>]),
-        <span class="k">$this</span>-&gt;config[<span class="s">'base_url'</span>],
-    );
+    /** @param array{base_url: string, token_url: string, client_id: string, client_secret: string, webhook_secret: string, requests_per_minute?: int} $config */
+    public function __construct(private array $config)
+    {
+    }
 
-    <span class="k">return</span> <span class="k">new</span> <span class="f">ThrottledChannelApi</span>(<span class="v">$airbnb</span>, <span class="s">'airbnb'</span>, perMinute: (<span class="k">int</span>) (<span class="k">$this</span>-&gt;config[<span class="s">'requests_per_minute'</span>] ?? <span class="n">60</span>));
-}</code></pre>
-</div><p><code>requests_per_minute</code> goes in <code>config/services.php</code> next to each channel’s credentials, with 60 when it isn’t set.</p><p>One slot covers one call <b>with its retries</b>: at most three requests, and only while the channel is answering 5xx. So the value is set a little under the partner’s published limit, not exactly on it.</p></div></div></section>
-<section><h2>The fix, part 4: jobs wait as long as they’re told</h2><p>A rate-limited job doesn’t fail and doesn’t retry at once: it goes back on the queue for exactly <code>Retry-After</code> seconds with <code>release()</code>. Every other failure waits a growing backoff. <code>retryUntil()</code> replaces a fixed number of tries, so a long rate limit can’t burn all of a job’s attempts.</p><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php (after)</span></div>
-<pre class="code"><code>&lt;?php
+    public function api(): ChannelApi
+    {
+        $airbnb = new AirbnbApi(
+            new AirbnbTokens($this-&gt;config['token_url'], $this-&gt;config['client_id'], $this-&gt;config['client_secret']),
+            $this-&gt;config['base_url'],
+        );
 
-<span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;
+        return new ThrottledChannelApi($airbnb, 'airbnb', perMinute: (int) ($this-&gt;config['requests_per_minute'] ?? 60));
+    }
 
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRateLimited</span>;
-<span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;
-<span class="k">use</span> <span class="t">DateTimeInterface</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;
-<span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;
+    public function verifier(): WebhookVerifier
+    {
+        return new AirbnbSignature($this-&gt;config['webhook_secret']);
+    }
 
-<span class="k">class</span> <span class="t">CloseChannelDates</span> <span class="k">implements</span> <span class="t">ShouldQueue</span>
+    public function mapper(): ReservationMapper
+    {
+        return new AirbnbReservationMapper();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">Airbnb</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelKit</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ReservationMapper</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ThrottledChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">WebhookVerifier</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">AirbnbKit</span> <span class="k">implements</span> <span class="t">ChannelKit</span></span><span class="ln">{</span><span class="ln del">    <span class="c">/** @param array{base_url: string, token_url: string, client_id: string, client_secret: string, webhook_secret: string} $config */</span></span><span class="ln add">    <span class="c">/** @param array{base_url: string, token_url: string, client_id: string, client_secret: string, webhook_secret: string, requests_per_minute?: int} $config */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">array</span> <span class="v">$config</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">api</span>(): <span class="t">ChannelApi</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbApi</span>(</span><span class="ln add">        <span class="v">$airbnb</span> = <span class="k">new</span> <span class="f">AirbnbApi</span>(</span><span class="ln">            <span class="k">new</span> <span class="f">AirbnbTokens</span>(<span class="k">$this</span>-&gt;config[<span class="s">'token_url'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_id'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'client_secret'</span>]),</span><span class="ln">            <span class="k">$this</span>-&gt;config[<span class="s">'base_url'</span>],</span><span class="ln">        );</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">ThrottledChannelApi</span>(<span class="v">$airbnb</span>, <span class="s">'airbnb'</span>, perMinute: (<span class="k">int</span>) (<span class="k">$this</span>-&gt;config[<span class="s">'requests_per_minute'</span>] ?? <span class="n">60</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">verifier</span>(): <span class="t">WebhookVerifier</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbSignature</span>(<span class="k">$this</span>-&gt;config[<span class="s">'webhook_secret'</span>]);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">mapper</span>(): <span class="t">ReservationMapper</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">AirbnbReservationMapper</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Booking.com’s:</p><div class="codebox changed">
+<div class="filehead"><span class="path">app/Channels/BookingCom/BookingComKit.php</span><span class="badge">changed since scene 14: <span class="plus">+5</span> <span class="minus">−2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Channels\BookingCom;
+
+use App\Channels\ChannelApi;
+use App\Channels\ChannelKit;
+use App\Channels\ReservationMapper;
+use App\Channels\ThrottledChannelApi;
+use App\Channels\WebhookVerifier;
+
+final readonly class BookingComKit implements ChannelKit
 {
-    <span class="k">use</span> <span class="t">Queueable</span>;
-
-    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="k">public</span> <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">public</span> <span class="k">bool</span> <span class="v">$close</span> = <span class="k">true</span>)
+    /** @param array{base_url: string, username: string, password: string, webhook_secret: string, requests_per_minute?: int} $config */
+    public function __construct(private array $config)
     {
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">retryUntil</span>(): <span class="t">DateTimeInterface</span>
+    public function api(): ChannelApi
     {
-        <span class="k">return</span> <span class="f">now</span>()-&gt;<span class="f">addHours</span>(<span class="n">2</span>);                        <span class="c">// keep trying for two hours, however many releases that takes</span>
+        $bookingCom = new BookingComApi($this-&gt;config['base_url'], $this-&gt;config['username'], $this-&gt;config['password']);
+
+        return new ThrottledChannelApi($bookingCom, 'booking_com', perMinute: (int) ($this-&gt;config['requests_per_minute'] ?? 60));
     }
 
-    <span class="c">/** @return list&lt;int&gt; */</span>
-    <span class="k">public</span> <span class="k">function</span> <span class="f">backoff</span>(): <span class="k">array</span>
+    public function verifier(): WebhookVerifier
     {
-        <span class="k">return</span> [<span class="n">30</span>, <span class="n">120</span>, <span class="n">300</span>, <span class="n">900</span>];
+        return new BookingComSignature($this-&gt;config['webhook_secret']);
     }
 
-    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="k">void</span>
+    public function mapper(): ReservationMapper
     {
-        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel)-&gt;<span class="f">api</span>();
+        return new BookingComReservationMapper();
+    }
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">BookingCom</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelKit</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ReservationMapper</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ThrottledChannelApi</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">WebhookVerifier</span>;</span><span class="ln"> </span><span class="ln"><span class="k">final</span> <span class="k">readonly</span> <span class="k">class</span> <span class="t">BookingComKit</span> <span class="k">implements</span> <span class="t">ChannelKit</span></span><span class="ln">{</span><span class="ln del">    <span class="c">/** @param array{base_url: string, username: string, password: string, webhook_secret: string} $config */</span></span><span class="ln add">    <span class="c">/** @param array{base_url: string, username: string, password: string, webhook_secret: string, requests_per_minute?: int} $config */</span></span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">private</span> <span class="k">array</span> <span class="v">$config</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">api</span>(): <span class="t">ChannelApi</span></span><span class="ln">    {</span><span class="ln del">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComApi</span>(<span class="k">$this</span>-&gt;config[<span class="s">'base_url'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'username'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'password'</span>]);</span><span class="ln add">        <span class="v">$bookingCom</span> = <span class="k">new</span> <span class="f">BookingComApi</span>(<span class="k">$this</span>-&gt;config[<span class="s">'base_url'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'username'</span>], <span class="k">$this</span>-&gt;config[<span class="s">'password'</span>]);</span><span class="ln add"> </span><span class="ln add">        <span class="k">return</span> <span class="k">new</span> <span class="f">ThrottledChannelApi</span>(<span class="v">$bookingCom</span>, <span class="s">'booking_com'</span>, perMinute: (<span class="k">int</span>) (<span class="k">$this</span>-&gt;config[<span class="s">'requests_per_minute'</span>] ?? <span class="n">60</span>));</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">verifier</span>(): <span class="t">WebhookVerifier</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComSignature</span>(<span class="k">$this</span>-&gt;config[<span class="s">'webhook_secret'</span>]);</span><span class="ln">    }</span><span class="ln"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">mapper</span>(): <span class="t">ReservationMapper</span></span><span class="ln">    {</span><span class="ln">        <span class="k">return</span> <span class="k">new</span> <span class="f">BookingComReservationMapper</span>();</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
+</div></div><div class="block"><p>Each channel’s limit goes next to its credentials, with 60 when <code>.env</code> doesn’t set one:</p><div class="codebox changed">
+<div class="filehead"><span class="path">config/services.php</span><span class="badge">changed since scene 14: <span class="plus">+2</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
 
-        <span class="k">try</span> {
-            <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);
-        } <span class="k">catch</span> (<span class="t">ChannelRateLimited</span> <span class="v">$e</span>) {
-            <span class="k">$this</span>-&gt;<span class="f">release</span>(<span class="v">$e</span>-&gt;retryAfter);               <span class="c">// back on the queue, not a failure</span>
+// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.
+return [
+
+    'stripe' =&gt; [
+        'secret' =&gt; env('STRIPE_SECRET'),
+        'version' =&gt; env('STRIPE_API_VERSION'),              // the API version your Stripe account is pinned to
+        'webhook_secret' =&gt; env('STRIPE_WEBHOOK_SECRET'),     // checks that a webhook really comes from Stripe
+    ],
+
+    'airbnb' =&gt; [
+        'base_url' =&gt; env('AIRBNB_BASE_URL'),
+        'token_url' =&gt; env('AIRBNB_TOKEN_URL'),
+        'client_id' =&gt; env('AIRBNB_CLIENT_ID'),
+        'client_secret' =&gt; env('AIRBNB_CLIENT_SECRET'),
+        'webhook_secret' =&gt; env('AIRBNB_WEBHOOK_SECRET'),
+        'requests_per_minute' =&gt; env('AIRBNB_REQUESTS_PER_MINUTE', 60),   // a little under the partner's published limit
+    ],
+
+    'booking_com' =&gt; [
+        'base_url' =&gt; env('BOOKING_COM_BASE_URL'),
+        'username' =&gt; env('BOOKING_COM_USERNAME'),
+        'password' =&gt; env('BOOKING_COM_PASSWORD'),
+        'webhook_secret' =&gt; env('BOOKING_COM_WEBHOOK_SECRET'),
+        'requests_per_minute' =&gt; env('BOOKING_COM_REQUESTS_PER_MINUTE', 60),
+    ],
+
+];"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="c">// Credentials for the services Nordic Stays talks to. Values come from .env, never from code.</span></span><span class="ln"><span class="k">return</span> [</span><span class="ln"> </span><span class="ln">    <span class="s">'stripe'</span> =&gt; [</span><span class="ln">        <span class="s">'secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_SECRET'</span>),</span><span class="ln">        <span class="s">'version'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_API_VERSION'</span>),              <span class="c">// the API version your Stripe account is pinned to</span></span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'STRIPE_WEBHOOK_SECRET'</span>),     <span class="c">// checks that a webhook really comes from Stripe</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'airbnb'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_BASE_URL'</span>),</span><span class="ln">        <span class="s">'token_url'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_TOKEN_URL'</span>),</span><span class="ln">        <span class="s">'client_id'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_ID'</span>),</span><span class="ln">        <span class="s">'client_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_CLIENT_SECRET'</span>),</span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_WEBHOOK_SECRET'</span>),</span><span class="ln add">        <span class="s">'requests_per_minute'</span> =&gt; <span class="f">env</span>(<span class="s">'AIRBNB_REQUESTS_PER_MINUTE'</span>, <span class="n">60</span>),   <span class="c">// a little under the partner's published limit</span></span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">    <span class="s">'booking_com'</span> =&gt; [</span><span class="ln">        <span class="s">'base_url'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_BASE_URL'</span>),</span><span class="ln">        <span class="s">'username'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_USERNAME'</span>),</span><span class="ln">        <span class="s">'password'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_PASSWORD'</span>),</span><span class="ln">        <span class="s">'webhook_secret'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_WEBHOOK_SECRET'</span>),</span><span class="ln add">        <span class="s">'requests_per_minute'</span> =&gt; <span class="f">env</span>(<span class="s">'BOOKING_COM_REQUESTS_PER_MINUTE'</span>, <span class="n">60</span>),</span><span class="ln">    ],</span><span class="ln"> </span><span class="ln">];</span></code></pre>
+</div><p>One slot covers one call <b>with its retries</b>: at most three requests, and only while the channel is answering 5xx. So the value is set a little under the partner’s published limit, not exactly on it.</p></div></div></section>
+<section><h2>The fix, part 4: jobs wait as long as they’re told</h2><p>A rate-limited job doesn’t fail and doesn’t retry at once: it goes back on the queue for exactly <code>Retry-After</code> seconds with <code>release()</code>. Every other failure waits a growing backoff. <code>retryUntil()</code> replaces a fixed number of tries, so a long rate limit can’t burn all of a job’s attempts.</p><div class="blocks"><div class="block"><div class="codebox changed">
+<div class="filehead"><span class="path">app/Jobs/CloseChannelDates.php (after)</span><span class="badge">changed since scene 14: <span class="plus">+18</span> <span class="minus">−3</span></span></div>
+<pre class="code diff" data-copy="&lt;?php
+
+namespace App\Jobs;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelManager;
+use App\Channels\ChannelRateLimited;
+use App\Models\ChannelListing;
+use DateTimeInterface;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+class CloseChannelDates implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public ChannelListing $listing, public Stay $nights, public bool $close = true)
+    {
+    }
+
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()-&gt;addHours(2);                        // keep trying for two hours, however many releases that takes
+    }
+
+    /** @return list&lt;int&gt; */
+    public function backoff(): array
+    {
+        return [30, 120, 300, 900];
+    }
+
+    public function handle(ChannelManager $channels): void
+    {
+        $api = $channels-&gt;for($this-&gt;listing-&gt;channel)-&gt;api();
+
+        try {
+            $this-&gt;close ? $api-&gt;closeDates($this-&gt;listing, $this-&gt;nights) : $api-&gt;openDates($this-&gt;listing, $this-&gt;nights);
+        } catch (ChannelRateLimited $e) {
+            $this-&gt;release($e-&gt;retryAfter);               // back on the queue, not a failure
         }
     }
-}</code></pre>
+}"><code><span class="ln">&lt;?php</span><span class="ln"> </span><span class="ln"><span class="k">namespace</span> <span class="t">App</span>\<span class="t">Jobs</span>;</span><span class="ln"> </span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelManager</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">App</span>\<span class="t">Channels</span>\<span class="t">ChannelRateLimited</span>;</span><span class="ln"><span class="k">use</span> <span class="t">App</span>\<span class="t">Models</span>\<span class="t">ChannelListing</span>;</span><span class="ln add"><span class="k">use</span> <span class="t">DateTimeInterface</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Contracts</span>\<span class="t">Queue</span>\<span class="t">ShouldQueue</span>;</span><span class="ln"><span class="k">use</span> <span class="t">Illuminate</span>\<span class="t">Foundation</span>\<span class="t">Queue</span>\<span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln"><span class="k">class</span> <span class="t">CloseChannelDates</span> <span class="k">implements</span> <span class="t">ShouldQueue</span></span><span class="ln">{</span><span class="ln">    <span class="k">use</span> <span class="t">Queueable</span>;</span><span class="ln"> </span><span class="ln del">    <span class="k">public</span> <span class="k">int</span> <span class="v">$tries</span> = <span class="n">5</span>;</span><span class="ln del"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">__construct</span>(<span class="k">public</span> <span class="t">ChannelListing</span> <span class="v">$listing</span>, <span class="k">public</span> <span class="t">Stay</span> <span class="v">$nights</span>, <span class="k">public</span> <span class="k">bool</span> <span class="v">$close</span> = <span class="k">true</span>)</span><span class="ln">    {</span><span class="ln">    }</span><span class="ln"> </span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">retryUntil</span>(): <span class="t">DateTimeInterface</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> <span class="f">now</span>()-&gt;<span class="f">addHours</span>(<span class="n">2</span>);                        <span class="c">// keep trying for two hours, however many releases that takes</span></span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln add">    <span class="c">/** @return list&lt;int&gt; */</span></span><span class="ln add">    <span class="k">public</span> <span class="k">function</span> <span class="f">backoff</span>(): <span class="k">array</span></span><span class="ln add">    {</span><span class="ln add">        <span class="k">return</span> [<span class="n">30</span>, <span class="n">120</span>, <span class="n">300</span>, <span class="n">900</span>];</span><span class="ln add">    }</span><span class="ln add"> </span><span class="ln">    <span class="k">public</span> <span class="k">function</span> <span class="f">handle</span>(<span class="t">ChannelManager</span> <span class="v">$channels</span>): <span class="k">void</span></span><span class="ln">    {</span><span class="ln">        <span class="v">$api</span> = <span class="v">$channels</span>-&gt;<span class="f">for</span>(<span class="k">$this</span>-&gt;listing-&gt;channel)-&gt;<span class="f">api</span>();</span><span class="ln"> </span><span class="ln del">        <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);</span><span class="ln add">        <span class="k">try</span> {</span><span class="ln add">            <span class="k">$this</span>-&gt;close ? <span class="v">$api</span>-&gt;<span class="f">closeDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights) : <span class="v">$api</span>-&gt;<span class="f">openDates</span>(<span class="k">$this</span>-&gt;listing, <span class="k">$this</span>-&gt;nights);</span><span class="ln add">        } <span class="k">catch</span> (<span class="t">ChannelRateLimited</span> <span class="v">$e</span>) {</span><span class="ln add">            <span class="k">$this</span>-&gt;<span class="f">release</span>(<span class="v">$e</span>-&gt;retryAfter);               <span class="c">// back on the queue, not a failure</span></span><span class="ln add">        }</span><span class="ln">    }</span><span class="ln">}</span></code></pre>
 </div><p>A limit of how many of these jobs may <b>start</b> per minute is also built in: the <code>RateLimited</code> job middleware with a <code>RateLimiter::for()</code> definition. The decorator is the stricter guard because it counts actual calls to the channel, from jobs, commands and requests alike.</p></div></div></section>
 <section class="reveal"><h2>You just wrote the Decorator pattern</h2>
 <p class="rule"><span>Decorator</span>A class that implements the same interface as the object it wraps, adds one behaviour, and passes every call on. Decorators can be stacked.</p>
@@ -252,7 +501,7 @@
 </div></div></div></section>
 <section class="tests"><details><summary><span>Tests</span><small>What is retried and what isn’t, the shared limit, and a job that waits</small></summary>
 <div class="testbody"><div class="blocks"><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/ChannelRetriesTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/ChannelRetriesTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
@@ -291,7 +540,7 @@
     <span class="s">'bad request'</span> =&gt; [<span class="n">400</span>, <span class="t">ChannelRequestFailed</span>::class],
 ]);</code></pre>
 </div></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Unit/ThrottledChannelApiTest.php</span></div>
+<div class="filehead"><span class="path">tests/Unit/ThrottledChannelApiTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;
@@ -329,7 +578,7 @@
         -&gt;<span class="f">and</span>(<span class="v">$inner</span>-&gt;calls)-&gt;<span class="f">toBe</span>(<span class="n">2</span>);                                   <span class="c">// the third call never reached the channel</span>
 });</code></pre>
 </div><p><code>ChannelListing</code> and <code>Stay</code> are only passed through here, so an unsaved listing is enough. The limiter uses the test cache (<code>array</code>), which is fresh for every test.</p></div><div class="block"><div class="codebox">
-<div class="filehead"><span class="path">tests/Feature/CloseChannelDatesTest.php</span></div>
+<div class="filehead"><span class="path">tests/Feature/CloseChannelDatesTest.php</span><span class="badge new">new file</span></div>
 <pre class="code"><code>&lt;?php
 
 <span class="k">use</span> <span class="t">App</span>\<span class="t">Bookings</span>\<span class="t">Stay</span>;

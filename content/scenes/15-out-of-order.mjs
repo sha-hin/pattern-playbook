@@ -65,6 +65,7 @@ return new class extends Migration
 namespace App\Channels;
 
 use App\Enums\BookingStatus;
+use App\Jobs\CloseChannelDates;
 use App\Models\Booking;
 use App\Models\ChannelListing;
 use App\Models\Property;
@@ -108,11 +109,56 @@ final class ImportChannelReservation
                 'cancelled_at' => $reservation->status === BookingStatus::Cancelled ? ($booking->cancelled_at ?? now()) : null,
             ])->save();
 
+            foreach ($booking->property->channelListings as $other) {     // tell the other channels
+                if ($other->channel !== $reservation->channel) {
+                    CloseChannelDates::dispatch($other, $booking->stay, close: $booking->status !== BookingStatus::Cancelled)->afterCommit();
+                }
+            }
+
             return true;
         });
     }
 }`,
-          after: ['Scene 14’s job now ends with one line: `app(ImportChannelReservation::class)->handle($reservation);`. Because it is idempotent and ordered, it doesn’t matter how many times, or in which order, a message arrives.'],
+        },
+        {
+          text: ['Scene 14’s job keeps mapping with the kit, and hands the saving to the import. Because the import is idempotent and ordered, it doesn’t matter how many times, or in which order, a message arrives:'],
+          path: 'app/Jobs/ProcessChannelWebhook.php',
+          code: String.raw`<?php
+
+namespace App\Jobs;
+
+use App\Channels\ChannelManager;
+use App\Channels\ImportChannelReservation;
+use App\Enums\Channel;
+use App\Models\WebhookEvent;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
+
+class ProcessChannelWebhook implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 5;
+
+    public function __construct(public WebhookEvent $webhook)
+    {
+    }
+
+    public function handle(ChannelManager $channels): void
+    {
+        $reservation = $channels->for(Channel::from($this->webhook->provider))->mapper()->reservation($this->webhook->payload);
+
+        app(ImportChannelReservation::class)->handle($reservation);        // ordered and idempotent: any order, any number of times
+
+        $this->webhook->markProcessed();
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this->webhook->markFailed($exception->getMessage());
+    }
+}`,
         },
       ],
     },
@@ -124,40 +170,208 @@ final class ImportChannelReservation
       ],
       blocks: [
         {
-          path: 'app/Channels/ChannelApi.php (one method added)',
-          fragment: true,
-          code: String.raw`/** @return iterable<ChannelReservation> every reservation of the listing modified since $since */
-public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable;`,
+          path: 'app/Channels/ChannelApi.php',
+          code: String.raw`<?php
+
+namespace App\Channels;
+
+use App\Bookings\Stay;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+
+interface ChannelApi
+{
+    /** Make these nights unbookable on the channel. Throws ChannelRequestFailed when the channel refuses. */
+    public function closeDates(ChannelListing $listing, Stay $nights): void;
+
+    public function openDates(ChannelListing $listing, Stay $nights): void;
+
+    /** @return iterable<ChannelReservation> every reservation of the listing modified since $since */
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable;
+}`,
         },
         {
           title: 'Airbnb: pages until there is no next cursor',
-          path: 'app/Channels/Airbnb/AirbnbApi.php (added)',
-          fragment: true,
-          code: String.raw`public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
-{
-    $mapper = new AirbnbReservationMapper();
-    $cursor = null;
+          path: 'app/Channels/Airbnb/AirbnbApi.php',
+          code: String.raw`<?php
 
-    do {
-        $response = Http::withToken($this->tokens->for($listing))->timeout(10)->acceptJson()
-            ->get("{$this->baseUrl}/reservations", array_filter([
-                'listing_id' => $listing->external_listing_id,
-                'updated_since' => $since->toIso8601String(),
-                'cursor' => $cursor,
-            ]));
+namespace App\Channels\Airbnb;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class AirbnbApi implements ChannelApi
+{
+    public function __construct(
+        private AirbnbTokens $tokens,
+        private string $baseUrl,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->setAvailability($listing, $nights, 'unavailable');
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->setAvailability($listing, $nights, 'available');
+    }
+
+    private function setAvailability(ChannelListing $listing, Stay $nights, string $availability): void
+    {
+        $response = Http::withToken($this->tokens->for($listing))
+            ->timeout(10)
+            ->acceptJson()
+            ->put("{$this->baseUrl}/calendars/{$listing->external_listing_id}", [
+                'start_date' => $nights->checkIn->toDateString(),
+                'end_date' => $nights->checkOut->subDay()->toDateString(),   // Airbnb counts nights inclusively
+                'availability' => $availability,
+            ]);
 
         if ($response->failed()) {
-            throw ChannelRequestFailed::from(Channel::Airbnb, $response);
+            throw ChannelRequestFailed::from(Channel::Airbnb, $response);  // never a silent 401 again
         }
+    }
 
-        foreach ($response->json('reservations') as $reservation) {
-            yield $mapper->reservation(['reservation' => $reservation]);   // the same mapper as the webhooks
-        }
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new AirbnbReservationMapper();
+        $cursor = null;
 
-        $cursor = $response->json('next_cursor');
-    } while ($cursor !== null);
+        do {
+            $response = Http::withToken($this->tokens->for($listing))->timeout(10)->acceptJson()
+                ->get("{$this->baseUrl}/reservations", array_filter([
+                    'listing_id' => $listing->external_listing_id,
+                    'updated_since' => $since->toIso8601String(),
+                    'cursor' => $cursor,
+                ]));
+
+            if ($response->failed()) {
+                throw ChannelRequestFailed::from(Channel::Airbnb, $response);
+            }
+
+            foreach ($response->json('reservations') as $reservation) {
+                yield $mapper->reservation(['reservation' => $reservation]);   // the same mapper as the webhooks
+            }
+
+            $cursor = $response->json('next_cursor');
+        } while ($cursor !== null);
+    }
 }`,
-          after: ['Booking.com’s adapter does the same with its own paging. Both reuse the mapper from their kit, so a polled reservation is identical to the same reservation from a webhook.'],
+        },
+        {
+          title: 'Booking.com: numbered pages',
+          text: ['Booking.com pages by number and says when there are more. Both adapters reuse the mapper from their kit, so a polled reservation is identical to the same reservation from a webhook:'],
+          path: 'app/Channels/BookingCom/BookingComApi.php',
+          code: String.raw`<?php
+
+namespace App\Channels\BookingCom;
+
+use App\Bookings\Stay;
+use App\Channels\ChannelApi;
+use App\Channels\ChannelRequestFailed;
+use App\Enums\Channel;
+use App\Models\ChannelListing;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+
+final readonly class BookingComApi implements ChannelApi
+{
+    public function __construct(
+        private string $baseUrl,
+        private string $username,
+        private string $password,
+    ) {
+    }
+
+    public function closeDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->send($listing, $nights, closed: true);
+    }
+
+    public function openDates(ChannelListing $listing, Stay $nights): void
+    {
+        $this->send($listing, $nights, closed: false);
+    }
+
+    private function send(ChannelListing $listing, Stay $nights, bool $closed): void
+    {
+        $xml = sprintf(
+            '<request><hotel_id>%s</hotel_id><date from="%s" to="%s"><closed>%d</closed></date></request>',
+            htmlspecialchars($listing->external_listing_id, ENT_XML1),            // never trust a value inside XML
+            $nights->checkIn->toDateString(),
+            $nights->checkOut->subDay()->toDateString(),
+            $closed ? 1 : 0,
+        );
+
+        $response = Http::withBasicAuth($this->username, $this->password)
+            ->timeout(10)
+            ->withBody($xml, 'text/xml')
+            ->post("{$this->baseUrl}/hotels/xml/availability");
+
+        // Booking.com-style XML APIs can answer 200 with an error inside the body
+        if ($response->failed() || str_contains($response->body(), '<error')) {
+            throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+        }
+    }
+
+    public function reservationsUpdatedSince(ChannelListing $listing, CarbonImmutable $since): iterable
+    {
+        $mapper = new BookingComReservationMapper();
+        $page = 1;
+
+        do {
+            $response = Http::withBasicAuth($this->username, $this->password)->timeout(10)->acceptJson()
+                ->get("{$this->baseUrl}/hotels/json/reservations", [
+                    'hotel_id' => $listing->external_listing_id,
+                    'last_change' => $since->utc()->format('Y-m-d H:i:s'),
+                    'page' => $page,
+                ]);
+
+            if ($response->failed()) {
+                throw ChannelRequestFailed::from(Channel::BookingCom, $response);
+            }
+
+            foreach ($response->json('reservations') as $reservation) {
+                yield $mapper->reservation(['reservation' => $reservation]);   // the same mapper as the webhooks
+            }
+
+            $page++;
+        } while ($response->json('has_more') === true);
+    }
+}`,
+        },
+        {
+          text: ['Each listing remembers when it was last polled, as a date:'],
+          path: 'app/Models/ChannelListing.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Enums\Channel;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ChannelListing extends Model
+{
+    protected $fillable = ['channel', 'external_listing_id'];
+
+    protected function casts(): array
+    {
+        return ['channel' => Channel::class, 'last_polled_at' => 'datetime'];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+}`,
         },
         {
           title: 'The poll',
@@ -196,9 +410,23 @@ class PollChannelReservations extends Command
 }`,
         },
         {
-          path: 'routes/console.php (added)',
-          fragment: true,
-          code: String.raw`Schedule::command('channels:poll')->everyTenMinutes()->withoutOverlapping();`,
+          path: 'routes/console.php',
+          code: String.raw`<?php
+
+use App\Jobs\SyncIcalFeed;
+use App\Models\IcalFeed;
+use Illuminate\Support\Facades\Schedule;
+
+// The server runs the scheduler once a minute:  * * * * * php artisan schedule:run
+// Locally:                                     php artisan schedule:work
+
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('payments:reconcile-refunds')->dailyAt('03:10')->withoutOverlapping();
+
+Schedule::call(function (): void {
+    IcalFeed::query()->lazyById()->each(fn (IcalFeed $feed) => SyncIcalFeed::dispatch($feed));
+})->everyFifteenMinutes()->name('sync-ical-feeds')->withoutOverlapping();
+Schedule::command('channels:poll')->everyTenMinutes()->withoutOverlapping();`,
           after: ['One listing’s failure stops this run; the next run starts again from that listing’s own `last_polled_at`, so nothing is skipped. Scene 17 moves this into one queued job per listing.'],
         },
       ],
@@ -211,8 +439,27 @@ class PollChannelReservations extends Command
     ],
     blocks: [
       {
-        path: 'tests/helpers.php (one function added)',
+        text: ['One helper reads them, added to the foundation’s `tests/helpers.php`:'],
+        path: 'tests/helpers.php',
         code: String.raw`<?php
+
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\Property;
+use App\Models\User;
+
+function memberOf(Account $account, MembershipRole $role = MembershipRole::Owner): User
+{
+    $user = User::factory()->create(['current_account_id' => $account->id]);
+    $account->users()->attach($user, ['role' => $role->value]);
+
+    return $user;
+}
+
+function hostOf(Property $property, MembershipRole $role = MembershipRole::Owner): User
+{
+    return memberOf($property->account, $role);
+}
 
 /** @return array<string, mixed> a recorded payload, e.g. fixture('booking_com/reservation-cancelled.json') */
 function fixture(string $path): array
@@ -232,7 +479,20 @@ function fixture(string $path): array
     "price": "1105.50", "currency": "EUR", "last_modified": "2027-05-31T17:00:00Z"
   }
 }`,
-        after: ['`reservation-cancelled.json` is the same reservation with `"status": "cancelled"` and `"last_modified": "2027-05-31T17:02:00Z"`.'],
+      },
+      {
+        text: ['And the same reservation, cancelled two minutes later:'],
+        path: 'tests/Fixtures/booking_com/reservation-cancelled.json',
+        lang: 'json',
+        code: String.raw`{
+  "id": "evt-5530117-2",
+  "reservation": {
+    "id": "5530117", "hotel_id": "1290031", "status": "cancelled",
+    "checkin": "2027-08-01", "checkout": "2027-08-04",
+    "booker": { "name": "Omar Said", "email": "omar.s@guest.booking.com" }, "guests": 2,
+    "price": "1105.50", "currency": "EUR", "last_modified": "2027-05-31T17:02:00Z"
+  }
+}`,
       },
     ],
   },

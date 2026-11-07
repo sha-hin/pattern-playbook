@@ -25,18 +25,51 @@ if ($nights >= 7) {
 $price = $price * 1.10;                          // tax`,
         },
         {
+          text: ['And the booking, which decides what the card is charged:'],
           path: 'app/Bookings/CreateBooking.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`// the booking: what the card is charged
-$nights = $property->nightly_rate->times($stay->nights());
-if ($stay->nights() >= 7) {
-    $nights = Money::of((int) round($nights->amount * 0.9), $nights->currency);   // 10% off the nights only
-}
-$total = Money::of((int) round(($nights->amount + $property->cleaning_fee_cents) * 1.10), 'EUR');`,
-          after: [
-            'The house rule is "10% off the nights for stays of 7 nights or more". The booking code follows it; the price page also discounts the cleaning fee. Same inputs, two answers: €1,098.90 and €1,105.50.',
-            'And neither one can explain itself. The guest’s receipt, the host’s payout and the tax report all need the parts (nights, discount, fee, tax), but all the code keeps is one final number.',
-          ],
+          broken: true,
+          code: String.raw`<?php
+
+namespace App\Bookings;
+
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Money\Money;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property->id)->lockForUpdate()->firstOrFail();   // others wait here
+
+            if ($property->bookings()->overlapping($stay)->exists()) {
+                throw BookingConflict::for($stay);
+            }
+
+            $nights = $property->nightly_rate->times($stay->nights());
+            if ($stay->nights() >= 7) {
+                $nights = Money::of((int) round($nights->amount * 0.9), $nights->currency);   // 10% off the nights only
+            }
+            $total = Money::of((int) round(($nights->amount + $property->cleaning_fee_cents) * 1.10), 'EUR');
+
+            $booking = new Booking($guest);
+            $booking->stay = $stay;
+            $booking->total = $total;                                     // one number; the parts are gone
+            $booking->status = BookingStatus::Pending;
+            $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
+            $property->bookings()->save($booking);
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}`,
+          after: ['The house rule is "10% off the nights for stays of 7 nights or more". The booking code follows it; the price page also discounts the cleaning fee. Same inputs, two answers: €1,098.90 and €1,105.50.', 'And neither one can explain itself. The guest’s receipt, the host’s payout and the tax report all need the parts (nights, discount, fee, tax), but all the code keeps is one final number.'],
         },
       ],
     },
@@ -45,26 +78,76 @@ $total = Money::of((int) round(($nights->amount + $property->cleaning_fee_cents)
       text: ['Discounts and taxes are percentages, stored as **basis points** (1/100 of a percent) so they stay integers: 10% is `1000`. Three methods join scene 1’s `Money`:'],
       blocks: [
         {
-          path: 'app/Money/Money.php (added)',
-          fragment: true,
-          code: String.raw`public static function zero(Currency $currency): self
-{
-    return new self(0, $currency);
-}
+          path: 'app/Money/Money.php',
+          code: String.raw`<?php
 
-/** 1000 basis points = 10%. Rounded half up, away from zero: 10050.5 cents becomes 10051. */
-public function percent(int $basisPoints): self
-{
-    $product = $this->amount * $basisPoints;
-    $rounded = intdiv(abs($product) + 5_000, 10_000);
+namespace App\Money;
 
-    return new self($product < 0 ? -$rounded : $rounded, $this->currency);
-}
+use Illuminate\Support\Number;
+use LogicException;
 
-/** A discount or a refund is a negative amount on the bill. */
-public function negate(): self
+final readonly class Money
 {
-    return new self(-$this->amount, $this->currency);
+    private function __construct(
+        public int $amount,                                     // in minor units: cents, piastres, yen
+        public Currency $currency,
+    ) {
+    }
+
+    public static function of(int $amount, Currency|string $currency): self
+    {
+        return new self($amount, $currency instanceof Currency ? $currency : Currency::from($currency));
+    }
+
+    public function add(self $other): self
+    {
+        $this->assertSameCurrency($other);
+
+        return new self($this->amount + $other->amount, $this->currency);   // a new object; $this never changes
+    }
+
+    public function times(int $factor): self
+    {
+        return new self($this->amount * $factor, $this->currency);
+    }
+
+    public static function zero(Currency $currency): self
+    {
+        return new self(0, $currency);
+    }
+
+    /** 1000 basis points = 10%. Rounded half up, away from zero: 10050.5 cents becomes 10051. */
+    public function percent(int $basisPoints): self
+    {
+        $product = $this->amount * $basisPoints;
+        $rounded = intdiv(abs($product) + 5_000, 10_000);
+
+        return new self($product < 0 ? -$rounded : $rounded, $this->currency);
+    }
+
+    /** A discount or a refund is a negative amount on the bill. */
+    public function negate(): self
+    {
+        return new self(-$this->amount, $this->currency);
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->amount === $other->amount && $this->currency === $other->currency;
+    }
+
+    /** For people only (emails, screens). Never feed this back into a calculation. */
+    public function format(): string
+    {
+        return Number::currency($this->amount / 10 ** $this->currency->minorUnits(), $this->currency->value);
+    }
+
+    private function assertSameCurrency(self $other): void
+    {
+        if ($other->currency !== $this->currency) {
+            throw new LogicException("Can't combine {$this->currency->value} with {$other->currency->value}.");
+        }
+    }
 }`,
           after: ['All integer math, so the rounding happens exactly once, in one place.'],
         },
@@ -75,7 +158,7 @@ public function negate(): self
       blocks: [
         {
           title: 'One line of the bill',
-          path: 'app/Pricing/LineItem.php · app/Enums/LineItemType.php',
+          path: 'app/Pricing/LineItem.php',
           code: String.raw`<?php
 
 namespace App\Pricing;
@@ -372,32 +455,118 @@ class BookingLineItem extends Model
 }`,
         },
         {
-          path: 'app/Models/Booking.php (relation added)',
-          fragment: true,
-          code: String.raw`public function lineItems(): HasMany
+          text: ['The booking gets a relation to its lines:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
 {
-    return $this->hasMany(BookingLineItem::class);
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
 }`,
         },
         {
           title: 'CreateBooking asks the quoter',
           text: ['Inside scene 4’s transaction, the price comes from the same `PriceQuoter` the price page uses, and every line is saved with the booking.'],
-          path: 'app/Bookings/CreateBooking.php (inside the transaction)',
-          fragment: true,
-          code: String.raw`$quote = $this->quoter->quote($property, $stay);     // CreateBooking now has: public function __construct(private PriceQuoter $quoter) {}
+          path: 'app/Bookings/CreateBooking.php',
+          code: String.raw`<?php
 
-$booking = new Booking($guest);
-$booking->stay = $stay;
-$booking->total = $quote->total();
-$booking->status = BookingStatus::Pending;
-$booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
-$property->bookings()->save($booking);
+namespace App\Bookings;
 
-$booking->lineItems()->createMany(array_map(fn (LineItem $line): array => [
-    'type' => $line->type,
-    'description' => $line->description,
-    'amount' => $line->amount,
-], $quote->lines));`,
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Property;
+use App\Pricing\LineItem;
+use App\Pricing\PriceQuoter;
+use Illuminate\Support\Facades\DB;
+
+final class CreateBooking
+{
+    public const HOLD_MINUTES = 30;
+
+    public function __construct(private PriceQuoter $quoter)
+    {
+    }
+
+    /** @param array{guest_name: string, guest_email: string, guests: int} $guest */
+    public function handle(Property $property, Stay $stay, array $guest): Booking
+    {
+        return DB::transaction(function () use ($property, $stay, $guest): Booking {
+            Property::whereKey($property->id)->lockForUpdate()->firstOrFail();   // others wait here
+
+            if ($property->bookings()->overlapping($stay)->exists()) {
+                throw BookingConflict::for($stay);
+            }
+
+            $quote = $this->quoter->quote($property, $stay);              // the same price the page showed
+
+            $booking = new Booking($guest);
+            $booking->stay = $stay;
+            $booking->total = $quote->total();
+            $booking->status = BookingStatus::Pending;
+            $booking->expires_at = now()->addMinutes(self::HOLD_MINUTES);
+            $property->bookings()->save($booking);
+
+            $booking->lineItems()->createMany(array_map(fn (LineItem $line): array => [
+                'type' => $line->type,
+                'description' => $line->description,
+                'amount' => $line->amount,
+            ], $quote->lines));                                           // every line of the bill, kept
+
+            return $booking;
+        }, attempts: 3);                                                   // retried on a deadlock
+    }
+}`,
         },
         {
           title: 'The price page asks the same quoter',
@@ -434,6 +603,30 @@ class QuoteController extends Controller
         ]);
     }
 }`,
+        },
+        {
+          text: ['The price page’s route is public, because guests aren’t logged in when they look at prices:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\QuoteController;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api: the full URL is /api/v1/properties/{property}/bookings.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);   // public: guests aren't logged in
+
+Route::post('/v1/properties/{property}/bookings', [BookingController::class, 'store'])
+    ->middleware('auth:sanctum')
+    ->can('createBooking', 'property');
+
+Route::post('/v1/bookings/{booking}/payment', BookingPaymentController::class)
+    ->middleware('auth:sanctum');
+
+Route::post('/v1/bookings/{booking}/mark-paid', MarkBookingPaidController::class)
+    ->middleware('auth:sanctum');                                       // who may: scenes 19 and 20`,
         },
       ],
     },
@@ -570,7 +763,6 @@ it('stores every line with the booking', function () {
 
     expect($this->property->bookings()->sole()->lineItems()->orderBy('id')->pluck('amount_cents')->all())->toBe([105_000, -10_500, 6_000, 10_050]);
 });`,
-        after: ['The quote route is public (guests aren’t logged in): `Route::get(\'/v1/properties/{property}/quote\', QuoteController::class);`'],
       },
     ],
   },

@@ -15,21 +15,48 @@ export default {
       title: 'The broken code',
       blocks: [
         {
+          text: ['Hosts asked for personal messages, so someone added placeholders to scene 21’s message:'],
           path: 'app/Notifications/GuestMessage.php (before)',
-          broken: true, fragment: true,
-          code: String.raw`public function toMail(object $notifiable): MailMessage
-{
-    $body = str_replace(
-        ['{guest}', '{door_code}'],                                   // the names someone remembered
-        [$booking->guest_name, $booking->door_code],                  // the door code, whenever the message is sent
-        $this->message->template->body,
-    );
+          broken: true,
+          code: String.raw`<?php
 
-    return (new MailMessage())->markdown('mail.guest', ['body' => $body]);   // the guest's name is now Markdown
+namespace App\Notifications;
+
+use App\Models\ScheduledMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class GuestMessage extends Notification
+{
+    use Queueable;
+
+    public function __construct(public ScheduledMessage $message)
+    {
+    }
+
+    /** @return list<string> */
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $booking = $this->message->booking;
+
+        $body = str_replace(
+            ['{guest}', '{door_code}'],                                   // the names someone remembered
+            [$booking->guest_name, $booking->door_code],                  // the door code, whenever the message is sent
+            $this->message->template->body,
+        );
+
+        return (new MailMessage())
+            ->subject($this->message->template->subject)
+            ->markdown('mail.guest', ['body' => $body]);                  // the guest's name is now Markdown
+    }
 }`,
-          after: [
-            '**Unknown names** stay in the text, because nothing ever said which names exist. **Sensitive values** go out with any message that mentions them, whenever it is sent. And the values are pasted **into Markdown before it is rendered**, so whatever a guest types as their name becomes part of the email’s markup: here a link, elsewhere bold text or an image.',
-          ],
+          after: ['**Unknown names** stay in the text, because nothing ever said which names exist. **Sensitive values** go out with any message that mentions them, whenever it is sent. And the values are pasted **into Markdown before it is rendered**, so whatever a guest types as their name becomes part of the email’s markup: here a link, elsewhere bold text or an image.'],
         },
       ],
     },
@@ -112,6 +139,96 @@ class StoreMessageTemplateRequest extends FormRequest
 }`,
           after: ['`$this->knownVariables(...)` is PHP’s first-class callable syntax: it passes the method itself as the closure rule.'],
         },
+        {
+          title: 'Saving a template',
+          text: ['Owners and co-hosts write templates:'],
+          path: 'app/Policies/MessageTemplatePolicy.php',
+          code: String.raw`<?php
+
+namespace App\Policies;
+
+use App\Enums\MembershipRole;
+use App\Models\Account;
+use App\Models\User;
+
+class MessageTemplatePolicy
+{
+    public function create(User $user, Account $account): bool
+    {
+        return in_array($user->roleIn($account->id), [MembershipRole::Owner, MembershipRole::CoHost], true);
+    }
+}`,
+        },
+        {
+          text: ['The controller saves only what the request validated, in the current account:'],
+          path: 'app/Http/Controllers/MessageTemplateController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreMessageTemplateRequest;
+use App\Models\Account;
+use App\Models\MessageTemplate;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
+
+class MessageTemplateController extends Controller
+{
+    public function store(StoreMessageTemplateRequest $request, Account $account): JsonResponse
+    {
+        Gate::authorize('create', [MessageTemplate::class, $account]);
+
+        $template = $account->messageTemplates()->create($request->validated());   // only validated fields
+
+        return response()->json(['id' => $template->id], 201);
+    }
+}`,
+        },
+        {
+          text: ['Its route, inside scene 19’s group:'],
+          path: 'routes/api.php',
+          code: String.raw`<?php
+
+use App\Http\Controllers\AccountMemberController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CancelBookingController;
+use App\Http\Controllers\ChangeDatesController;
+use App\Http\Controllers\ChannelWebhookController;
+use App\Http\Controllers\MarkBookingPaidController;
+use App\Http\Controllers\MessageTemplateController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Middleware\SetCurrentAccount;
+use Illuminate\Support\Facades\Route;
+
+// Laravel serves this file under /api.
+
+// Public: guests aren't logged in when they look at prices.
+Route::get('/v1/properties/{property}/quote', QuoteController::class);
+
+// Everything a host does: logged in, inside one current account, every id checked by a policy.
+Route::middleware(['auth:sanctum', SetCurrentAccount::class])->prefix('v1')->group(function (): void {
+    Route::post('/properties/{property}/bookings', [BookingController::class, 'store'])->can('createBooking', 'property');
+
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])->can('view', 'booking');
+    Route::patch('/bookings/{booking}/property', [BookingController::class, 'move'])->can('update', 'booking');
+    Route::post('/bookings/{booking}/payment', BookingPaymentController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/cancel', CancelBookingController::class)->can('update', 'booking');
+    Route::patch('/bookings/{booking}/dates', ChangeDatesController::class)->can('update', 'booking');
+    Route::post('/bookings/{booking}/mark-paid', MarkBookingPaidController::class)->can('update', 'booking');
+
+    Route::post('/members', [AccountMemberController::class, 'store']);         // invite someone to the current account
+    Route::delete('/members/{user}', [AccountMemberController::class, 'destroy']);
+
+    Route::post('/message-templates', [MessageTemplateController::class, 'store']);
+});
+
+// Called by Stripe and by the channels, not by a browser. API routes have no CSRF check, which they couldn't pass.
+Route::post('/webhooks/stripe', StripeWebhookController::class);
+Route::post('/webhooks/channels/{channel}', ChannelWebhookController::class);   // {channel} is the Channel enum: vrbo is a 404`,
+        },
       ],
     },
     {
@@ -135,7 +252,135 @@ return new class extends Migration
         });
     }
 };`,
-          after: ['`Booking` adds `\'door_code\' => \'encrypted\'` to its casts and `door_code` to `$hidden`.'],
+        },
+        {
+          text: ['The booking encrypts it and keeps it out of every array and JSON response:'],
+          path: 'app/Models/Booking.php',
+          code: String.raw`<?php
+
+namespace App\Models;
+
+use App\Bookings\BookingSnapshot;
+use App\Bookings\Refunds\NoAutomaticRefund;
+use App\Bookings\Refunds\RefundPolicy;
+use App\Bookings\States\BookingState;
+use App\Bookings\States\CancelledState;
+use App\Bookings\States\ConfirmedState;
+use App\Bookings\States\ExpiredState;
+use App\Bookings\States\PendingState;
+use App\Bookings\Stay;
+use App\Casts\MoneyCast;
+use App\Casts\StayCast;
+use App\Enums\BookingStatus;
+use App\Enums\CancellationPolicy;
+use App\Enums\Channel;
+use App\Money\Money;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Booking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['guest_name', 'guest_email', 'check_in', 'check_out', 'guests'];
+
+    protected $hidden = ['door_code'];                             // never in JSON, logs or toArray()
+
+    protected function casts(): array
+    {
+        return [
+            'check_in' => 'date:Y-m-d',
+            'check_out' => 'date:Y-m-d',
+            'status' => BookingStatus::class,
+            'expires_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'total' => MoneyCast::class . ':total_cents',          // Money from total_cents + currency
+            'stay' => StayCast::class,                             // Stay from check_in + check_out
+            'cancellation_policy' => CancellationPolicy::class,    // a copy of the property's policy, made at booking time
+            'channel' => Channel::class,                           // null for bookings made on Nordic Stays
+            'door_code' => 'encrypted',                            // encrypted with APP_KEY in the database
+        ];
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BookingLineItem::class);
+    }
+
+    public function scheduledMessages(): HasMany
+    {
+        return $this->hasMany(ScheduledMessage::class);
+    }
+
+    /** Bookings that share at least one night with $stay: $property->bookings()->overlapping($stay). */
+    public function scopeOverlapping(Builder $query, Stay $stay): void
+    {
+        $query->whereIn('status', BookingStatus::blocking())
+            ->where('check_in', '<', $stay->checkOut->toDateString())     // starts before the new stay ends
+            ->where('check_out', '>', $stay->checkIn->toDateString());    // ends after the new stay starts
+    }
+
+    /** What this booking may do now. The status column stays the single source of truth. */
+    public function state(): BookingState
+    {
+        return match ($this->status) {
+            BookingStatus::Pending => new PendingState(),
+            BookingStatus::Confirmed => new ConfirmedState(),
+            BookingStatus::Expired => new ExpiredState(),
+            BookingStatus::Cancelled => new CancelledState(),
+        };                                                        // a new status without a state class fails here, loudly
+    }
+
+    /** The rules this booking's guest agreed to. Never null: bookings without a policy refund nothing automatically. */
+    public function refundPolicy(): RefundPolicy
+    {
+        return $this->cancellation_policy?->refundPolicy() ?? new NoAutomaticRefund();
+    }
+
+    /** Everything a date change can alter, as a plain value that can be stored and handed back. */
+    public function snapshot(): BookingSnapshot
+    {
+        return new BookingSnapshot(
+            $this->stay->checkIn->toDateString(),
+            $this->stay->checkOut->toDateString(),
+            $this->total->amount,
+            $this->total->currency->value,
+            $this->lineItems()->orderBy('id')->get(['type', 'description', 'amount_cents', 'currency'])
+                ->map(fn (BookingLineItem $line): array => [
+                    'type' => $line->type->value, 'description' => $line->description,
+                    'amount_cents' => $line->amount_cents, 'currency' => $line->currency,
+                ])->all(),
+        );
+    }
+
+    public function restore(BookingSnapshot $snapshot): void
+    {
+        $this->stay = Stay::fromDates($snapshot->checkIn, $snapshot->checkOut);
+        $this->total = Money::of($snapshot->totalCents, $snapshot->currency);
+        $this->save();
+
+        $this->lineItems()->delete();                                          // the bill goes back line by line
+        $this->lineItems()->createMany(array_map(fn (array $line): array => [
+            'type' => $line['type'],
+            'description' => $line['description'],
+            'amount' => Money::of($line['amount_cents'], $line['currency']),
+        ], $snapshot->lines));
+    }
+}`,
         },
       ],
     },
@@ -207,19 +452,54 @@ final class TemplateRenderer
         },
         {
           title: 'The message uses it',
-          path: 'app/Notifications/GuestMessage.php (toMail, after)',
-          fragment: true,
-          code: String.raw`public function toMail(object $notifiable): MailMessage
-{
-    $template = $this->message->template;
-    $booking = $this->message->booking;
-    $renderer = app(TemplateRenderer::class);
+          path: 'app/Notifications/GuestMessage.php (after)',
+          code: String.raw`<?php
 
-    return (new MailMessage())
-        ->subject($renderer->text($template->subject, $booking, now()))               // a subject is plain text
-        ->view('mail.guest', ['html' => $renderer->html($template->body, $booking, now())]);
+namespace App\Notifications;
+
+use App\Messaging\TemplateRenderer;
+use App\Models\ScheduledMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class GuestMessage extends Notification
+{
+    use Queueable;
+
+    public function __construct(public ScheduledMessage $message)
+    {
+    }
+
+    /** @return list<string> */
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $template = $this->message->template;
+        $booking = $this->message->booking;
+        $renderer = app(TemplateRenderer::class);                         // resolved here, so the notification stays small
+
+        return (new MailMessage())
+            ->subject($renderer->text($template->subject, $booking, now()))               // a subject is plain text
+            ->view('mail.guest', ['html' => $renderer->html($template->body, $booking, now())]);
+    }
 }`,
-          after: ['The view prints `{!! $html !!}`: the one place unescaped output is correct, because every value in it was escaped by the renderer. The renderer is resolved from the container inside `toMail()`, so the notification itself stays small enough to queue.'],
+        },
+        {
+          text: ['The view prints `{!! $html !!}`: the one place unescaped output is correct, because every value in it was escaped by the renderer. It replaces scene 21’s Markdown view, because the HTML is now made by the renderer:'],
+          path: 'resources/views/mail/guest.blade.php',
+          lang: 'xml',
+          code: String.raw`<!doctype html>
+<html lang="en">
+<body style="font-family: sans-serif; line-height: 1.5; color: #1f2328">
+{!! $html !!}
+<p>The Nordic Stays team</p>
+</body>
+</html>`,
         },
       ],
     },
@@ -272,7 +552,6 @@ it('shows the door code only within 48 hours of check-in', function (string $sen
     'the day before' => ['2027-07-09 13:00:00', '4711'],
     'three weeks before' => ['2027-06-19 13:00:00', 'sent to you the day before arrival'],
 ]);`,
-        after: ['The template routes are scene 19’s pattern: `POST /api/v1/message-templates` inside the account group, saving with `$account->messageTemplates()->create($request->validated())`.'],
       },
     ],
   },
