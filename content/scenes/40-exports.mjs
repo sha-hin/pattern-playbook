@@ -4,9 +4,9 @@ export default {
   description: 'An agency downloaded its tax report and found 2,140 rows of other hosts’ bookings: the tax export was copied from the payouts export, started its query from a different model, and lost the account scope. Fix it in Laravel with a base export whose fixed steps scope to the account, read in chunks and stream the file, and three small exports that only say which bookings and which columns.',
   incident: {
     channel: '#incidents',
-    when: 'Friday 08:45',
+    when: 'Tuesday 08:45',
     messages: [
-      ['Jonas · Hygge Homes', 'Our accountant opened the **2026 tax report** from your Exports page. It has **2,140 rows** for properties that aren’t ours, with other hosts’ guest names.'],
+      ['Mikkel · Hygge Homes', 'Our accountant opened the **2026 tax report** from your Exports page. It has **2,140 rows** for properties that aren’t ours, with other hosts’ guest names.'],
       ['Sara · tech lead', 'That is a personal data breach: other hosts’ guests’ names, sent to the wrong company. The export is switched off. Names of guests in the hands of another company is a risk to them, so GDPR says we notify the data protection authority without undue delay and within **72 hours** of finding out. I’m starting the report now.'],
       ['Karim · developer', 'The tax export shipped last week, copied from the payouts export. Payouts starts from `$account->bookings()`. Tax starts from the line items table, and nothing limits it to the account.'],
     ],
@@ -604,5 +604,5 @@ it('lets owners export, and nobody else', function () {
       },
     ],
   },
-  next: 'Day 6 is done: queries that don’t grow with the data, a cache that knows when prices change and a Redis that keeps what it must, an outbox, safe retries, a changes feed partners can trust, tokens that can only do what they were given, and exports that can’t leak. Day 7 starts on Friday morning: Hygge Homes’ 140 iCal calendars are hours out of date, and the sync queue never empties.',
+  next: 'Day 6 is done: queries that don’t grow with the data, a cache that knows when prices change and a Redis that keeps what it must, an outbox, safe retries, a changes feed partners can trust, tokens that can only do what they were given, and exports that can’t leak. Day 7 starts on Wednesday: Hygge Homes’ 280 iCal feeds are hours out of date, and the sync queue never empties.',
 };

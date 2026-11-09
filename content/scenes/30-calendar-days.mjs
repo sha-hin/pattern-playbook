@@ -4,9 +4,9 @@ export default {
   description: 'A host set a 5-night minimum for Christmas week, and every channel refused short summer stays: the minimum was one number per property, and scene 29 had just started pushing it to every channel for the whole year. Fix it in Laravel with a calendar_days table, a rule that belongs to the arrival date, upsert() for a range of dates, and a channel push that sends each night its own minimum.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 18:30',
+    when: 'Friday 18:30',
     messages: [
-      ['Hanne · host, Bornholm cottages', 'I wanted **5 nights minimum over Christmas**, so I set the minimum to 5. Since then not one 2- or 3-night booking, on any channel, and it’s **July**. Airbnb says “minimum 5 nights” on every date of the summer.'],
+      ['Hanne · host, Bornholm cottages', 'I wanted **5 nights minimum over Christmas**, so I set the minimum to 5. Since then not one 2- or 3-night booking, on any channel, and these are **July** nights. Airbnb says “minimum 5 nights” on every date of the summer.'],
       ['Mona · support', 'Four more hosts did the same for Christmas or Easter: **31 listings** have taken no short stays since about 17:40. Hanne normally gets six or seven a week in July.'],
       ['Karim · developer', 'The minimum is one number on the property, and since 17:40 (scene 29) we push that number to every channel for all 365 days. A host can’t say “5 nights, but only for these dates”.'],
     ],

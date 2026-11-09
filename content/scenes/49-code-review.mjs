@@ -4,7 +4,7 @@ export default {
   description: 'The last scene is a review: a pull request written with an AI coding tool adds a monthly payout statement for hosts. It looks finished and passes its own test. Read it first and find what is wrong; then the eight findings, each tied to the scene that taught it, and the version that can be merged.',
   incident: {
     channel: '#code-review',
-    when: 'Friday 11:00',
+    when: 'Thursday 14:50',
     messages: [
       ['Henrik · staff engineer (interviewer)', 'Last part. One of our developers asked an AI tool for “a monthly payout statement endpoint for hosts” and opened this pull request. CI is green. Would you approve it?'],
       ['You', 'Give me ten minutes with it.'],

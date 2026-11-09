@@ -4,7 +4,7 @@ export default {
   description: 'A cleaning company’s nightly sync missed three bookings, and no cleaner went to Villa Sol: the partner changes endpoint paged with page numbers over rows that moved while the partner read them. Fix it in Laravel with cursorPaginate() over a unique order, a safety lag for late commits, whitelisted filters, and a new /api/v2 endpoint because the response shape changes, with v1 deprecated by headers.',
   incident: {
     channel: '#partners',
-    when: 'Thursday 19:30',
+    when: 'Monday 19:30',
     messages: [
       ['Anders · Hjem Rengøring (cleaning partner)', 'Our sync pulls your booking changes every night at 20:00 and plans the cleaners from them. Three of yesterday’s bookings **never arrived**. We sent nobody to **Villa Sol**, and the next guests walked into an uncleaned house at 16:00.'],
       ['Mona · support', 'The host refunded the guests one night, €240. The three bookings exist on our side, all made or changed **during** their 20:00 sync.'],

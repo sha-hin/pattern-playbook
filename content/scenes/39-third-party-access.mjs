@@ -4,7 +4,7 @@ export default {
   description: 'A channel manager cancelled 14 bookings in two seconds with a token its host had pasted in: every API token could do everything the host could, forever. Fix it in Laravel with Sanctum token abilities checked on every route, expiry, a token bound to one account, a rate limit per token with 429 and Retry-After, JSON errors for every API client, and a look at when OAuth with Passport is the right tool.',
   incident: {
     channel: '#support',
-    when: 'Friday 07:55',
+    when: 'Tuesday 07:55',
     messages: [
       ['Peter · host, 8 cabins in Ebeltoft', '**14 of my bookings** were cancelled between 02:10 and 02:12 last night. The guests got cancellation emails and refunds. I didn’t touch anything.'],
       ['Mona · support', 'Our log says it was Peter: **his API token**, the one he named “RateBridge”. Eleven guests have written to us already. We are rebooking them by phone.'],

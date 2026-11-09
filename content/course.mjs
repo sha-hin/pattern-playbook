@@ -18,7 +18,7 @@ export const SCENES = [
   { n: 2, day: 1, slug: '02-stay', incident: 'Every stay billed one night short', patterns: ['Value Object'], learn: 'Stay as calendar dates, nights, dates vs moments, property timezones', ready: true },
   { n: 3, day: 1, slug: '03-booking-endpoint', incident: '500 error, and a stranger booked our cabin', patterns: ['Active Record'], learn: 'Form Request, Policy, action, Resource; 201, 403, 409, 422; the two trap tests', ready: true },
   { n: 4, day: 1, slug: '04-race', incident: 'Two guests, same night, same second', patterns: [], learn: 'Transactions, lockForUpdate(), Cache::lock(), why SQLite hides the bug, a real concurrency test', ready: true },
-  { n: 5, day: 1, slug: '05-container', incident: 'Our test suite charged a real card', patterns: ['Singleton', 'Dependency Injection Container'], learn: 'Bindings, autowiring, register() vs boot(), swapping a service in tests', ready: true },
+  { n: 5, day: 1, slug: '05-container', incident: 'Our test suite created 312 payments in live Stripe', patterns: ['Singleton', 'Dependency Injection Container'], learn: 'Bindings, autowiring, register() vs boot(), swapping a service in tests', ready: true },
   { n: 6, day: 1, slug: '06-confirm', incident: 'Marked paid by hand, but the guest never heard', patterns: ['Facade'], learn: 'One entry point for confirming a booking; Laravel facades inside; how fakes swap the real object', ready: true },
 
   // Day 2 · Money comes in

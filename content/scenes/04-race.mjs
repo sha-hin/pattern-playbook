@@ -261,5 +261,5 @@ it('lets only one of two simultaneous requests book the same nights', function (
       },
     ],
   },
-  next: 'Bookings are safe. Friday morning, finance finds a real charge on a real card, made by our own test suite.',
+  next: 'Bookings are safe. Friday morning, finance finds 312 payments in the live Stripe account, made by our own test suite.',
 };

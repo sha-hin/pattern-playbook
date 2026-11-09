@@ -6,8 +6,8 @@ export default {
     channel: '#ops',
     when: 'Wednesday 11:10',
     messages: [
-      ['Sara · cleaner', 'I let myself into the Nyhavn flat at 11:00, like the app said. The guests were **asleep**. They say they’re staying until tomorrow.'],
-      ['Mona · support', 'They extended by one night on Monday and paid for it. Their booking says check-out **14 July**. Sara’s task still says **13 July, 11:00**.'],
+      ['Freja · cleaner', 'I let myself into the Nyhavn flat at 11:00, like the app said. The guests were **asleep**. They say they’re staying until tomorrow.'],
+      ['Mona · support', 'They extended by one night on Monday and paid for it. Their booking says check-out **15 July**. Freja’s task still says **14 July, 11:00**.'],
       ['Karim · developer', 'Cleaning tasks are created once, when a booking is confirmed. Nothing moves them after that. And I just checked Airbnb: it still shows the 13th as free.'],
     ],
   },
@@ -305,7 +305,7 @@ class TurnoverChanged extends Notification implements ShouldQueue
             return "The cleaning at {$property->name} is cancelled. The guests’ stay was cancelled.";
         }
 
-        $local = $this->task->starts_at->setTimezone($property->timezone)->format('l j F, H:i');   // Wednesday 14 July, 11:00
+        $local = $this->task->starts_at->setTimezone($property->timezone)->format('l j F, H:i');   // Thursday 15 July, 11:00
 
         return "The cleaning at {$property->name} now starts {$local}. Please don’t go in before then.";
     }
@@ -636,5 +636,5 @@ it('says nothing when nothing moved', function () {
       },
     ],
   },
-  next: 'The cleaning now follows the calendar. Next, the summer prices go live, and every Saturday in July gets cheaper than in May.',
+  next: 'The cleaning now follows the calendar. Next, the summer prices go live, and every Saturday in July gets cheaper than one in October.',
 };

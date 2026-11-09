@@ -6,7 +6,7 @@ export default {
     channel: '#finance',
     when: 'Friday 09:05',
     messages: [
-      ['Lina · finance', 'October closing. Stripe says we refunded **€40.00 more** than our system shows. I’ve been through 1,900 refunds by hand and can’t find it.'],
+      ['Lina · finance', 'May closing. Stripe says we refunded **€40.00 more** than our system shows. I’ve been through 1,900 refunds by hand and can’t find it.'],
       ['Mona · support', 'Oh. A guest complained about a broken heater on the 12th and I refunded €40 straight from the Stripe dashboard. Was I not supposed to?'],
     ],
   },

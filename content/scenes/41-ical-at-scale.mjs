@@ -4,11 +4,11 @@ export default {
   description: 'iCal calendars fell three hours behind and two nights were sold twice: every sync saved each of a feed’s events with its own updateOrCreate(), and at 3,100 feeds every 15 minutes the queue never caught up. Fix it in Laravel with a small Unit of Work: load the feed’s blocks once, work out what is new, changed and gone, and write only that, with one upsert() and one delete.',
   incident: {
     channel: '#ops',
-    when: 'Friday 11:05',
+    when: 'Wednesday 11:05',
     messages: [
       ['Karim · developer', 'Horizon: **9,400 SyncIcalFeed jobs** waiting on the `default` queue. The oldest was queued **three hours ago**, and guest emails are waiting behind them.'],
       ['Mona · support', 'Two overbookings this morning, both at Hygge Homes cottages: Airbnb sold the nights at 08:12, and our site sold them again at 09:30. Their Airbnb feed hadn’t been read since 07:50.'],
-      ['Sara · tech lead', 'Hygge added 280 feeds on Monday. We now have 3,100 feeds, each synced every 15 minutes, and the workers can’t keep up.'],
+      ['Sara · tech lead', 'Hygge added 280 feeds last week. We now have 3,100 feeds, each synced every 15 minutes, and the workers can’t keep up.'],
     ],
   },
   sections: [
@@ -432,7 +432,7 @@ it('pushes to the channels only when the feed changed something', function () {
       text: ['Syncs are fast now, so the queue runs many at once. Within hours, a new error shows up that the slow sync never had.'],
       incident: {
         channel: '#ops',
-        when: 'Friday 15:40',
+        when: 'Wednesday 15:40',
         messages: [
           ['Sentry', '`SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction` in `SyncIcalFeed`. **34 events in the last hour.**'],
           ['Jonas · developer', 'Always a property with **two** feeds, Airbnb and Booking.com, and always two jobs for that property running in the same second. The retry usually works a minute later; 3 jobs used up all their tries and failed.'],

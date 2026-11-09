@@ -7,7 +7,7 @@ export default {
     when: 'Sunday 20:15',
     messages: [
       ['Monitoring', '**search p99 = 8.2 s** (normal: 180 ms) · **MySQL primary CPU 96%** · 412 searches/s'],
-      ['Mona · support', 'Summer opened for booking on Friday, and Sunday evening is when families book it. Guests say search hangs, and some payments time out at checkout.'],
+      ['Mona · support', 'It’s the Sunday before the school summer holidays, the evening families book their last-minute cottages. Guests say search hangs, and some payments time out at checkout.'],
       ['Karim · developer', 'The slow query log is full of the search query. Every one of them reads all 21,000 properties.'],
     ],
   },

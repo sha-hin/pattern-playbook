@@ -6,7 +6,7 @@ export default {
     channel: '#finance',
     when: 'Thursday 11:40',
     messages: [
-      ['Lina · finance', 'A guest cancelled the Lake Cabin **three days** before arrival and got **€1,105.50 back, everything**. She booked in August, under the **strict** policy: nothing back in the last 14 days.'],
+      ['Lina · finance', 'A guest cancelled the Lake Cabin **three days** before arrival and got **€1,105.50 back, everything**. She booked in March, under the **strict** policy: nothing back in the last 14 days.'],
       ['Ahmed · host', 'I switched the cabin to **flexible** last week, for new winter bookings. Not for the bookings I already had. I turned down other guests for her dates.'],
     ],
   },

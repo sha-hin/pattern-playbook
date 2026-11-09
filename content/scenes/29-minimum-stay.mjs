@@ -4,7 +4,7 @@ export default {
   description: 'Booking.com sold one night of a cabin that takes three-night stays at least: the minimum stay was checked on our booking form and nowhere else, and never sent to the channels. Fix it in Laravel: one rule on the property, used by every booking path of our own, and pushed to every channel with the open nights.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 17:20',
+    when: 'Friday 17:20',
     messages: [
       ['Erik · host, Rørvig cabin', 'I set a **3-night minimum** last week. Booking.com just sold **one night**, Saturday 10 July. Now Friday and Sunday are single nights nobody can book.'],
       ['Mona · support', 'On our own site the form refuses 1 night, I tried. And a guest just shortened her booking at the same cabin from three nights to **one**, through our date-change page.'],

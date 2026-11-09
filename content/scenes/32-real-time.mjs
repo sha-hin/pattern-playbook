@@ -4,7 +4,7 @@ export default {
   description: 'A host watched her calendar while Airbnb sold a week of it, and her screen never changed: the live update was broadcast from our own booking code only, before the commit, with the whole booking in it. Fix it in Laravel with one queued broadcast from the calendar coordinator, sent after commit, carrying ids only, on a private channel scoped to the account.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 21:15',
+    when: 'Tuesday 21:15',
     messages: [
       ['Ingrid · host, Skagen cottages', 'I had the calendar open for Cottage 2. Airbnb emailed me a booking for **2–9 August**. My calendar still showed those nights free until I reloaded the page. I almost sold them again by phone.'],
       ['Karim · developer', 'The live update fires when a booking is made on our site. Airbnb and Booking.com imports never send one.'],
@@ -548,5 +548,5 @@ it('lets only the account’s owners and co-hosts subscribe', function (Membersh
       },
     ],
   },
-  next: 'Calendars update by themselves now. Next, late on the same evening, a guest gets two different check-in times from two co-hosts who were answering her at the same minute.',
+  next: 'Calendars update by themselves now. Next, a guest gets two different check-in times from two co-hosts who were answering her at the same minute.',
 };

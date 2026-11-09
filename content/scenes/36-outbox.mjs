@@ -4,10 +4,10 @@ export default {
   description: 'Six bookings were saved but never reached the agency’s own system: the partner message was queued after the commit, and Redis was failing over at that moment. Fix it in Laravel with a transactional outbox: the message is a row written in the same transaction as the booking, and a scheduled relay delivers it, at least once, signed, in order, with an id the partner uses to ignore repeats.',
   incident: {
     channel: '#partners',
-    when: 'Thursday 15:30',
+    when: 'Thursday 16:10',
     messages: [
-      ['Jonas · Hygge Homes (integration)', 'Booking **9134** (created 14:02) is in your app but never reached our system. Our cleaners and key handover weren’t scheduled. Are there others?'],
-      ['Karim · developer', 'Redis failed over at **14:02:10**. For about 40 seconds every queue dispatch failed. Six bookings were committed in that window, and their partner messages were never queued.'],
+      ['Mikkel · Hygge Homes (integration)', 'Booking **9134** (created 15:02) is in your app but never reached our system. Our cleaners and key handover weren’t scheduled. Are there others?'],
+      ['Karim · developer', 'Redis failed over at **15:02:10**, while Jonas moved the queue to its new Redis instance (scene 35, part 2). For about 40 seconds every queue dispatch failed. Six bookings were committed in that window, and their partner messages were never queued.'],
       ['Mona · support', 'Two of those six guests also saw an error page, although their booking went through.'],
     ],
   },
@@ -453,7 +453,7 @@ Schedule::command('model:prune')->dailyAt('04:20');                             
         },
         {
           title: 'The six lost messages',
-          text: ['The relay can only deliver what was written. For the six bookings from 14:02, a developer writes their messages once, from tinker, and the next relay run delivers them:'],
+          text: ['The relay can only deliver what was written. For the six bookings from 15:02, a developer writes their messages once, from tinker, and the next relay run delivers them:'],
           path: 'terminal',
           lang: 'shell',
           code: String.raw`php artisan tinker

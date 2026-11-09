@@ -4,7 +4,7 @@ export default {
   description: 'A host duplicated a cottage, lowered the copy’s prices, and the original got cheaper too: replicate() copied the rate_plan_id, so both listings shared one plan. Fix it in Laravel with a deep copy: the listing is copied with its own copy of the plan and seasons, and the parts that must never be copied stay behind.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 16:05',
+    when: 'Thursday 16:05',
     messages: [
       ['Ingrid · host, Skagen cottages', 'I pressed **Duplicate** on Cottage 1 to set up the new, smaller Cottage 4, and lowered Cottage 4’s price to **€120**. Now Cottages 1, 2 and 3 are **€120** too. Two guests booked Cottage 1 at that price in the last hour.'],
       ['Mona · support', 'Cottages 1 to 3 share one rate plan on purpose: they’re identical. Cottage 4 was never meant to be on it.'],

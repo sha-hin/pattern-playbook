@@ -6,7 +6,7 @@ export default {
     channel: '#finance',
     when: 'Monday 09:12',
     messages: [
-      ['Lina · finance', 'Closing October. Stripe paid out **€18,412.73**; our invoices for the same bookings add up to **€18,413.11**. 38 bookings are off by exactly one cent, Stripe always lower. One of them: the Nyhavn flat, 3 nights at €150.10, invoice €450.30, Stripe €450.29.'],
+      ['Lina · finance', 'Closing May. Stripe paid out **€18,412.73**; our invoices for the same bookings add up to **€18,413.11**. 38 bookings are off by exactly one cent, Stripe always lower. One of them: the Nyhavn flat, 3 nights at €150.10, invoice €450.30, Stripe €450.29.'],
       ['Lina · finance', 'The accountant won’t sign the VAT return until the books match. I need to know which number is right.'],
     ],
   },

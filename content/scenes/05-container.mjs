@@ -1,13 +1,13 @@
 // Scene 5 · Singleton and the Dependency Injection Container.
 
 export default {
-  description: 'A developer’s test run charged a real card because the Stripe client was created inside the code and could not be replaced. Fix it with Laravel’s service container: one binding, constructor injection, and a fake in tests. Singleton vs the container’s singleton().',
+  description: 'A developer’s test run created 312 real payments in the live Stripe account because the Stripe client was created inside the code and could not be replaced. Fix it with Laravel’s service container: one binding, constructor injection, and a fake in tests. Singleton vs the container’s singleton().',
   incident: {
     channel: '#finance',
     when: 'Friday 09:30',
     messages: [
-      ['Lina · finance', 'Our **live** Stripe account has a €450.00 charge on a card ending 4242… no, ending **8817**. That’s Karim’s personal card. Description: "Test booking, Nyhavn flat".'],
-      ['Karim · developer', 'I ran the test suite on my laptop yesterday. `phpunit.xml` doesn’t override `STRIPE_SECRET`, so the tests used my `.env`, and it still had the **live** key from debugging a payout.'],
+      ['Lina · finance', 'Our **live** Stripe account has **312 new payments** since last night, all €450.30, all “Test booking, Nyhavn flat”, all incomplete. And Stripe’s risk team emailed: “unusual activity on your account”.'],
+      ['Karim · developer', 'I ran the test suite on my laptop yesterday. `phpunit.xml` doesn’t override `STRIPE_SECRET`, so the tests used my `.env`, and it still had the **live** key from debugging a payout. No money moved, because nobody confirmed a card. The refund tests ran against live Stripe too; they only found nothing to refund because the payments were incomplete.'],
     ],
   },
   sections: [

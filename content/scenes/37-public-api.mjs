@@ -4,7 +4,7 @@ export default {
   description: 'A host’s app timed out on Book, retried the same request, and was told the cabin was taken, by the booking its first try had just made; she booked the guest into a second cottage. Fix it in Laravel with an Idempotency-Key middleware: the first request’s response is stored, and a retry with the same key gets that response back without running the action again.',
   incident: {
     channel: '#support',
-    when: 'Thursday 17:50',
+    when: 'Friday 17:50',
     messages: [
       ['Mona · support', 'A Hygge Homes host pressed **Book** in the mobile app on a train. It spun, then said **“The property is already booked for some nights between 12 and 15 August.”** She thought it had failed and booked the guest into **Cottage 3** instead.'],
       ['Mona · support', 'The guest now holds Cottage 2 **and** Cottage 3, and got two payment links.'],

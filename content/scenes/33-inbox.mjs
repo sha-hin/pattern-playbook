@@ -7,7 +7,7 @@ export default {
     when: 'Wednesday 22:10',
     messages: [
       ['Guest (Airbnb) · to the Skagen cottages', '21:41 “Check-in from **15:00**, see you tomorrow!” 21:42 “You can come from **12:00**, the cleaning is done early.” **Which one is it?** We booked a ferry for 11:00.'],
-      ['Sofie · co-host', 'I answered 15:00. I had no idea Jonas was in the same conversation. His answer only showed up when I reloaded the page.'],
+      ['Sofie · co-host', 'I answered 15:00. I had no idea Emil was in the same conversation. His answer only showed up when I reloaded the page.'],
       ['Karim · developer', 'The inbox fetches the conversation when the page opens, and that’s it. Nobody sees who else has it open, who is typing, or a reply sent a minute ago. Support counts 9 double answers since it went live on Monday.'],
     ],
   },
@@ -299,7 +299,7 @@ document.querySelector('#reply-form').addEventListener('submit', async (event) =
     window.inbox.load(bookingId);                     // only the sender ever sees the thread move
 });`,
           after: [
-            'At 21:40 Sofie and Jonas both opened the guest’s question. Each saw a thread with no answer, typed one, and sent it. Neither page knew about the other, and the server took both, because nothing told it which messages the sender had seen.',
+            'At 21:40 Sofie and Emil both opened the guest’s question. Each saw a thread with no answer, typed one, and sent it. Neither page knew about the other, and the server took both, because nothing told it which messages the sender had seen.',
             'Two things are missing, and they are different. The **screen** should show who else is here, who is typing, and new messages as they arrive: that is what makes a double answer rare. The **server** should refuse a reply written without seeing a teammate’s newer one: that is what makes it impossible to send by accident, because a socket can drop and a whisper can be missed.',
           ],
         },
@@ -378,7 +378,7 @@ final class MessagePosted implements ShouldBroadcast, ShouldDispatchAfterCommit
     {
       title: 'The fix, part 2: the server refuses a reply that missed a newer one',
       text: [
-        'The page sends the id of the newest message on the host’s screen, `seen_up_to`. If a teammate has replied since, the server answers **409** with those replies, and the page shows them: “Jonas answered at 21:42. Send yours anyway?” Sending anyway is allowed, because sometimes a second answer is right.',
+        'The page sends the id of the newest message on the host’s screen, `seen_up_to`. If a teammate has replied since, the server answers **409** with those replies, and the page shows them: “Emil answered at 21:42. Send yours anyway?” Sending anyway is allowed, because sometimes a second answer is right.',
         'The check and the insert happen under a lock on the booking row (scene 4), so two replies sent in the same second can’t both pass the check.',
       ],
       blocks: [
@@ -547,7 +547,7 @@ document.querySelector('#reply-form').addEventListener('submit', async (event) =
     const response = await inbox.send(bookingId, event.target.body.value, { seenUpTo: inbox.lastMessageId() });
 
     if (response.status === 409) {
-        inbox.showMissedReplies((await response.json()).replies);   // "Jonas answered at 21:42. Send yours anyway?"
+        inbox.showMissedReplies((await response.json()).replies);   // "Emil answered at 21:42. Send yours anyway?"
         return;
     }
     inbox.load(bookingId);
@@ -557,7 +557,7 @@ document.querySelector('#reply-form').addEventListener('submit', async (event) =
 window.Echo.connector.pusher.connection.bind('connected', () => inbox.load(bookingId));`,
           after: [
             'The whisper carries a name the sender’s browser chose. That is fine for a typing hint among teammates who already passed the account check; nothing the server stores or decides is based on a whisper.',
-            'Sofie and Jonas now see each other in the conversation’s header, and “Jonas is typing…” under the thread. If both still send, the second one gets the 409.',
+            'Sofie and Emil now see each other in the conversation’s header, and “Emil is typing…” under the thread. If both still send, the second one gets the 409.',
           ],
         },
       ],
@@ -586,7 +586,7 @@ use Illuminate\Support\Facades\Notification;
 beforeEach(function () {
     $this->booking = Booking::factory()->for(Property::factory()->create(['name' => 'Skagen cottage']))->create();
     $this->sofie = hostOf($this->booking->property, MembershipRole::CoHost);
-    $this->jonas = hostOf($this->booking->property, MembershipRole::CoHost);
+    $this->emil = hostOf($this->booking->property, MembershipRole::CoHost);
     $this->question = ConversationMessage::forceCreate(['booking_id' => $this->booking->id, 'author' => MessageAuthor::Guest, 'body' => 'What time can we check in?']);
 });
 
@@ -597,19 +597,19 @@ function replyAs(object $test, object $user, string $body, int $seenUpTo, bool $
 
 it('refuses a reply written without seeing a teammate’s newer one', function () {
     Notification::fake();
-    replyAs($this, $this->jonas, 'You can come from 12:00.', $this->question->id)->assertCreated();
+    replyAs($this, $this->emil, 'You can come from 12:00.', $this->question->id)->assertCreated();
 
     replyAs($this, $this->sofie, 'Check-in from 15:00.', $this->question->id)                 // the incident
         ->assertConflict()
-        ->assertJsonPath('replies.0.by', $this->jonas->name);
+        ->assertJsonPath('replies.0.by', $this->emil->name);
 
-    expect(ConversationMessage::count())->toBe(2);                                        // the question and Jonas's answer
+    expect(ConversationMessage::count())->toBe(2);                                        // the question and Emil's answer
     Notification::assertSentOnDemandTimes(HostReply::class, 1);                            // the guest got one answer
 });
 
 it('sends anyway when the host chooses to', function () {
     Notification::fake();
-    replyAs($this, $this->jonas, 'You can come from 12:00.', $this->question->id);
+    replyAs($this, $this->emil, 'You can come from 12:00.', $this->question->id);
 
     replyAs($this, $this->sofie, 'Sorry, 15:00: the cleaner needs the time.', $this->question->id, anyway: true)->assertCreated();
 });

@@ -4,9 +4,9 @@ export default {
   description: 'Guests found a free cabin in search, then were told at checkout that it was taken: search had its own copy of the availability rule, and it ignored holds and channel blocks. Fix it in Laravel with one Eloquent scope that every place uses: search, new bookings, date changes and moving a booking.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 19:40',
+    when: 'Monday 19:40',
     messages: [
-      ['Mona · support', 'Fourteen complaints this week with the same story. Search for Rørvig, **12–15 July**: the cabin shows as free. Pick it, fill in everything, press Pay: **“The property is already booked for some nights”**.'],
+      ['Mona · support', 'Fourteen complaints since last week with the same story. Search for Rørvig, **12–15 July**: the cabin shows as free. Pick it, fill in everything, press Pay: **“The property is already booked for some nights”**.'],
       ['Mona · support', 'Every time, another guest had it on hold while paying, or it was sold on Booking.com.'],
       ['Karim · developer', 'Search was built last week with its own query. It counts confirmed bookings and nothing else.'],
     ],

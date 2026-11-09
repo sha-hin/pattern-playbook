@@ -1,12 +1,12 @@
 // Scene 27 · Rate plans: seasons and a weekend rule, each night priced on its own, rules in the right order.
 
 export default {
-  description: 'After the summer season went live, every July Saturday was cheaper than a May Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.',
+  description: 'After the summer season went live, every July Saturday was cheaper than an October Saturday: the season code returned the season’s price before the weekend rule ran. Fix it in Laravel by pricing each night in a fixed order: choose the base price, then apply the adjustments.',
   incident: {
     channel: '#support',
-    when: 'Wednesday 14:30',
+    when: 'Thursday 14:30',
     messages: [
-      ['Ingrid · host, Skagen cottages', 'I set **€160** a night, **+20% on Fridays and Saturdays**, and a summer season at **€180** for July and August. A guest just booked Saturday 3 July for **€180**. Saturday 8 May costs **€192**. My busiest weekends are cheaper than May.'],
+      ['Ingrid · host, Skagen cottages', 'I set **€160** a night, **+20% on Fridays and Saturdays**, and a summer season at **€180** for July and August. A guest just booked Saturday 3 July for **€180**. Saturday 9 October costs **€192**. My busiest weekends are cheaper than October.'],
       ['Mona · support', 'Three other hosts with summer seasons say the same.'],
       ['Karim · developer', 'Seasons shipped last week. Inside a season we return the season price and never get to the weekend rule.'],
     ],
@@ -395,7 +395,7 @@ final class NightlyRates
     }
 }`,
           after: [
-            'The season’s `return` ends the method, so the weekend rule only ever runs outside a season. A July Saturday costs €180; a May Saturday costs €160 + 20% = €192.',
+            'The season’s `return` ends the method, so the weekend rule only ever runs outside a season. A July Saturday costs €180; an October Saturday costs €160 + 20% = €192.',
             'The code mixes two different things: the **base price** of a night (the plan’s, or a season’s instead) and the **adjustments** on top of it (the weekend uplift). A season replaces the base. It must never replace the adjustments.',
           ],
         },
@@ -502,7 +502,7 @@ it('charges the plain season price on a summer weekday', function () {
 });
 
 it('keeps the weekend uplift outside the season', function () {
-    expect(nightly($this->property, '2027-05-07', '2027-05-09'))->toBe([19_200, 19_200]);   // Friday and Saturday in May
+    expect(nightly($this->property, '2027-10-08', '2027-10-10'))->toBe([19_200, 19_200]);   // Friday and Saturday in October
 });
 
 it('prices each night on its own when a stay starts before the season', function () {
@@ -514,7 +514,7 @@ it('uses the property’s own price when it has no plan', function () {
 
     expect(nightly($this->property, '2027-07-02', '2027-07-04'))->toBe([15_000, 15_000]);
 });`,
-        after: ['2 July 2027 is a Friday and 7 May 2027 is a Friday: the weekend tests use real calendar days, not a mocked "is it the weekend".'],
+        after: ['2 July 2027 is a Friday and 8 October 2027 is a Friday: the weekend tests use real calendar days, not a mocked "is it the weekend".'],
       },
       {
         path: 'tests/Unit/QuoteNightsTest.php',

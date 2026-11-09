@@ -6,7 +6,7 @@ export default {
     channel: '#bugs',
     when: 'Wednesday 11:05',
     messages: [
-      ['Karim · QA', 'Three things on the booking endpoint. Booking nights that are already taken shows a **500 page**. A user from a **different host account** created a booking on our Lake Cabin. And the Airbnb import has its own copy of the "is it free?" check that already gives different answers.'],
+      ['Karim · developer', 'Three things on the booking endpoint. Booking nights that are already taken shows a **500 page**. A user from a **different host account** created a booking on our Lake Cabin. And the Airbnb import has its own copy of the "is it free?" check that already gives different answers.'],
       ['Sara · tech lead', 'Before we patch it: the whole thing is one controller method. Let’s give each part a home.'],
     ],
   },
