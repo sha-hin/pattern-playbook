@@ -33,6 +33,7 @@ for (const s of ready) BODY[s.slug] = await load(`scenes/${s.slug}.mjs`);
 const foundation = await load('foundation/index.mjs');
 const outside = OUTSIDE.ready ? await load(`scenes/${OUTSIDE.slug}.mjs`) : null;
 const REMEMBER = await load('remember.mjs');                  // the rules each scene leaves you with
+const HOW = await load('how-it-works.mjs');                   // one Before/After picture per scene and follow-up
 
 // Every file the reader writes is followed through the course. When a later scene shows the same
 // file again, it is shown complete, with the lines that changed since its last version marked.
@@ -181,6 +182,23 @@ function blockHtml(b, numbered, index) {
 
 const blocksHtml = (list, numbered = false) => (list || []).map((b, i) => blockHtml(b, numbered, i)).join('');
 
+// "How the fix works": the same two panels, shown before the fix is explained, so the reader has the picture first.
+function howHtml(d) {
+  return `<section class="how-it-works" aria-label="How the fix works"><h2>${inline(d.title || 'How the fix works, in one picture')}</h2>
+<div class="panels">
+<figure class="panel bad"><figcaption><h3>Before</h3></figcaption>${svg(d.bad, 'Before the fix')}<p>${inline(d.badCaption)}</p></figure>
+<figure class="panel good"><figcaption><h3>After</h3></figcaption>${svg(d.good, 'After the fix')}<p>${inline(d.goodCaption)}</p></figure>
+</div></section>`;
+}
+
+// The picture goes right before the first section that explains the fix (or the design behind it).
+function withHow(sectionsHtml, sections, how) {
+  if (!how) return sectionsHtml;
+  let at = sections.findIndex(sec => /^(The fix|The design|The options|Why one|HTTP caching)/.test(sec.title || ''));
+  if (at < 0) at = Math.min(1, sections.length);
+  return [...sectionsHtml.slice(0, at), howHtml(how), ...sectionsHtml.slice(at)];
+}
+
 function drawingHtml(name, d) {
   return `<div class="panels">
 <figure class="panel bad"><figcaption><h3>Without it</h3></figcaption>${svg(d.bad, `${name}: the problem`)}<p>${inline(d.badCaption)}</p></figure>
@@ -265,7 +283,7 @@ function sceneHtml(scene, body, prev, next) {
   const withIds = (list, prefix) => (list || []).map(sec => ({ ...sec, id: sec.id || (sec.title ? `${prefix}${slugId(sec.title)}` : undefined) }));
   const sections = withIds(body.sections, '');
   const after = withIds(body.afterReveal, '');
-  const followups = (body.followups || []).map(f => ({ ...f, sections: withIds(f.sections, `${f.id}-`) }));
+  const followups = (body.followups || []).map(f => ({ ...f, sections: withIds(f.sections, `${f.id}-`), howItWorks: f.howItWorks || HOW[`${scene.n}:${f.id}`] }));
   const toc = [['incident', 'The incident'], ...sections.filter(sec => sec.id).map(sec => [sec.id, sec.title])];
   if (body.reveal) toc.push(['pattern', 'The pattern']);
   toc.push(...after.filter(sec => sec.id).map(sec => [sec.id, sec.title]));
@@ -280,7 +298,7 @@ function sceneHtml(scene, body, prev, next) {
 ${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join('')}</p>` : ''}
 </header>`, sceneTocHtml(toc)];
   s.push(incidentHtml(body.incident, 'incident'));
-  for (const sec of sections) s.push(sectionHtml(sec));
+  s.push(...withHow(sections.map(sectionHtml), sections, body.howItWorks || HOW[scene.n]));
   if (body.reveal) s.push(revealHtml(body.reveal));
   for (const sec of after) s.push(sectionHtml(sec));
   if (body.laravel) s.push(sectionHtml({ kind: 'laravel', title: body.laravel.title || 'Laravel does the same', ...body.laravel, id: 'laravel' }));
@@ -302,7 +320,7 @@ function followupHtml(f) {
   return [
     sectionHtml({ id: f.id, title: f.title, text: f.text, blocks: [], kind: 'part' }),
     incidentHtml(f.incident),
-    ...f.sections.map(sectionHtml),
+    ...withHow(f.sections.map(sectionHtml), f.sections, f.howItWorks),
     f.laravel ? sectionHtml({ kind: 'laravel', title: f.laravel.title || 'Laravel does the same', ...f.laravel }) : '',
     f.tests ? testsHtml(f.tests, `${f.id}-tests`) : '',
   ].join('\n');

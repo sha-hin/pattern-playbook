@@ -10,6 +10,28 @@ export default {
       ['Sara · tech lead', 'The overlap check from yesterday is in place and every test is green. So how did both get through?'],
     ],
   },
+  howItWorks: {
+    bad: [
+      ['t', 6, 14, 'request A', 's'], ['t', 6, 96, 'request B', 's'],
+      ['b', 4, 22, 66, 30, 'free?', 'n'], ['b', 4, 104, 66, 30, 'free?', 'n'],
+      ['b', 116, 22, 66, 30, 'yes', 'n'], ['b', 116, 104, 66, 30, 'yes', 'n'],
+      ['b', 228, 22, 68, 30, 'insert', 'x'], ['b', 228, 104, 68, 30, 'insert', 'x'],
+      ['a', 70, 37, 114, 37, '', 'n'], ['a', 70, 119, 114, 119, '', 'n'],
+      ['a', 182, 37, 226, 37, '', 'x'], ['a', 182, 119, 226, 119, '', 'x'],
+      ['t', 150, 160, 'both checked before either inserted', 'kx', 'middle'],
+    ],
+    good: [
+      ['t', 6, 14, 'request A', 's'], ['t', 6, 96, 'request B', 's'],
+      ['b', 4, 22, 66, 30, 'lock', 'v'], ['b', 4, 104, 66, 30, 'wait…', 'i'],
+      ['b', 116, 22, 66, 30, 'free? yes', 'n'], ['b', 116, 104, 66, 30, 'free? no', 'n'],
+      ['b', 228, 22, 68, 30, 'insert', 'v2'], ['b', 228, 104, 68, 30, '409', 'n'],
+      ['a', 70, 37, 114, 37, '', 'k'], ['a', 182, 37, 226, 37, '', 'k'],
+      ['a', 62, 52, 62, 102, '', 'd'], ['t', 67, 82, 'commit releases the lock', 's'],
+      ['a', 70, 119, 114, 119, '', 'n'], ['a', 182, 119, 226, 119, '', 'n'],
+    ],
+    badCaption: 'Two requests in the same millisecond both ask “free?” before either has inserted. Both hear yes.',
+    goodCaption: 'The first request locks the property row. The second waits, then checks again and finds the nights taken.',
+  },
   sections: [
     {
       title: 'The broken code',

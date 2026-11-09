@@ -11,6 +11,30 @@ export default {
       ['Karim · developer', 'They read `/api/v1/bookings/changes` page by page: `?page=1`, `?page=2` … While they read, guests booked and hosts changed dates. Every change moves a row to the end of the list, and everything behind it shifts up by one.'],
     ],
   },
+  howItWorks: {
+    bad: [
+      ['t', 6, 14, 'page 1 = rows 1–3', 's'],
+      ['b', 4, 20, 40, 26, 'A', 'n'], ['b', 48, 20, 40, 26, 'B', 'n'], ['b', 92, 20, 40, 26, 'C', 'n'],
+      ['b', 136, 20, 40, 26, 'D', 'n'], ['b', 180, 20, 40, 26, 'E', 'n'], ['b', 224, 20, 40, 26, 'F', 'n'],
+      ['t', 6, 70, 'B changes: it moves to the end', 's'],
+      ['b', 4, 78, 40, 26, 'A', 'n'], ['b', 48, 78, 40, 26, 'C', 'n'], ['b', 92, 78, 40, 26, 'D', 'x'],
+      ['b', 136, 78, 40, 26, 'E', 'n'], ['b', 180, 78, 40, 26, 'F', 'n'], ['b', 224, 78, 40, 26, 'B', 'n'],
+      ['t', 6, 126, 'page 2 = rows 4–6: E F B', 's'],
+      ['t', 150, 156, 'D is never read', 'kx', 'middle'],
+    ],
+    good: [
+      ['t', 6, 14, 'page 1 ends at C', 's'],
+      ['b', 4, 20, 40, 26, 'A', 'n'], ['b', 48, 20, 40, 26, 'B', 'n'], ['b', 92, 20, 40, 26, 'C', 'v'],
+      ['b', 136, 20, 40, 26, 'D', 'n'], ['b', 180, 20, 40, 26, 'E', 'n'], ['b', 224, 20, 40, 26, 'F', 'n'],
+      ['t', 6, 70, 'B changes: it moves to the end', 's'],
+      ['b', 4, 78, 40, 26, 'A', 'n'], ['b', 48, 78, 40, 26, 'C', 'v'], ['b', 92, 78, 40, 26, 'D', 'v2'],
+      ['b', 136, 78, 40, 26, 'E', 'v2'], ['b', 180, 78, 40, 26, 'F', 'v2'], ['b', 224, 78, 40, 26, 'B', 'n'],
+      ['t', 6, 126, 'page 2 = everything after C: D E F', 's'],
+      ['t', 150, 156, 'nothing skipped; B comes on page 3', 'kv', 'middle'],
+    ],
+    badCaption: 'A page number counts rows in the order of right now. One row moving shifts the rest, and one is skipped.',
+    goodCaption: 'A cursor says “after C”. Rows moving behind it can’t shift what comes next.',
+  },
   sections: [
     {
       title: 'Last week’s feature: a changes feed for partners',

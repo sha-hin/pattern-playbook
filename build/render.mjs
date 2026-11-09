@@ -255,7 +255,9 @@ function shape(el) {
     const [, x, y, w, h, label, kind] = el;
     const cls = { n: 'bn', v: 'bv', v2: 'bv2', i: 'bi', x: 'bx' }[kind] || 'bn';
     let s = `<rect class="${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/>`;
-    if (label) s += `<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" class="${kind === 'v' || kind === 'v2' ? 'kv' : kind === 'x' ? 'kx' : ''}">${esc(label)}</text>`;
+    // A label wider than its box (about 6.6 units a character, phone font included) is squeezed to fit, never cut off.
+    const fit = label && label.length * 6.6 > w - 8 ? ` textLength="${w - 8}" lengthAdjust="spacingAndGlyphs"` : '';
+    if (label) s += `<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle"${fit} class="${kind === 'v' || kind === 'v2' ? 'kv' : kind === 'x' ? 'kx' : ''}">${esc(label)}</text>`;
     return s;
   }
   if (t === 'a') {

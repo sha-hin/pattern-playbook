@@ -51,7 +51,7 @@ class CancelBookingController extends Controller
         return new BookingResource($booking);
     }
 }`,
-          after: ['The rules themselves are right. The input is wrong: the policy comes from the **property**, read at the moment of cancelling. The guest agreed to *strict* in August; the property says *flexible* today, so she gets flexible terms. Any host who changes a policy silently rewrites every booking already made.', 'Two smaller bugs ride along: the hours are counted to midnight UTC instead of the guest’s real check-in moment in the property’s timezone (scene 2), and `$paid * 0.5` is a float again (scene 1). And the rules are a `match` inside a controller, so they can’t be tested without an HTTP request.'],
+          after: ['The rules themselves are right. The input is wrong: the policy comes from the **property**, read at the moment of cancelling. The guest agreed to *strict* in March; the property says *flexible* today, so she gets flexible terms. Any host who changes a policy silently rewrites every booking already made.', 'Two smaller bugs ride along: the hours are counted to midnight UTC instead of the guest’s real check-in moment in the property’s timezone (scene 2), and `$paid * 0.5` is a float again (scene 1). And the rules are a `match` inside a controller, so they can’t be tested without an HTTP request.'],
         },
       ],
     },
