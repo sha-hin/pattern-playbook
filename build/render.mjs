@@ -257,7 +257,7 @@ function shape(el) {
     let s = `<rect class="${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/>`;
     // A label wider than its box (about 6.6 units a character, phone font included) is squeezed to fit, never cut off.
     const fit = label && label.length * 6.6 > w - 8 ? ` textLength="${w - 8}" lengthAdjust="spacingAndGlyphs"` : '';
-    if (label) s += `<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle"${fit} class="${kind === 'v' || kind === 'v2' ? 'kv' : kind === 'x' ? 'kx' : ''}">${esc(label)}</text>`;
+    if (label) s += `<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle"${fit} class="bl">${esc(label)}</text>`; // labels stay in the text colour; the border carries the meaning
     return s;
   }
   if (t === 'a') {
