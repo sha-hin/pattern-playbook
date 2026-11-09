@@ -193,10 +193,10 @@ class Property extends Model
       ],
       blocks: [
         {
-          path: 'app/Http/Controllers/CalendarRulesController.php',
+          path: 'app/Properties/SetCalendarRule.php',
           code: String.raw`<?php
 
-namespace App\Http\Controllers;
+namespace App\Properties;
 
 use App\Channels\CalendarSync;
 use App\Models\CalendarDay;
@@ -204,16 +204,63 @@ use App\Models\Property;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\DB;
+
+/** Sets (or, with null, removes) the minimum stay for arrivals on every date from $from to $to. */
+final class SetCalendarRule
+{
+    public function __construct(private readonly CalendarSync $calendar)
+    {
+    }
+
+    public function handle(Property $property, CarbonImmutable $from, CarbonImmutable $to, ?int $minNights): void
+    {
+        $dates = array_map(
+            fn (CarbonInterface $day): string => $day->toDateString(),
+            CarbonPeriod::create($from, $to)->toArray(),                    // both ends included
+        );
+
+        DB::transaction(function () use ($property, $dates, $minNights): void {
+            if ($minNights === null) {
+                $property->calendarDays()->whereIn('date', $dates)->delete();   // back to the property's default
+                return;
+            }
+
+            CalendarDay::upsert(                                                     // one INSERT … ON DUPLICATE KEY UPDATE
+                array_map(fn (string $date): array => [
+                    'property_id' => $property->id,
+                    'date' => $date,
+                    'min_nights' => $minNights,
+                ], $dates),
+                uniqueBy: ['property_id', 'date'],
+                update: ['min_nights'],                                             // Eloquent adds the timestamps to both lists
+            );
+        });
+
+        $this->calendar->stayRulesChanged($property);                               // every channel gets the new minimums (scene 29)
+    }
+}`,
+          after: ['`stayRulesChanged()` dispatches the pushes with `afterCommit()` (scene 17), and the transaction has committed by the time it is called, so a push can never read the calendar before the new rules exist.'],
+        },
+        {
+          title: 'The controller only checks the request',
+          path: 'app/Http/Controllers/CalendarRulesController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Property;
+use App\Properties\SetCalendarRule;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CalendarRulesController extends Controller
 {
     public const MAX_DAYS = 366;
 
-    public function __invoke(Request $request, Property $property, CalendarSync $calendar): JsonResponse
+    public function __invoke(Request $request, Property $property, SetCalendarRule $setRule): JsonResponse
     {
         $data = $request->validate([
             'from' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
@@ -224,37 +271,15 @@ class CalendarRulesController extends Controller
         $from = CarbonImmutable::parse($data['from']);
         $to = CarbonImmutable::parse($data['to']);
         if ($from->diffInDays($to) >= self::MAX_DAYS) {
-            throw ValidationException::withMessages(['to' => 'Set rules for up to a year at a time.']);   // bounds the upsert below
+            throw ValidationException::withMessages(['to' => 'Set rules for up to a year at a time.']);   // bounds the upsert
         }
 
-        $dates = array_map(
-            fn (CarbonInterface $day): string => $day->toDateString(),
-            CarbonPeriod::create($from, $to)->toArray(),                    // both ends included
-        );
-
-        DB::transaction(function () use ($property, $dates, $data): void {
-            if ($data['min_nights'] === null) {
-                $property->calendarDays()->whereIn('date', $dates)->delete();
-                return;
-            }
-
-            CalendarDay::upsert(                                                     // one INSERT … ON DUPLICATE KEY UPDATE
-                array_map(fn (string $date): array => [
-                    'property_id' => $property->id,
-                    'date' => $date,
-                    'min_nights' => $data['min_nights'],
-                ], $dates),
-                uniqueBy: ['property_id', 'date'],
-                update: ['min_nights'],                                             // Eloquent adds the timestamps to both lists
-            );
-        });
-
-        $calendar->stayRulesChanged($property);                                     // every channel gets the new minimums (scene 29)
+        $setRule->handle($property, $from, $to, $data['min_nights']);
 
         return response()->json(['from' => $data['from'], 'to' => $data['to'], 'min_nights' => $data['min_nights']]);
     }
 }`,
-          after: ['`stayRulesChanged()` dispatches the pushes with `afterCommit()` (scene 17), and the transaction has committed by the time it is called, so a push can never read the calendar before the new rules exist.'],
+          after: ['The rule lives in an action, like every rule in this course (scene 3): the controller turns the request into arguments, and the action is what an import or a bulk tool would call too.'],
         },
         {
           path: 'routes/api.php',

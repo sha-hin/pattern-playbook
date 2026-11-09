@@ -219,11 +219,28 @@ export function diffHtml(oldSrc, newSrc, context = 3) {
 export function changedFileHtml(oldSrc, newSrc, lang = 'php') {
   const a = oldSrc.replace(/\n$/, '').split('\n'), b = newSrc.replace(/\n$/, '').split('\n');
   const ah = codeHtml(oldSrc.replace(/\n$/, ''), lang).split('\n'), bh = codeHtml(newSrc.replace(/\n$/, ''), lang).split('\n');
-  let html = '', added = 0, removed = 0;
-  for (const o of diffLines(a, b)) {
-    if (o[0] === '=') html += `<span class="ln">${bh[o[2]] || ' '}</span>`;
-    else if (o[0] === '+') { added++; html += `<span class="ln add">${bh[o[2]] || ' '}</span>`; }
-    else { removed++; html += `<span class="ln del">${ah[o[1]] || ' '}</span>`; }
+  let added = 0, removed = 0;
+  const lines = diffLines(a, b).map(o => {
+    if (o[0] === '=') return { same: true, html: `<span class="ln">${bh[o[2]] || ' '}</span>` };
+    if (o[0] === '+') { added++; return { same: false, html: `<span class="ln add">${bh[o[2]] || ' '}</span>` }; }
+    removed++; return { same: false, html: `<span class="ln del">${ah[o[1]] || ' '}</span>` };
+  });
+  // Long runs of unchanged lines are folded, keeping a few lines of context around each change:
+  // the change stays in view, the whole file is one click away, and Copy still copies the complete file.
+  const CONTEXT = 3, MIN_FOLD = 6;
+  let html = '';
+  for (let i = 0; i < lines.length;) {
+    if (!lines[i].same) { html += lines[i++].html; continue; }
+    let j = i;
+    while (j < lines.length && lines[j].same) j++;
+    const lead = i === 0 ? 0 : CONTEXT, tail = j === lines.length ? 0 : CONTEXT;   // no context needed at the file's edges
+    const hidden = j - i - lead - tail;
+    if (hidden >= MIN_FOLD) {
+      html += lines.slice(i, i + lead).map(l => l.html).join('');
+      html += `<details class="fold"><summary>${hidden} unchanged lines</summary>${lines.slice(i + lead, j - tail).map(l => l.html).join('')}</details>`;
+      html += lines.slice(j - tail, j).map(l => l.html).join('');
+    } else html += lines.slice(i, j).map(l => l.html).join('');
+    i = j;
   }
   return { html, added, removed };
 }

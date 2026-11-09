@@ -428,7 +428,7 @@ it('pushes to the channels only when the feed changed something', function () {
   followups: [
     {
       id: 'deadlocks',
-      title: 'Part 2, the same afternoon: deadlocks between two feeds of one cottage',
+      title: 'Follow-up, the same afternoon: deadlocks between two feeds of one cottage',
       text: ['Syncs are fast now, so the queue runs many at once. Within hours, a new error shows up that the slow sync never had.'],
       incident: {
         channel: '#ops',
@@ -445,7 +445,7 @@ it('pushes to the channels only when the feed changed something', function () {
           text: ['The overlap guard is per **feed**. Two feeds of the same property are two keys, so their transactions run side by side on the same rows of the same index:'],
           blocks: [
             {
-              path: 'app/Jobs/SyncIcalFeed.php (the middleware, as part 1 left it)',
+              path: 'app/Jobs/SyncIcalFeed.php (the middleware, as the fix above left it)',
               broken: true,
               fragment: true,
               code: String.raw`return [(new WithoutOverlapping("ical-feed-{$this->feed->id}"))->expireAfter(120)];   // the bug: per feed, while the rows are per property`,

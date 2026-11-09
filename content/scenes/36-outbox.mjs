@@ -7,7 +7,7 @@ export default {
     when: 'Thursday 16:10',
     messages: [
       ['Mikkel · Hygge Homes (integration)', 'Booking **9134** (created 15:02) is in your app but never reached our system. Our cleaners and key handover weren’t scheduled. Are there others?'],
-      ['Karim · developer', 'Redis failed over at **15:02:10**, while Jonas moved the queue to its new Redis instance (scene 35, part 2). For about 40 seconds every queue dispatch failed. Six bookings were committed in that window, and their partner messages were never queued.'],
+      ['Karim · developer', 'Redis failed over at **15:02:10**, while Jonas moved the queue to its new Redis instance (scene 35’s follow-up). For about 40 seconds every queue dispatch failed. Six bookings were committed in that window, and their partner messages were never queued.'],
       ['Mona · support', 'Two of those six guests also saw an error page, although their booking went through.'],
     ],
   },

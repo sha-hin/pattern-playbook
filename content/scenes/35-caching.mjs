@@ -755,7 +755,7 @@ it('moves every listing on a shared plan to new prices', function () {
   followups: [
     {
       id: 'eviction',
-      title: 'Part 2, the same afternoon: Redis throws out what it must keep',
+      title: 'Follow-up, the same afternoon: Redis throws out what it must keep',
       text: ['The fix above shipped at 11:30. By the afternoon, the new cache had filled Redis, and Redis started choosing what to forget.'],
       incident: {
         channel: '#ops',
@@ -780,7 +780,7 @@ it('moves every listing on a shared plan to new prices', function () {
 maxmemory-policy allkeys-lru     # the bug: right for a cache, wrong for the queue, sessions, locks and counters in the same instance`,
               after: [
                 '`allkeys-lru` is the right policy for a cache: when memory is full, forget the oldest unused entry, and the app recomputes it. It is the wrong policy for anything that **is** data. A host’s session idle for 20 minutes looks exactly like an old quote. So do the `queues:channels:delayed` set of jobs waiting for a `Retry-After` (scene 16), and the unique-job and overlap locks (scene 17).',
-                'And `price-version:{id}` from part 1. Evict Ingrid’s counter and it reads 0; her next price change bumps it to 1; and every `v1` quote cached **before** that change, still inside its 30 minutes, is reachable again. That was the €180.',
+                'And `price-version:{id}` from the fix above. Evict Ingrid’s counter and it reads 0; her next price change bumps it to 1; and every `v1` quote cached **before** that change, still inside its 30 minutes, is reachable again. That was the €180.',
               ],
             },
           ],

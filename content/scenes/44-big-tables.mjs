@@ -212,7 +212,7 @@ it('does nothing the second time', function () {
   followups: [
     {
       id: 'archiving',
-      title: 'Part 2, that night: one DELETE, and the replica falls 40 minutes behind',
+      title: 'Follow-up, that night: one DELETE, and the replica falls 40 minutes behind',
       text: ['The postmortem’s second finding: the primary’s disk was at 85%, and most of it was one table nobody had looked at since scene 8.'],
       incident: {
         channel: '#incidents',
@@ -293,7 +293,7 @@ class WebhookEvent extends Model
             },
             {
               title: 'Each batch must find its rows through an index',
-              text: ['Without an index, every batch of 1,000 would scan the table from the start. Adding an index is an online change (part 1’s table): reads and writes continue while it builds.'],
+              text: ['Without an index, every batch of 1,000 would scan the table from the start. Adding an index is an online change (the scene’s first fix): reads and writes continue while it builds.'],
               path: 'database/migrations/2026_05_13_000001_add_prune_index_to_webhook_events_table.php',
               code: String.raw`<?php
 
@@ -304,7 +304,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('SET SESSION lock_wait_timeout = 5');            // part 1: never queue the site behind us
+        DB::statement('SET SESSION lock_wait_timeout = 5');            // as above: never queue the site behind us
 
         DB::statement('ALTER TABLE webhook_events ADD INDEX webhook_events_status_created_at_index (status, created_at), ALGORITHM=INPLACE, LOCK=NONE');
     }

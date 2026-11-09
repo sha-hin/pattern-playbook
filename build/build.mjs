@@ -32,6 +32,7 @@ const BODY = {};
 for (const s of ready) BODY[s.slug] = await load(`scenes/${s.slug}.mjs`);
 const foundation = await load('foundation/index.mjs');
 const outside = OUTSIDE.ready ? await load(`scenes/${OUTSIDE.slug}.mjs`) : null;
+const REMEMBER = await load('remember.mjs');                  // the rules each scene leaves you with
 
 // Every file the reader writes is followed through the course. When a later scene shows the same
 // file again, it is shown complete, with the lines that changed since its last version marked.
@@ -194,14 +195,14 @@ function tableHtml(rows) {
 }
 
 
-const sectionHtml = sec => `<section${sec.id ? ` id="${sec.id}"` : ''}${sec.kind ? ` class="${sec.kind}"` : ''}><h2>${inline(sec.title)}</h2>${paras(sec.text)}<div class="blocks">${blocksHtml(sec.blocks)}</div>${paras(sec.after)}</section>`;
+const sectionHtml = sec => `<section${sec.id ? ` id="${sec.id}"` : ''}${sec.kind ? ` class="${sec.kind}"` : ''}>${sec.title ? `<h2>${inline(sec.title)}</h2>` : ''}${paras(sec.text)}<div class="blocks">${blocksHtml(sec.blocks)}</div>${paras(sec.after)}</section>`;
 
 const tocHtml = sections => `<nav class="toc" aria-label="On this page"><h2>On this page</h2><ol>${sections.filter(sec => sec.id).map(sec =>
   `<li><a href="#${sec.id}">${inline(sec.title)}</a>${(sec.blocks || []).some(b => b.id) ? `<ul>${sec.blocks.filter(b => b.id).map(b => `<li><a href="#${b.id}">${inline(b.title)}</a></li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></nav>`;
 
 // The incident that opens a scene: a chat message, a ticket or an alert, as the team received it.
-function incidentHtml(inc) {
-  return `<section class="incident" aria-label="The incident">
+function incidentHtml(inc, id) {
+  return `<section class="incident"${id ? ` id="${id}"` : ''} aria-label="The incident">
 <p class="inc-head"><span class="inc-dot" aria-hidden="true"></span>${esc(inc.channel)}<span class="inc-when">${esc(inc.when)}</span></p>
 ${inc.messages.map(([who, text]) => `<p class="inc-msg"><span class="inc-who">${esc(who)}</span>${inline(text)}</p>`).join('')}
 </section>`;
@@ -211,7 +212,7 @@ ${inc.messages.map(([who, text]) => `<p class="inc-msg"><span class="inc-who">${
 function revealHtml(r) {
   const names = r.names;
   const heading = names.length === 1 ? `You just wrote the ${esc(names[0])} pattern` : `You just met ${names.map(esc).join(', ').replace(/, ([^,]*)$/, ' and $1')}`;
-  return `<section class="reveal"><h2>${heading}</h2>
+  return `<section class="reveal" id="pattern"><h2>${heading}</h2>
 ${(r.rules || []).map(([name, rule]) => `<p class="rule"><span>${esc(name)}</span>${inline(rule)}</p>`).join('')}
 ${paras(r.text)}
 ${r.drawing ? drawingHtml(names[0], r.drawing) : ''}
@@ -232,30 +233,69 @@ ${next ? link(next, 'next', next.n ? `${sceneLabel(next)} →` : 'After the stor
 </nav>`;
 }
 
+// Reading time: prose at 200 words a minute, code at 20 lines a minute. A changed file only counts its
+// changes and their context (the rest is folded), and the folded tests are left out.
+function minutesOf(body) {
+  let words = 0, lines = 0;
+  const walk = (o, inTests) => {
+    if (Array.isArray(o)) return o.forEach(x => walk(x, inTests));
+    if (typeof o === 'string') { if (!inTests) words += o.split(/\s+/).length; return; }
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.code === 'string' && !inTests) {
+      const n = o.code.split('\n').length;
+      lines += o.prev !== undefined && o.prev !== o.code ? Math.min(n, 12 + Math.abs(n - o.prev.split('\n').length) * 2) : n;
+    }
+    for (const [k, v] of Object.entries(o)) if (k !== 'code' && k !== 'prev') walk(v, inTests || k === 'tests');
+  };
+  walk(body, false);
+  return Math.max(5, Math.round((words / 200 + lines / 20) / 5) * 5);   // to the nearest 5 minutes
+}
+const duration = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+
+const slugId = t => String(t).toLowerCase().replace(/<[^>]+>|`/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+
+// "On this page": the incident, every section, the pattern, Laravel inside, the tests, each follow-up, Remember.
+function sceneTocHtml(entries) {
+  return `<details class="toc scene-toc"><summary>On this page</summary><ol>${entries.map(([id, title, sub]) =>
+    `<li${sub ? ' class="sub"' : ''}><a href="#${id}">${inline(title)}</a></li>`).join('')}</ol></details>`;
+}
+
 function sceneHtml(scene, body, prev, next) {
   const day = dayOf(scene);
+  const withIds = (list, prefix) => (list || []).map(sec => ({ ...sec, id: sec.id || (sec.title ? `${prefix}${slugId(sec.title)}` : undefined) }));
+  const sections = withIds(body.sections, '');
+  const after = withIds(body.afterReveal, '');
+  const followups = (body.followups || []).map(f => ({ ...f, sections: withIds(f.sections, `${f.id}-`) }));
+  const toc = [['incident', 'The incident'], ...sections.filter(sec => sec.id).map(sec => [sec.id, sec.title])];
+  if (body.reveal) toc.push(['pattern', 'The pattern']);
+  toc.push(...after.filter(sec => sec.id).map(sec => [sec.id, sec.title]));
+  if (body.laravel) toc.push(['laravel', body.laravel.title || 'Laravel does the same']);
+  if (body.tests) toc.push(['tests', 'Tests']);
+  for (const f of followups) toc.push([f.id, f.title], ...f.sections.filter(sec => sec.id).map(sec => [sec.id, sec.title, true]));
+  if (REMEMBER[scene.n]) toc.push(['remember', 'Remember']);
   const s = [`<header class="chead">
-<p class="crumbs"><a href="../">Course</a> › Day ${day.n} · ${esc(day.title)} › ${sceneLabel(scene)} of ${TOTAL}</p>
+<p class="crumbs"><a href="../">Course</a> › Day ${day.n} · ${esc(day.title)} › ${sceneLabel(scene)} of ${TOTAL} · ${duration(minutesOf(body))}</p>
 <h1>${inline(scene.incident)}</h1>
 <p class="subtitle">${inline(scene.learn)}</p>
 ${scene.patterns.length ? `<p class="tags">${scene.patterns.map(tagHtml).join('')}</p>` : ''}
-</header>`];
-  s.push(incidentHtml(body.incident));
-  for (const sec of body.sections) s.push(sectionHtml(sec));
+</header>`, sceneTocHtml(toc)];
+  s.push(incidentHtml(body.incident, 'incident'));
+  for (const sec of sections) s.push(sectionHtml(sec));
   if (body.reveal) s.push(revealHtml(body.reveal));
-  for (const sec of body.afterReveal || []) s.push(sectionHtml(sec));
-  if (body.laravel) s.push(sectionHtml({ kind: 'laravel', title: body.laravel.title || 'Laravel does the same', ...body.laravel }));
-  if (body.tests) {
-    s.push(`<section class="tests"><details><summary><span>Tests</span><small>${esc(body.tests.summary)}</small></summary>
-<div class="testbody">${paras(body.tests.text)}<div class="blocks">${blocksHtml(body.tests.blocks)}</div></div></details></section>`);
-  }
+  for (const sec of after) s.push(sectionHtml(sec));
+  if (body.laravel) s.push(sectionHtml({ kind: 'laravel', title: body.laravel.title || 'Laravel does the same', ...body.laravel, id: 'laravel' }));
+  if (body.tests) s.push(testsHtml(body.tests, 'tests'));
   // Later the same week, the fix leads to the next problem: each follow-up has its own incident, fix and tests.
-  for (const f of body.followups || []) s.push(followupHtml(f));
+  for (const f of followups) s.push(followupHtml(f));
+  if (REMEMBER[scene.n]) {
+    s.push(`<section class="remember" id="remember"><h2>Remember</h2><ul>${REMEMBER[scene.n].map(r => `<li>${inline(r)}</li>`).join('')}</ul>
+<button type="button" class="donebtn" data-scene="${scene.n}" hidden>Mark this scene as done</button></section>`);
+  }
   s.push(`<section class="nextup">${body.next ? `<p>${inline(body.next)}</p>` : ''}${pagerHtml(prev, next, SCENES[scene.n])}</section>`);
   return `<article class="chapter">${s.join('\n')}</article>`;
 }
 
-const testsHtml = t => `<section class="tests"><details><summary><span>Tests</span><small>${esc(t.summary)}</small></summary>
+const testsHtml = (t, id) => `<section class="tests"${id ? ` id="${id}"` : ''}><details><summary><span>Tests</span><small>${esc(t.summary)}</small></summary>
 <div class="testbody">${paras(t.text)}<div class="blocks">${blocksHtml(t.blocks)}</div></div></details></section>`;
 
 function followupHtml(f) {
@@ -264,7 +304,7 @@ function followupHtml(f) {
     incidentHtml(f.incident),
     ...f.sections.map(sectionHtml),
     f.laravel ? sectionHtml({ kind: 'laravel', title: f.laravel.title || 'Laravel does the same', ...f.laravel }) : '',
-    f.tests ? testsHtml(f.tests) : '',
+    f.tests ? testsHtml(f.tests, `${f.id}-tests`) : '',
   ].join('\n');
 }
 
@@ -310,10 +350,11 @@ function hubHtml() {
       const tags = s.patterns.length ? `<span class="tags">${s.patterns.map(tagHtml).join('')}</span>` : '';
       const inner = `<span class="cn">${s.n}</span><span class="ct">${inline(s.incident)}<small>${inline(s.learn)}</small>${tags}</span>`;
       return s.ready
-        ? `<li><a class="crow" href="${s.slug}/" data-umami-event="Open scene" data-umami-event-scene="${s.n}">${inner}<span class="cs go">Read</span></a></li>`
+        ? `<li><a class="crow" href="${s.slug}/" data-scene="${s.n}" data-umami-event="Open scene" data-umami-event-scene="${s.n}">${inner}<span class="cs go">${duration(minutesOf(BODY[s.slug]))}</span></a></li>`
         : `<li><div class="crow off">${inner}<span class="cs">Soon</span></div></li>`;
     }).join('');
-    return `<section class="day" id="day-${d.n}"><h3><span>Day ${d.n}</span>${esc(d.title)}</h3><p class="hint">${esc(d.blurb)}</p><ol class="clist">${rows}</ol></section>`;
+    const minutes = SCENES.filter(s => s.day === d.n && s.ready).reduce((sum, s) => sum + minutesOf(BODY[s.slug]), 0);
+    return `<section class="day" id="day-${d.n}"><h3><span>Day ${d.n}</span>${esc(d.title)}<small class="dur">about ${duration(minutes)}</small></h3><p class="hint">${esc(d.blurb)}</p><ol class="clist">${rows}</ol></section>`;
   }).join('');
 
   return `<section class="hero">
@@ -329,7 +370,7 @@ function hubHtml() {
 <div><b>4. The name</b>The pattern you just wrote, how Laravel uses it, then the tests, folded.</div>
 </section>
 <section id="chapters" class="course"><h2>The story</h2>
-<p class="hint">About 3 hours a day. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
+<p class="hint">One and a half to three hours a day, tests not included. ${ready.length} of ${TOTAL} scenes are published. You should already know Laravel.</p>
 <a class="crow found" href="${FOUNDATION.slug}/"><span class="cn">0</span><span class="ct">${esc(FOUNDATION.title)}<small>${inline(FOUNDATION.learn)}</small></span><span class="cs go">Read</span></a>
 ${days}
 <section class="day" id="end"><h3><span>After Day 7</span>${esc(OUTSIDE.title)}</h3><p class="hint">Patterns a Laravel PMS doesn’t need, built for real on their own, so you know them when you meet them.</p>
@@ -356,7 +397,7 @@ writeFileSync(join(ROOT, 'index.html'), page({
         '@type': 'Course', name: 'Advanced Laravel in 7 days: one PMS, 52 production incidents', description: hubDescription, url: SITE,
         inLanguage: 'en', provider: person, isAccessibleForFree: true, educationalLevel: 'Advanced',
         teaches: PATTERNS.map(p => p.name),
-        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT21H' },
+        hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: 'PT16H' },
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD', category: 'Free' },
       },
       {

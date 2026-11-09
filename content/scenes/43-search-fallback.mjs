@@ -799,7 +799,7 @@ it('searches through the endpoint without knowing which store answered', functio
   followups: [
     {
       id: 'reindex',
-      title: 'Part 2, the same afternoon: an amenities filter, and search shows half the cottages',
+      title: 'Follow-up, the same afternoon: an amenities filter, and search shows half the cottages',
       text: ['Hygge Homes’ next request arrived with the fix: “Let guests filter on sea view and sauna.” A new filterable field means every document must be sent again.'],
       incident: {
         channel: '#support',
@@ -1263,7 +1263,7 @@ final class ReindexProperties extends Command
     }
 }`,
               after: [
-                'A property **deleted** during the import may still be in the new index after the swap. That is harmless here: Meilisearch only returns ids, and the repository loads them from MySQL with the availability rule (scene 43, part 1), so a deleted property can never be shown. The next run cleans it up.',
+                'A property **deleted** during the import may still be in the new index after the swap. That is harmless here: Meilisearch only returns ids, and the repository loads them from MySQL with the availability rule (the fix above), so a deleted property can never be shown. The next run cleans it up.',
                 'The runbook for any index change is now one line, run at a quiet hour: `php artisan search:reindex-properties`. It applies the settings from `config/scout.php` to the new index itself, so a new filterable attribute goes out the same way.',
               ],
             },

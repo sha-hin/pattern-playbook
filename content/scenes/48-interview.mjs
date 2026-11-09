@@ -97,7 +97,7 @@ overbookings        (booking_id, conflicting_booking_id)           -- detected, 
       title: 'The follow-up: “Now it grows 100×”',
       text: [
         'Henrik’s last push: 5 million properties, 2 million bookings a day, 500 writes a second at peak, a few terabytes of calendars. Answer in the same order as before: what breaks first, and the smallest change that fixes it.',
-        'Reads scale with replicas (scene 42) and the CDN (scene 42, part 3) for a long way. **Writes** don’t: every booking, import and push still lands on one primary, and at some point its disk, its buffer pool or its binary log can’t keep up. That is when you **shard**: split the data across several primaries, each holding a slice.',
+        'Reads scale with replicas (scene 42) and the CDN (scene 42’s follow-up) for a long way. **Writes** don’t: every booking, import and push still lands on one primary, and at some point its disk, its buffer pool or its binary log can’t keep up. That is when you **shard**: split the data across several primaries, each holding a slice.',
       ],
       blocks: [
         {

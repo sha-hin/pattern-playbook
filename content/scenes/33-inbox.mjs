@@ -383,20 +383,101 @@ final class MessagePosted implements ShouldBroadcast, ShouldDispatchAfterCommit
       ],
       blocks: [
         {
-          path: 'app/Http/Controllers/ConversationController.php',
+          path: 'app/Messaging/MissedTeammateReply.php',
           code: String.raw`<?php
 
-namespace App\Http\Controllers;
+namespace App\Messaging;
+
+use App\Models\ConversationMessage;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
+use RuntimeException;
+
+/** A teammate answered the guest after the newest message on the sender's screen. Laravel renders it as a 409. */
+final class MissedTeammateReply extends RuntimeException
+{
+    /** @param Collection<int, ConversationMessage> $replies */
+    public function __construct(public readonly Collection $replies)
+    {
+        parent::__construct('A teammate replied while you were writing.');
+    }
+
+    public function render(): JsonResponse
+    {
+        return response()->json([
+            'message' => $this->getMessage(),
+            'replies' => $this->replies->map(fn (ConversationMessage $message): array => $message->present()),
+        ], 409);
+    }
+}`,
+          after: ['An exception with a `render()` method is turned into its response by Laravel itself, so neither the action nor the controller builds the 409.'],
+        },
+        {
+          path: 'app/Messaging/PostHostReply.php',
+          code: String.raw`<?php
+
+namespace App\Messaging;
 
 use App\Enums\MessageAuthor;
 use App\Events\MessagePosted;
 use App\Models\Booking;
 use App\Models\ConversationMessage;
+use App\Models\User;
 use App\Notifications\HostReply;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+
+/** A host's reply to a guest: refused if it missed a teammate's newer reply, then shown live and sent to the guest. */
+final class PostHostReply
+{
+    /** @param int $seenUpTo the newest message id on the sender's screen */
+    public function handle(Booking $booking, User $author, string $body, int $seenUpTo, bool $sendAnyway = false): ConversationMessage
+    {
+        $reply = DB::transaction(function () use ($booking, $author, $body, $seenUpTo, $sendAnyway): ConversationMessage {
+            Booking::query()->whereKey($booking->id)->lockForUpdate()->first();   // one reply at a time per conversation
+
+            $missed = ConversationMessage::query()
+                ->whereBelongsTo($booking)
+                ->where('author', MessageAuthor::Host)
+                ->where('id', '>', $seenUpTo)
+                ->with('user:id,name')
+                ->get();
+
+            if ($missed->isNotEmpty() && ! $sendAnyway) {
+                throw new MissedTeammateReply($missed);                            // rolls back: nothing saved or sent
+            }
+
+            return ConversationMessage::forceCreate([
+                'booking_id' => $booking->id,
+                'author' => MessageAuthor::Host,
+                'user_id' => $author->id,
+                'body' => $body,
+            ]);
+        });
+
+        MessagePosted::dispatch($booking->id, $reply->id);                        // every open screen fetches the thread
+        Notification::route('mail', $booking->guest_email)
+            ->route('sms', $booking->guest_phone)
+            ->route('whatsapp', $booking->guest_phone)
+            ->notify(new HostReply($reply));
+
+        return $reply;
+    }
+}`,
+          after: ['Only **host** messages count as missed. A new guest message while you type is the conversation going on, not a teammate answering for you; the screen shows it live, and the reply goes out.'],
+        },
+        {
+          title: 'The controller only checks the request',
+          path: 'app/Http/Controllers/ConversationController.php',
+          code: String.raw`<?php
+
+namespace App\Http\Controllers;
+
+use App\Messaging\PostHostReply;
+use App\Models\Booking;
+use App\Models\ConversationMessage;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ConversationController extends Controller
 {
@@ -407,7 +488,7 @@ class ConversationController extends Controller
         return response()->json(['messages' => $messages->map(fn (ConversationMessage $message): array => $message->present())]);
     }
 
-    public function store(Request $request, Booking $booking): JsonResponse
+    public function store(Request $request, Booking $booking, PostHostReply $postReply): JsonResponse
     {
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
@@ -415,45 +496,12 @@ class ConversationController extends Controller
             'send_anyway' => ['sometimes', 'boolean'],
         ]);
 
-        $result = DB::transaction(function () use ($request, $booking, $data): ConversationMessage|JsonResponse {
-            Booking::query()->whereKey($booking->id)->lockForUpdate()->first();   // one reply at a time per conversation
+        $reply = $postReply->handle($booking, $request->user(), $data['body'], $data['seen_up_to'], $request->boolean('send_anyway'));
 
-            $missed = ConversationMessage::query()
-                ->whereBelongsTo($booking)
-                ->where('author', MessageAuthor::Host)
-                ->where('id', '>', $data['seen_up_to'])
-                ->with('user:id,name')
-                ->get();
-
-            if ($missed->isNotEmpty() && ! $request->boolean('send_anyway')) {
-                return response()->json([
-                    'message' => 'A teammate replied while you were writing.',
-                    'replies' => $missed->map(fn (ConversationMessage $message): array => $message->present()),
-                ], 409);
-            }
-
-            return ConversationMessage::forceCreate([
-                'booking_id' => $booking->id,
-                'author' => MessageAuthor::Host,
-                'user_id' => $request->user()->id,
-                'body' => $data['body'],
-            ]);
-        });
-
-        if ($result instanceof JsonResponse) {
-            return $result;                                                    // nothing was saved or sent
-        }
-
-        MessagePosted::dispatch($booking->id, $result->id);                    // every open screen fetches the thread
-        Notification::route('mail', $booking->guest_email)
-            ->route('sms', $booking->guest_phone)
-            ->route('whatsapp', $booking->guest_phone)
-            ->notify(new HostReply($result));
-
-        return response()->json($result->load('user:id,name')->present(), 201);
+        return response()->json($reply->load('user:id,name')->present(), 201);
     }
 }`,
-          after: ['Only **host** messages count as missed. A new guest message while you type is the conversation going on, not a teammate answering for you; the screen shows it live, and the reply goes out.'],
+          after: ['The rule moved out of last week’s controller into an action, where every rule in this course lives (scene 3). The controller is back to what controllers do: read the request, call one thing, answer.'],
         },
         {
           path: 'routes/api.php',

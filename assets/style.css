@@ -225,6 +225,12 @@ pre.diff .ln.add{background:var(--add-bg);box-shadow:inset 3px 0 0 var(--add-bar
 pre.diff .ln.add::before{content:"+";color:var(--add-bar)}
 pre.diff .ln.del{background:var(--del-bg);box-shadow:inset 3px 0 0 var(--del-bar)}
 pre.diff .ln.del::before{content:"−";color:var(--del-bar)}
+pre.diff details.fold{display:block;white-space:normal}
+pre.diff details.fold>summary{display:block;cursor:pointer;list-style:none;padding:2px 16px 2px 30px;margin:2px 0;color:var(--muted);font-style:italic;background:transparent;border-block:1px dashed var(--line);white-space:pre}
+pre.diff details.fold>summary::-webkit-details-marker{display:none}
+pre.diff details.fold>summary::before{content:"▸ ";font-style:normal}
+pre.diff details.fold[open]>summary::before{content:"▾ "}
+pre.diff details.fold[open]>summary{margin-bottom:0}
 pre.diff .ln.del{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--del-bar) 60%,transparent)}
 .codebox.changed .badge,.badge.new{font-weight:500}
 pre.diff .ln.fold{color:var(--muted);font-style:italic;background:var(--well);margin:4px 0}
@@ -294,3 +300,19 @@ pre.diff .ln.fold{color:var(--muted);font-style:italic;background:var(--well);ma
 a.crow.found{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:12px 0 0}
 .codebox.broken{border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
 .codebox.broken .badge{color:var(--bad);border-color:var(--bad)}
+
+/* In-scene table of contents, Remember box, done marks */
+.scene-toc{margin:18px 0 6px;padding:10px 16px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.scene-toc>summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.scene-toc ol{margin:8px 0 2px;padding-left:20px;columns:2 260px;column-gap:28px}
+.scene-toc li{margin:3px 0;break-inside:avoid}
+.scene-toc li.sub{list-style:none;margin-left:14px;font-size:.92em}
+.remember{margin-top:40px;padding:16px 20px;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;background:var(--card)}
+.remember h2{margin-top:0}
+.remember li{margin:6px 0}
+.donebtn{margin-top:10px;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--well);color:var(--fg);font:inherit;cursor:pointer}
+.donebtn.on{border-color:#2e9d5b;color:#2e9d5b}
+.day h3 small.dur{margin-left:auto;font-weight:400;font-size:.8em;color:var(--muted)}
+.crow.done .cn{background:#2e9d5b;color:#fff}
+.crow.done .cn{font-size:0}
+.crow.done .cn::after{content:"✓";font-size:15px}

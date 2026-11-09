@@ -334,7 +334,7 @@ it('finds the properties of a city through the index, already sorted', function 
   followups: [
     {
       id: 'stampede',
-      title: 'Part 2, the same evening: a spike every five minutes',
+      title: 'Follow-up, the same evening: a spike every five minutes',
       text: ['With the index and the replica in place, p99 fell to 140 ms. Then the graph grew teeth.'],
       incident: {
         channel: '#incidents',
@@ -485,7 +485,7 @@ it('serves the old answer while it refreshes, then the new one', function () {
     },
     {
       id: 'cdn',
-      title: 'Part 3, from the postmortem: most of Sunday never needed PHP',
+      title: 'Follow-up, from the postmortem: most of Sunday never needed PHP',
       text: ['Monday’s postmortem looked at what the 400 requests a second actually were.'],
       incident: {
         channel: '#postmortem',
@@ -502,7 +502,7 @@ it('serves the old answer while it refreshes, then the new one', function () {
               table: [
                 ['Header', 'Says', 'Ours'],
                 ['`Cache-Control: public, max-age=60`', 'Browsers may reuse it for 60 s', 'A guest clicking back and forth costs nothing'],
-                ['`s-maxage=300, stale-while-revalidate=600`', 'Shared caches (the CDN) may keep it 5 min, and serve it 10 min longer while they refetch', 'The CDN’s version of part 2: no stampede on the origin either'],
+                ['`s-maxage=300, stale-while-revalidate=600`', 'Shared caches (the CDN) may keep it 5 min, and serve it 10 min longer while they refetch', 'The CDN’s version of the stampede fix: no stampede on the origin either'],
                 ['`ETag: "5d41…"`', 'A fingerprint of the body', 'A client that has it sends `If-None-Match`; if nothing changed we answer **304** with no body'],
               ],
               after: ['Only for responses that are the same for everyone. A response that depends on who is asking (a host’s bookings, a quote with a logged-in discount) must never get `public`: the CDN would hand one person’s page to the next. Those routes keep Laravel’s default, `Cache-Control: no-cache, private`.'],
@@ -870,10 +870,11 @@ return [
           ],
         },
         {
+          title: 'Monday evening, with the CDN in front',
           blocks: [
             {
               table: [
-                ['Monday evening', 'Before', 'After'],
+                ['', 'Before', 'After'],
                 ['Requests reaching PHP', '400/s', '115/s'],
                 ['CDN hit rate on listings', '—', '94%'],
                 ['A host’s edit visible to guests', 'at once', 'within seconds (purge), at most 15 min if the purge fails'],

@@ -256,7 +256,7 @@ it('runs every scheduled task on one server only, and never twice at once', func
   followups: [
     {
       id: 'reverb-scaling',
-      title: 'Part 2, the same evening: live calendars on two servers',
+      title: 'Follow-up, the same evening: live calendars on two servers',
       text: ['With deploys fixed, support raised something they had put down to caching since Sunday.'],
       incident: {
         channel: '#support',
@@ -316,7 +316,7 @@ REVERB_SCALING_CHANNEL=reverb`,
         'database' => env('REDIS_DB', '0'),
     ],
 ],`,
-              after: ['Both servers are restarted with the new `.env` by the deploy (`reverb:restart`, part 1). Browsers reconnect, reload what is on screen, and from then on receive every event.'],
+              after: ['Both servers are restarted with the new `.env` by the deploy (`reverb:restart`, above). Browsers reconnect, reload what is on screen, and from then on receive every event.'],
             },
           ],
         },
@@ -326,8 +326,8 @@ REVERB_SCALING_CHANNEL=reverb`,
             {
               table: [
                 ['Limit', 'What happens', 'Here'],
-                ['Open files per process', 'Each connection is a file descriptor; at the limit, new connections are refused', '`minfds=65536` in Supervisor (part 2), and the same `nofile` limit in the OS'],
-                ['Load balancer idle timeout', 'A quiet connection is cut, the browser reconnects, and reloads', 'Above Reverb’s 30-second ping, e.g. 120 s (part 2)'],
+                ['Open files per process', 'Each connection is a file descriptor; at the limit, new connections are refused', '`minfds=65536` in Supervisor (above), and the same `nofile` limit in the OS'],
+                ['Load balancer idle timeout', 'A quiet connection is cut, the browser reconnects, and reloads', 'Above Reverb’s 30-second ping, e.g. 120 s (above)'],
                 ['WebSocket upgrade at the load balancer', 'Without it, the `Upgrade: websocket` request is answered like any HTTP request and fails', 'A listener for `/app/*` that passes the upgrade through to port 8080'],
                 ['Memory per connection', 'A few KB each in Reverb', '10,000 open calendars ≈ tens of MB: the file limit comes first'],
                 ['One event loop per Reverb process', 'Reverb is one PHP process on one core', 'More servers, not bigger ones; scaling above makes that free'],

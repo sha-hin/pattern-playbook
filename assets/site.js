@@ -161,6 +161,25 @@
     });
   });
 
+  /* ── Progress: scenes marked as done, kept in this browser only ── */
+  const readDone = () => { try { return new Set(JSON.parse(localStorage.getItem('done-scenes') || '[]')); } catch (e) { return new Set(); } };
+  const saveDone = set => { try { localStorage.setItem('done-scenes', JSON.stringify([...set])); } catch (e) {} };
+  const doneScenes = readDone();
+  document.querySelectorAll('.crow[data-scene]').forEach(row => row.classList.toggle('done', doneScenes.has(row.dataset.scene)));
+  const doneBtn = $('.donebtn');
+  if (doneBtn) {
+    const scene = doneBtn.dataset.scene;
+    const paint = () => { const on = doneScenes.has(scene); doneBtn.textContent = on ? '✓ Done · undo' : 'Mark this scene as done'; doneBtn.classList.toggle('on', on); };
+    doneBtn.hidden = false;
+    paint();
+    doneBtn.addEventListener('click', () => {
+      doneScenes.has(scene) ? doneScenes.delete(scene) : doneScenes.add(scene);
+      saveDone(doneScenes);
+      paint();
+      track('Mark done', { scene });
+    });
+  }
+
   /* ── Previous / next chapter with the arrow keys ── */
   document.addEventListener('keydown', e => {
     const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
